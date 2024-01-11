@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) 2024 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <arm/renesas/ra/ra8/r7fa8m1xh.dtsi>
+#include <zephyr/dt-bindings/clock/ra_clock.h>
+
+/ {
+	clocks {
+		xtal: clock-xtal {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(20)>;
+			#clock-cells = <0>;
+		};
+
+		hoco: clock-hoco {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(48)>;
+			#clock-cells = <0>;
+		};
+
+		moco: clock-moco {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(8)>;
+			#clock-cells = <0>;
+		};
+
+		loco: clock-loco {
+			compatible = "fixed-clock";
+			clock-frequency = <32768>;
+			#clock-cells = <0>;
+		};
+
+		subclk: clock-subclk {
+			compatible = "fixed-clock";
+			clock-frequency = <32768>;
+			#clock-cells = <0>;
+		};
+
+		clock: clock {
+			compatible = "renesas,ra8m1-clock";
+			#clock-cells = <0>;
+
+			/* PLL */
+			pll-source = <RA_PLL_SOURCE_MAIN_OSC>;
+			pll-div = <RA_PLL_DIV_1>;
+			pll-mul = <48 0>;
+			pll-divp = <RA_PLL_DIV_2>;
+			pll-freqp = <DT_FREQ_M(480)>;
+			pll-divq = <RA_PLL_DIV_2>;
+			pll-freqq = <DT_FREQ_M(480)>;
+			pll-divr = <RA_PLL_DIV_2>;
+			pll-freqr = <DT_FREQ_M(480)>;
+
+			/* PLL2 */
+			pll2-source = <RA_PLL_SOURCE_DISABLE>;
+			pll2-div = <RA_PLL_DIV_1>;
+			pll2-mul = <48 0>;
+			pll2-divp = <RA_PLL_DIV_2>;
+			pll2-freqp = <DT_FREQ_M(0)>;
+			pll2-divq = <RA_PLL_DIV_2>;
+			pll2-freqq = <DT_FREQ_M(0)>;
+			pll2-divr = <RA_PLL_DIV_2>;
+			pll2-freqr = <DT_FREQ_M(0)>;
+
+			/* System Clock */
+			sysclock-source = <RA_CLOCK_SOURCE_PLL1P>;
+			cpuclk-div = <RA_SYS_CLOCK_DIV_1>;
+			iclk-div = <RA_SYS_CLOCK_DIV_2>;
+			pclka-div = <RA_SYS_CLOCK_DIV_4>;
+			pclkb-div = <RA_SYS_CLOCK_DIV_8>;
+			pclkc-div = <RA_SYS_CLOCK_DIV_8>;
+			pclkd-div = <RA_SYS_CLOCK_DIV_4>;
+			pclke-div = <RA_SYS_CLOCK_DIV_2>;
+			bclk-div = <RA_SYS_CLOCK_DIV_4>;
+			bclk-out = <2>;
+			fclk-div = <RA_SYS_CLOCK_DIV_8>;
+			sdclk-out = <1>;
+
+			uclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			uclk-div = <RA_USB_CLOCK_DIV_5>;
+			u60clk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			u60clk-div = <RA_USB60_CLOCK_DIV_5>;
+			octaspiclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			octaspiclk-div = <RA_OCTA_CLOCK_DIV_4>;
+			canfdclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			canfdclk-div = <RA_CANFD_CLOCK_DIV_8>;
+			clkout-source = <RA_PLL_SOURCE_LOCO>;
+			clkout-div = <RA_SYS_CLOCK_DIV_1>;
+			sciclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			sciclk-div = <RA_SCI_CLOCK_DIV_4>;
+			spiclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			spiclk-div = <RA_SPI_CLOCK_DIV_4>;
+			i3cclk-source = <RA_CLOCK_SOURCE_DISABLE>;
+			i3cclk-div = <RA_I3C_CLOCK_DIV_3>;
+		};
+	};
+};

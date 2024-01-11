@@ -1,0 +1,151 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA8M1 Clock Generation Circuit
+
+compatible: "renesas,ra8m1-clock"
+
+include: [clock-controller.yaml, base.yaml]
+
+properties:
+  pll-source:
+    type: int
+    required: true
+  pll-div:
+    type: int
+    required: true
+  pll-mul:
+    type: array
+    required: true
+  pll-divp:
+    type: int
+    required: true
+  pll-freqp:
+    type: int
+    required: true
+  pll-divq:
+    type: int
+    required: true
+  pll-freqq:
+    type: int
+    required: true
+  pll-divr:
+    type: int
+    required: true
+  pll-freqr:
+    type: int
+    required: true
+
+  pll2-source:
+    type: int
+    required: true
+  pll2-div:
+    type: int
+    required: true
+  pll2-mul:
+    type: array
+    required: true
+  pll2-divp:
+    type: int
+    required: true
+  pll2-freqp:
+    type: int
+    required: true
+  pll2-divq:
+    type: int
+    required: true
+  pll2-freqq:
+    type: int
+    required: true
+  pll2-divr:
+    type: int
+    required: true
+  pll2-freqr:
+    type: int
+    required: true
+
+  sysclock-source:
+    type: int
+    required: true
+  cpuclk-div:
+    type: int
+    required: true
+  iclk-div:
+    type: int
+    required: true
+  pclka-div:
+    type: int
+    required: true
+  pclkb-div:
+    type: int
+    required: true
+  pclkc-div:
+    type: int
+    required: true
+  pclkd-div:
+    type: int
+    required: true
+  pclke-div:
+    type: int
+    required: true
+  bclk-div:
+    type: int
+    required: true
+  bclk-out:
+    type: int
+    required: true
+  fclk-div:
+    type: int
+    required: true
+  sdclk-out:
+    type: int
+    required: true
+
+  uclk-source:
+    type: int
+    required: true
+  uclk-div:
+    type: int
+    required: true
+  u60clk-source:
+    type: int
+    required: true
+  u60clk-div:
+    type: int
+    required: true
+  octaspiclk-source:
+    type: int
+    required: true
+  octaspiclk-div:
+    type: int
+    required: true
+  canfdclk-source:
+    type: int
+    required: true
+  canfdclk-div:
+    type: int
+    required: true
+  clkout-source:
+    type: int
+    required: true
+  clkout-div:
+    type: int
+    required: true
+  sciclk-source:
+    type: int
+    required: true
+  sciclk-div:
+    type: int
+    required: true
+  spiclk-source:
+    type: int
+    required: true
+  spiclk-div:
+    type: int
+    required: true
+  i3cclk-source:
+    type: int
+    required: true
+  i3cclk-div:
+    type: int
+    required: true
