@@ -17,6 +17,8 @@
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
+		zephyr,console = &sci9;
+		zephyr,shell-uart = &sci9;
 	};
 
 	leds {
@@ -54,5 +56,12 @@
 };
 
 &gpio6 {
+	status = "okay";
+};
+
+&sci9 {
+	current-speed = <115200>;
+	pinctrl-0 = <&sci9_default>;
+	pinctrl-names = "default";
 	status = "okay";
 };

@@ -4,7 +4,6 @@
  */
 
 dut: &sci2 {
-	compatible = "renesas,ra-uart-sci-b";
 	current-speed = <115200>;
 	pinctrl-0 = <&sci2_default>;
 	pinctrl-names = "default";
