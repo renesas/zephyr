@@ -23,6 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: renesas
+      url-base: https://github.com/renesas
 
   group-filter: [-babblesim, -optional]
 
@@ -209,8 +211,9 @@ manifest:
       groups:
         - hal
     - name: hal_renesas
+      remote: renesas
       path: modules/hal/renesas
-      revision: e3560c79db1a002014f061c611cd84a99e4f33de
+      revision: 518ffacc46b92b3c555e61fc241c2ef12bdfde18
       groups:
         - hal
     - name: hal_rpi_pico
