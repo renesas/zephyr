@@ -206,6 +206,11 @@ config USE_RA_FSP_OSPI_B_NOR_FLASH
 	help
 	  Enable RA FSP Octal-SPI driver
 
+config USE_RA_FSP_QSPI_NOR_FLASH
+	bool
+	help
+	  Enable RA FSP Quad-SPI driver
+
 config USE_RA_FSP_ELC
 	bool
 	help
