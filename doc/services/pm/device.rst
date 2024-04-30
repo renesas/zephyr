@@ -18,7 +18,7 @@ Zephyr supports two methods of device power management:
 .. _pm-device-runtime-pm:
 
 Device Runtime Power Management
-*******************************
+===============================
 
 Device runtime power management involves coordinated interaction between
 device drivers, subsystems, and applications. While device drivers
@@ -70,7 +70,7 @@ For more information, see :ref:`pm-device-runtime`.
 .. _pm-device-system-pm:
 
 System-Managed Device Power Management
-**************************************
+======================================
 
 When using this method, device power management is mostly done inside
 :c:func:`pm_system_suspend()` along with entering a CPU or SOC power state.
@@ -303,9 +303,12 @@ later calling :c:func:`pm_device_wakeup_enable`.
    It is responsibility of driver or the application to do any additional
    configuration required by the device to support it.
 
-Power Domain
-************
+Examples
+********
 
-Power domain on Zephyr is represented as a regular device. The power management
-subsystem ensures that a domain is resumed before and suspended after devices
-using it. For more details, see :ref:`pm-power-domain`.
+Some helpful examples showing device power management features:
+
+* :zephyr_file:`samples/subsys/pm/device_pm/`
+* :zephyr_file:`tests/subsys/pm/power_mgmt/`
+* :zephyr_file:`tests/subsys/pm/device_wakeup_api/`
+* :zephyr_file:`tests/subsys/pm/device_driver_init/`

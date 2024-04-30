@@ -190,14 +190,18 @@ ARM64 arch:
     - arch.arm64
 
 ARM Platforms:
-  status: odd fixes
+  status: maintained
+  maintainers:
+    - ithinuel
   files:
     - boards/arm/mps*/
     - boards/arm/v2m_*/
+    - boards/arm/fvp_base*/
     - soc/arm/mps*/
     - soc/arm/musca/
     - soc/arm/beetle/
-    - soc/arm/fvp_aemv8r/aarch32/
+    - soc/arm/designstart/
+    - soc/arm/fvp_aemv8*/
     - dts/arm/armv*.dtsi
   labels:
     - "platform: ARM"
@@ -237,12 +241,8 @@ MIPS arch:
     - arch.mips
 
 Ambiq Platforms:
-  status: maintained
-  maintainers:
-    - fkokosinski
+  status: odd fixes
   collaborators:
-    - tgorochowik
-    - msobkowski
     - aaronyegx
     - RichardSWheatley
   files:
@@ -2410,6 +2410,8 @@ Mbed TLS:
   maintainers:
     - d3zd3z
     - ceolin
+  collaborators:
+    - ithinuel
   files:
     - tests/crypto/mbedtls/
     - doc/services/crypto/
@@ -3821,6 +3823,7 @@ TF-M Integration:
     - d3zd3z
   collaborators:
     - SebastianBoe
+    - ithinuel
   files:
     - samples/tfm_integration/
     - modules/trusted-firmware-m/
@@ -4195,12 +4198,8 @@ West:
     - "platform: Altera"
 
 "West project: hal_ambiq":
-  status: maintained
-  maintainers:
-    - fkokosinski
+  status: odd fixes
   collaborators:
-    - tgorochowik
-    - msobkowski
     - aaronyegx
     - RichardSWheatley
   files:
@@ -4513,6 +4512,8 @@ West:
   maintainers:
     - d3zd3z
     - ceolin
+  collaborators:
+    - ithinuel
   files:
     - modules/mbedtls/
   labels:
@@ -4679,6 +4680,7 @@ West:
     - d3zd3z
   collaborators:
     - SebastianBoe
+    - ithinuel
   files:
     - modules/trusted-firmware-m/
   labels:
@@ -4690,6 +4692,7 @@ West:
     - d3zd3z
   collaborators:
     - SebastianBoe
+    - ithinuel
   files: []
   labels:
     - "area: TF-M"
@@ -4701,6 +4704,7 @@ West:
     - sgrrzhf
   collaborators:
     - carlocaione
+    - ithinuel
   files:
     - modules/trusted-firmware-a/
   labels:
@@ -4712,6 +4716,7 @@ West:
     - d3zd3z
   collaborators:
     - SebastianBoe
+    - ithinuel
   files: []
   labels:
     - "area: TF-M"
