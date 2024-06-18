@@ -287,3 +287,7 @@ pmod2_serial: &uart2 {};
 
 pmod_serial: &pmod1_serial {};
 pmod_header: &pmod1_header {};
+
+&ulpt0 {
+	status = "okay";
+};
