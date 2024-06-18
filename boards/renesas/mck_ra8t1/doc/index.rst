@@ -98,6 +98,8 @@ The below features are currently supported on Zephyr OS for MCB-RA8T1 board:
 +--------------+------------+----------------------+
 | ENTROPY      | on-chip    | entropy              |
 +--------------+------------+----------------------+
+| SPI          | spi        | spi                  |
++--------------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
