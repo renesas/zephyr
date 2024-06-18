@@ -1,6 +1,0 @@
-# Copyright (c) 2024 Renesas Electronics Corporation
-# SPDX-License-Identifier: Apache-2.0
-
-config SYS_CLOCK_HW_CYCLES_PER_SEC
-	default 32768 if ULPT_RENESAS_RA
-	default 480000000
