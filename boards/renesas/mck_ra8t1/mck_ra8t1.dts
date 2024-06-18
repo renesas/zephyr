@@ -136,6 +136,10 @@
 	status = "okay";
 };
 
+&ulpt0 {
+	status = "okay";
+};
+
 &canfd_global {
 	status = "okay";
 	canfd1 {

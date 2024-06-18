@@ -221,3 +221,7 @@ mikrobus_serial: &uart3 {};
 		status = "okay";
 	};
 };
+
+&ulpt0 {
+	status = "okay";
+};
