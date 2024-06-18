@@ -102,5 +102,8 @@
 &spi1 {
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
+};
+
+&ulpt0 {
 	status = "okay";
 };

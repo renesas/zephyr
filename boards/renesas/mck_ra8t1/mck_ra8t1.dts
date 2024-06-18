@@ -104,3 +104,7 @@
 	pinctrl-names = "default";
 	status = "okay";
 };
+
+&ulpt0 {
+	status = "okay";
+};
