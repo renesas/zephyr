@@ -427,3 +427,7 @@ pmod_sd_shield: &sdhc0 {};
 		};
 	};
 };
+
+&ulpt0 {
+	status = "okay";
+};

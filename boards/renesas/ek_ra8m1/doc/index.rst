@@ -118,6 +118,8 @@ The below features are currently supported on Zephyr for EK-RA8M1 board:
 +-----------+------------+----------------------+
 | OSPI      | on-chip    | ospi flash           |
 +-----------+------------+----------------------+
+| ULPT      | on-chip    | timer                |
++-----------+------------+----------------------+
 
 **Note:**
 
