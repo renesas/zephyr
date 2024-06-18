@@ -113,6 +113,8 @@ The below features are currently supported on Zephyr for MCB-RA8T1 board:
 +--------------+------------+----------------------+
 | ULPT         | on-chip    | timer                |
 +--------------+------------+----------------------+
+| LPM          | on-chip    | SOC PM               |
++--------------+------------+----------------------+
 
 **Note:** For using SDHC module on EK-RA8M1, Connect microSD Card to microSD Socket (CN12)
 
