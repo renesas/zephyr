@@ -358,6 +358,16 @@
 			zephyr,memory-region = "OPTION_SETTING_S";
 			status = "okay";
 		};
+
+		eth: ethernet@40354100 {
+			compatible = "renesas,ra-ethernet";
+			reg = <0x40354100 0xfc>;
+			interrupts = <42 0>;
+			local-mac-address = [00 11 22 33 44 55];
+			phy-type = <RA_PHY_ICS1894>;
+			phy-connection-type = "rmii";
+			status = "disabled";
+		};
 	};
 };
 

@@ -33,4 +33,62 @@
 			drive-strength = "medium";
 		};
 	};
+
+	ether_default: ether_default {
+		group1 {
+			/* ET0_MDC */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 4, 1)>;
+			drive-strength = "high";
+		};
+		group2 {
+			/* ET0_MDIO */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 4, 2)>;
+			drive-strength = "high";
+		};
+		group3 {
+			/* ET0_LINKSTA */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 4, 3)>;
+			drive-strength = "high";
+		};
+		group5 {
+			/* RMII0_TXD_EN_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 4, 5)>;
+			drive-strength = "high";
+		};
+		group6 {
+			/* RMII0_TXD1_BR */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 4, 6)>;
+			drive-strength = "high";
+		};
+		group7 {
+			/* RMII0_TXD0_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 0)>;
+			drive-strength = "high";
+		};
+		group8 {
+			/* REF50CK0_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 1)>;
+			drive-strength = "high";
+		};
+		group9 {
+			/* RMII0_RXD0_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 2)>;
+			drive-strength = "high";
+		};
+		group10 {
+			/* RMII0_RXD1_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 3)>;
+			drive-strength = "high";
+		};
+		group11 {
+			/* RMII0_RX_ER_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 4)>;
+			drive-strength = "high";
+		};
+		group12 {
+			/* RMII0_CRS_DV_B */
+			psels = <RA_PSEL(RA_PSEL_ETH_RMII, 7, 5)>;
+			drive-strength = "high";
+		};
+	};
 };

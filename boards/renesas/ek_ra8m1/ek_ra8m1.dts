@@ -133,3 +133,9 @@
 	pinctrl-0 = <&iic1_default>;
 	pinctrl-names = "default";
 };
+
+&eth {
+	pinctrl-0 = <&ether_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

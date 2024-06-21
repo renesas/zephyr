@@ -37,8 +37,11 @@ typedef struct ra_pinctrl_soc_pin pinctrl_soc_pin_t;
 	{                                                                                          \
 		.port_num = RA_GET_PORT_NUM(DT_PROP_BY_IDX(node_id, prop, idx)),                   \
 		.pin_num = RA_GET_PIN_NUM(DT_PROP_BY_IDX(node_id, prop, idx)),                     \
-		.cfg = (DT_PROP(node_id, bias_pull_up) << 4) |                                     \
+		.cfg = (DT_PROP(node_id, output_high) << 0) |                                      \
+		       (DT_PROP(node_id, output_enable) << 2) |                                    \
+		       (DT_PROP(node_id, bias_pull_up) << 4) |                                     \
 		       (DT_PROP(node_id, drive_open_drain) << 6) |                                 \
+		       (DT_PROP(node_id, analog_enable) << 15) |                                   \
 		       (DT_ENUM_IDX(node_id, drive_strength) << 10) |                              \
 		       (RA_GET_MODE(DT_PROP_BY_IDX(node_id, prop, idx)) << 16) |                   \
 		       (RA_GET_PSEL(DT_PROP_BY_IDX(node_id, prop, idx)) << 24),                    \
@@ -51,10 +54,8 @@ typedef struct ra_pinctrl_soc_pin pinctrl_soc_pin_t;
  * @param prop Property name describing state pins.
  */
 #define Z_PINCTRL_STATE_PINS_INIT(node_id, prop)                                                   \
-	{                                                                                          \
-		DT_FOREACH_CHILD_VARGS(DT_PHANDLE(node_id, prop), DT_FOREACH_PROP_ELEM, psels,     \
-				       Z_PINCTRL_STATE_PIN_INIT)                                   \
-	}
+	{DT_FOREACH_CHILD_VARGS(DT_PHANDLE(node_id, prop), DT_FOREACH_PROP_ELEM, psels,            \
+				Z_PINCTRL_STATE_PIN_INIT)}
 
 #define RA_GET_PORT_NUM(pinctrl) (((pinctrl) >> RA_PORT_NUM_POS) & RA_PORT_NUM_MASK)
 #define RA_GET_PIN_NUM(pinctrl)  (((pinctrl) >> RA_PIN_NUM_POS) & RA_PIN_NUM_MASK)

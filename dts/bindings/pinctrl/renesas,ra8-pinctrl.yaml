@@ -83,6 +83,9 @@ child-binding:
           - bias-pull-up
           - input-enable
           - drive-open-drain
+          - analog-enable
+          - output-enable
+          - output-high
 
     properties:
       psels:
@@ -103,3 +106,12 @@ child-binding:
         description: |
           The drive strength of a pin. The default value is low, as this
           is the power on reset value.
+      analog-enable:
+        type: boolean
+        description: enable analog input
+      output-enable:
+        type: boolean
+        description: enable direction output
+      output-high:
+        type: boolean
+        description: set the pin to output mode with high level

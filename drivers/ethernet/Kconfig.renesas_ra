@@ -1,0 +1,24 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ETH_RENESAS_RA
+	bool "Renesas RA Ethernet"
+	default y
+	select USE_RA_FSP_ETHER
+	help
+	  Enable Renesas RA RA SPI B Driver.
+
+if ETH_RENESAS_RA
+
+config ETH_RA_RX_THREAD_STACK_SIZE
+	int "Stack size for internal incoming packet handler"
+	default 800
+	help
+	  Size of the stack used for internal thread which is ran for
+	  incoming packet processing.
+
+config ETH_RA_RX_THREAD_PRIORITY
+	int "Renesasa RA Ethernet receive thread priority"
+	default 2
+
+endif
