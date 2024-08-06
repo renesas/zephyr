@@ -1,0 +1,10 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ILI9806E_DSI
+	bool "ILI9806E_DSI display driver"
+	default y
+	depends on DT_HAS_ILITEK_ILI9806E_DSI_ENABLED
+	select MIPI_DSI
+	help
+	  Enable driver for ILI9806E_DSI display driver.

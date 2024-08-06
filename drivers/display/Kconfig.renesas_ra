@@ -1,0 +1,22 @@
+# Renesas RA Family
+
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config RENESAS_RA_DISPLAY
+	bool "Renesas display controller driver"
+	default y
+	depends on DT_HAS_RENESAS_RA_DISPLAY_ENABLED
+	select USE_RA_FSP_DISPLAY
+	help
+	  Enable Renesas display controller.
+
+if RENESAS_RA_DISPLAY
+
+config RENESAS_RA_DISPLAY_ALIGN
+	int "buffer alignment"
+	default 64
+	help
+	  Rendering buffer alignment.
+
+endif # RENESAS_RA_DISPLAY

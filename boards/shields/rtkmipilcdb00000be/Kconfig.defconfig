@@ -1,0 +1,54 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+if SHIELD_RTKMIPILCDB00000BE
+if DISPLAY
+
+config INPUT_INIT_PRIORITY
+	default 89
+
+# Enable MIPI DSI, as this display controller requires it.
+
+endif # DISPLAY
+
+if LVGL
+
+# Configure LVGL to use touchscreen with KSCAN API
+
+config INPUT
+	default y
+
+config INPUT_GT911_INTERRUPT
+	default n
+
+# LVGL should allocate buffers equal to size of display
+config LV_Z_VDB_SIZE
+	default 100
+
+# Enable double buffering
+config LV_Z_DOUBLE_VDB
+	default y
+
+# Force full refresh. This prevents memory copy associated with partial
+# display refreshes, which is not necessary for the eLCDIF driver
+config LV_Z_FULL_REFRESH
+	default y
+
+config LV_Z_BITS_PER_PIXEL
+	default 32
+
+# Use offloaded render thread
+config LV_Z_FLUSH_THREAD
+	default y
+
+choice LV_COLOR_DEPTH
+	default LV_COLOR_DEPTH_16
+endchoice
+
+# Force display buffers to be aligned to cache line size (64 bytes)
+config LV_Z_VDB_ALIGN
+	default 64
+
+endif # LVGL
+
+endif # SHIELD_RTKMIPILCDB00000BE

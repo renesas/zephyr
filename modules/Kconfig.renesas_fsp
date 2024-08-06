@@ -113,4 +113,9 @@ config USE_RA_FSP_USB_DEVICE
 	help
 	  Enable RA FSP USB Device Controller driver
 
+config USE_RA_FSP_DISPLAY
+	bool
+	help
+	  Enable RA FSP Display driver
+
 endif # HAS_RENESAS_RA_FSP
