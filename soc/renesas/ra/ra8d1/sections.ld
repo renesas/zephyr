@@ -77,3 +77,11 @@ SECTION_PROLOGUE(.option_setting_s,,)
 	KEEP(*(.option_setting_bps_sel3))
 	__OPTION_SETTING_S_End = .;
 } GROUP_LINK_IN(OPTION_SETTING_S) = 0xFF
+
+SECTION_DATA_PROLOGUE(.sdram,(NOLOAD),)
+{
+	__SDRAM_Start = .;
+	KEEP(*(.sdram*))
+    KEEP(*(.lvgl_buf*))
+    __SDRAM_End = .;
+} GROUP_LINK_IN(SDRAM)

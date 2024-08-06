@@ -196,3 +196,9 @@
 &usbhs_phy {
 	phys-clock-src = "xtal";
 };
+
+&sdram	{
+	status = "okay";
+	pinctrl-0 = <&sdram_default>;
+	pinctrl-names = "default";
+};

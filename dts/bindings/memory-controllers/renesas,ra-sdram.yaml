@@ -1,0 +1,18 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA sdram controller.
+
+compatible: "renesas,ra-sdram"
+
+include: [base.yaml, pinctrl-device.yaml, "zephyr,memory-region.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true

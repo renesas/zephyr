@@ -35,4 +35,6 @@ module = MEMC
 module-str = memc
 source "subsys/logging/Kconfig.template.log_config"
 
+source "drivers/memc/Kconfig.renesas_ra"
+
 endif

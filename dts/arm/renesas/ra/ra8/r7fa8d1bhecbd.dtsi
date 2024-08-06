@@ -25,5 +25,12 @@
 				renesas,programming-enable;
 			};
 		};
+
+		sdram: sdram@68000000 {
+			compatible = "renesas,ra-sdram", "zephyr,memory-region";
+			reg = <0x68000000 DT_SIZE_M(64)>; /* 512 Mbits */
+			zephyr,memory-region = "SDRAM";
+			status = "disabled";
+		};
 	};
 };
