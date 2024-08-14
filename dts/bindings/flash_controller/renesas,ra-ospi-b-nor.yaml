@@ -1,0 +1,42 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA OSPI FLASH
+
+compatible: "renesas,ra-ospi-b-nor"
+
+include: [base.yaml]
+
+on-bus: ospi
+
+properties:
+  reg:
+    required: true
+    description: Flash Memory base address and size in bytes
+
+  size:
+    type: int
+    required: true
+    description: Flash Memory size
+
+  protocol-mode:
+    type: int
+    required: true
+    description: |
+     The width and rate of XSPI bus to which flash memory is connected.
+
+     Possible values are :
+      - OSPI_SPI_MODE  <1> = SPI mode on 1 data line in Single Rate Transfer
+      - OSPI_OPI_MODE  <8> = Octo mode on 8 data lines in Dual Rate Transfer
+    enum:
+      - 1
+      - 8
+
+  ospi-max-frequency:
+    type: int
+    required: true
+    description: Max frequency input on OSPI
+
+  write-block-size:
+    type: int
+    description: Address alignment required by flash write operations

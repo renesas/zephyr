@@ -7,6 +7,7 @@
 
 #include <renesas/ra/ra8/r7fa8m1ahecbd.dtsi>
 #include <dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/flash_controller/ospi.h>
 #include <zephyr/dt-bindings/adc/adc.h>
 #include "ek_ra8m1-pinctrl.dtsi"
 
@@ -101,6 +102,17 @@
 	};
 };
 
+&pll2 {
+	status = "okay";
+	clocks = <&xtal>;
+	div = <2>;
+	mul = <80 0>;
+	pll2p {
+		status = "okay";
+		freq = <DT_FREQ_M(400)>;
+		div = <2>;
+	};
+};
 
 &sciclk {
 	clocks = <&pllp>;
@@ -111,6 +123,12 @@
 &canfdclk {
 	clocks = <&pll>;
 	div = <5>;
+	status = "okay";
+};
+
+&octaspiclk {
+	clocks = <&pll2p>;
+	div = <2>;
 	status = "okay";
 };
 
@@ -256,4 +274,19 @@ mikrobus_serial: &uart3 {};
 
 &usbhs_phy {
 	phys-clock-src = "xtal";
+};
+
+&ospi0 {
+	pinctrl-0 = <&ospi0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	s28hl512t: s28hl512t@80000000 {
+		compatible = "renesas,ra-ospi-b-nor";
+		protocol-mode = <OSPI_OPI_MODE>;
+		ospi-max-frequency = <DT_FREQ_M(200)>;
+		reg = <0x80000000 DT_SIZE_M(64)>;
+		size = <DT_SIZE_M(64)>; /* 512 Mbits */
+		write-block-size = <1>;
+		status = "okay";
+	};
 };
