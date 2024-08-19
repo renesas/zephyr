@@ -152,7 +152,11 @@ static int lvgl_allocate_rendering_buffers(lv_disp_drv_t *disp_driver)
 		buf_size = 4 * buf_nbr_pixels;
 		break;
 	case PIXEL_FORMAT_RGB_888:
+#if defined(CONFIG_RENESAS_RA_DISPLAY)
+		buf_size = 4 * buf_nbr_pixels;
+#else
 		buf_size = 3 * buf_nbr_pixels;
+#endif
 		break;
 	case PIXEL_FORMAT_RGB_565:
 		buf_size = 2 * buf_nbr_pixels;

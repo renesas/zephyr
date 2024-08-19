@@ -85,9 +85,15 @@ int set_lvgl_rendering_cb(lv_disp_drv_t *disp_drv)
 #endif
 		break;
 	case PIXEL_FORMAT_RGB_888:
+#if defined(CONFIG_RENESAS_RA_DISPLAY)
+		disp_drv->flush_cb = lvgl_flush_cb_32bit;
+		disp_drv->rounder_cb = lvgl_rounder_cb;
+		disp_drv->set_px_cb = lvgl_set_px_cb_32bit;
+#else
 		disp_drv->flush_cb = lvgl_flush_cb_24bit;
 		disp_drv->rounder_cb = lvgl_rounder_cb;
 		disp_drv->set_px_cb = lvgl_set_px_cb_24bit;
+#endif
 		break;
 	case PIXEL_FORMAT_RGB_565:
 	case PIXEL_FORMAT_BGR_565:
