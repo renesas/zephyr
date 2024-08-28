@@ -1,0 +1,29 @@
+# Copyright (c) 2024 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA Ethernet
+
+compatible: "renesas,ra-ethernet"
+
+include: [ethernet-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  phy-type:
+    type: int
+    description: |
+      Specifies the interface connection type between ethernet MAC and PHY.
+        1: RA_PHY_KSZ8091RNB
+        2: RA_PHY_KSZ8041
+        3: RA_PHY_DP83620
+        4: RA_PHY_ICS1894
+    enum:
+      - 1
+      - 2
+      - 3
+      - 4

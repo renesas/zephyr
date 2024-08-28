@@ -50,8 +50,17 @@
 #define RA_MODE_POS  13
 #define RA_MODE_MASK 0x1
 
+#define RA_PHY_DEFAULT    0
+#define RA_PHY_KSZ8091RNB 1
+#define RA_PHY_KSZ8041    2
+#define RA_PHY_DP83620    3
+#define RA_PHY_ICS1894    4
+
 #define RA_PSEL(psel, port_num, pin_num)                                                           \
 	(1 << RA_MODE_POS | psel << RA_PSEL_POS | port_num << RA_PORT_NUM_POS |                    \
 	 pin_num << RA_PIN_NUM_POS)
+
+#define RA_PSEL_GENERAL_IO(psel, port_num, pin_num)                                                \
+	(psel << RA_PSEL_POS | port_num << RA_PORT_NUM_POS | pin_num << RA_PIN_NUM_POS)
 
 #endif /* __ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_RENESAS_RA_PINCTRL_H__ */

@@ -112,8 +112,22 @@ The below features are currently supported on Zephyr OS for EK-RA8D1 board:
 +--------------+------------+------------------+
 | LPM          | on-chip    | SOC PM           |
 +--------------+------------+------------------+
+| ETHERNET     | on-chip    | ethernet         |
++--------------+------------+------------------+
 
 Other hardware features are currently not supported by the port.
+
+**Note:**
+
+ETHERNET B is default support. Set the configuration switches (SW1) as below to enable ETHERNET B.
+
++-------------+-------------+--------------+------------+------------+------------+-------------+-----------+
+| SW1-1 PMOD1 | SW1-2 TRACE | SW1-3 CAMERA | SW1-4 ETHA | SW1-5 ETHB | SW1-6 GLCD | SW1-7 SDRAM | SW1-8 I3C |
++-------------+-------------+--------------+------------+------------+------------+-------------+-----------+
+|     OFF     |      OFF    |      OFF     |     OFF    |     ON     |      OFF   |      OFF    |     OFF   |
++-------------+-------------+--------------+------------+------------+------------+-------------+-----------+
+
+CAUTION: Do not enable SW1-4 and SW1-5 together.
 
 Programming and Debugging
 *************************
