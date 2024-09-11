@@ -242,12 +242,12 @@ void flash_ra_page_layout(const struct device *dev, const struct flash_pages_lay
 						 1;
 		flash_ra_layout[1].pages_size = FLASH_HP_CF_BLOCK_32KB_SIZE;
 
-		flash_ra_layout[2].pages_count = FLASH_RESERVED_AREA_NUM;
+		flash_ra_layout[2].pages_count = FLASH_HP_CF_NUM_BLOCK_RESERVED;
 		flash_ra_layout[2].pages_size =
 			(FLASH_HP_BANK2_OFFSET -
 			 (flash_ra_layout[0].pages_count * flash_ra_layout[0].pages_size) -
 			 (flash_ra_layout[1].pages_count * flash_ra_layout[1].pages_size)) /
-			FLASH_RESERVED_AREA_NUM;
+			FLASH_HP_CF_NUM_BLOCK_RESERVED;
 
 		flash_ra_layout[3].pages_count =
 			(FLASH_HP_CF_BLOCK_8KB_HIGH_END - FLASH_HP_CF_BLOCK_8KB_HIGH_START) + 1;
