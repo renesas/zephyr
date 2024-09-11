@@ -29,17 +29,15 @@
 #define FLASH_HP_CF_BLOCK_8KB_HIGH_END   (77)
 
 #define FLASH_HP_CF_BLOCK_32KB_LINEAR_START (8)
+#define FLASH_HP_CF_BLOCK_32KB_LINEAR_END   (DT_PROP(DT_NODELABEL(flash), block_32kb_linear_end))
 
+#define FLASH_HP_CF_NUM_BLOCK_RESERVED         (DT_PROP(DT_NODELABEL(flash), reserved_area_num))
 #define FLASH_HP_CF_BLOCK_32KB_DUAL_LOW_START  (8)
 #define FLASH_HP_CF_BLOCK_32KB_DUAL_HIGH_START (78)
 
-#if defined(CONFIG_SOC_R7FA8M1AHECBD) || defined(CONFIG_SOC_R7FA8D1BHECBD) ||                      \
-	defined(CONFIG_SOC_R7FA8T1AHECBD)
-#define FLASH_RESERVED_AREA_NUM              (33)
-#define FLASH_HP_CF_BLOCK_32KB_LINEAR_END    (68)
-#define FLASH_HP_CF_BLOCK_32KB_DUAL_LOW_END  (36)
-#define FLASH_HP_CF_BLOCK_32KB_DUAL_HIGH_END (106)
-#endif
+#define FLASH_HP_CF_BLOCK_32KB_DUAL_LOW_END (DT_PROP(DT_NODELABEL(flash), block_32kb_dual_low_end))
+#define FLASH_HP_CF_BLOCK_32KB_DUAL_HIGH_END                                                       \
+	(DT_PROP(DT_NODELABEL(flash), block_32kb_dual_high_end))
 
 #if defined(CONFIG_FLASH_EX_OP_ENABLED)
 #define FLASH_HP_FCU_CONFIG_SET_BPS     (0x1300A1C0U)
