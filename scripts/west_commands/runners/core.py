@@ -334,6 +334,7 @@ class FileType(Enum):
     HEX = 1
     BIN = 2
     ELF = 3
+    MOT = 4
 
 
 class RunnerConfig(NamedTuple):
@@ -350,6 +351,7 @@ class RunnerConfig(NamedTuple):
     hex_file: Optional[str]         # zephyr.hex path, or None
     bin_file: Optional[str]         # zephyr.bin path, or None
     uf2_file: Optional[str]         # zephyr.uf2 path, or None
+    mot_file: Optional[str]         # zephyr.mot path
     file: Optional[str]             # binary file path (provided by the user), or None
     file_type: Optional[FileType] = FileType.OTHER  # binary file type
     gdb: Optional[str] = None       # path to a usable gdb
@@ -574,6 +576,7 @@ class ZephyrBinaryRunner(abc.ABC):
             parser.add_argument('--elf-file', help=argparse.SUPPRESS)
             parser.add_argument('--hex-file', help=argparse.SUPPRESS)
             parser.add_argument('--bin-file', help=argparse.SUPPRESS)
+            parser.add_argument('--mot-file', help=argparse.SUPPRESS)
         else:
             parser.add_argument('--elf-file',
                                 metavar='FILE',
@@ -587,6 +590,10 @@ class ZephyrBinaryRunner(abc.ABC):
                                 metavar='FILE',
                                 action=(partial(depr_action, cls=cls, replacement='-f/--file') if caps.file else None),
                                 help='path to zephyr.bin' if not caps.file else 'Deprecated, use -f/--file instead.')
+            parser.add_argument('--mot-file',
+                                metavar='FILE',
+                                action=(partial(depr_action, cls=cls, replacement='-f/--file') if caps.file else None),
+                                help='path to zephyr.mot' if not caps.file else 'Deprecated, use -f/--file instead.')
 
         parser.add_argument('--erase', '--no-erase', nargs=0,
                             action=_ToggleAction,
