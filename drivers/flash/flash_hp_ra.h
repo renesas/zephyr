@@ -42,15 +42,13 @@
 #define FLASH_HP_CF_BLOCK_32KB_DUAL_HIGH_END                                                       \
 	(DT_PROP(DT_NODELABEL(flash), block_32kb_dual_high_end))
 
-#define FLASH_HP_CF_DUAL_HIGH_START_ADDRESS BSP_FEATURE_FLASH_HP_CF_DUAL_BANK_START
-
 #define FLASH_HP_CF_DUAL_LOW_END_ADDRESS                                                           \
-	(BSP_FEATURE_FLASH_CODE_FLASH_START + DT_REG_SIZE(DT_NODELABEL(flash0)) -                  \
+	(DT_REG_SIZE(DT_NODELABEL(flash0)) -                                                       \
 	 ((FLASH_HP_CF_BLOCK_32KB_LINEAR_END - FLASH_HP_CF_BLOCK_32KB_DUAL_LOW_END) *              \
 	  FLASH_HP_CF_BLOCK_32KB_SIZE))
 
 #define FLASH_HP_CF_DUAL_HIGH_END_ADDRESS                                                          \
-	(BSP_FEATURE_FLASH_CODE_FLASH_START + DT_REG_SIZE(DT_NODELABEL(flash0)) +                  \
+	(DT_REG_SIZE(DT_NODELABEL(flash0)) +                                                       \
 	 (FLASH_HP_CF_NUM_BLOCK_RESERVED * FLASH_HP_CF_BLOCK_32KB_SIZE))
 #endif
 
