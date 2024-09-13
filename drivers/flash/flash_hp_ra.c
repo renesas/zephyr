@@ -227,7 +227,7 @@ static int flash_ra_erase(const struct device *dev, off_t offset, size_t len)
 
 static int flash_ra_write(const struct device *dev, off_t offset, const void *data, size_t len)
 {
-	fsp_err_t err = FSP_ERR_ASSERTION;
+	fsp_err_t err;
 	struct flash_hp_ra_data *flash_data = dev->data;
 	struct flash_hp_ra_controller *dev_ctrl = flash_data->controller;
 	int key = 0;
@@ -413,7 +413,7 @@ static void flash_controller_ra_irq_config_func(const struct device *dev)
 
 static int flash_controller_ra_init(const struct device *dev)
 {
-	fsp_err_t err = FSP_SUCCESS;
+	fsp_err_t err;
 	const struct flash_hp_ra_controller_config *cfg = dev->config;
 	struct flash_hp_ra_controller *data = dev->data;
 

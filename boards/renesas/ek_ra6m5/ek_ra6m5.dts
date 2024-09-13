@@ -16,6 +16,7 @@
 
 	chosen {
 		zephyr,sram = &sram0;
+		zephyr,flash-controller = &flash1;
 		zephyr,flash = &flash0;
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
@@ -105,6 +106,19 @@
 			partition@0 {
 				reg = <0x00000000 DT_SIZE_M(32)>;
 			};
+		};
+	};
+};
+
+&flash1 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		storage_partition: partition@0 {
+			label = "storage";
+			reg = <0X0 DT_SIZE_K(8)>;
 		};
 	};
 };

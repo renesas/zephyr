@@ -279,6 +279,15 @@
 			reg = <0x64000000 0x808>;
 			status = "disabled";
 		};
+
+		flash: flash-controller@407e0000 {
+			compatible = "renesas,ra-flash-hp-controller";
+			reg = <0x407e0000 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			interrupts = <49 1>, <50 1>;
+			interrupt-names = "frdyi", "fiferr";
+		};
 	};
 };
 
