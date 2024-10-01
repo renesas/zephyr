@@ -24,5 +24,10 @@ properties:
   "#io-channel-cells":
     const: 1
 
+  channel-available-mask:
+    type: int
+    required: true
+    description: Mask for ADC channels existed in each board
+
 io-channel-cells:
   - input

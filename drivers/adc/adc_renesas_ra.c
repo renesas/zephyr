@@ -32,6 +32,8 @@ void adc_scan_end_isr(void);
 struct adc_ra_config {
 	/** Number of supported channels */
 	uint8_t num_channels;
+
+	uint32_t channel_available_mask;
 	/** pinctrl configs */
 	const struct pinctrl_dev_config *pcfg;
 	/** function pointer to irq setup */
@@ -76,10 +78,9 @@ static int adc_ra_channel_setup(const struct device *dev, const struct adc_chann
 {
 	fsp_err_t fsp_err = FSP_SUCCESS;
 	struct adc_ra_data *data = dev->data;
+	const struct adc_ra_config *config = dev->config;
 
-	if (!((channel_cfg->channel_id >= 0 && channel_cfg->channel_id <= 2) ||
-	      (channel_cfg->channel_id >= 4 && channel_cfg->channel_id <= 8) ||
-	      (channel_cfg->channel_id >= 16 && channel_cfg->channel_id <= 19))) {
+	if (!((config->channel_available_mask & (1 << channel_cfg->channel_id)) != 0)) {
 		LOG_ERR("unsupported channel id '%d'", channel_cfg->channel_id);
 		return -ENOTSUP;
 	}
@@ -313,7 +314,7 @@ static int adc_ra_init(const struct device *dev)
 }
 
 const adc_extended_cfg_t g_adc_cfg_extend = {
-	.add_average_count = ADC_ADD_OFF,
+	.add_average_count = ADC_ADD_AVERAGE_FOUR,
 	.clearing = ADC_CLEAR_AFTER_READ_ON,
 	.trigger_group_b = ADC_START_SOURCE_DISABLED,
 	.double_trigger_mode = ADC_DOUBLE_TRIGGER_DISABLED,
@@ -346,9 +347,11 @@ const adc_extended_cfg_t g_adc_cfg_extend = {
 		.channel_setup = adc_ra_channel_setup,                                             \
 		.read = adc_ra_read,                                                               \
 		.ref_internal = DT_INST_PROP(idx, vref_mv),                                        \
-		IF_ENABLED(CONFIG_ADC_ASYNC, (.read_async = adc_ra_read_async))};                  \
+		IF_ENABLED(CONFIG_ADC_ASYNC,                                                       \
+			  (.read_async = adc_ra_read_async)) };                    \
 	static const struct adc_ra_config adc_ra_config_##idx = {                                  \
 		.num_channels = DT_INST_PROP(idx, channel_count),                                  \
+		.channel_available_mask = DT_INST_PROP(idx, channel_available_mask),               \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(idx),                                       \
 		IRQ_CONFIGURE_DEFINE(idx),                                                         \
 	};                                                                                         \
@@ -377,7 +380,7 @@ const adc_extended_cfg_t g_adc_cfg_extend = {
 				.scan_mask = 0,                                                    \
 				.scan_mask_group_b = 0,                                            \
 				.priority_group_a = ADC_GROUP_A_PRIORITY_OFF,                      \
-				.add_mask = 0,                                                     \
+				.add_mask = UINT16_MAX,                                            \
 				.sample_hold_mask = 0,                                             \
 				.sample_hold_states = 24,                                          \
 				.p_window_cfg = NULL,                                              \
