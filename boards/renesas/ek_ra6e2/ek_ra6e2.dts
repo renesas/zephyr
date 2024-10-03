@@ -7,6 +7,7 @@
 
 #include <renesas/ra/ra6/r7fa6e2bb3cfm.dtsi>
 #include <dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/adc/adc.h>
 
 #include "ek_ra6e2-pinctrl.dtsi"
 
@@ -124,4 +125,10 @@
 			reg = <0X0 DT_SIZE_K(4)>;
 		};
 	};
+};
+
+&adc0 {
+	status = "okay";
+	pinctrl-0 = <&adc0_default>;
+	pinctrl-names = "default";
 };
