@@ -1,0 +1,9 @@
+sample:
+  description: Sample application for displays
+  name: display_sample
+tests:
+  sample.shield.rtkmipilcdb00000be:
+    platform_allow: ek_ra8d1
+    harness: shield
+    tags: shield
+    depends_on: zephyr_lcdif
