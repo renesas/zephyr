@@ -9,6 +9,9 @@ config INPUT_INIT_PRIORITY
 
 # Enable MIPI DSI, as this display controller requires it.
 
+config MIPI_DSI
+	default y
+
 endif # DISPLAY
 
 if LVGL

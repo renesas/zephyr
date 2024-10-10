@@ -54,6 +54,7 @@
 
 	aliases {
 		led0 = &led1;
+		mipi-dsi = &mipi_dsi;
 	};
 };
 
