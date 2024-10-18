@@ -101,6 +101,8 @@ The below features are currently supported on Zephyr OS for EK-RA6M5 board:
 +-----------+------------+----------------------+
 | COUNTER   | on-chip    | counter              |
 +-----------+------------+----------------------+
+| I2C       | on-chip    | i2c                  |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
