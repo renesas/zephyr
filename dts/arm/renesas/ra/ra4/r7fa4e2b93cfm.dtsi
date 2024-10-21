@@ -13,6 +13,7 @@
 /delete-node/ &agt3;
 /delete-node/ &agt4;
 /delete-node/ &agt5;
+/delete-node/ &adc1;
 
 / {
 	soc {
@@ -48,6 +49,11 @@
 				erase-block-size = <64>;
 				renesas,programming-enable;
 			};
+		};
+
+		adc0: adc@40170000 {
+			channel-count = <12>;
+			channel-available-mask = <0x139f7>;
 		};
 
 		id_code: id_code@100a120 {

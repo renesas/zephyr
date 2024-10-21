@@ -31,3 +31,7 @@ tests:
       - ek_ra6m5
       - fpb_ra6e1
       - fpb_ra6e2
+      - ek_ra4e2
+      - ek_ra4m2
+      - ek_ra4m3
+      - ek_ra4w1
