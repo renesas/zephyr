@@ -6,6 +6,7 @@
 
 #include <arm/renesas/ra/ra6/ra6-cm33-common.dtsi>
 #include <zephyr/dt-bindings/clock/ra_clock.h>
+#include <zephyr/dt-bindings/pwm/ra_pwm.h>
 
 /delete-node/ &agt0;
 /delete-node/ &agt1;
@@ -63,6 +64,26 @@
 				clock-names = "dllclk";
 				status = "disabled";
 			};
+		};
+
+		pwm0: pwm0@40169000 {
+			compatible = "renesas,ra-pwm";
+			divider = <RA_PWM_SOURCE_DIV_1>;
+			channel = <RA_PWM_CHANNEL_0>;
+			clocks = <&pclkd MSTPE 31>;
+			reg = <0x40169000 0x100>;
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
+		pwm3: pwm3@40169300 {
+			compatible = "renesas,ra-pwm";
+			divider = <RA_PWM_SOURCE_DIV_1>;
+			channel = <RA_PWM_CHANNEL_3>;
+			clocks = <&pclkd MSTPE 28>;
+			reg = <0x40169300 0x100>;
+			#pwm-cells = <3>;
+			status = "disabled";
 		};
 	};
 
