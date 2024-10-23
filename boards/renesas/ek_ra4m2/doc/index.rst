@@ -98,6 +98,8 @@ The below features are currently supported on Zephyr OS for EK-RA4M2 board:
 +-----------+------------+----------------------+
 | CLOCK     | on-chip    | clock control        |
 +-----------+------------+----------------------+
+| COUNTER   | on-chip    | counter              |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
