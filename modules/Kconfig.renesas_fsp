@@ -98,4 +98,9 @@ config USE_RA_FSP_LPM
 	help
 	  Enable RA FSP LPM driver
 
+config USE_RA_FSP_ETHER_PHY
+	bool
+	help
+	  Enable RA FSP Ethernet phy driver
+
 endif # HAS_RENESAS_RA_FSP
