@@ -78,6 +78,8 @@ hardware features:
 +-----------+------------+-------------------------------+
 | UART      | on-chip    | uart                          |
 +-----------+------------+-------------------------------+
+| COUNTER   | on-chip    | counter                       |
++-----------+------------+-------------------------------+
 
 The default configuration can be found in
 :zephyr_file:`boards/renesas/ek_ra2a1/ek_ra2a1_defconfig`
