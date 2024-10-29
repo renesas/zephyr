@@ -4,7 +4,9 @@
 config ETH_RENESAS_RA
 	bool "Renesas RA Ethernet"
 	default y
+	depends on DT_HAS_RENESAS_RA_ETHERNET_ENABLED
 	select USE_RA_FSP_ETHER
+	select MDIO
 	help
 	  Enable Renesas RA Ethernet Driver.
 
