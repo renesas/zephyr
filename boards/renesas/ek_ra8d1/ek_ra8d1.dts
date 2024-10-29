@@ -303,3 +303,21 @@ zephyr_lcdif: &lcdif {
 zephyr_mipi_dsi: &mipi_dsi {};
 
 renesas_mipi_i2c: &iic1{};
+
+&eth {
+	local-mac-address = [74 90 50 B0 5D E9];
+	status = "okay";
+	phy-handle = <&phy>;
+};
+
+&mdio {
+	pinctrl-0 = <&ether_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	phy: ethernet-phy@5 {
+		compatible = "ethernet-phy";
+		reg = <5>;
+		status = "okay";
+	};
+};
