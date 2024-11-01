@@ -239,8 +239,22 @@
 	};
 };
 
+&usbhs {
+	pinctrl-0 = <&usbhs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "high-speed";
+	status = "okay";
+	zephyr_udc0: udc {
+		status = "okay";
+	};
+};
+
 &adc0 {
 	status = "okay";
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
+};
+
+&usbhs_phy {
+	phys-clock-src = "xtal";
 };
