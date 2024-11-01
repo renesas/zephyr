@@ -67,6 +67,12 @@
 					<RA_PSEL(RA_PSEL_ETH_RMII, 7, 3)>, /* RMII0_RXD1_B */
 					<RA_PSEL(RA_PSEL_ETH_RMII, 7, 4)>, /* RMII0_RX_ER_B */
 					<RA_PSEL(RA_PSEL_ETH_RMII, 7, 5)>; /* RMII0_CRS_DV_B */
+		};
+	};
+
+	usbhs_default: usbhs_default {
+		group1 {
+			psels = <RA_PSEL(RA_PSEL_USBHS, 11, 1)>; /* USBHS-VBUS */
 			drive-strength = "high";
 		};
 	};

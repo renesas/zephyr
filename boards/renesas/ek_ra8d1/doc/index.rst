@@ -118,6 +118,8 @@ The below features are currently supported on Zephyr OS for EK-RA8D1 board:
 +--------------+------------+------------------+
 | ETHERNET     | on-chip    | ethernet         |
 +--------------+------------+------------------+
+| USBHS        | on-chip    | udc              |
++--------------+------------+------------------+
 
 **Note:** for using Ethernet on RA8D1 board please set switch SW1 as following configuration:
 

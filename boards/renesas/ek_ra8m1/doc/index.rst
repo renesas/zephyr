@@ -118,6 +118,8 @@ The below features are currently supported on Zephyr OS for EK-RA8M1 board:
 +-----------+------------+----------------------+
 | ETHERNET  | on-chip    | ethernet             |
 +-----------+------------+----------------------+
+| USBHS     | on-chip    | udc                  |
++-----------+------------+----------------------+
 
 **Note:** For using Ethernet module on EK-RA8M1, remove jumper J61 to enable Ethernet B
 
