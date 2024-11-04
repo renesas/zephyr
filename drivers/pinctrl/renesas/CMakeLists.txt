@@ -4,6 +4,7 @@
 
 zephyr_library_sources_ifdef(CONFIG_PINCTRL_RENESAS_RA ra/pinctrl_renesas_ra.c)
 zephyr_library_sources_ifdef(CONFIG_PINCTRL_RENESAS_RA_PFS ra/pinctrl_ra.c)
+zephyr_library_sources_ifdef(CONFIG_PINCTRL_RENESAS_RX rx/pinctrl_renesas_rx.c)
 zephyr_library_sources_ifdef(CONFIG_PINCTRL_RZT2M rz/pinctrl_rzt2m.c)
 zephyr_library_sources_ifdef(CONFIG_PINCTRL_SMARTBOND smartbond/pinctrl_smartbond.c)
 
