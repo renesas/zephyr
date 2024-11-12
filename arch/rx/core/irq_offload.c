@@ -37,3 +37,7 @@ void arch_irq_offload(irq_offload_routine_t routine, const void *parameter)
 	/* set the SWINTR.SWINT bit to trigger the interrupt */
 	SWINTR_SWINT = 1;
 }
+
+void arch_irq_offload_init(void)
+{
+}
