@@ -8,7 +8,7 @@
 #include <renesas/ra/ra8/r7fa8d1bhecbd.dtsi>
 #include <zephyr/dt-bindings/flash_controller/xspi.h>
 #include <dt-bindings/gpio/gpio.h>
-
+#include <zephyr/dt-bindings/adc/adc.h>
 #include "ek_ra8d1-pinctrl.dtsi"
 
 / {
@@ -237,4 +237,10 @@
 		disk-name = "SD";
 		status = "okay";
 	};
+};
+
+&adc0 {
+	status = "okay";
+	pinctrl-0 = <&adc0_default>;
+	pinctrl-names = "default";
 };
