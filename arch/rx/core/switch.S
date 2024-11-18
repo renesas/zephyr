@@ -58,12 +58,26 @@ _z_rx_arch_switch:
 _switch_isr_wrapper:
 	pushm r1-r15
 
+	/* Save the accumulator. */
+	mvfachi r15 /* Accumulator high 32 bits. */
+	push r15
+	mvfacmi r15 /* Accumulator middle 32 bits. */
+	shll #16, r15  /* Shifted left as it is restored to the low order word.*/
+	push r15
+
 	mov #_coop_switch_to,r3
 	mov [r3],r1
 	mov #_coop_switched_from,r3
 	mov [r3],r2
 
 	bsr _z_rx_context_switch_isr
+
+	/* Restore the registers from the stack of the task pointed to by
+	pxCurrentTCB. */
+	pop r15
+	mvtaclo r15 /* Accumulator low 32 bits. */
+	pop r15
+	mvtachi r15 /* Accumulator high 32 bits. */
 
 	popm r1-r15
 	rte
@@ -93,12 +107,13 @@ _z_rx_context_switch_isr:
 
 	sub #1,r1	/* correct by one byte to use smovb compared to push/pop */
 
-	/* set r3 to number of bytes to move:
-	 *	15*4 byte for 15 general registers
-	 *	+ PSW (4 byte)
-	 *	+ PC (4 byte)
-	 */
-	mov #68,r3
+	/* set r3 to number of bytes to move
+	*  Accumulator 64bit (4byte * 2)
+	*	15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	mov #76,r3
 	smovb		/* block copy from interrupt stack to old thread stack */
 
 	add #1,r1	/* smovb leaves r1 pointing 1 byte before the stack */
@@ -109,7 +124,7 @@ _z_rx_context_switch_isr:
 	mov r2,r1	/* set r1 (smovf dest) to the beginning of the interrupt stack */
 
 	mov r4,r2	/* set r2 (smovf source) to the sp of the new thread*/
-	mov #68,r3	/* set r3 to number of bytes to move  */
+	mov #76,r3	/* set r3 to number of bytes to move  */
 
 	smovf		/* block copy from new thread stack to interrupt stack */
 

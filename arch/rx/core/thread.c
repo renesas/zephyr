@@ -20,6 +20,8 @@ void **coop_switched_from;
 
 /* the initial content of the stack */
 struct init_stack_frame {
+	uint32_t acc_l;
+	uint32_t acc_h;
 	uint32_t r1;
 	uint32_t r2;
 	uint32_t r3;
@@ -40,7 +42,7 @@ struct init_stack_frame {
 };
 
 void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack, char *stack_ptr,
-		     k_thread_entry_t entry, void *arg1, void *arg2, void *arg3)
+			 k_thread_entry_t entry, void *arg1, void *arg2, void *arg3)
 {
 	struct init_stack_frame *iframe;
 
@@ -67,6 +69,8 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack, char *sta
 	iframe->r13 = 13;
 	iframe->r14 = 14;
 	iframe->r15 = 15;
+	iframe->acc_l = 16;
+	iframe->acc_h = 17;
 
 	thread->switch_handle = (void *)iframe;
 }

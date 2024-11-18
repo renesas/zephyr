@@ -56,7 +56,7 @@ extern void z_irq_priority_set(uint32_t irq, uint32_t prio, uint32_t flags);
 #define ARCH_ISR_DIRECT_HEADER()                                                                   \
 	{                                                                                          \
 		_kernel.cpus[0].nested++;                                                          \
-		sys_trace_isr_enter()                                                              \
+		sys_trace_isr_enter();                                                              \
 	}
 #else
 #define ARCH_ISR_DIRECT_HEADER()                                                                   \

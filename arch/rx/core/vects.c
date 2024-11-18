@@ -27,27 +27,30 @@ extern void z_rx_irq_exit(void);
 static ALWAYS_INLINE void REGISTER_SAVE(void)
 {
 	__asm volatile(
-		/* Save the Registers to ISP at the top of ISR .
-		 *
-		 * This code is relate on arch_new_thread() at thread.c
-		 *
-		 * You should store the registers at the same registers arch_new_thread()
-		 * except PC and PSW.
-		 *
-		 * TODO: This will need to add the Accumurator of save.
-		 */
-		"PUSHM      R1-R15\n");
+		/* Save the Registers to ISP at the top of ISR .		 		*/
+		/* This code is relate on arch_new_thread() at thread.c	 			*/
+		/* You should store the registers at the same registers arch_new_thread()	*/
+		/* except PC and PSW. 								*/
+		"PUSHM		R1-R15			\n"
+
+		"MVFACHI	R15			\n"
+		"PUSH.L		R15			\n"
+		"MVFACMI	R15			\n"
+		"SHLL		#16, R15		\n"
+		"PUSH.L		R15			\n");
 }
 
 static ALWAYS_INLINE void REGISTER_RESTORE_EXIT(void)
 {
 	__asm volatile(
-		/* Restore the registers and do the RTE at the End of ISR.
-		 *
-		 * TODO: This will need to add the Accumurator of Restore.
-		 */
-		"POPM      R1-R15\n"
-		"RTE\n");
+		/* Restore the registers and do the RTE at the End of ISR. */
+		"POP		R15			\n"
+		"MVTACLO	R15			\n"
+		"POP		R15			\n"
+		"MVTACHI	R15			\n"
+
+		"POPM		R1-R15			\n"
+		"RTE 					\n");
 }
 
 /* Privileged instruction execption */
