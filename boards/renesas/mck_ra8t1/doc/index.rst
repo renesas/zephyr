@@ -114,6 +114,8 @@ The below features are currently supported on Zephyr OS for MCB-RA8T1 board:
 +--------------+------------+----------------------+
 | LPM          | on-chip    | SOC PM               |
 +--------------+------------+----------------------+
+| SDHC         | on-chip    | sdhc                 |
++--------------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 

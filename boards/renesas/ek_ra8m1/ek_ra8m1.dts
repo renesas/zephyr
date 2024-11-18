@@ -96,6 +96,7 @@
 
 	aliases {
 		led0 = &led1;
+		sdhc0 = &sdhc0;
 	};
 
 	transceiver0: can-phy0 {
@@ -348,5 +349,17 @@ pmod_header: &pmod1_header {};
 				reg = <0x00000000 DT_SIZE_M(64)>;
 			};
 		};
+	};
+};
+
+&sdhc0 {
+	compatible = "renesas,ra-sdhc";
+	pinctrl-0 = <&sdhc0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
+		status = "okay";
 	};
 };
