@@ -949,6 +949,11 @@
 				compatible = "renesas,ra-udc";
 				status = "disabled";
 			};
+
+			uhc {
+				compatible = "renesas,ra-uhc";
+				status = "disabled";
+			};
 		};
 
 		usbhs: usbhs@40351000 {
@@ -961,6 +966,11 @@
 
 			udc {
 				compatible = "renesas,ra-udc";
+				status = "disabled";
+			};
+
+			uhc {
+				compatible = "renesas,ra-uhc";
 				status = "disabled";
 			};
 		};
