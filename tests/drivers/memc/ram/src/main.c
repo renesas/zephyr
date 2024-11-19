@@ -48,12 +48,25 @@ BUF_DEF(sram2);
 BUF_DEF(psram);
 #endif
 
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(sdram), okay)
+BUF_DEF(sdram);
+#endif
+
 #if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ram0))
 #define RAM_SIZE DT_REG_SIZE(DT_NODELABEL(ram0))
 static uint32_t *buf_ram0 = (uint32_t *)DT_REG_ADDR(DT_NODELABEL(ram0));
 #endif
 
 ZTEST_SUITE(test_ram, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(test_ram, test_sdram)
+{
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(sdram), okay)
+	test_ram_rw(buf_sdram, BUF_SIZE);
+#else
+	ztest_test_skip();
+#endif
+}
 
 ZTEST(test_ram, test_sdram1)
 {
