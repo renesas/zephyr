@@ -42,6 +42,7 @@ for corresponding connectors, for example:
 - :ref:`buydisplay_2_8_tft_touch_arduino` and :ref:`nrf52840dk_nrf52840`
 - :ref:`ssd1306_128_shield` and :zephyr:board:`frdm_k64f`
 - :ref:`seeed_xiao_round_display` and :zephyr:board:`xiao_ble`
+- :ref:`rtkmipilcdb00000be` and :zephyr:board:`ek_ra8d1`
 
 or a board with an integrated display:
 
