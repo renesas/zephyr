@@ -116,6 +116,8 @@ The below features are currently supported on Zephyr for EK-RA8M1 board:
 +-----------+------------+----------------------+
 | DAC       | on-chip    | dac                  |
 +-----------+------------+----------------------+
+| OSPI      | on-chip    | ospi flash           |
++-----------+------------+----------------------+
 
 **Note:**
 
