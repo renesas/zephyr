@@ -109,6 +109,8 @@ The below features are currently supported on Zephyr OS for EK-RA6M4 board:
 +-----------+------------+----------------------+
 | FLASH     | on-chip    | flash                |
 +-----------+------------+----------------------+
+| QSPI      | on-chip    | qspi flash           |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 

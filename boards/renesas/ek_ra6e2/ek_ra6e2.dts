@@ -122,3 +122,28 @@
 		};
 	};
 };
+
+&qspi0 {
+	pinctrl-0 = <&qspi_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	at25sf128a: ra-qspi-nor@60000000 {
+		compatible = "renesas,ra-qspi-nor";
+		reg = <0x60000000 DT_SIZE_M(16)>;
+		size = <DT_SIZE_M(16)>;
+		status = "okay";
+		write-block-size = <1>;
+		erase-block-size = <4096>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "nor";
+				reg = <0x00000000 DT_SIZE_M(16)>;
+			};
+		};
+	};
+};
