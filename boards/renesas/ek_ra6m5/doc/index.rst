@@ -111,6 +111,8 @@ The below features are currently supported on Zephyr for EK-RA6M5 board:
 +-----------+------------+----------------------+
 | USBFS     | on-chip    | udc                  |
 +-----------+------------+----------------------+
+| QSPI      | on-chip    | qspi flash           |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 

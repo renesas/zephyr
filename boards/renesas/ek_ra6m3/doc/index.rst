@@ -106,6 +106,8 @@ The below features are currently supported on Zephyr for EK-RA6M3 board:
 +-----------+------------+----------------------+
 | DAC       | on-chip    | dac                  |
 +-----------+------------+----------------------+
+| QSPI      | on-chip    | qspi flash           |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
