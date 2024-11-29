@@ -98,6 +98,8 @@ The below features are currently supported on Zephyr OS for EK-RA4W1 board:
 +-----------+------------+----------------------+
 | PWM       | on-chip    | pwm                  |
 +-----------+------------+----------------------+
+| I2C       | on-chip    | i2c                  |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
