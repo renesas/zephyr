@@ -35,19 +35,28 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 			return -EINVAL;
 		}
 
-		/* set output high*/
-		if (pin->cfg.output_high) {
-			R_GPIO_PinWrite(port_pin, GPIO_LEVEL_HIGH);
-		}
-
 		/* set port direction*/
 		if (pin->cfg.output_enable) {
+			/* set output high*/
+			if (pin->cfg.output_high) {
+				R_GPIO_PinWrite(port_pin, GPIO_LEVEL_HIGH);
+			} else {
+				R_GPIO_PinWrite(port_pin, GPIO_LEVEL_LOW);
+			}
+
 			R_GPIO_PinDirectionSet(port_pin, GPIO_DIRECTION_OUTPUT);
+		} else {
+			R_GPIO_PinDirectionSet(port_pin, GPIO_DIRECTION_INPUT);
 		}
 
 		/* set pull-up*/
 		if (pin->cfg.bias_pull_up) {
 			ret = R_GPIO_PinControl(port_pin, GPIO_CMD_IN_PULL_UP_ENABLE);
+			if (ret != 0) {
+				return -EINVAL;
+			}
+		} else {
+			ret = R_GPIO_PinControl(port_pin, GPIO_CMD_IN_PULL_UP_DISABLE);
 			if (ret != 0) {
 				return -EINVAL;
 			}
@@ -59,11 +68,21 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 			if (ret != 0) {
 				return -EINVAL;
 			}
+		} else {
+			ret = R_GPIO_PinControl(port_pin, GPIO_CMD_OUT_CMOS);
+			if (ret != 0) {
+				return -EINVAL;
+			}
 		}
 
 		/* set driver-strength*/
 		if (pin->cfg.drive_strength) {
 			ret = R_GPIO_PinControl(port_pin, GPIO_CMD_DSCR_ENABLE);
+			if (ret != 0) {
+				return -EINVAL;
+			}
+		} else {
+			ret = R_GPIO_PinControl(port_pin, GPIO_CMD_DSCR_DISABLE);
 			if (ret != 0) {
 				return -EINVAL;
 			}
