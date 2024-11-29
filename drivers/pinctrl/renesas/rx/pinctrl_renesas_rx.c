@@ -101,14 +101,18 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 			return -EINVAL;
 		}
 
-		/* set output high*/
-		if (pin->cfg.output_high) {
-			R_GPIO_PinWrite(port_pin, GPIO_LEVEL_HIGH);
-		}
-
 		/* set port direction*/
 		if (pin->cfg.output_enable) {
+			/* set output high*/
+			if (pin->cfg.output_high) {
+				R_GPIO_PinWrite(port_pin, GPIO_LEVEL_HIGH);
+			} else {
+				R_GPIO_PinWrite(port_pin, GPIO_LEVEL_LOW);
+			}
+
 			R_GPIO_PinDirectionSet(port_pin, GPIO_DIRECTION_OUTPUT);
+		} else {
+			R_GPIO_PinDirectionSet(port_pin, GPIO_DIRECTION_INPUT);
 		}
 
 		/* set pull-up*/
@@ -124,7 +128,7 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 		if (ret != 0) {
 			return -EINVAL;
 		}
-		
+
 		/* set driver-strength*/
 		ret = pinctrl_configure_dscr(pin, pin->cfg.drive_strength);
 
