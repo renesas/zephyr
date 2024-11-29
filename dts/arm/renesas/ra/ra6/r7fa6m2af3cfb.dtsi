@@ -26,5 +26,10 @@
 				renesas,programming-enable;
 			};
 		};
+
+		trng: trng {
+			compatible = "renesas,ra-sce7-rng";
+			status = "disabled";
+		};
 	};
 };
