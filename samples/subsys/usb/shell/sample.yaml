@@ -30,6 +30,14 @@ tests:
       - usbd
     tags:
       - usb
+    platform_allow:
+      - ek_ra8m1
+    extra_args:
+      - CONF_FILE="device_and_host_prj.conf"
+    build_only: true
+  sample.usbh.shell.shield:
+    tags:
+      - usb
       - shield
     extra_args:
       - FILE_SUFFIX=device_and_host
