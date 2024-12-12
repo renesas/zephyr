@@ -30,8 +30,13 @@ LOG_MODULE_REGISTER(spi_loopback);
 #define FRAME_SIZE (16)
 #define FRAME_SIZE_STR ", frame size = 16"
 #else
+#ifdef CONFIG_SPI_RENESAS_RX_16BITS_FRAME
+#define FRAME_SIZE (16)
+#define FRAME_SIZE_STR ", frame size = 16"
+#else
 #define FRAME_SIZE (8)
 #define FRAME_SIZE_STR ", frame size = 8"
+#endif
 #endif /* CONFIG_SPI_LOOPBACK_16BITS_FRAMES */
 
 #ifdef CONFIG_DMA

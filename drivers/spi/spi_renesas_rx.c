@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Renesas Electronics Corporation
+ * Copyright (c) 2024 - 2025 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,6 +12,7 @@
 #include <soc.h>
 #include "r_rspi_rx_if.h"
 #include "iodefine.h"
+#include <zephyr/drivers/misc/renesas_rx_dtc/renesas_rx_dtc.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(rx_rspi);
@@ -34,7 +35,8 @@ typedef struct rx_rspi_tcb_s {
 	bool do_rx_now;
 	bool do_tx;
 	rspi_operation_t transfer_mode;
-	rspi_str_tranmode_t data_tran_mode;
+	rspi_str_tranmode_t rx_data_tran_mode;
+	rspi_str_tranmode_t tx_data_tran_mode;
 } rx_rspi_tcb_t;
 
 static uint8_t rspi_get_data_type(rspi_command_word_t command_word)
@@ -84,7 +86,20 @@ struct rx_rspi_data {
 	uint32_t rxdata;
 	rx_rspi_tcb_t tcb;
 	uint32_t data_len;
-#endif
+#if defined(CONFIG_SPI_RENESAS_RX_DTC)
+	/* dtc device handle */
+	const struct device *dtc;
+	/* TX */
+	bool is_tx_dtc;
+	uint8_t tx_dtc_activation_irq;
+	transfer_info_t tx_dtc_info;
+	/* RX */
+	bool is_rx_dtc;
+	uint8_t rx_dtc_activation_irq;
+	transfer_info_t rx_dtc_info;
+
+#endif /* CONFIG_SPI_RENESAS_RX_DTC */
+#endif /* CONFIG_SPI_RENESAS_RX_INTERRUPT */
 };
 
 struct rx_rspi_config {
@@ -131,7 +146,6 @@ void rx_rspi_spti_sub(const struct device *dev)
 
 			/* If the SPI is in slave mode */
 			if (spi_context_is_slave(&data->ctx)) {
-				data->preg->SPCR.BIT.SPE = 0;
 				/* Disable RSPI */
 				data->preg->SPCR.BIT.SPE = 0;
 
@@ -152,7 +166,7 @@ void rx_rspi_spti_sub(const struct device *dev)
 	/* Feed the TX. */
 	if (tx_count < rspi_tcb->xfr_length) {
 		if (rspi_tcb->do_tx) {
-			/* Transmit the data. TX data register accessed in long words. */
+			/* Transmit the data. TX data register is accessed in long words. */
 			if (RSPI_BYTE_DATA == data_size) {
 				data->preg->SPDR.LONG = ((uint8_t *)psrc)[tx_count];
 			} else if (RSPI_WORD_DATA == data_size) {
@@ -242,14 +256,24 @@ static int rx_rspi_configure(const struct device *dev, const struct spi_config *
 	}
 
 	data->channel_setting.bps_target = config->frequency;
+
+#ifdef CONFIG_SPI_RENESAS_RX_DTC
+	data->channel_setting.tran_mode = RSPI_TRANS_MODE_DTC;
+#else
 	data->channel_setting.tran_mode = RSPI_TRANS_MODE_SW;
+#endif
 
 	uint16_t bitFrameSize = SPI_WORD_SIZE_GET(config->operation);
 
 	switch (bitFrameSize) {
 	case 8:
+#ifdef CONFIG_SPI_RENESAS_RX_DTC
+		LOG_ERR("Cannot set 8 bits frame or lower when using DTC");
+		return -EINVAL;
+#else
 		data->command_word.bit_length = RSPI_SPCMD_BIT_LENGTH_8;
 		break;
+#endif
 	case 9:
 		data->command_word.bit_length = RSPI_SPCMD_BIT_LENGTH_9;
 		break;
@@ -286,16 +310,41 @@ static int rx_rspi_configure(const struct device *dev, const struct spi_config *
 	default:
 		return -ENOTSUP;
 	}
+	data->tcb.rx_data_tran_mode = RSPI_TRANS_MODE_SW;
+	data->tcb.tx_data_tran_mode = RSPI_TRANS_MODE_SW;
 
+#ifdef CONFIG_SPI_RENESAS_RX_DTC
+	int ret = 0;
+
+	if (data->is_rx_dtc) {
+		data->rx_dtc_info.p_src = (void *)(&data->preg->SPDR);
+		ret = dtc_renesas_rx_configuration(data->dtc, data->rx_dtc_activation_irq,
+					   &data->rx_dtc_info);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI rx config error");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->rx_dtc_activation_irq);
+			return ret;
+		}
+		data->tcb.rx_data_tran_mode = RSPI_TRANS_MODE_DTC;
+	}
+
+	if (data->is_tx_dtc) {
+		data->tx_dtc_info.p_dest = (void *)(&data->preg->SPDR);
+		ret = dtc_renesas_rx_configuration(data->dtc, data->tx_dtc_activation_irq,
+					   &data->tx_dtc_info);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI tx config error");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->tx_dtc_activation_irq);
+			return ret;
+		}
+		data->tcb.tx_data_tran_mode = RSPI_TRANS_MODE_DTC;
+	}
+#endif /* CONFIG_SPI_RENESAS_RX_DTC */
 	err = R_RSPI_Open(data->channel_id, &data->channel_setting, data->command_word, spi_cb,
 			  &data->rspi);
 	if (err != RSPI_SUCCESS) {
 		LOG_ERR("R_RSPI_Open error: %d", err);
 		return -EINVAL;
-#if defined(CONFIG_SPI_RENESAS_RX_INTERRUPT)
-	} else {
-		data->tcb.data_tran_mode = data->channel_setting.tran_mode;
-#endif
 	}
 	/* Manually set these bits, because the Open function not */
 	data->preg->SPCMD0.BIT.CPHA = data->command_word.cpha;
@@ -486,6 +535,76 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_SPI_RENESAS_RX_DTC
+	/* Determine DTC transfer size */
+	transfer_size_t size;
+
+	if (data->tcb.bytes_per_transfer == RSPI_LONG_DATA) {
+		size = TRANSFER_SIZE_4_BYTE;
+	} else if (data->tcb.bytes_per_transfer == RSPI_WORD_DATA) {
+		size = TRANSFER_SIZE_2_BYTE;
+	} else {
+		size = TRANSFER_SIZE_1_BYTE;
+	}
+
+	if (data->is_rx_dtc) {
+		transfer_info_t *p_info = &data->rx_dtc_info;
+
+		p_info->transfer_settings_word_b.size = size;
+		p_info->length = (uint16_t)data->data_len;
+		p_info->transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
+		p_info->p_dest = data->ctx.rx_buf;
+
+		if (data->ctx.rx_buf == NULL) {
+			static uint32_t dummy_rx;
+
+			p_info->transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_FIXED;
+			p_info->p_dest = &dummy_rx;
+		}
+
+		ret = dtc_renesas_rx_configuration(data->dtc, data->rx_dtc_activation_irq, p_info);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI rx re-config error");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->rx_dtc_activation_irq);
+			goto end;
+		}
+		ret = dtc_renesas_rx_start_transfer(data->dtc, data->rx_dtc_activation_irq);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI rx start failed");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->rx_dtc_activation_irq);
+			goto end;
+		}
+	}
+
+	if (data->is_tx_dtc) {
+		transfer_info_t *p_info = &data->tx_dtc_info;
+
+		p_info->transfer_settings_word_b.size = size;
+		p_info->length = (uint16_t)data->data_len;
+		p_info->transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
+		p_info->p_src = data->ctx.tx_buf;
+		if (data->ctx.tx_buf == NULL) {
+			static uint32_t dummy_tx;
+
+			p_info->transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_FIXED;
+			p_info->p_src = &dummy_tx;
+		}
+
+		ret = dtc_renesas_rx_configuration(data->dtc, data->tx_dtc_activation_irq, p_info);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI tx re-config error");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->tx_dtc_activation_irq);
+			goto end;
+		}
+		ret = dtc_renesas_rx_start_transfer(data->dtc, data->tx_dtc_activation_irq);
+		if (ret != 0) {
+			LOG_ERR("DTC SPI tx start failed");
+			dtc_renesas_rx_stop_transfer(data->dtc, data->tx_dtc_activation_irq);
+			goto end;
+		}
+	}
+#endif
+
 	if (data->ctx.rx_buf == NULL) {
 		data->tcb.transfer_mode = RSPI_DO_TX;
 		R_RSPI_Write(data->rspi, data->command_word, (void *)data->ctx.tx_buf,
@@ -501,7 +620,6 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 				 (void *)data->ctx.rx_buf, data->data_len);
 	}
 	ret = spi_context_wait_for_completion(&data->ctx);
-
 #else
 	data->preg->SPCR.BIT.TXMD = 0x0; /* tx - rx */
 	if (!spi_context_rx_on(&data->ctx)) {
@@ -620,28 +738,61 @@ static void rx_rspi_retransmit(struct rx_rspi_data *data)
 	data->tcb.tx_count = 0;
 	data->tcb.rx_count = 0;
 	data->tcb.xfr_length = data->data_len;
+#ifdef CONFIG_SPI_RENESAS_RX_DTC
+	/* Determine DTC transfer size */
+	transfer_size_t size;
 
-	/* Execute the transmit of first byte here to start transmit on the new buffer */
-	rx_rspi_tcb_t *rspi_tcb = &(data->tcb);
-	void *psrc = (void *)data->ctx.tx_buf;
-	uint16_t tx_count = rspi_tcb->tx_count;
-	uint8_t data_size = rspi_tcb->bytes_per_transfer;
-
-	if (tx_count < rspi_tcb->xfr_length) {
-		if (rspi_tcb->do_tx) {
-			/* Transmit the data. TX data register accessed in long words. */
-			if (RSPI_BYTE_DATA == data_size) {
-				data->preg->SPDR.LONG = ((uint8_t *)psrc)[tx_count];
-			} else if (RSPI_WORD_DATA == data_size) {
-				data->preg->SPDR.LONG = ((uint16_t *)psrc)[tx_count];
-			} else { /* RSPI_LONG_DATA */
-				data->preg->SPDR.LONG = ((uint32_t *)psrc)[tx_count];
-			}
-		} else {
-			data->preg->SPDR.LONG = 0;
-		}
-		rspi_tcb->tx_count++;
+	if (data->tcb.bytes_per_transfer == RSPI_LONG_DATA) {
+		size = TRANSFER_SIZE_4_BYTE;
+	} else if (data->tcb.bytes_per_transfer == RSPI_WORD_DATA) {
+		size = TRANSFER_SIZE_2_BYTE;
+	} else {
+		size = TRANSFER_SIZE_1_BYTE;
 	}
+
+	if (data->is_rx_dtc) {
+		transfer_info_t *p_info = &data->rx_dtc_info;
+
+		p_info->transfer_settings_word_b.size = size;
+		p_info->length = (uint16_t)data->data_len;
+		p_info->transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
+		p_info->p_dest = data->ctx.rx_buf;
+
+		if (data->ctx.rx_buf == NULL) {
+			static uint32_t dummy_rx;
+
+			p_info->transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_FIXED;
+			p_info->p_dest = &dummy_rx;
+		}
+
+		dtc_renesas_rx_configuration(data->dtc, data->rx_dtc_activation_irq, p_info);
+		dtc_renesas_rx_start_transfer(data->dtc, data->rx_dtc_activation_irq);
+	}
+
+	if (data->is_tx_dtc) {
+		transfer_info_t *p_info = &data->tx_dtc_info;
+
+		p_info->transfer_settings_word_b.size = size;
+		p_info->length = (uint16_t)data->data_len;
+		p_info->transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED;
+		p_info->p_src = data->ctx.tx_buf;
+
+		if (data->ctx.tx_buf == NULL) {
+			static uint32_t dummy_tx;
+
+			p_info->transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_FIXED;
+			p_info->p_src = &dummy_tx;
+		}
+
+		dtc_renesas_rx_configuration(data->dtc, data->tx_dtc_activation_irq, p_info);
+		dtc_renesas_rx_start_transfer(data->dtc, data->tx_dtc_activation_irq);
+	}
+#endif /* CONFIG_SPI_RENESAS_RX_DTC */
+	/** These code lines are to trigger the next transmit interrupt */
+	data->preg->SPCR.BIT.SPTIE = 0;
+	data->preg->SPCR.BIT.SPE = 0;
+	data->preg->SPCR.BIT.SPTIE = 1;
+	data->preg->SPCR.BIT.SPE = 1;
 }
 
 static void rx_rspi_spri_isr(const struct device *dev)
@@ -650,7 +801,7 @@ static void rx_rspi_spri_isr(const struct device *dev)
 	rx_rspi_tcb_t *rspi_tcb = &(data->tcb);
 	uint32_t *rxdata = &(data->rxdata);
 
-	if (RSPI_TRANS_MODE_SW == rspi_tcb->data_tran_mode) {
+	if (RSPI_TRANS_MODE_SW == rspi_tcb->rx_data_tran_mode) {
 		*rxdata = data->preg->SPDR.LONG;
 		rspi_tcb->rx_count++;
 #if CONFIG_SPI_RENESAS_RX_HIGH_SPEED_READ == 0
@@ -690,18 +841,24 @@ static void rx_rspi_spri_isr(const struct device *dev)
 			}
 		}
 	} else {
-		R_RSPI_IntSpriIerClear(data->rspi);
-		R_RSPI_DisableRSPI(data->rspi);
+		data->tcb.rx_count = data->data_len;
+		data->preg->SPCR2.BIT.SPIIE = 1;
 
-		/**
-		 * Transfer complete. Call the user callback function passing pointer to the result
-		 * structure.
-		 */
-		if (data->rspi->pcallback != NULL) {
-			data->callback_data.handle = data->rspi;
-			data->callback_data.event_code = RSPI_EVT_TRANSFER_COMPLETE;
+		/* If the SPI is in slave mode */
+		if (spi_context_is_slave(&data->ctx)) {
+			spi_context_update_rx(&data->ctx, data->dfs, data->data_len);
+			/* Disable RSPI */
+			data->preg->SPCR.BIT.SPE = 0;
 
-			data->rspi->pcallback((void *)dev);
+			/**
+			 * Transfer complete. Call the user callback function passing
+			 * pointer to the result structure.
+			 */
+			if (data->rspi->pcallback != NULL) {
+				data->callback_data.handle = data->rspi;
+				data->callback_data.event_code = RSPI_EVT_TRANSFER_COMPLETE;
+				data->rspi->pcallback((void *)dev);
+			}
 		}
 	}
 }
@@ -712,7 +869,7 @@ static void rx_rspi_spti_isr(const struct device *dev)
 	uint32_t *rxdata = &(data->rxdata);
 	rx_rspi_tcb_t *rspi_tcb = &(data->tcb);
 
-	if (RSPI_TRANS_MODE_SW == rspi_tcb->data_tran_mode) {
+	if (RSPI_TRANS_MODE_SW == rspi_tcb->tx_data_tran_mode) {
 		if (0 == rspi_tcb->tx_count) {
 			*rxdata = data->preg->SPDR.LONG;
 		}
@@ -738,15 +895,37 @@ static void rx_rspi_spti_isr(const struct device *dev)
 			}
 		}
 	} else {
-		R_RSPI_DisableSpti(data->rspi);
-		R_RSPI_IntSptiIerClear(data->rspi);
+		/** Update count by data_len when using DTC */
+		data->tcb.tx_count = data->data_len;
+		/** Disable SPTI to avoid redundant interrupt after SPDR is fully written by DTC */
+		data->preg->SPCR.BIT.SPTIE = 0;
+
+		/* If transmit only, enable SPII interrupt in transmit */
+		if (!spi_context_rx_on(&data->ctx)) {
+			data->preg->SPCR2.BIT.SPIIE = 1;
+
+			/* If the SPI is in slave mode */
+			if (spi_context_is_slave(&data->ctx)) {
+				/* Disable RSPI */
+				data->preg->SPCR.BIT.SPE = 0;
+
+				/**
+				 * Transfer complete. Call the user callback function passing
+				 * pointer to the result structure.
+				 */
+				if (data->rspi->pcallback != NULL) {
+					data->callback_data.handle = data->rspi;
+					data->callback_data.event_code = RSPI_EVT_TRANSFER_COMPLETE;
+					data->rspi->pcallback((void *)dev);
+				}
+			}
+		}
 	}
 }
 
 static void rx_rspi_spii_isr(const struct device *dev)
 {
 	struct rx_rspi_data *data = dev->data;
-
 	if (data->tcb.rx_count >= data->tcb.xfr_length) {
 		spi_context_update_rx(&data->ctx, data->dfs, data->data_len);
 	}
@@ -856,6 +1035,42 @@ error_callback:
 
 #endif
 
+#ifndef CONFIG_SPI_RENESAS_RX_DTC
+#define RX_RSPI_DTC_STRUCT_INIT(n)
+#else
+#define RX_RSPI_DTC_STRUCT_INIT(n)                                                                 \
+	.dtc = DEVICE_DT_GET(DT_NODELABEL(dtc)), .is_rx_dtc = DT_INST_PROP_OR(n, rx_dtc, false),   \
+	.rx_dtc_activation_irq = DT_INST_IRQ_BY_NAME(n, spri, irq),                                \
+	.rx_dtc_info =                                                                             \
+		{                                                                                  \
+			.transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED, \
+			.transfer_settings_word_b.repeat_area = TRANSFER_REPEAT_AREA_DESTINATION,  \
+			.transfer_settings_word_b.irq = TRANSFER_IRQ_END,                          \
+			.transfer_settings_word_b.chain_mode = TRANSFER_CHAIN_MODE_DISABLED,       \
+			.transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_FIXED,        \
+			.transfer_settings_word_b.size = TRANSFER_SIZE_1_BYTE,                     \
+			.transfer_settings_word_b.mode = TRANSFER_MODE_NORMAL,                     \
+			.p_dest = (void *)NULL,                                                    \
+			.p_src = (void const *)NULL,                                               \
+			.num_blocks = 0,                                                           \
+			.length = 0,                                                               \
+	},                                                                                         \
+	.is_tx_dtc = DT_INST_PROP_OR(n, tx_dtc, false),                                            \
+	.tx_dtc_activation_irq = DT_INST_IRQ_BY_NAME(n, spti, irq),                                \
+	.tx_dtc_info = {                                                                           \
+		.transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_FIXED,               \
+		.transfer_settings_word_b.repeat_area = TRANSFER_REPEAT_AREA_SOURCE,               \
+		.transfer_settings_word_b.irq = TRANSFER_IRQ_END,                                  \
+		.transfer_settings_word_b.chain_mode = TRANSFER_CHAIN_MODE_DISABLED,               \
+		.transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED,          \
+		.transfer_settings_word_b.size = TRANSFER_SIZE_1_BYTE,                             \
+		.transfer_settings_word_b.mode = TRANSFER_MODE_NORMAL,                             \
+		.p_dest = (void *)NULL,                                                            \
+		.p_src = (void const *)NULL,                                                       \
+		.num_blocks = 0,                                                                   \
+		.length = 0,                                                                       \
+	},
+#endif
 #define RX_RSPI_INIT(n)                                                                            \
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
 	static const struct rx_rspi_config rx_rspi_config_##n = {                                  \
@@ -866,9 +1081,9 @@ error_callback:
 			SPI_CONTEXT_INIT_LOCK(rx_rspi_data_##n, ctx),                              \
 		SPI_CONTEXT_INIT_SYNC(rx_rspi_data_##n, ctx),                                      \
 		.preg = (struct st_rspi *)DT_INST_REG_ADDR(n),                                     \
-		.channel_id = DT_INST_PROP(n, channel),                                         \
+		.channel_id = DT_INST_PROP(n, channel),                                            \
 		.ssl_assert = DT_INST_PROP(n, ssl_assert),                                         \
-	};                                                                                         \
+		RX_RSPI_DTC_STRUCT_INIT(n)};                                                       \
 	static int rspi_rx_init##n(const struct device *dev)                                       \
 	{                                                                                          \
 		int err = rspi_rx_init(dev);                                                       \
