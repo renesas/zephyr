@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Renesas Electronics Corporation
+# Copyright (c) 2024 - 2025 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 description: Renesas RX RSPI
@@ -15,7 +15,16 @@ properties:
     type: int
     required: true
     description: |
-      The index of SPI channel
+      The index of SPI
+
+  clocks:
+    required: true
+
+  tx-dtc:
+    type: boolean
+
+  rx-dtc:
+    type: boolean
 
   ssl-assert:
     type: int
