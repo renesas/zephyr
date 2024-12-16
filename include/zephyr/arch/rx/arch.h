@@ -71,7 +71,12 @@ extern void z_irq_priority_set(uint32_t irq, uint32_t prio, uint32_t flags);
 		sys_trace_isr_exit();                                                              \
 		irq_lock();                                                                        \
 		if (check_reschedule && _kernel.cpus[0].nested == 1) {                             \
-			z_rx_irq_exit();                                                           \
+			if (_kernel.cpus->current->base.prio >= 0                                  \
+			|| CONFIG_NUM_METAIRQ_PRIORITIES > 0) {                                    \
+				if (_kernel.ready_q.cache != _kernel.cpus->current) {              \
+					z_rx_irq_exit();                                           \
+				}                                                                  \
+			}                                                                          \
 		}                                                                                  \
 		_kernel.cpus[0].nested--;                                                          \
 	}
@@ -80,7 +85,12 @@ extern void z_irq_priority_set(uint32_t irq, uint32_t prio, uint32_t flags);
 	{                                                                                          \
 		irq_lock();                                                                        \
 		if (check_reschedule && _kernel.cpus[0].nested == 1) {                             \
-			z_rx_irq_exit();                                                           \
+			if (_kernel.cpus->current->base.prio >= 0                                  \
+			|| CONFIG_NUM_METAIRQ_PRIORITIES > 0 ) {                                   \
+				if (_kernel.ready_q.cache != _kernel.cpus->current) {              \
+					z_rx_irq_exit();                                           \
+				}                                                                  \
+			}                                                                          \
 		}                                                                                  \
 		_kernel.cpus[0].nested--;                                                          \
 	}
