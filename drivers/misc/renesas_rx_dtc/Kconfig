@@ -1,0 +1,9 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Renesas RX Data Transfer Controller (DTC) Option
+
+config RENESAS_RX_DTC
+	bool "Renesas RX Data Transfer Controller (DTC) Driver"
+	help
+	  Enable config options for Renesas RX Data Transfer Controller
