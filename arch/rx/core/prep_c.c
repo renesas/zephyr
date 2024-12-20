@@ -21,10 +21,8 @@
 #include <zephyr/toolchain.h>
 #include <zephyr/linker/sections.h>
 
-#define INITIALIZATION_STACK_SIZE (512)
-
 K_KERNEL_PINNED_STACK_ARRAY_DEFINE(z_initialization_process_stacks, CONFIG_MP_MAX_NUM_CPUS,
-				   INITIALIZATION_STACK_SIZE);
+				   CONFIG_INITIALIZATION_STACK_SIZE);
 /**
  * @brief Prepare to and run C code
  *

@@ -14,7 +14,7 @@ __start :
 /* during initialization (before the main thread is started), z_initialization_process_stacks
  * is used to do the kernel initialization.
  */
-    mvtc    #(_z_initialization_process_stacks + CONFIG_ISR_STACK_SIZE),USP
+    mvtc    #(_z_initialization_process_stacks + CONFIG_INITIALIZATION_STACK_SIZE),USP
 
 /* initialise interrupt stack pointer */
     mvtc    #(_z_interrupt_stacks + CONFIG_ISR_STACK_SIZE),ISP

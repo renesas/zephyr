@@ -14,4 +14,8 @@ config SYS_CLOCK_TICKS_PER_SEC
 	default 100 if SYS_CLOCK_HW_CYCLES_PER_SEC <= 6000000
 	default 1000
 
+config INITIALIZATION_STACK_SIZE
+	int "Initialization stack size (in bytes)"
+	default 512
+
 endif # SOC_SERIES_RX130
