@@ -9,17 +9,14 @@
 #include <soc.h>
 #include <zephyr/drivers/timer/system_timer.h>
 #include <zephyr/irq.h>
+#include <zephyr/spinlock.h>
 #include <platform.h>
 
 #define DT_DRV_COMPAT renesas_rx_timer_cmt
 
 #define CMT_NODE  DT_NODELABEL(cmt)
 #define CMT0_NODE DT_NODELABEL(cmt0)
-
-#define CMT_CMSTR0_ADDR DT_REG_ADDR_BY_NAME(CMT_NODE, CMSTR0)
-#define CMT0_CMCR_ADDR  DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCR)
-#define CMT0_CMCNT_ADDR DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCNT)
-#define CMT0_CMCOR_ADDR DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCOR)
+#define CMT1_NODE DT_NODELABEL(cmt1)
 
 #define ICU_NODE DT_NODELABEL(icu)
 
@@ -28,45 +25,96 @@
 #define ICU_IPR_ADDR DT_REG_ADDR_BY_NAME(ICU_NODE, IPR)
 #define ICU_FIR_ADDR DT_REG_ADDR_BY_NAME(ICU_NODE, FIR)
 
-#define COUNTER_MAX   0x0000ffff
-#define TIMER_STOPPED 0xff000000
+#define CMT0_IRQ_NUM DT_IRQ_BY_NAME(CMT0_NODE, cmi, irq)
+#define CMT1_IRQ_NUM DT_IRQ_BY_NAME(CMT1_NODE, cmi, irq)
 
-/* The following macro values will be changed later to be calculated using the clock control driver.
- * This macro is the CMT count clock. (=PCLKB/8)
- */
+#define COUNTER_MAX   0x0000ffff
+
 #define CYCLES_PER_SEC  (CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC)
 #define TICKS_PER_SEC   (CONFIG_SYS_CLOCK_TICKS_PER_SEC)
 #define CYCLES_PER_TICK (CYCLES_PER_SEC / TICKS_PER_SEC)
-#define MAX_TICKS       ((COUNTER_MAX / CYCLES_PER_TICK) - 1)
 
-#define CMT0_IRQ_NUM DT_IRQ_BY_NAME(CMT0_NODE, cmi, irq)
+#define CYCLES_CYCLE_TIMER  (COUNTER_MAX + 1)
 
-#if (IS_ENABLED(CONFIG_TICKLESS_KERNEL))
-#error Error: Tickless mode is not yet implemented.
-#endif
+struct timer_rx_cfg {
+	volatile uint16_t *cmstr;
+	volatile uint16_t *cmcr;
+	volatile uint16_t *cmcnt;
+	volatile uint16_t *cmcor;
+};
 
+static const struct timer_rx_cfg tick_timer_cfg = {
+	.cmstr = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT_NODE, CMSTR0),
+	.cmcr  = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCR),
+	.cmcnt = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCNT),
+	.cmcor = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT0_NODE, CMCOR)
+};
+
+static const struct timer_rx_cfg cycle_timer_cfg = {
+	.cmstr = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT_NODE, CMSTR0),
+	.cmcr  = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT1_NODE, CMCR),
+	.cmcnt = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT1_NODE, CMCNT),
+	.cmcor = (uint16_t *)DT_REG_ADDR_BY_NAME(CMT1_NODE, CMCOR)
+};
+
+#ifdef CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
+typedef uint64_t cycle_t;
+#define CYCLE_COUNT_MAX (0xffffffffffffffff)
+#else
 typedef uint32_t cycle_t;
-static cycle_t cycle_count;
+#define CYCLE_COUNT_MAX (0xffffffff)
+#endif
+static cycle_t cycle_count = 0;
 
-/* clock_cycles_per_tick is calculated once in
- * sys_clock_driver_init() to avoid repeated division of sub_clk_freq_hz
- * and TICKS_PER_SEC. This is justified as clock frequency should not
- * change during operation without undesired side effects on peripheral
- * devices.
- */
 static uint16_t clock_cycles_per_tick;
 
-static uint32_t last_load;
+static volatile cycle_t announced_cycle_count = 0;
+
+static struct k_spinlock lock;
+
+#if defined(CONFIG_TEST)
+const int32_t z_sys_timer_irq_for_test = CMT0_IRQ_NUM;
+#endif
+
+static cycle_t cmt1_elapsed(void)
+{
+	uint32_t val1 = (uint32_t)(*cycle_timer_cfg.cmcnt);
+	uint8_t cmt_ir = IR(CMT1,CMI1);
+	uint32_t val2 = (uint32_t)(*cycle_timer_cfg.cmcnt);
+
+	if((1 == cmt_ir) || (val1 > val2))
+	{
+		cycle_count += CYCLES_CYCLE_TIMER;
+
+		IR(CMT1,CMI1) = 0;
+	}
+
+	return(val2 + cycle_count);
+}
 
 uint32_t sys_clock_cycle_get_32(void)
 {
-	uint32_t ret = cycle_count;
+	k_spinlock_key_t key = k_spin_lock(&lock);
 
-	volatile uint16_t *cmt0_cmcnt = (uint16_t *)CMT0_CMCNT_ADDR; /* CMCNT */
-	ret += (uint32_t)(*cmt0_cmcnt);
+	uint32_t ret = (uint32_t)cmt1_elapsed();
+
+	k_spin_unlock(&lock, key);
 
 	return ret;
 }
+
+#ifdef CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER
+uint64_t sys_clock_cycle_get_64(void)
+{
+	k_spinlock_key_t key = k_spin_lock(&lock);
+
+	uint64_t ret = (uint64_t)cmt1_elapsed();
+
+	k_spin_unlock(&lock, key);
+
+	return ret;
+}
+#endif /* CONFIG_TIMER_HAS_64BIT_CYCLE_COUNTER */
 
 uint32_t sys_clock_elapsed(void)
 {
@@ -75,42 +123,78 @@ uint32_t sys_clock_elapsed(void)
 		return 0;
 	}
 
-	volatile uint16_t *cmt0_cmcnt = (uint16_t *)CMT0_CMCNT_ADDR; /* CMCNT */
-	return ((uint32_t)((*cmt0_cmcnt) / clock_cycles_per_tick));
+	k_spinlock_key_t key = k_spin_lock(&lock);
+
+	uint32_t ret;
+	cycle_t current_cycle_count;
+
+	current_cycle_count = cmt1_elapsed();
+
+	if(current_cycle_count < announced_cycle_count)
+	{
+		/* cycle_count overflowed */
+		ret = (uint32_t)((current_cycle_count + (CYCLE_COUNT_MAX - announced_cycle_count + 1)) / CYCLES_PER_TICK);
+	}
+	else
+	{
+		ret = (uint32_t)((current_cycle_count - announced_cycle_count) / CYCLES_PER_TICK);
+	}
+
+	k_spin_unlock(&lock, key);
+
+	return ret;
 }
 
 static void cmt0_isr(void)
 {
 	k_ticks_t dticks;
+	cycle_t current_cycle_count;
 
-	cycle_count += CYCLES_PER_TICK;
-	dticks = 1;
-	sys_clock_announce(dticks);
+	k_spinlock_key_t key = k_spin_lock(&lock);
+
+	current_cycle_count = cmt1_elapsed();
+
+	if(current_cycle_count < announced_cycle_count)
+	{
+		/* cycle_count overflowed */
+		dticks = (k_ticks_t)((current_cycle_count + (CYCLE_COUNT_MAX - announced_cycle_count + 1)) / CYCLES_PER_TICK);
+	}
+	else
+	{
+		dticks = (k_ticks_t)((current_cycle_count - announced_cycle_count) / CYCLES_PER_TICK);
+	}
+
+	announced_cycle_count = (current_cycle_count / CYCLES_PER_TICK) * CYCLES_PER_TICK;
+
+	k_spin_unlock(&lock, key);
+
+	if(!IS_ENABLED(CONFIG_TICKLESS_KERNEL))
+	{
+		sys_clock_announce(1);
+	}
+	else
+	{
+		sys_clock_announce(dticks);
+	}
 }
 
 static int sys_clock_driver_init(void)
 {
-	volatile uint16_t *cmt_cmstr0 = (uint16_t *)CMT_CMSTR0_ADDR; /* CMSTR0 */
-	volatile uint16_t *cmt0_cmcr = (uint16_t *)CMT0_CMCR_ADDR;   /* CMCR */
-	volatile uint16_t *cmt0_cmcor = (uint16_t *)CMT0_CMCOR_ADDR; /* CMCOR */
-
 	R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_LPC_CGC_SWR);
 	MSTP(CMT0) = 0; /* Release STOP moduce for CMT0(bit15) */
 	R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_LPC_CGC_SWR);
 
-	*cmt0_cmcr = 0x00C0; /* enable CMT0 interrupt */
+	*tick_timer_cfg.cmcr = 0x00C0; /* enable CMT0 interrupt */
+	*cycle_timer_cfg.cmcr = 0x00C0; /* enable CMT1 interrupt */
 
 	clock_cycles_per_tick = (uint16_t)(CYCLES_PER_TICK);
-	*cmt0_cmcor = clock_cycles_per_tick - 1;
-
-	last_load = CYCLES_PER_TICK;
+	*tick_timer_cfg.cmcor = clock_cycles_per_tick - 1;
+	*cycle_timer_cfg.cmcor = (uint16_t)COUNTER_MAX;
 
 	IRQ_CONNECT(CMT0_IRQ_NUM, 0x01, cmt0_isr, NULL, 0);
 	irq_enable(CMT0_IRQ_NUM);
 
-	WRITE_BIT(*cmt_cmstr0, 0, 1); /* start cmt0 */
-
-	cycle_count = 0;
+	*tick_timer_cfg.cmstr = 0x0003; /* start cmt0,1 */
 
 	return 0;
 }
@@ -118,18 +202,15 @@ static int sys_clock_driver_init(void)
 void sys_clock_set_timeout(int32_t ticks, bool idle)
 {
 	if (IS_ENABLED(CONFIG_TICKLESS_KERNEL) && idle && ticks == K_TICKS_FOREVER) {
-		volatile uint16_t *cmt_cmstr0 = (uint16_t *)CMT_CMSTR0_ADDR; /* CMSTR0 */
-		WRITE_BIT(*cmt_cmstr0, 0, 0);                                /* stop cmt0 */
-		last_load = TIMER_STOPPED;
+		*tick_timer_cfg.cmstr = 0x0000; /* stop cmt0,1 */
 		return;
 	}
 
 #if defined(CONFIG_TICKLESS_KERNEL)
-	ticks = (ticks == K_TICKS_FOREVER) ? MAX_TICKS : ticks;
-	ticks = CLAMP(ticks - 1, 0, (int32_t)MAX_TICKS);
-
-	volatile uint16_t *cmt0_cmcor = (uint16_t *)CMT0_CMCOR_ADDR; /* CMCOR */
-	*cmt0_cmcor = ((uint16_t)ticks) * clock_cycles_per_tick;
+	/*
+	 * By default, it is implemented as a no operation.
+	 * Implement the processing as needed.
+	 */
 #endif /* CONFIG_TICKLESS_KERNEL */
 }
 

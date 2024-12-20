@@ -5,6 +5,8 @@ config RENESAS_RX_TIMER_CMT
 	bool "Renesas RX timer CMT"
 	default y
 	depends on DT_HAS_RENESAS_RX_TIMER_CMT_ENABLED
+	select TIMER_HAS_64BIT_CYCLE_COUNTER
+	select TICKLESS_CAPABLE
 	help
 	  This module implements a kernel device driver for the Renesas RX
 	  platform provides the standard "system clock driver" interfaces.

@@ -5,7 +5,7 @@ if(CONFIG_RX)
   list(APPEND TOOLCHAIN_C_FLAGS  -mlittle-endian-data -ffunction-sections -fdata-sections)
 
   list(APPEND TOOLCHAIN_LD_FLAGS)
-  list(APPEND TOOLCHAIN_LD_FLAGS -mlittle-endian-data)
+  list(APPEND TOOLCHAIN_LD_FLAGS -mlittle-endian-data -lm)
 
   if(NOT CONFIG_FPU)
     list(APPEND TOOLCHAIN_C_FLAGS -nofpu)
