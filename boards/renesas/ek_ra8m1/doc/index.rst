@@ -127,6 +127,8 @@ The below features are currently supported on Zephyr OS for EK-RA8M1 board:
 +-----------+------------+----------------------+
 | LPM       | on-chip    | SOC PM               |
 +-----------+------------+----------------------+
+| DAC       | on-chip    | dac                  |
++-----------+------------+----------------------+
 
 **Note:**
 

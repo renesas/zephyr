@@ -110,6 +110,8 @@ The below features are currently supported on Zephyr OS for EK-RA6E2 board:
 +-----------+------------+----------------------+
 | QSPI      | on-chip    | qspi flash           |
 +-----------+------------+----------------------+
+| DAC       | on-chip    | dac                  |
++-----------+------------+----------------------+
 
 Other hardware features are currently not supported by the port.
 
