@@ -364,6 +364,19 @@
 			#pwm-cells = <3>;
 			status = "disabled";
 		};
+
+		dac: dac@4005e000 {
+			reg = <0x4005e000 0x10c4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dac0: dac@0 {
+				compatible = "renesas,ra-dac";
+				#io-channel-cells = <1>;
+				reg = <0>;
+				status = "disabled";
+			};
+		};
 	};
 };
 

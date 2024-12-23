@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Renesas Electronics Corporation
+ * Copyright (c) 2024-2025 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,6 +17,7 @@
 /delete-node/ &iic1;
 
 /delete-node/ &adc1;
+/delete-node/ &dac1;
 
 / {
 	soc {
