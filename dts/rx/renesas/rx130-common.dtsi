@@ -581,6 +581,7 @@
 			clocks = <&pclkb MSTPB 26>;
 			status = "disabled";
 			channel = <5>;
+			dtc-enabled;
 			uart {
 				compatible = "renesas,rx-uart-sci";
 				status = "disabled";
