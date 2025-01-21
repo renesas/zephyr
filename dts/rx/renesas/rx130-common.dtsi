@@ -539,6 +539,7 @@
 			reg = <0x8A000 0x20>;
 			clocks = <&pclkb MSTPB 31>;
 			status = "disabled";
+			dtc-enabled;
 			channel = <0>;
 
 			uart {
@@ -554,6 +555,7 @@
 			reg = <0x8A020 0x20>;
 			clocks = <&pclkb MSTPB 30>;
 			status = "disabled";
+			dtc-enabled;
 			channel = <1>;
 
 			uart {
@@ -570,6 +572,7 @@
 			clocks = <&pclkb MSTPB 26>;
 			status = "disabled";
 			channel = <5>;
+			dtc-enabled;
 
 			uart {
 				compatible = "renesas,rx-uart-sci";
@@ -583,6 +586,7 @@
 			interrupt-names = "rxi", "txi", "tei", "eri";
 			reg = <0x8A0C0 0x20>;
 			clocks = <&pclkb MSTPB 25>;
+			dtc-enabled;
 			status = "disabled";
 			channel = <6>;
 
