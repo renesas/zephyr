@@ -822,7 +822,6 @@
 			status = "disabled";
 		};
 
-
 		adc: adc@89000 {
 			compatible = "renesas,rx-adc";
 			interrupts= <102 1>;
@@ -850,6 +849,15 @@
 			interrupts = <89 1>;
 			interrupt-names = "lvd";
 			renesas,lvd-external-target;
+			status = "disabled";
+		};
+
+		ctsu: ctsu@a0900 {
+			compatible = "renesas,rx-ctsu";
+			reg = < 0x000A0900 0x100 >;
+			clocks = <&pclkb MSTPD 10>;
+			interrupts = <60 1>, <61 1>, <62 1>;
+			interrupt-names = "ctsuwr", "ctsurd", "ctsufn";
 			status = "disabled";
 		};
 
