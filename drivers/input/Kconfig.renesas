@@ -1,0 +1,62 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config INPUT_CTSU_RENESAS_RX
+	bool "Renesas Capacitive Touch Sensing Unit"
+	default y
+	depends on DT_HAS_RENESAS_RX_CTSU_ENABLED
+	select USE_RX_RDP_CTSU
+	select PINCTRL
+	help
+	  Enable RX series CTSU driver
+
+if INPUT_CTSU_RENESAS_RX
+
+config CTSU_SHOW_COUNT
+	bool "Show measured count"
+	help
+	  Show Count value that is measured for each TS Node
+	  This could be use when you need to know the raw count output of CTSU
+		in order to set an appropriate threshold
+
+config CTSU_DEBOUNCE_INTERVAL_MS
+	int "CTSU debounce interval time"
+	default 30
+	help
+	  Debouncing interval time in milliseconds
+
+config CTSU_NUM_MOVING_AVERAGE
+	int "CTSU Moving average"
+	default 4
+	help
+	   Number of moving average for measurement data
+
+config CTSU_POWER_SUPPLY_CAPACITY
+	int "CTSU Power supply capacity"
+	default 0
+	range 0 1
+	help
+	  Power Supply Capacity Adjustment
+	  - 0: Normal (40uA)
+	  - 1: High-current output (80uA)
+
+config CTSU_TRANSMISSION_POWER_SUPPLY
+	int "CTSU transmission power supply"
+	default 0
+	range 0 1
+	help
+	  Transmission Power Supply Select
+	  - 0: VCC selected
+	  - 1: Internal logic power supply selected
+
+config CTSU_PCLK_DIVISION
+	int "CTSU: Division of PCLK"
+	default 0
+	range 0 2
+	help
+	  Division of PCLK
+	  - 0: PCLK/1
+	  - 1: PCLK/2
+	  - 2: PCLK/4
+
+endif #INPUT_CTSU
