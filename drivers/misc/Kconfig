@@ -17,5 +17,6 @@ source "drivers/misc/coresight/Kconfig"
 source "drivers/misc/renesas_ra_external_interrupt/Kconfig"
 source "drivers/misc/renesas_rx_external_interrupt/Kconfig"
 source "drivers/misc/renesas_rx_dtc/Kconfig"
+source "drivers/misc/renesas_lvd/Kconfig"
 
 endmenu
