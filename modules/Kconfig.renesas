@@ -319,4 +319,9 @@ config USE_RX_RDP_IWDT
 	help
 	  Enable RX RDP IWDT driver
 
+config USE_RX_RDP_LVD
+	bool
+	help
+	  Enable RX RDP LVD driver
+
 endif # HAS_RENESAS_RX_RDP
