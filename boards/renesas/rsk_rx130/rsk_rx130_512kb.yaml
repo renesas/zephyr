@@ -15,5 +15,6 @@ supported:
   - adc
   - spi
   - i2c
+  - watchdog
 ram: 48
 flash: 512
