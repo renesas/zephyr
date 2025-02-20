@@ -13,6 +13,8 @@
 #include "r_rspi_rx_if.h"
 #include "iodefine.h"
 #include <zephyr/drivers/misc/renesas_rx_dtc/renesas_rx_dtc.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(rx_rspi);
@@ -104,6 +106,8 @@ struct rx_rspi_data {
 
 struct rx_rspi_config {
 	const struct pinctrl_dev_config *pcfg;
+	const struct device *clock;
+	struct clock_control_rx_subsys_cfg clock_subsys;
 };
 
 static void spi_cb(void *p_args)
@@ -115,6 +119,10 @@ static void spi_cb(void *p_args)
 	case RSPI_EVT_TRANSFER_COMPLETE:
 		spi_context_cs_control(&data->ctx, false);
 		spi_context_complete(&data->ctx, dev, 0);
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
 		break;
 	case RSPI_EVT_TRANSFER_ABORTED:
 	case RSPI_EVT_ERR_MODE_FAULT:
@@ -124,6 +132,10 @@ static void spi_cb(void *p_args)
 	case RSPI_EVT_ERR_UNDEF:
 		spi_context_cs_control(&data->ctx, false);
 		spi_context_complete(&data->ctx, dev, -EIO);
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
 		break;
 	default:
 		break;
@@ -310,8 +322,10 @@ static int rx_rspi_configure(const struct device *dev, const struct spi_config *
 	default:
 		return -ENOTSUP;
 	}
+#ifdef CONFIG_SPI_RENESAS_RX_INTERRUPT
 	data->tcb.rx_data_tran_mode = RSPI_TRANS_MODE_SW;
 	data->tcb.tx_data_tran_mode = RSPI_TRANS_MODE_SW;
+#endif
 
 #ifdef CONFIG_SPI_RENESAS_RX_DTC
 	int ret = 0;
@@ -319,7 +333,7 @@ static int rx_rspi_configure(const struct device *dev, const struct spi_config *
 	if (data->is_rx_dtc) {
 		data->rx_dtc_info.p_src = (void *)(&data->preg->SPDR);
 		ret = dtc_renesas_rx_configuration(data->dtc, data->rx_dtc_activation_irq,
-					   &data->rx_dtc_info);
+						   &data->rx_dtc_info);
 		if (ret != 0) {
 			LOG_ERR("DTC SPI rx config error");
 			dtc_renesas_rx_stop_transfer(data->dtc, data->rx_dtc_activation_irq);
@@ -331,7 +345,7 @@ static int rx_rspi_configure(const struct device *dev, const struct spi_config *
 	if (data->is_tx_dtc) {
 		data->tx_dtc_info.p_dest = (void *)(&data->preg->SPDR);
 		ret = dtc_renesas_rx_configuration(data->dtc, data->tx_dtc_activation_irq,
-					   &data->tx_dtc_info);
+						   &data->tx_dtc_info);
 		if (ret != 0) {
 			LOG_ERR("DTC SPI tx config error");
 			dtc_renesas_rx_stop_transfer(data->dtc, data->tx_dtc_activation_irq);
@@ -495,7 +509,10 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 #endif
 
 	spi_context_lock(&data->ctx, asynchronous, cb, userdata, spi_cfg);
-
+#ifdef CONFIG_PM
+	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
 	ret = rx_rspi_configure(dev, spi_cfg);
 	if (ret) {
 		goto end;
@@ -686,6 +703,38 @@ static int rx_rspi_release(const struct device *dev, const struct spi_config *sp
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int rx_rspi_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct rx_rspi_config *config = dev->config;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		ret = clock_control_on(config->clock,
+				       (clock_control_subsys_t)&config->clock_subsys);
+		if (ret < 0) {
+			return ret;
+		}
+
+		break;
+
+	case PM_DEVICE_ACTION_SUSPEND:
+		ret = clock_control_off(config->clock,
+					(clock_control_subsys_t)&config->clock_subsys);
+		if (ret < 0) {
+			return ret;
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif
 
 static const struct spi_driver_api rx_spi_api = {
 	.transceive = rx_rspi_transceive,
@@ -1075,6 +1124,12 @@ error_callback:
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
 	static const struct rx_rspi_config rx_rspi_config_##n = {                                  \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.clock = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                    \
+		.clock_subsys =                                                                    \
+			{                                                                          \
+				.mstp = DT_INST_CLOCKS_CELL(n, mstp),                              \
+				.stop_bit = DT_INST_CLOCKS_CELL(n, stop_bit),                      \
+			},                                                                         \
 	};                                                                                         \
 	static struct rx_rspi_data rx_rspi_data_##n = {                                            \
 		SPI_CONTEXT_CS_GPIOS_INITIALIZE(DT_DRV_INST(n), ctx)                               \
@@ -1093,6 +1148,7 @@ error_callback:
 		RX_RSPI_IRQ_CONFIG_INIT(n);                                                        \
 		return 0;                                                                          \
 	}                                                                                          \
+	PM_DEVICE_DT_INST_DEFINE(n, rx_rspi_pm_action);                                            \
 	DEVICE_DT_INST_DEFINE(n, rspi_rx_init##n, PM_DEVICE_DT_INST_GET(n), &rx_rspi_data_##n,     \
 			      &rx_rspi_config_##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,          \
 			      &rx_spi_api);
