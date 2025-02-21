@@ -9,6 +9,8 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <errno.h>
 #include <iodefine.h>
 #include <r_riic_rx_if.h>
@@ -20,6 +22,8 @@ LOG_MODULE_REGISTER(i2c_renesas_rx, CONFIG_I2C_LOG_LEVEL);
 
 struct i2c_rx_config {
 	const struct pinctrl_dev_config *pcfg;
+	const struct device *clock;
+	struct clock_control_rx_subsys_cfg clock_subsys;
 	void (*irq_config_func)(const struct device *dev);
 	void (*riic_eei_sub)(void);
 	void (*riic_txi_sub)(void);
@@ -79,6 +83,10 @@ static inline void riic_stop_cond_generate(struct i2c_rx_data *data)
 	data->p_regs->ICIER.BIT.SPIE = 1;
 	data->p_regs->ICSR2.BIT.STOP = 0;
 	data->p_regs->ICCR2.BIT.SP = 1;
+#ifdef CONFIG_PM
+	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
 }
 
 static inline void riic_txi_trigger(struct i2c_rx_data *data)
@@ -190,7 +198,7 @@ static void riic_eei_isr(const struct device *dev)
 			data->rxi_dtc_info.length = 1;
 			data->rxi_dtc_info.p_dest = &dummy_dest;
 			dtc_renesas_rx_configuration(data->dtc, data->rxi_dtc_activation_irq,
-					     &data->rxi_dtc_info);
+						     &data->rxi_dtc_info);
 			dtc_renesas_rx_start_transfer(data->dtc, data->rxi_dtc_activation_irq);
 			data->p_regs->ICIER.BIT.RIE = 1;
 		}
@@ -201,7 +209,8 @@ static void riic_eei_isr(const struct device *dev)
 		data->txi_dtc_info.p_src = &first_byte;
 		data->txi_dtc_info.length = 1;
 
-		dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq, &data->txi_dtc_info);
+		dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq,
+					     &data->txi_dtc_info);
 		dtc_renesas_rx_start_transfer(data->dtc, data->txi_dtc_activation_irq);
 
 		riic_txi_trigger(data);
@@ -248,7 +257,8 @@ static void riic_rxi_isr(const struct device *dev)
 		data->rxi_dtc_info.p_dest = data->msgs[data->num_processed_msgs].buf;
 		data->rxi_dtc_info.length = data->msgs[data->num_processed_msgs].len;
 
-		dtc_renesas_rx_configuration(data->dtc, data->rxi_dtc_activation_irq, &data->rxi_dtc_info);
+		dtc_renesas_rx_configuration(data->dtc, data->rxi_dtc_activation_irq,
+					     &data->rxi_dtc_info);
 		dtc_renesas_rx_start_transfer(data->dtc, data->rxi_dtc_activation_irq);
 		return;
 	} else if (data->rxi_count == 1) {
@@ -301,7 +311,7 @@ static void riic_txi_isr(const struct device *dev)
 			}
 
 			dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq,
-					     &data->txi_dtc_info);
+						     &data->txi_dtc_info);
 			dtc_renesas_rx_start_transfer(data->dtc, data->txi_dtc_activation_irq);
 
 			riic_txi_trigger(data);
@@ -318,7 +328,7 @@ static void riic_txi_isr(const struct device *dev)
 						   data->msgs[data->num_processed_msgs].len - 1;
 
 			dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq,
-					     &data->txi_dtc_info);
+						     &data->txi_dtc_info);
 			dtc_renesas_rx_start_transfer(data->dtc, data->txi_dtc_activation_irq);
 
 			/** Enable transmit end interrupt */
@@ -385,7 +395,8 @@ static void riic_tei_isr(const struct device *dev)
 		}
 		data->txi_count = 1;
 		data->txi_dtc_info.p_src = data->msgs[data->num_processed_msgs].buf;
-		dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq, &data->txi_dtc_info);
+		dtc_renesas_rx_configuration(data->dtc, data->txi_dtc_activation_irq,
+					     &data->txi_dtc_info);
 		dtc_renesas_rx_start_transfer(data->dtc, data->txi_dtc_activation_irq);
 
 		riic_txi_trigger(data);
@@ -415,6 +426,10 @@ static int run_rx_transfer(const struct device *dev, struct i2c_msg *msgs, uint8
 	k_sem_reset(&data->bus_sync);
 
 #ifdef CONFIG_RENESAS_RX_I2C_DTC
+#ifdef CONFIG_PM
+	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
 	/** Wait for the bus become free */
 	while (data->p_regs->ICCR2.BIT.BBSY == 1) {
 	}
@@ -673,6 +688,38 @@ static int i2c_rx_recover_bus(const struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_DEVICE
+static int rx_i2c_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct i2c_rx_config *config = dev->config;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		ret = clock_control_on(config->clock,
+				       (clock_control_subsys_t)&config->clock_subsys);
+		if (ret < 0) {
+			return ret;
+		}
+
+		break;
+
+	case PM_DEVICE_ACTION_SUSPEND:
+		ret = clock_control_off(config->clock,
+					(clock_control_subsys_t)&config->clock_subsys);
+		if (ret < 0) {
+			return ret;
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif
+
 static const struct i2c_driver_api i2c_rx_driver_api = {
 	.configure = (i2c_api_configure_t)i2c_rx_configure,
 	.get_config = (i2c_api_get_config_t)i2c_rx_get_config,
@@ -748,6 +795,12 @@ static const struct i2c_driver_api i2c_rx_driver_api = {
                                                                                                    \
 	static const struct i2c_rx_config i2c_rx_config_##index = {                                \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                                     \
+		.clock = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(index)),                                \
+		.clock_subsys =                                                                    \
+			{                                                                          \
+				.mstp = DT_INST_CLOCKS_CELL(index, mstp),                          \
+				.stop_bit = DT_INST_CLOCKS_CELL(index, stop_bit),                  \
+			},                                                                         \
 		.irq_config_func = i2c_rx_irq_config_func##index,                                  \
 		.riic_eei_sub = riic##index##_eei_sub,                                             \
 		.riic_rxi_sub = riic##index##_rxi_sub,                                             \
@@ -765,8 +818,9 @@ static const struct i2c_driver_api i2c_rx_driver_api = {
 			},                                                                         \
 		DTC_DATA_STRUCT_INIT(index)};                                                      \
                                                                                                    \
-	I2C_DEVICE_DT_INST_DEFINE(index, i2c_rx_init, NULL, &i2c_rx_data_##index,                  \
-				  &i2c_rx_config_##index, POST_KERNEL, CONFIG_I2C_INIT_PRIORITY,   \
-				  &i2c_rx_driver_api);
+	PM_DEVICE_DT_INST_DEFINE(index, rx_i2c_pm_action);                                         \
+	I2C_DEVICE_DT_INST_DEFINE(index, i2c_rx_init, PM_DEVICE_DT_INST_GET(index),                \
+				  &i2c_rx_data_##index, &i2c_rx_config_##index, POST_KERNEL,       \
+				  CONFIG_I2C_INIT_PRIORITY, &i2c_rx_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RX_I2C_INIT)
