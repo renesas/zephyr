@@ -1,0 +1,6 @@
+common:
+  platform_exclude:
+    - rsk_rx130_512kb
+  tags:
+    - drivers
+    - dtc
