@@ -12,6 +12,7 @@ supported:
   - gpio
   - serial
   - timer
+  - adc
   - spi
   - i2c
 ram: 48
