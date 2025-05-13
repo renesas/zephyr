@@ -10,6 +10,7 @@ toolchain:
 supported:
   - gpio
   - serial
+  - spi
   - timer
   - i2c
 ram: 128

@@ -103,3 +103,9 @@
 	clock-frequency = <DT_FREQ_K(400)>;
 	status = "okay";
 };
+
+&rspi0 {
+	pinctrl-0 = <&rspi0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
