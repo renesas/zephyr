@@ -18,4 +18,13 @@
 				<RX_PSEL(RX_PSEL_P1nPFS_SCL, 1, 2)>; /* SCL P12*/
 		};
 	};
+
+	rspi0_default: rspi0_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_PAnPFS_RSPCKA, 10, 5)>,
+				<RX_PSEL(RX_PSEL_PAnPFS_MOSIA, 10, 6)>,
+				<RX_PSEL(RX_PSEL_PAnPFS_MISOA, 10, 7)>,
+				<RX_PSEL(RX_PSEL_PAnPFS_SSLA0, 10, 4)>;
+		};
+	};
 };
