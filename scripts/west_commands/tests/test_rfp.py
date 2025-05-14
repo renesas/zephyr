@@ -95,7 +95,7 @@ EXPECTED_COMMANDS_WITH_RFP_CLI = [
 
 
 def require_patch(program):
-    assert program in ['rfp']
+    assert program in ['rfp', 'rfp-cli', TEST_RFP_USR_LOCAL_RFP_CLI]
 
 
 os_path_isfile = os.path.isfile
