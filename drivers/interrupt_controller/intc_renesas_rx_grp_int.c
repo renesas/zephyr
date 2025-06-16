@@ -107,7 +107,7 @@ int rx_grp_intc_set_gen(const struct device *dev, int is_number, bool set)
 		*cfg->gen |= (1U << is_number);
 	} else {
 		/* DISABLE GROUP INTERRUPTS */
-		*cfg->gen &= ~(1U << is_number);
+		*cfg->gen = 0;
 	}
 
 	k_spin_unlock(&lock, key);

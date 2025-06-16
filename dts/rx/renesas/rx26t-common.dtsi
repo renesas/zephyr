@@ -506,6 +506,7 @@
 			dtc-enabled;
 			channel = <1>;
 			status = "disabled";
+
 			uart {
 				compatible = "renesas,rx-uart-sci";
 				status = "disabled";
@@ -525,6 +526,7 @@
 			dtc-enabled;
 			channel = <5>;
 			status = "disabled";
+
 			uart {
 				compatible = "renesas,rx-uart-sci";
 				status = "disabled";
@@ -544,6 +546,7 @@
 			dtc-enabled;
 			channel = <6>;
 			status = "disabled";
+
 			uart {
 				compatible = "renesas,rx-uart-sci";
 				status = "disabled";
@@ -563,6 +566,7 @@
 			dtc-enabled;
 			channel = <12>;
 			status = "disabled";
+
 			uart {
 				compatible = "renesas,rx-uart-sci";
 				status = "disabled";

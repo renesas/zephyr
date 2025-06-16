@@ -16,6 +16,10 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/policy.h>
 
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+#include <zephyr/drivers/interrupt_controller/intc_renesas_rx_grp_int.h>
+#endif /* CONFIG_TICKLESS_KERNEL */
+
 #include "r_sci_rx_if.h"
 #include "iodefine_sci.h"
 
@@ -39,6 +43,13 @@ LOG_MODULE_REGISTER(rx_uart_sci, CONFIG_UART_LOG_LEVEL);
 
 #define DEV_CFG(dev)  ((const struct uart_rx_sci_config *const)(dev)->config)
 #define DEV_BASE(dev) (DEV_CFG(dev)->regs)
+
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+#define _SCI_INT_TEI_SRC(chan) BSP_INT_SRC_BL0_SCI##chan##_TEI##chan
+#define SCI_INT_TEI_SRC(chan)  _SCI_INT_TEI_SRC(chan)
+#define _SCI_INT_ERI_SRC(chan) BSP_INT_SRC_BL0_SCI##chan##_ERI##chan
+#define SCI_INT_ERI_SRC(chan)  _SCI_INT_ERI_SRC(chan)
+#endif
 
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
 static void uart_rx_sci_txi_isr(const struct device *dev);
@@ -74,8 +85,21 @@ struct uart_rx_sci_data {
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
 	uint8_t rxi_irq;
 	uint8_t txi_irq;
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+	bsp_int_src_t tei_src;
+	bsp_int_src_t eri_src;
+	/*  Group interrupt controller for the transmit end interrupt (TEI) */
+	const struct device *tei_ctrl;
+	/*  Group interrupt number for the transmit end interrupt (TEI) */
+	uint8_t tei_num;
+	/*  Group interrupt controller for the error interrupt (ERI) */
+	const struct device *eri_ctrl;
+	/*  Group interrupt number for the error interrupt (ERI) */
+	uint8_t eri_num;
+#else
 	uint8_t tei_irq;
 	uint8_t eri_irq;
+#endif
 	uart_irq_callback_user_data_t user_cb;
 	void *user_cb_data;
 #endif
@@ -105,6 +129,161 @@ struct uart_rx_sci_data {
 #endif
 };
 
+#if defined(CONFIG_UART_ASYNC_API)
+static inline void async_user_callback(const struct device *dev, struct uart_event *event)
+{
+	struct uart_rx_sci_data *data = dev->data;
+
+	if (data->async_user_cb) {
+		data->async_user_cb(dev, event, data->async_user_cb_data);
+	}
+}
+#endif
+
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+
+void uart_rx_grp_int_tei_isr(bsp_int_cb_args_t *p_args)
+{
+	struct device *sci_dev = (struct device *)(p_args->p_context);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(sci_dev);
+
+	/* Disable SCI.SCR.TEIE */
+	sci->SCR.BIT.TEIE = 0;
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	struct uart_rx_sci_data *data = sci_dev->data;
+
+	if (data->user_cb != NULL) {
+
+		data->user_cb(sci_dev, data->user_cb_data);
+	}
+#endif
+
+#if defined(CONFIG_UART_ASYNC_API)
+	/* TODO */
+	if (data->dtc_enabled) {
+
+		k_work_cancel_delayable(&data->tx_timeout);
+		struct uart_event event = {
+			.type = UART_TX_DONE,
+			.data.tx.buf = (uint8_t *)data->tx_transfer_info.p_src,
+			.data.tx.len = data->tx_buf_cap,
+		};
+		async_user_callback(sci_dev, &event);
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
+	}
+#endif
+}
+
+void uart_rx_grp_int_eri_isr(bsp_int_cb_args_t *p_args)
+{
+	struct device *sci_dev = (struct device *)(p_args->p_context);
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	struct uart_rx_sci_data *data = sci_dev->data;
+
+	if (data->user_cb != NULL) {
+
+		data->user_cb(sci_dev, data->user_cb_data);
+	}
+#endif
+#if defined(CONFIG_UART_ASYNC_API)
+
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(sci_dev);
+	/* TODO */
+	if (data->dtc_enabled) {
+		uint8_t reason;
+
+		if (sci->SSR.BIT.ORER) {
+			reason = UART_ERROR_OVERRUN;
+		} else if (sci->SSR.BIT.PER) {
+			reason = UART_ERROR_PARITY;
+		} else if (sci->SSR.BIT.FER) {
+			reason = UART_ERROR_FRAMING;
+		} else {
+			reason = UART_ERROR_OVERRUN;
+		}
+
+		/* Clear error flags */
+		sci->SSR.BYTE &= ~(BIT(R_SCI_SSR_ORER_Pos) | BIT(R_SCI_SSR_PER_Pos) |
+				   BIT(R_SCI_SSR_FER_Pos));
+
+		k_work_cancel_delayable(&data->rx_timeout_work);
+		struct uart_event event = {
+			.type = UART_RX_STOPPED,
+			.data.rx_stop.reason = reason,
+			.data.rx_stop.data.buf = (uint8_t *)data->rx_buffer,
+			.data.rx_stop.data.offset = 0,
+			.data.rx_stop.data.len =
+				data->rx_buf_cap - data->rx_buf_len - data->rx_buf_offset,
+		};
+		async_user_callback(sci_dev, &event);
+	}
+#endif
+}
+
+static inline int uart_rx_sci_tei_grp_int(const struct device *dev, bool enable)
+{
+	struct uart_rx_sci_data *data = dev->data;
+	int err;
+
+	if (enable) {
+		err = rx_grp_intc_set_callback(data->tei_ctrl, (bsp_int_src_t)data->tei_src,
+					       (bsp_int_cb_t)uart_rx_grp_int_tei_isr, (void *)dev);
+		if (err != 0) {
+			LOG_ERR("Failed to set callback for group interrupt TEI: %d", err);
+			return err;
+		}
+	}
+
+	err = rx_grp_intc_set_gen(data->tei_ctrl, data->tei_num, enable);
+	if (err != 0) {
+		LOG_ERR("Failed to allow interrupt request for TEI: %d", err);
+		return err;
+	}
+
+	err = rx_grp_intc_set_grp_int(data->tei_ctrl, (bsp_int_src_t)data->tei_src, enable);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt for TEI: %d", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static inline int uart_rx_sci_eri_grp_int(const struct device *dev, bool enable)
+{
+	struct uart_rx_sci_data *data = dev->data;
+	int err;
+
+	if (enable) {
+		err = rx_grp_intc_set_callback(data->eri_ctrl, (bsp_int_src_t)data->eri_src,
+					       (bsp_int_cb_t)uart_rx_grp_int_eri_isr, (void *)dev);
+		if (err != 0) {
+			LOG_ERR("Failed to set callback for group interrupt ERI: %d", err);
+			return err;
+		}
+	}
+
+	err = rx_grp_intc_set_gen(data->eri_ctrl, data->eri_num, enable);
+	if (err != 0) {
+		LOG_ERR("Failed to allow interrupt request for ERI: %d", err);
+		return err;
+	}
+
+	err = rx_grp_intc_set_grp_int(data->eri_ctrl, (bsp_int_src_t)data->eri_src, enable);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt for ERI: %d", err);
+		return err;
+	}
+
+	return 0;
+}
+#endif
+
 static int uart_rx_sci_poll_in(const struct device *dev, unsigned char *c)
 {
 	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
@@ -129,8 +308,19 @@ static void uart_rx_sci_poll_out(const struct device *dev, unsigned char c)
 
 	while (sci->SSR.BIT.TEND == 0U) {
 	}
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+	struct uart_rx_sci_data *data = dev->data;
 
+	/* Disable ICU.GEN and SCI.SCR.TEIE */
+	rx_grp_intc_set_gen(data->tei_ctrl, data->tei_num, false);
+	sci->SCR.BIT.TEIE = 0;
+#endif
 	sci->TDR = c;
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+	/* Enable ICU.GEN and SCI.SCR.TEIE */
+	sci->SCR.BIT.TEIE = 1;
+	rx_grp_intc_set_gen(data->tei_ctrl, data->tei_num, true);
+#endif
 }
 
 static int uart_rx_err_check(const struct device *dev)
@@ -268,11 +458,23 @@ static int uart_rx_fifo_fill(const struct device *dev, const uint8_t *tx_data, i
 {
 	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 	uint8_t num_tx = 0U;
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+	struct uart_rx_sci_data *data = dev->data;
 
+	/* Disable ICU.GEN and SCI.SCR.TEIE*/
+	rx_grp_intc_set_gen(data->tei_ctrl, data->tei_num, false);
+	sci->SCR.BIT.TEIE = 0;
+#endif
 	if (size > 0 && sci->SSR.BIT.TDRE) {
 		/* Send a character (8bit , parity none) */
 		sci->TDR = tx_data[num_tx++];
 	}
+
+#if defined(CONFIG_RENESAS_RX_GRP_INTC)
+	/* Enable ICU.GEN and SCI.SCR.TEIE*/
+	sci->SCR.BIT.TEIE = 1;
+	rx_grp_intc_set_gen(data->tei_ctrl, data->tei_num, true);
+#endif
 
 	return num_tx;
 }
@@ -292,11 +494,20 @@ static int uart_rx_fifo_read(const struct device *dev, uint8_t *rx_data, const i
 
 static void uart_rx_irq_tx_enable(const struct device *dev)
 {
-	struct uart_rx_sci_data *data = dev->data;
 	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
-
 	sci->SCR.BYTE |= (BIT(R_SCI_SCR_TIE_Pos) | BIT(R_SCI_SCR_TEIE_Pos));
+
+#ifdef CONFIG_RENESAS_RX_GRP_INTC
+	/* Allows the interrupt request for the tei interrupt */
+	int err = uart_rx_sci_tei_grp_int(dev, true);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt TEI: %d", err);
+		return;
+	}
+#else
+	struct uart_rx_sci_data *data = dev->data;
 	irq_enable(data->tei_irq);
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 #ifdef CONFIG_PM_DEVICE
 	pm_device_busy_set(dev);
 #endif
@@ -304,11 +515,20 @@ static void uart_rx_irq_tx_enable(const struct device *dev)
 
 static void uart_rx_irq_tx_disable(const struct device *dev)
 {
-	struct uart_rx_sci_data *data = dev->data;
 	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 	sci->SCR.BYTE &= ~(BIT(R_SCI_SCR_TIE_Pos) | BIT(R_SCI_SCR_TEIE_Pos));
+#ifdef CONFIG_RENESAS_RX_GRP_INTC
+	/* Disable the interrupt request for the tei interrupt */
+	int err = uart_rx_sci_tei_grp_int(dev, false);
+	if (err != 0) {
+		LOG_ERR("Failed to disable group interrupt TEI: %d", err);
+		return;
+	}
+#else
+	struct uart_rx_sci_data *data = dev->data;
 	irq_disable(data->tei_irq);
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 #ifdef CONFIG_PM_DEVICE
 	pm_device_busy_clear(dev);
 #endif
@@ -334,6 +554,15 @@ static void uart_rx_irq_rx_enable(const struct device *dev)
 	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 	sci->SCR.BIT.RIE = 1U;
+
+#ifdef CONFIG_RENESAS_RX_GRP_INTC
+	/* Allows the interrupt request for the tei interrupt */
+	int err = uart_rx_sci_eri_grp_int(dev, true);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt ERI: %d", err);
+		return;
+	}
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 #ifdef CONFIG_PM_DEVICE
 	pm_device_busy_set(dev);
 #endif
@@ -358,16 +587,36 @@ static int uart_rx_irq_rx_ready(const struct device *dev)
 
 static void uart_rx_irq_err_enable(const struct device *dev)
 {
-	struct uart_rx_sci_data *data = dev->data;
 
+#ifndef CONFIG_RENESAS_RX_GRP_INTC
+	struct uart_rx_sci_data *data = dev->data;
 	irq_enable(data->eri_irq);
+#else
+	/* Allows the interrupt request for the eri interrupt */
+	int err = uart_rx_sci_eri_grp_int(dev, true);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt ERI: %d", err);
+		return;
+	}
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 }
 
 static void uart_rx_irq_err_disable(const struct device *dev)
 {
-	struct uart_rx_sci_data *data = dev->data;
 
+#ifndef CONFIG_RENESAS_RX_GRP_INTC
+	struct uart_rx_sci_data *data = dev->data;
 	irq_disable(data->eri_irq);
+
+#else
+	/* Allows the interrupt request for the eri interrupt */
+	int err = uart_rx_sci_eri_grp_int(dev, false);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt ERI: %d", err);
+		return;
+	}
+
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 }
 
 static int uart_rx_irq_is_pending(const struct device *dev)
@@ -405,7 +654,7 @@ static void uart_rx_irq_callback_set(const struct device *dev, uart_irq_callback
 
 static inline void disable_tx(const struct device *dev)
 {
-	volatile struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 	/* Transmit interrupts must be disabled to start with. */
 	sci->SCR.BYTE &= ~(BIT(R_SCI_SCR_TIE_Pos) | BIT(R_SCI_SCR_TEIE_Pos));
@@ -419,12 +668,21 @@ static inline void disable_tx(const struct device *dev)
 
 static inline void enable_tx(const struct device *dev)
 {
-	struct uart_rx_sci_data *data = dev->data;
-	volatile struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 	sci->SCR.BIT.TIE = 1;
 	sci->SCR.BIT.TE = 1;
+#ifdef CONFIG_RENESAS_RX_GRP_INTC
+	/* Allows the interrupt request for the tei interrupt */
+	int err = uart_rx_sci_tei_grp_int(dev, true);
+	if (err != 0) {
+		LOG_ERR("Failed to enable group interrupt TEI: %d", err);
+		return;
+	}
+#else
+	struct uart_rx_sci_data *data = dev->data;
 	irq_enable(data->tei_irq);
+#endif /* CONFIG_RENESAS_RX_GRP_INTC */
 }
 
 static int uart_rx_sci_async_callback_set(const struct device *dev, uart_callback_t cb,
@@ -447,7 +705,7 @@ static int uart_rx_sci_async_callback_set(const struct device *dev, uart_callbac
 static int configure_tx_transfer(const struct device *dev, const uint8_t *buf, size_t len)
 {
 	struct uart_rx_sci_data *data = dev->data;
-	volatile struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 	int err;
 	static uint8_t tx_dummy_buf = SCI_CFG_DUMMY_TX_BYTE;
 
@@ -487,7 +745,7 @@ static int configure_tx_transfer(const struct device *dev, const uint8_t *buf, s
 static int configure_rx_transfer(const struct device *dev, uint8_t *buf, size_t len)
 {
 	struct uart_rx_sci_data *data = dev->data;
-	volatile struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 	int err;
 	static uint8_t rx_dummy_buf;
 
@@ -557,15 +815,6 @@ end:
 	return err;
 }
 
-static inline void async_user_callback(const struct device *dev, struct uart_event *event)
-{
-	struct uart_rx_sci_data *data = dev->data;
-
-	if (data->async_user_cb) {
-		data->async_user_cb(dev, event, data->async_user_cb_data);
-	}
-}
-
 static inline void async_rx_release_buf(const struct device *dev)
 {
 	struct uart_rx_sci_data *data = dev->data;
@@ -610,7 +859,7 @@ static inline void async_rx_req_buf(const struct device *dev)
 
 static inline void async_rx_disable(const struct device *dev)
 {
-	volatile struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	volatile struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 	struct uart_event event = {
 		.type = UART_RX_DISABLED,
 	};
@@ -688,7 +937,7 @@ static int uart_rx_sci_async_rx_enable(const struct device *dev, uint8_t *buf, s
 				       int32_t timeout)
 {
 	struct uart_rx_sci_data *data = dev->data;
-	struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+	struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 	int err;
 	unsigned int key = irq_lock();
 
@@ -937,16 +1186,15 @@ static void uart_rx_sci_txi_isr(const struct device *dev)
 #endif
 #if defined(CONFIG_UART_ASYNC_API)
 	if (data->dtc_enabled) {
-		struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+		struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 		sci->SCR.BIT.TEIE = 1;
 		sci->SCR.BIT.TIE = 0;
 	}
 #endif
 }
-#endif
 
-#ifndef CONFIG_SOC_SERIES_RX26T
+#ifndef CONFIG_RENESAS_RX_GRP_INTC
 static void uart_rx_sci_tei_isr(const struct device *dev)
 {
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
@@ -959,7 +1207,7 @@ static void uart_rx_sci_tei_isr(const struct device *dev)
 #if defined(CONFIG_UART_ASYNC_API)
 	/* TODO */
 	if (data->dtc_enabled) {
-		struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+		struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 
 		sci->SCR.BIT.TEIE = 0;
 		k_work_cancel_delayable(&data->tx_timeout);
@@ -989,7 +1237,7 @@ static void uart_rx_sci_eri_isr(const struct device *dev)
 #if defined(CONFIG_UART_ASYNC_API)
 	/* TODO */
 	if (data->dtc_enabled) {
-		struct st_sci0 *sci = (struct st_sci0 *)DEV_BASE(dev);
+		struct st_sci *sci = (struct st_sci *)DEV_BASE(dev);
 		uint8_t reason;
 
 		if (sci->SSR.BIT.ORER) {
@@ -1020,17 +1268,10 @@ static void uart_rx_sci_eri_isr(const struct device *dev)
 #endif
 }
 #endif
-
-#if defined(CONFIG_SOC_SERIES_RX26T)
-#define UART_RX_SCI_CONFIG_INIT(index)
-#else
-#define UART_RX_SCI_CONFIG_INIT(index)                                                             \
-	.tei_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), tei, irq),                                \
-	.eri_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), eri, irq),
 #endif
 
 #if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API
-#ifndef CONFIG_SOC_SERIES_RX26T
+#ifndef CONFIG_RENESAS_RX_GRP_INTC
 #define UART_RX_SCI_IRQ_INIT(index)                                                                \
 	do {                                                                                       \
 		IRQ_CONNECT(DT_IRQ_BY_NAME(DT_INST_PARENT(index), rxi, irq),                       \
@@ -1062,6 +1303,8 @@ static void uart_rx_sci_eri_isr(const struct device *dev)
 		irq_enable(DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, irq));                       \
 	} while (0)
 #endif
+#else
+#define UART_RX_SCI_IRQ_INIT(index)
 #endif
 
 #if defined(CONFIG_UART_ASYNC_API)
@@ -1097,6 +1340,20 @@ static void uart_rx_sci_eri_isr(const struct device *dev)
 	},
 #else
 #define UART_RX_SCI_ASYNC_INIT(index)
+#endif
+
+#ifdef CONFIG_RENESAS_RX_GRP_INTC
+#define UART_RX_SCI_CONFIG_INIT(index)                                                             \
+	.tei_src = SCI_INT_TEI_SRC(DT_PROP(DT_INST_PARENT(index), channel)),                       \
+	.eri_src = SCI_INT_ERI_SRC(DT_PROP(DT_INST_PARENT(index), channel)),                       \
+	.tei_ctrl = DEVICE_DT_GET(DT_PHANDLE(DT_INST_PARENT(index), tei_ctrl)),                    \
+	.tei_num = DT_PROP(DT_INST_PARENT(index), tei_number),                                     \
+	.eri_ctrl = DEVICE_DT_GET(DT_PHANDLE(DT_INST_PARENT(index), eri_ctrl)),                    \
+	.eri_num = DT_PROP(DT_INST_PARENT(index), eri_number),
+#else
+#define UART_RX_SCI_CONFIG_INIT(index)                                                             \
+	.tei_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), tei, irq),                                \
+	.eri_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), eri, irq),
 #endif
 
 #define UART_RX_INIT(index)                                                                        \
