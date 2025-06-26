@@ -11,6 +11,7 @@ supported:
   - gpio
   - serial
   - timer
+  - i2c
 ram: 128
 flash: 512
 testing:
