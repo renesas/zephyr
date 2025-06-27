@@ -14,6 +14,7 @@ supported:
   - timer
   - i2c
   - adc
+  - watchdog
 ram: 128
 flash: 512
 testing:
