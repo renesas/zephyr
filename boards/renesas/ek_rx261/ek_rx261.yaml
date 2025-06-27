@@ -13,6 +13,7 @@ supported:
   - spi
   - timer
   - i2c
+  - adc
 ram: 128
 flash: 512
 testing:
