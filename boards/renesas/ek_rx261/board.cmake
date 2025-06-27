@@ -5,5 +5,5 @@
 board_runner_args(jlink "--device=R5F52618" "--iface=FINE" "--speed=1000" "--tool-opt=-jtagconf -1,-1 -autoconnect 1" )
 board_runner_args(rfp "--device=RX200" "--tool=e2l" "--interface=fine" "--erase")
 
-include(${ZEPHYR_BASE}/boards/common/jlink.board.cmake)
 include(${ZEPHYR_BASE}/boards/common/rfp.board.cmake)
+include(${ZEPHYR_BASE}/boards/common/jlink.board.cmake)
