@@ -9,6 +9,7 @@
 #include <renesas/r5f52618bgfp.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include "ek_rx261-pinctrl.dtsi"
+#include <zephyr/dt-bindings/adc/adc.h>
 
 / {
 	model = "Renesas EK-RX261 KIT";
@@ -122,4 +123,10 @@
 			reg = <0X0 DT_SIZE_K(8)>;
 		};
 	};
+};
+
+&adc {
+	pinctrl-0 = <&adc_default>;
+	pinctrl-names = "default";
+	status = "okay";
 };
