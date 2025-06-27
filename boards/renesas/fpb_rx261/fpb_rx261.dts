@@ -40,6 +40,8 @@
 	aliases {
 		led0 = &led1;
 		led1 = &led2;
+
+		watchdog0 = &iwdt;
 	};
 };
 
@@ -62,6 +64,10 @@
 
 &uclk {
 	clocks = <&hoco>;
+};
+
+&iwdtlsclk {
+	status = "okay";
 };
 
 &ioport3 {
@@ -116,5 +122,11 @@
 &adc {
 	pinctrl-0 = <&adc_default>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&iwdt {
+	window-start = <0x3000>;
+	window-end = <0x0300>;
 	status = "okay";
 };
