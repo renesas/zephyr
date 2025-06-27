@@ -20,7 +20,6 @@ LOG_MODULE_REGISTER(adc_rx, CONFIG_ADC_LOG_LEVEL);
 #include "adc_context.h"
 
 #define ADC_RX_MAX_RESOLUTION  12
-#define CHANNELS_OVER_8_OFFSET 8
 #define RENESAS_RX_NO_FUNC     ((void (*)(void *))0x10000000) /* Reserved space on RX */
 
 typedef struct {
@@ -83,14 +82,25 @@ static void adc_rx_scanend_isr(const struct device *dev)
 	}
 }
 
+static uint8_t channel_is_available(uint8_t channel_id)
+{
+#if CONFIG_SOC_SERIES_RX130
+	return ((channel_id <= 7) || (channel_id >= 16 && channel_id <= 33));
+#elif CONFIG_SOC_SERIES_RX261
+	return ((channel_id <= 8) || (channel_id >= 16 && channel_id <= 33));
+#else
+	LOG_ERR("ADC driver has not been supported on this SoC");
+	return 0;
+#endif
+}
+
 static int adc_rx_channel_setup(const struct device *dev, const struct adc_channel_cfg *channel_cfg)
 {
 	adc_err_t err;
 	struct adc_rx_data *data = dev->data;
 
-	if (!((channel_cfg->channel_id <= 7) ||
-	      (channel_cfg->channel_id >= 16 && channel_cfg->channel_id <= 31))) {
-		LOG_ERR("Channel id '%d' is not supported", channel_cfg->channel_id);
+	if (!channel_is_available(channel_cfg->channel_id)) {
+		LOG_ERR("Channel id '%d' is not supported on this device", channel_cfg->channel_id);
 		return -ENOTSUP;
 	}
 
@@ -112,22 +122,18 @@ static int adc_rx_channel_setup(const struct device *dev, const struct adc_chann
 	switch (channel_cfg->reference) {
 	case ADC_REF_INTERNAL:
 		data->p_regs->ADHVREFCNT.BIT.HVSEL = 0;
+		data->p_regs->ADHVREFCNT.BIT.LVSEL = 0;
 		break;
 	case ADC_REF_EXTERNAL0:
 		data->p_regs->ADHVREFCNT.BIT.HVSEL = 1;
+		data->p_regs->ADHVREFCNT.BIT.LVSEL = 1;
 		break;
 	default:
 		LOG_ERR("Invalid reference. (valid: INTERNAL, EXTERNAL0)");
 		return -EINVAL;
 	}
 
-	if (channel_cfg->channel_id < 8) {
-		data->configured_channels |= (1U << channel_cfg->channel_id);
-	} else {
-		data->configured_channels |=
-			(1U << (channel_cfg->channel_id - CHANNELS_OVER_8_OFFSET));
-	}
-
+	data->configured_channels |= (1U << channel_cfg->channel_id);
 	data->adc_chnl_cfg.chan_mask |= (1U << channel_cfg->channel_id);
 	data->adc_chnl_cfg.add_mask |= (1U << channel_cfg->channel_id);
 	err = R_ADC_Control(data->unit_id, ADC_CMD_ENABLE_CHANS, (void *)&data->adc_chnl_cfg);
@@ -361,7 +367,7 @@ static int adc_rx_init(const struct device *dev)
 		.channel_setup = adc_rx_channel_setup,                                             \
 		.read = adc_rx_read,                                                               \
 		.ref_internal = DT_INST_PROP(idx, vref_mv),                                        \
-		ASSIGN_READ_ASYNC,                                                                 \
+		ASSIGN_READ_ASYNC                                                                 \
 	};                                                                                         \
                                                                                                    \
 	static const struct adc_rx_config adc_rx_config_##idx = {                                  \
