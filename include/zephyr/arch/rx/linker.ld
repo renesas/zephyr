@@ -273,7 +273,6 @@ SECTIONS
 	} GROUP_LINK_IN(RAMABLE_REGION)
 
 #include <zephyr/linker/common-noinit.ld>
-	_ebss = . ;
 
 	_image_ram_end = .;
 	_end = .;
