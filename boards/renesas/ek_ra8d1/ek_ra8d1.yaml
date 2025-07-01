@@ -17,4 +17,5 @@ supported:
   - i2s
   - i3c
   - crc
+  - video
 vendor: renesas
