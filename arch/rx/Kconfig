@@ -35,6 +35,11 @@ config CPU_RXV3
 	help
 	  Set if the processor supports the Renesas RXv3 instruction set.
 
+config CPU_RXV3E
+	bool
+	help
+	  Set if the processor supports the Renesas RXv3e instruction set.
+
 config XIP
 	default y
 
