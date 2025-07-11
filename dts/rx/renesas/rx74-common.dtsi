@@ -53,6 +53,176 @@
 		compatible = "simple-bus";
 		interrupt-parent = <&icu>;
 
+		ioport0: gpio@87c00000 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00000 0x20>;
+			port = <0>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport1: gpio@87c00020 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00020 0x20>;
+			port = <1>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport2: gpio@87c00040 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00040 0x20>;
+			port = <2>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport3: gpio@87c00060 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00060 0x20>;
+			port = <3>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport4: gpio@87c00080 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00080 0x20>;
+			port = <4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport5: gpio@87c000a0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C000A0 0x20>;
+			port = <5>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport6: gpio@87c000c0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C000C0 0x20>;
+			port = <6>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport7: gpio@87c000e0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C000E0 0x20>;
+			port = <7>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport8: gpio@87c00100 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00100 0x20>;
+			port = <8>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioport9: gpio@87c00120 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00120 0x20>;
+			port = <9>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioporta: gpio@87c00140 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00140 0x20>;
+			port = <10>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioportb: gpio@87c00160 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00160 0x20>;
+			port = <11>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioportc: gpio@87c00180 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00180 0x20>;
+			port = <12>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioportd: gpio@87c001a0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C001A0 0x20>;
+			port = <13>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioporte: gpio@87c001c0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C001C0 0x20>;
+			port = <14>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioportf: gpio@87c001e0 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C001E0 0x20>;
+			port = <15>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
+		ioportg: gpio@87c00200 {
+			compatible = "renesas,rx-gpio-ioport";
+			reg = <0x87C00200 0x20>;
+			port = <16>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <16>;
+			status = "disabled";
+		};
+
 		sci0: sci0@87458000 {
 			compatible = "renesas,rx-sci";
 			reg = <0x87458000 0x100>;

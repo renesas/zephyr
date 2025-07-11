@@ -82,3 +82,11 @@
 		status = "okay";
 	};
 };
+
+&ioport0 {
+	status = "okay";
+};
+
+&ioport1 {
+	status = "okay";
+};
