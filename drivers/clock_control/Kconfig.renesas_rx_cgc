@@ -12,6 +12,7 @@ if CLOCK_CONTROL_RENESAS_RX_CGC
 
 config CLOCK_CONTROL_RENESAS_RX_ROOT
 	bool "Renesas RX root clock source"
+	depends on DT_HAS_RENESAS_RX_CGC_ROOT_CLOCK_ENABLED
 	default y
 	help
 	  Enable Renesas RX root clock
@@ -23,9 +24,10 @@ config CLOCK_CONTROL_RENESAS_RX_PLL
 	  Enable Renesas RX PLL
 
 config CLOCK_CONTROL_RENESAS_RX_PCLK
-	bool "Renesas RX root clock source"
+	bool "Renesas RX PCLK clock source"
+	depends on DT_HAS_RENESAS_RX_CGC_PCLK_ENABLED
 	default y
 	help
-	  Enable Renesas RX PCLK
+	  Enable Renesas RX PCLK clock source.
 
 endif
