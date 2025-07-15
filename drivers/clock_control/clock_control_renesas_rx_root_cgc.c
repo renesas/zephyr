@@ -37,6 +37,16 @@ static int clock_control_renesas_rx_root_get_rate(const struct device *dev,
 	return 0;
 }
 
+static int clock_control_rx_init(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+
+	/* Initialize the system clock and peripheral clock */
+	bsp_clock_init();
+
+	return 0;
+}
+
 static DEVICE_API(clock_control, clock_control_renesas_rx_root_api) = {
 	.on = clock_control_renesas_rx_root_on,
 	.off = clock_control_renesas_rx_root_off,

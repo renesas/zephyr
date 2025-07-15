@@ -83,7 +83,7 @@ static DEVICE_API(clock_control, clock_control_renesas_rx_api) = {
 };
 
 #define RENESAS_RX_CLOCK_SOURCE(node_id)                                                           \
-	COND_CODE_1(DT_NODE_HAS_PROP(node_id, clocks), (DEVICE_DT_GET(DT_CLOCKS_CTLR(node_id))),   \
+	COND_CODE_1(DT_NODE_HAS_PROP(DT_DRV_INST(node_id), clocks), (DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_DRV_INST(node_id)))),   \
 		DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(node_id))))
 
 #define INIT_PCLK(node_id)                                                                         \
