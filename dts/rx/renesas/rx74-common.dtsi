@@ -224,13 +224,170 @@
 		};
 
 		sci0: sci0@87458000 {
-			compatible = "renesas,rx-sci";
+			compatible = "renesas,rx-sci-b";
 			reg = <0x87458000 0x100>;
+			clocks = <&sciclk MSTPB 31>;
 			status = "disabled";
 			channel = <0>;
 
 			uart {
-				compatible = "renesas,rx-uart-sci-qemu";
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci1: sci1@87458100 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458100 0x100>;
+			clocks = <&sciclk MSTPB 30>;
+			status = "disabled";
+			channel = <1>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci2: sci2@87458200 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458200 0x100>;
+			clocks = <&sciclk MSTPB 29>;
+			status = "disabled";
+			channel = <2>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci3: sci3@87458300 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458300 0x100>;
+			clocks = <&sciclk MSTPB 28>;
+			status = "disabled";
+			channel = <3>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci4: sci4@87458400 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458400 0x100>;
+			clocks = <&sciclk MSTPB 27>;
+			status = "disabled";
+			channel = <4>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci5: sci5@87458500 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458500 0x100>;
+			clocks = <&sciclk MSTPB 26>;
+			status = "disabled";
+			channel = <5>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci6: sci6@87458600 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458600 0x100>;
+			clocks = <&sciclk MSTPB 25>;
+			status = "disabled";
+			channel = <6>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci7: sci7@87458700 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458700 0x100>;
+			clocks = <&sciclk MSTPB 24>;
+			status = "disabled";
+			channel = <7>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci8: sci8@87458800 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458800 0x100>;
+			clocks = <&sciclk MSTPB 23>;
+			status = "disabled";
+			channel = <8>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci9: sci9@87458900 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458900 0x100>;
+			clocks = <&sciclk MSTPB 22>;
+			status = "disabled";
+			channel = <9>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci10: sci10@87458a00 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458a00 0x100>;
+			clocks = <&sciclk MSTPB 21>;
+			status = "disabled";
+			channel = <10>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci11: sci11@87458b00 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458b00 0x100>;
+			clocks = <&sciclk MSTPB 20>;
+			status = "disabled";
+			channel = <11>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+		};
+
+		sci12: uart12@87458c00 {
+			compatible = "renesas,rx-sci-b";
+			reg = <0x87458c00 0x100>;
+			clocks = <&sciclk MSTPB 0>;
+			status = "disabled";
+			channel = <12>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
 		};

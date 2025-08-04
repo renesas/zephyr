@@ -17,8 +17,8 @@
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &mram0;
-		zephyr,console = &uart0;
-		zephyr,shell-uart = &uart0;
+		zephyr,console = &uart12;
+		zephyr,shell-uart = &uart12;
 	};
 
 	leds {
@@ -67,26 +67,35 @@
 	};
 };
 
+&sciclk {
+	clocks = <&pllp>;
+	status = "okay";
+};
+
 &cmt {
 	clock-frequency = <9375000>;
 	status = "okay";
 };
 
-&sci0 {
-	pinctrl-0 = <&sci0_default>;
+&sci12 {
+	pinctrl-0 = <&sci12_default>;
 	pinctrl-names = "default";
 	status = "okay";
 
-	uart0: uart {
+	uart12: uart {
 		current-speed = <115200>;
 		status = "okay";
 	};
 };
 
-&ioport0 {
+&ioport6 {
 	status = "okay";
 };
 
-&ioport1 {
+&ioport8 {
+	status = "okay";
+};
+
+&ioportf {
 	status = "okay";
 };
