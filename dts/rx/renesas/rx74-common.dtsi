@@ -1,0 +1,115 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <mem.h>
+#include <zephyr/dt-bindings/clock/rx_clock.h>
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-rx.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			compatible = "renesas,rxv3e";
+			device_type = "cpu";
+			reg = <0>;
+			status = "okay";
+		};
+	};
+
+	icu: interrupt-controller@87006000 {
+		#interrupt-cells = <2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "renesas,rx-icum";
+		interrupt-controller;
+		reg = <0x87006000 0x100>,
+		      <0x87006200 0x20>,
+		      <0x87006300 0x100>,
+		      <0x870062f0 0x02>,
+		      <0x87006c20 0x20>;
+		reg-names = "IR", "IER", "IPR", "FIR", "IRQCR";
+
+		swint1: swint1@870062e0 {
+			compatible = "renesas,rx-swint";
+			reg = <0x870062e0 0x01>;
+			interrupts = <27 14>;
+			interrupt-parent = <&icu>;
+			status = "okay";
+		};
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		device_type = "soc";
+		compatible = "simple-bus";
+		interrupt-parent = <&icu>;
+
+		sci0: sci0@87458000 {
+			compatible = "renesas,rx-sci";
+			reg = <0x87458000 0x100>;
+			status = "disabled";
+			channel = <0>;
+
+			uart {
+				compatible = "renesas,rx-uart-sci-qemu";
+				status = "disabled";
+			};
+		};
+
+		cmt: timer@87826000 {
+			compatible = "renesas,rx-timer-cmt-start-control";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x87826000 0x02>;
+			clocks = <&pclkb MSTPF 15>;
+			reg-names = "CMSTR0";
+			status = "okay";
+
+			cmt0: timer@87826002 {
+				compatible = "renesas,rx-timer-cmt";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				reg = <0x87826002 0x02>,
+				      <0x87826004 0x02>,
+				      <0x87826006 0x02>;
+				reg-names = "CMCR", "CMCNT", "CMCOR";
+				interrupts = <28 1>;
+				interrupt-names = "cmi";
+				status = "okay";
+			};
+
+			cmt1: timer@87826008 {
+				compatible = "renesas,rx-timer-cmt";
+				reg = <0x87826008 0x02>,
+				      <0x8782600A 0x02>,
+				      <0x8782600C 0x02>;
+				reg-names = "CMCR", "CMCNT", "CMCOR";
+				interrupts = <29 1>;
+				interrupt-names = "cmi";
+				status = "disabled";
+			};
+		};
+
+		pinctrl: pin-controller@87c00000 {
+			compatible = "renesas,rx-pinctrl";
+			reg = <0x87C00000 0x3c0>;
+			status = "okay";
+		};
+
+		ofsm: ofsm@ffffff80 {
+			compatible = "zephyr,memory-region";
+			reg = <0xFFFFFF80 0x0F>;
+			zephyr,memory-region = "OFSM";
+			status = "okay";
+		};
+	};
+};
