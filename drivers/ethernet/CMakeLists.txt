@@ -24,6 +24,11 @@ if(CONFIG_ETH_NATIVE_TAP)
   target_sources(native_simulator INTERFACE eth_native_tap_adapt.c)
 endif()
 
+if(CONFIG_ETH_RENESAS_RX_RMAC)
+  zephyr_library_sources(eth_renesas_rx_rmac.c)
+  zephyr_library_sources(eth_renesas_rx_eswm.c)
+endif()
+
 add_subdirectory(dsa)
 add_subdirectory(phy)
 add_subdirectory(eth_nxp_enet_qos)

@@ -529,4 +529,14 @@ config USE_RX_FSP_SCI_B_UART
 	help
 	  Enable RX FSP SCI-B UART driver
 
+config USE_RX_FSP_RMAC
+	bool
+	help
+	  Enable RX FSP RMAC driver
+
+config USE_RX_FSP_RMAC_PHY
+	bool
+	help
+	  Enable RX FSP RMAC PHY driver
+
 endif # HAS_RENESAS_RX_FSP
