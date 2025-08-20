@@ -346,5 +346,26 @@
 				reg = <0xfff00000 0x100000>;
 			};
 		};
+
+		usbhs: usbhs@87451000 {
+			compatible = "renesas,rx-usbhs";
+			reg = <0x87451000 0x200>;
+			interrupts = <94 12>;
+			interrupt-names = "usbhsr";
+			num-bidir-endpoints = <10>;
+			phys = <&usbhs_phy>;
+			phys-clock = <&uclk>, <&usb60clk>;
+			status = "disabled";
+
+			udc {
+				compatible = "renesas,rx-udc";
+				status = "disabled";
+			};
+		};
+	};
+
+	usbhs_phy: usbhs-phy {
+		compatible = "renesas,rx-usbphyc";
+		#phy-cells = <0>;
 	};
 };
