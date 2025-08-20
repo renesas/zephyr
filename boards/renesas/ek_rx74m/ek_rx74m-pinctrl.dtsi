@@ -48,5 +48,12 @@
 			        <RX_PSEL(RX_PSEL_CLKOUT, 3, 4)>; /* P304 as ETHPHYCLK. */
 		};
 	};
+
+	usbhs_default: usbhs_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_USBHS, 2, 4)>; /* VBUS-DS */
+			drive-strength = "high";
+		};
+	};
 };
 

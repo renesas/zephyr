@@ -89,6 +89,24 @@
 		freq = <DT_FREQ_M(500)>;
 		status = "okay";
 	};
+
+	pllq: pllq {
+		div = <5>;
+		freq = <DT_FREQ_M(240)>;
+		status = "okay";
+	};
+};
+
+&uclk {
+	clocks = <&pllq>;
+	div = <5>;
+	status = "okay";
+};
+
+&usb60clk {
+	clocks = <&pllp>;
+	div = <10>;
+	status = "okay";
 };
 
 &sciclk {
@@ -181,4 +199,19 @@
 		microchip,rgmii-tx-clk-delay = <0x4>;
 		microchip,rgmii-rx-clk-delay = <0x4>;
 	};
+};
+
+&usbhs {
+	pinctrl-0 = <&usbhs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "high-speed";
+	status = "okay";
+
+	zephyr_udc0: udc {
+		status = "okay";
+	};
+};
+
+&usbhs_phy {
+	phys-clock-src = "xtal";
 };
