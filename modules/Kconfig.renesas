@@ -539,4 +539,9 @@ config USE_RX_FSP_RMAC_PHY
 	help
 	  Enable RX FSP RMAC PHY driver
 
+config USE_RX_FSP_USB_DEVICE
+	bool
+	help
+	  Enable RX FPS USB DEVICE driver
+
 endif # HAS_RENESAS_RX_FSP

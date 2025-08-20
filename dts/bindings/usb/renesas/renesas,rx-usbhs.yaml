@@ -1,0 +1,35 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX USB high-speed controller
+
+compatible: "renesas,rx-usbhs"
+
+include: [pinctrl-device.yaml, usb-ep.yaml]
+
+properties:
+  phys-clock:
+    type: phandles
+    description: |
+      USBHS physical clocks.
+      Should be provided in case internal clock source is set in phys node.
+
+  interrupts:
+    required: true
+    description: |
+      IRQ number and priority to use for USBHS.
+
+  interrupt-names:
+    required: true
+    enum:
+      - "usbhsr"
+    description: |
+      Interrupts must be given corresponding names
+      so that the shim driver can recognize them.
+
+  reg:
+    required: true
+
+  phys:
+    type: phandle
+    description: PHY provider specifier
