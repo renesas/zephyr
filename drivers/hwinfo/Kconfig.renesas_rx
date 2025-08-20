@@ -1,0 +1,10 @@
+# Copyright The Zephyr Project Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+config HWINFO_RENESAS_RX
+	bool "Renesas RX device ID"
+	default y
+	depends on SOC_FAMILY_RENESAS_RX
+	select HWINFO_HAS_DRIVER
+	help
+	  Enable RENESAS RX hwinfo driver
