@@ -31,7 +31,8 @@
 #define RX_PSEL_ETH_RMAC_GMII_MII 0x20
 #define RX_PSEL_ETH_RMAC_RMII     0x21
 #define RX_PSEL_ETH_RMAC_RGMII    0x22
-#define RX_PSEL_USBHS        0x14
+#define RX_PSEL_USBFS             0x13
+#define RX_PSEL_USBHS             0x14
 
 #define RX_PSEL_POS  11
 #define RX_PSEL_MASK 0x7f

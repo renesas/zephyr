@@ -55,5 +55,14 @@
 			drive-strength = "high";
 		};
 	};
+
+	usbfs_default: usbfs_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_USBFS, 0x1, 1)>, /* VBUS */
+				<RX_PSEL(RX_PSEL_USBFS, 0xF, 0)>, /* D+ */
+				<RX_PSEL(RX_PSEL_USBFS, 0xF, 1)>; /* D- */
+			drive-strength = "high";
+		};
+	};
 };
 

@@ -73,6 +73,12 @@
 		freq = <DT_FREQ_M(300)>;
 		status = "okay";
 	};
+
+	pllr: pllr {
+		div = <5>;
+		freq = <DT_FREQ_M(240)>;
+		status = "okay";
+	};
 };
 
 &pll2 {
@@ -89,23 +95,17 @@
 		freq = <DT_FREQ_M(500)>;
 		status = "okay";
 	};
-
-	pllq: pllq {
-		div = <5>;
-		freq = <DT_FREQ_M(240)>;
-		status = "okay";
-	};
 };
 
 &uclk {
-	clocks = <&pllq>;
+	clocks = <&pllr>;
 	div = <5>;
 	status = "okay";
 };
 
 &usb60clk {
-	clocks = <&pllp>;
-	div = <10>;
+	clocks = <&pllr>;
+	div = <4>;
 	status = "okay";
 };
 
@@ -210,6 +210,12 @@
 	zephyr_udc0: udc {
 		status = "okay";
 	};
+};
+
+&usbfs {
+	pinctrl-0 = <&usbfs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "full-speed";
 };
 
 &usbhs_phy {
