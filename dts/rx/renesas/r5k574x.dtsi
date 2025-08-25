@@ -362,10 +362,31 @@
 				status = "disabled";
 			};
 		};
+
+		usbfs: usbfs@87850000 {
+			compatible = "renesas,rx-usbfs";
+			reg = <0x87850000 0x1000>;
+			interrupts = <128 12>, <90 12>;
+			interrupt-names = "usbi", "usbr";
+			num-bidir-endpoints = <10>;
+			phys = <&usbfs_phy>;
+			phys-clock = <&uclk>;
+			status = "disabled";
+
+			udc {
+				compatible = "renesas,rx-udc";
+				status = "disabled";
+			};
+		};
 	};
 
 	usbhs_phy: usbhs-phy {
 		compatible = "renesas,rx-usbphyc";
+		#phy-cells = <0>;
+	};
+
+	usbfs_phy: usbfs-phy {
+		compatible = "usb-nop-xceiv";
 		#phy-cells = <0>;
 	};
 };
