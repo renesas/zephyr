@@ -42,6 +42,12 @@ config CPU_RXV3E
 	help
 	  Set if the processor supports the Renesas RXv3e instruction set.
 
+config DFPU
+	bool "Enable MFPU"
+	depends on CPU_HAS_FPU_DOUBLE_PRECISION
+	help
+	 Enable the Double-precision floating point coprocessor feature.
+
 config XIP
 	default y
 

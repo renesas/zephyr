@@ -14,4 +14,10 @@ config SYS_CLOCK_TICKS_PER_SEC
 config INITIALIZATION_STACK_SIZE
 	default 512
 
+config FPU
+	default y if CPU_HAS_FPU
+
+config DFPU
+	default y if CPU_HAS_FPU_DOUBLE_PRECISION
+
 endif # SOC_SERIES_RX74M

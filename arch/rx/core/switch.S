@@ -8,6 +8,59 @@
 #include <zephyr/linker/sections.h>
 #include <offsets_short.h>
 
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+	/* number of bytes to move
+	*	DPSW (4 byte) + DCMR (4 byte) + DECNT (4 byte)
+	*	+ Double-Precision Floating-Point Data Registers 64bit (4byte * 32)
+	*	+ Two accumulator 72bit (4byte * 6)
+	*	+ FPSW (4 byte)
+	*	+ 15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	#define BYTE_TO_MOVE	236
+#elif (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	/* number of bytes to move
+	*	Two accumulator 72bit (4byte * 6)
+	*	+ FPSW (4 byte)
+	*	+ 15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	#define BYTE_TO_MOVE	96
+#else
+	/* number of bytes to move
+	*	Two accumulator 72bit (4byte * 6)
+	*	+ 15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	#define BYTE_TO_MOVE	92
+#endif
+#elif defined(CONFIG_CPU_RXV1)
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	/* number of bytes to move
+	*	Accumulator 64bit (4byte * 2)
+	*	+ FPSW (4 byte)
+	*	+ 15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	#define BYTE_TO_MOVE	80
+#else
+	/* number of bytes to move
+	*	Accumulator 64bit (4byte * 2)
+	*	+ 15*4 byte for 15 general registers
+	*	+ PSW (4 byte)
+	*	+ PC (4 byte)
+	*/
+	#define BYTE_TO_MOVE	76
+#endif
+#else
+	#error Unknown RX architecture
+#endif
+
 GTEXT(_z_rx_arch_switch)
 GTEXT(_switch_isr_wrapper)
 
@@ -58,13 +111,46 @@ _z_rx_arch_switch:
 _switch_isr_wrapper:
 	pushm r1-r15
 
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	/* Save the FPSW. */
+	mvfc		fpsw, r15
+	push.l		r15
+#endif
+	/* Save the accumulator. */
+	mvfacgu	#0, a1, r15	/* Accumulator guard 32 bits. */
+	push.l		r15
+	mvfachi	#0, a1, r15	/* Accumulator high 32 bits. */
+	push.l		r15
+	mvfaclo	#0, a1, r15	/* Accumulator low 32 bits. */
+	push.l		r15
+
+	mvfacgu	#0, a0, r15	/* Accumulator guard 32 bits. */
+	push.l		r15
+	mvfachi	#0, a0, r15	/* Accumulator high 32 bits. */
+	push.l		r15
+	mvfaclo	#0, a0, r15	/* Accumulator low 32 bits. */
+	push.l		r15
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+	/* Save the DPFPU context, always. */
+	dpushm.d	dr0-dr15
+	dpushm.l	dpsw-decnt
+#endif
+
+#elif defined(CONFIG_CPU_RXV1)
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	/* Save the FPSW. */
+	mvfc		fpsw, r15
+	push.l		r15
+#endif
 	/* Save the accumulator. */
 	mvfachi r15 /* Accumulator high 32 bits. */
 	push r15
 	mvfacmi r15 /* Accumulator middle 32 bits. */
 	shll #16, r15  /* Shifted left as it is restored to the low order word.*/
 	push r15
-
+#endif
 	mov #_coop_switch_to,r3
 	mov [r3],r1
 	mov #_coop_switched_from,r3
@@ -72,12 +158,56 @@ _switch_isr_wrapper:
 
 	bsr _z_rx_context_switch_isr
 
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+	/* Restore the DPFPU context, always. */
+	dpopm.l	dpsw-decnt
+	dpopm.d	dr0-dr15
+#endif
+
+	/* Accumulator low 32 bits. */
+	pop		r15
+	mvtaclo	r15, a0
+
+	/* Accumulator high 32 bits. */
+	pop		r15
+	mvtachi	r15, a0
+
+	/* Accumulator guard. */
+	pop		r15
+	mvtacgu	r15, a0
+
+	/* Accumulator low 32 bits. */
+	pop		r15
+	mvtaclo	r15, a1
+
+	/* Accumulator high 32 bits. */
+	pop		r15
+	mvtachi	r15, a1
+
+	/* Accumulator guard. */
+	pop		r15
+	mvtacgu	r15, a1
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	/* Load the FPSW. */
+	pop		r15
+	mvtc		r15, fpsw
+#endif
+
+#elif defined(CONFIG_CPU_RXV1)
 	/* Restore the registers from the stack of the task pointed to by
 	pxCurrentTCB. */
 	pop r15
 	mvtaclo r15 /* Accumulator low 32 bits. */
 	pop r15
 	mvtachi r15 /* Accumulator high 32 bits. */
+#if (defined(CONFIG_FPU) && (CONFIG_FPU == 1))
+	/* Load the FPSW. */
+	pop		r15
+	mvtc		r15, fpsw
+#endif
+#endif
 
 	popm r1-r15
 	rte
@@ -107,13 +237,8 @@ _z_rx_context_switch_isr:
 
 	sub #1,r1	/* correct by one byte to use smovb compared to push/pop */
 
-	/* set r3 to number of bytes to move
-	*  Accumulator 64bit (4byte * 2)
-	*	15*4 byte for 15 general registers
-	*	+ PSW (4 byte)
-	*	+ PC (4 byte)
-	*/
-	mov #76,r3
+	mov #BYTE_TO_MOVE,r3	/* set r3 to number of bytes to move  */
+
 	smovb		/* block copy from interrupt stack to old thread stack */
 
 	add #1,r1	/* smovb leaves r1 pointing 1 byte before the stack */
@@ -124,7 +249,8 @@ _z_rx_context_switch_isr:
 	mov r2,r1	/* set r1 (smovf dest) to the beginning of the interrupt stack */
 
 	mov r4,r2	/* set r2 (smovf source) to the sp of the new thread*/
-	mov #76,r3	/* set r3 to number of bytes to move  */
+
+	mov #BYTE_TO_MOVE,r3	/* set r3 to number of bytes to move  */
 
 	smovf		/* block copy from new thread stack to interrupt stack */
 

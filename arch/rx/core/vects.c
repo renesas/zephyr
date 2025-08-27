@@ -44,27 +44,111 @@ static ALWAYS_INLINE void REGISTER_SAVE(void)
 		/* Save the Registers to ISP at the top of ISR.					*/
 		/* This code is relate on arch_new_thread() at thread.c				*/
 		/* You should store the registers at the same registers arch_new_thread()	*/
-		/* except PC and PSW.								*/
-		"PUSHM		R1-R15\n"
+		/* except PC and PSW. 								*/
+		"PUSHM		R1-R15			\n"
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+		/* Save the FPSW. */
+		"MVFC		FPSW, R15					\n"
+		"PUSH.L		R15							\n"
+#endif
+		/* Save the accumulator. */
+		"MVFACGU	#0, A1, R15					\n"
+		"PUSH.L		R15							\n"
+		"MVFACHI	#0, A1, R15					\n"
+		"PUSH.L		R15							\n"
+		"MVFACLO	#0, A1, R15					\n"
+		"PUSH.L		R15							\n"
 
-		"MVFACHI	R15\n"
-		"PUSH.L		R15\n"
-		"MVFACMI	R15\n"
-		"SHLL		#16, R15\n"
-		"PUSH.L		R15\n");
+		"MVFACGU	#0, A0, R15					\n"
+		"PUSH.L		R15							\n"
+		"MVFACHI	#0, A0, R15					\n"
+		"PUSH.L		R15							\n"
+		"MVFACLO	#0, A0, R15					\n"
+		"PUSH.L		R15							\n"
+#endif
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+            /* Save the DPFPU context, always. */
+            "DPUSHM.D	DR0-DR15					\n"
+            "DPUSHM.L	DPSW-DECNT					\n"
+
+#endif
+
+#if defined(CONFIG_CPU_RXV1)
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+		/* Save the FPSW. */
+		"MVFC		FPSW, R15		\n"
+		"PUSH.L		R15			\n"
+#endif
+		"MVFACHI	R15			\n"
+		"PUSH.L		R15			\n"
+		"MVFACMI	R15			\n"
+		"SHLL		#16, R15		\n"
+		"PUSH.L		R15			\n"
+#endif
+	);
+
 }
 
 static ALWAYS_INLINE void REGISTER_RESTORE_EXIT(void)
 {
 	__asm volatile(
-		/* Restore the registers and do the RTE at the End of ISR. */
-		"POP		R15\n"
-		"MVTACLO	R15\n"
-		"POP		R15\n"
-		"MVTACHI	R15\n"
 
-		"POPM		R1-R15\n"
-		"RTE\n");
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+            /* Restore the DPFPU context, always. */
+            "DPOPM.L	DPSW-DECNT					\n"
+            "DPOPM.D	DR0-DR15					\n"
+#endif
+
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+		/* Accumulator low 32 bits. */
+		"POP		R15							\n"
+		"MVTACLO	R15, A0						\n"
+
+		/* Accumulator high 32 bits. */
+		"POP		R15							\n"
+		"MVTACHI	R15, A0						\n"
+
+		/* Accumulator guard. */
+		"POP		R15							\n"
+		"MVTACGU	R15, A0						\n"
+
+		/* Accumulator low 32 bits. */
+		"POP		R15							\n"
+		"MVTACLO	R15, A1						\n"
+
+		/* Accumulator high 32 bits. */
+		"POP		R15							\n"
+		"MVTACHI	R15, A1						\n"
+
+		/* Accumulator guard. */
+		"POP		R15							\n"
+		"MVTACGU	R15, A1						\n"
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+		/* Load the FPSW. */
+		"POP		R15							\n"
+		"MVTC		R15, FPSW					\n"
+#endif
+#endif
+
+#if defined(CONFIG_CPU_RXV1)
+		/* Restore the registers and do the RTE at the End of ISR. */
+		"POP		R15			\n"
+		"MVTACLO	R15			\n"
+		"POP		R15			\n"
+		"MVTACHI	R15			\n"
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+		/* Load the FPSW. */
+		"POP		R15							\n"
+		"MVTC		R15, FPSW					\n"
+#endif
+#endif
+		"POPM		R1-R15			\n"
+		"RTE 					\n"
+	);
+
 }
 
 /* Privileged instruction execption */

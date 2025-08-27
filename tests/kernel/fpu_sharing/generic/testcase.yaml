@@ -107,3 +107,13 @@ tests:
       - fpu
       - kernel
     timeout: 600
+  kernel.fpu_sharing.generic.rx:
+    extra_args: PI_NUM_ITERATIONS=70000
+    filter: CONFIG_DFPU
+    slow: true
+    arch_allow: rx
+    tags:
+      - fpu
+      - kernel
+    timeout: 600
+    min_ram: 16

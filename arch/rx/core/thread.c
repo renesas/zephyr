@@ -45,11 +45,81 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack, char *sta
 	iframe->r13 = 13;
 	iframe->r14 = 14;
 	iframe->r15 = 15;
-	iframe->acc_l = 16;
-	iframe->acc_h = 17;
+
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	iframe->fpsw = 16;
+#endif
+	iframe->acc0_l = 17;
+	iframe->acc0_h = 18;
+	iframe->acc0_g = 19;
+	iframe->acc1_l = 20;
+	iframe->acc1_h = 21;
+	iframe->acc1_g = 22;
+#endif
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
+	iframe->dpsw = 23;
+	iframe->dcmr = 24;
+	iframe->decnt = 25;
+	iframe->dr0_l = 26;
+	iframe->dr0_h = 27;
+	iframe->dr1_l = 28;
+	iframe->dr1_h = 29;
+	iframe->dr2_l = 30;
+	iframe->dr2_h = 31;
+	iframe->dr3_l = 32;
+	iframe->dr3_h = 33;
+	iframe->dr4_l = 34;
+	iframe->dr4_h = 35;
+	iframe->dr5_l = 36;
+	iframe->dr5_h = 37;
+	iframe->dr6_l = 38;
+	iframe->dr6_h = 39;
+	iframe->dr7_l = 40;
+	iframe->dr7_h = 41;
+	iframe->dr8_l = 42;
+	iframe->dr8_h = 43;
+	iframe->dr9_l = 44;
+	iframe->dr9_h = 45;
+	iframe->dr10_l = 46;
+	iframe->dr10_h = 47;
+	iframe->dr11_l = 48;
+	iframe->dr11_h = 49;
+	iframe->dr12_l = 50;
+	iframe->dr12_h = 51;
+	iframe->dr13_l = 52;
+	iframe->dr13_h = 53;
+	iframe->dr14_l = 54;
+	iframe->dr14_h = 55;
+	iframe->dr15_l = 56;
+	iframe->dr15_h = 57;
+#endif
+
+#if defined(CONFIG_CPU_RXV1)
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+	iframe->fpsw = 16;
+#endif
+	iframe->acc_l = 17;
+	iframe->acc_h = 18;
+#endif
 
 	thread->switch_handle = (void *)iframe;
 }
+
+#if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING))
+int arch_float_disable(struct k_thread *thread)	
+{
+	/* This is not supported. */
+	return -ENOTSUP;
+}
+
+int arch_float_enable(struct k_thread *thread, unsigned int options)
+{
+	/* This is not supported. */
+	return -ENOTSUP;
+}
+#endif /* CONFIG_FPU && CONFIG_FPU_SHARING */
 
 int arch_coprocessors_disable(struct k_thread *thread)
 {

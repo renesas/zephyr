@@ -188,6 +188,44 @@ struct fp_non_volatile_register_set {
 #define SIZEOF_FP_VOLATILE_REGISTER_SET 0
 #define SIZEOF_FP_NON_VOLATILE_REGISTER_SET sizeof(struct fp_non_volatile_register_set)
 
+#elif defined(CONFIG_RX)
+
+#if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
+
+struct fp_volatile_register_set {
+	/* Accumulator */
+	/*
+	 * The guard bits are excluded from the test
+	 * because they contain reserved bits and cannot be written
+	 * with arbitrary values.
+	 */
+	uint32_t acc0_l;
+	uint32_t acc0_h;
+	uint32_t acc1_l;
+	uint32_t acc1_h;
+
+#if defined(CONFIG_DFPU)
+	/* Double-precision floating-point data registers */
+	uint64_t dr[16];
+
+	/* Double-precision floating-point control registers */
+	/*
+	 * The control registers are excluded from the test
+	 * because they contain reserved bits and cannot be written
+	 * with arbitrary values.
+	 */
+#endif
+};
+
+struct fp_non_volatile_register_set {
+	/* No non-volatile floating point registers */
+};
+
+#endif
+
+#define SIZEOF_FP_VOLATILE_REGISTER_SET sizeof(struct fp_volatile_register_set)
+#define SIZEOF_FP_NON_VOLATILE_REGISTER_SET 0
+
 #else
 
 #error  "Architecture must provide the following definitions:\n"

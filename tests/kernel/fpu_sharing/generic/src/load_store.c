@@ -74,6 +74,12 @@
 #include "float_regs_sparc.h"
 #elif defined(CONFIG_XTENSA)
 #include "float_regs_xtensa.h"
+#elif defined(CONFIG_RX)
+#if defined(__GNUC__)
+#include "float_regs_rx_gcc.h"
+#else
+#include "float_regs_rx_other.h"
+#endif /* __GNUC__ */
 #endif
 
 #include "float_context.h"
