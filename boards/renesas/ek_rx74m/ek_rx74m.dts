@@ -221,3 +221,7 @@
 &usbhs_phy {
 	phys-clock-src = "xtal";
 };
+
+&group_irq_al1 {
+	status = "okay";
+};
