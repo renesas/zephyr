@@ -19,7 +19,19 @@ config UART_RENESAS_RX_SCI_B
 	default y
 	depends on DT_HAS_RENESAS_RX_UART_SCI_B_ENABLED
 	select SERIAL_HAS_DRIVER
+	select SERIAL_SUPPORT_INTERRUPT
 	select USE_RX_FSP_SCI_B_UART
 	select PINCTRL
 	help
 	  Enable Renesas RX series UART on SCI B HW driver.
+
+if UART_RENESAS_RX_SCI_B && (UART_INTERRUPT_DRIVEN || UART_ASYNC_API)
+
+config UART_RENESAS_RX_SCI_B_UART_FIFO_ENABLE
+	bool "RX SCI_B UART FIFO usage enable"
+	default y if UART_INTERRUPT_DRIVEN
+	default n if UART_ASYNC_API
+	help
+	  Enable RX SCI_B FIFO
+
+endif
