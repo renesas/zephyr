@@ -433,255 +433,292 @@
 		};
 
 		option_setting_mem_cfg_sec: option-setting-mem-cfg-sec@86c2e850 {
-			compatible = "zephyr,memory-region";
+			compatible = "renesas,ofs-memory";
 			reg = <0x86c2e850 0x715b0>;
-			zephyr,memory-region = "OFS_MEM_CFG_SEC";
 			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "okay";
+			#size-cells = <1>;
+			status = "disabled";
 
 			option_setting_dualsel: option-setting-dualsel0@86c2e850 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
+				zephyr,memory-region = "OPTION_SETTING_DUALSEL";
 				reg = <0x86c2e850 0x4>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			option_setting_sas: option-setting-sas@86c2e870 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
+				zephyr,memory-region = "OPTION_SETTING_SAS";
 				reg = <0x86c2e870 0x4>;
-				status = "okay";
+				status = "disabled";
 			};
 
 			option_setting_sas2: option-setting-sas2@86c2e874 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c2e874 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_SAS2";
+				status = "disabled";
 			};
 
 			option_setting_banksel_sec: option-setting-banksel-sec@86c2e9b0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c2e9b0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BANKSEL_SEC";
+				status = "disabled";
 			};
 
 			option_setting_blsel_sec: option-setting-blsel-sec@86c2e9c0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c2e9c0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BLSEL_SEC";
+				status = "disabled";
 			};
 
 			option_setting_banksel_sel: option-setting-banksel-sel@86c2e9e0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c2e9e0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BANKSEL_SEL";
+				status = "disabled";
 			};
 
 			option_setting_blsel_sel: option-setting-blsel-sel@86c2e9f0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c2e9f0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BLSEL_SEL";
+				status = "disabled";
 			};
 
 			option_setting_bpsdm_sec: option-setting-bpsdm-sec@86c9f080 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c9f080 0x20>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BPSDM_SEC";
+				status = "disabled";
 			};
 
 			option_setting_bps_sec: option-setting-bps-sec@86c9f200 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c9f200 0x40>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BPS_SEC";
+				status = "disabled";
 			};
 
 			option_setting_bps_sec_dual: option-setting-bps-sec-dual@86c9f300 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86c9f300 0x20>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_BPS_SEC_DUAL";
+				status = "disabled";
 			};
 		};
 
 		option_setting_opt_sec: option-setting-opt-sec@86e00000 {
-			compatible = "zephyr,memory-region";
+			compatible = "renesas,ofs-memory";
 			reg = <0x86e00000 0x00030ef0>;
-			zephyr,memory-region = "OFS_OPT_SEC";
 			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "okay";
+			#size-cells = <1>;
+			status = "disabled";
 
 			// option_setting_data_flash_hoemrtpk: option-setting-data-flash-hoemrtpk@86e00000 {
-			// 	compatible = "renesas,ofs-memory";
+			// 	compatible = "zephyr,memory-region";
 			// 	reg = <0x86e00000 0xc0>;
+			//      zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_HOEMRTPK";
 			// 	status = "okay";
 			// };
 
 			option_setting_data_flash_fsblctrl0: option-setting-data-flash-fsblctrl@86e00400 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00400 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_FSBLCTRL0";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_fsblctrl1: option-setting-data-flash-fsblctrl@86e00404 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00404 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_FSBLCTRL1";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_fsblctrl2: option-setting-data-flash-fsblctrl2@86e00408 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00408 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_FSBLCTRL2";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_samr: option-setting-data-flash-samr@86e00414 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00414 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SAMR";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc0: option-setting-data-flash-sacc0@86e00420 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00420 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC0";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc10: option-setting-data-flash-sacc10@86e00430 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00430 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC10";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc1: option-setting-data-flash-sacc1@86e00440 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00440 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC1";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc11: option-setting-data-flash-sacc11@86e00450 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00450 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC11";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc2: option-setting-data-flash-sacc2@86e00460 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00460 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC2";
+				status = "disabled";
 			};
 
 
 			option_setting_data_flash_sacc12: option-setting-data-flash-sacc2@86e00470 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00470 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC12";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc3: option-setting-data-flash-sacc3@86e00480 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00480 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC3";
+				status = "disabled";
 			};
 
 			option_setting_data_flash_sacc13: option-setting-data-flash-sacc13@86e00490 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e00490 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_DATA_FLASH_SACC13";
+				status = "disabled";
 			};
 
 			option_setting_gpotp: option-setting-gpotp@86e004a0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e004a0 0x60>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_GPOTP";
+				status = "disabled";
 			};
 
 			option_setting_ofs0: option-setting-ofs0@86e10640 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e10640 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS0";
+				status = "disabled";
 			};
 
 			option_setting_ofs2: option-setting-ofs2@86e10644 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e10644 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS2";
+				status = "disabled";
 			};
 
 			option_setting_mde: option-setting-mde@86e1064c {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e1064c 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_MDE";
+				status = "disabled";
 			};
 
 			option_setting_ofs1_sec: option-setting-ofs1-sec@86e107a0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e107a0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS1_SEC";
+				status = "disabled";
 			};
 
 			option_setting_ofs3_sec: option-setting-ofs3-sec@86e107a4 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e107a4 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS3_SEC";
+				status = "disabled";
 			};
 
 			option_setting_ofs1_sel: option-setting-ofs1-sel@86e107d0 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e107d0 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS1_SEL";
+				status = "disabled";
 			};
 
 			option_setting_ofs3_sel: option-setting-ofs3-sel@86e107d4 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e107d4 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFS3_SEL";
+				status = "disabled";
 			};
 
 			option_setting_pbps_sec: option-setting-pbps-sec@86e10a00 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e10a00 0x10>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_PBPS_SEC";
+				status = "disabled";
 			};
 
 			option_setting_pbps_sec_dual: option-setting-pbps-sec-dual@86e10a40 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e10a40 0x8>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_PBPS_SEC_DUAL";
+				status = "disabled";
 			};
 
 			option_setting_pbpsdm_sec: option-setting-pbpsdm-sec@86e10a80 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e10a80 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_PBPSDM_SEC";
+				status = "disabled";
 			};
 
 			option_setting_revoke: option-setting-revoke@86e30e10 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e30e10 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_REVOKE";
+				status = "disabled";
 			};
 
 			option_setting_zhuk: option-setting-zhuk@86e30e20 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e30e20 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_ZHUK";
+				status = "disabled";
 			};
 
 			option_setting_arccs: option-setting-arccs@86e30e30 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e30e30 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_ARCCS";
+				status = "disabled";
 			};
 
 			option_setting_ubcsr: option-setting-ufbcsr@86e30e50 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e30e50 0x4>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_UBCSR";
+				status = "disabled";
 			};
 
 			option_setting_ofsps: option-setting-ofsps@86e30e60 {
-				compatible = "renesas,ofs-memory";
+				compatible = "zephyr,memory-region";
 				reg = <0x86e30e60 0x10>;
-				status = "okay";
+				zephyr,memory-region = "OPTION_SETTING_OFSPS";
+				status = "disabled";
 			};
 
 			/* Since the RFP tool currently does not support the following OFS regions,
@@ -689,7 +726,7 @@
 			 */
 
 			// option_setting_ofsps2: option-setting-ofsps2@86e30ee0 {
-			// 	compatible = "renesas,ofs-memory";
+			// 	compatible = "zephyr,memory-region";
 			// 	reg = <0x86e30ee0 0x4>;
 			// 	status = "okay";
 			// };
@@ -704,25 +741,25 @@
 		// 	status = "okay";
 
 		// 	option_setting_arcs: option-setting-arcs@86f41d00 {
-		// 		compatible = "renesas,ofs-memory";
+		// 		compatible = "zephyr,memory-region";
 		// 		reg = <0x86f41d00 0x80>;
 		// 		status = "okay";
 		// 	};
 
 		// 	option_setting_arcnsn: option-setting-arcnsn@86f41e00 {
-		// 		compatible = "renesas,ofs-memory";
+		// 		compatible = "zephyr,memory-region";
 		// 		reg = <0x86f41e00 0x80>;
 		// 		status = "okay";
 		// 	};
 
 		// 	option_setting_arcns: option-setting-arcns0@86f41e00 {
-		// 		compatible = "renesas,ofs-memory";
+		// 		compatible = "zephyr,memory-region";
 		// 		reg = <0x86f41e00 0x80>;
 		// 		status = "okay";
 		// 	};
 
 		// 	option_setting_arcoembl: option-setting-arcoembl@86f41f00 {
-		// 		compatible = "renesas,ofs-memory";
+		// 		compatible = "zephyr,memory-region";
 		// 		reg = <0x86f41f00 0x8>;
 		// 		status = "okay";
 		// 	};
