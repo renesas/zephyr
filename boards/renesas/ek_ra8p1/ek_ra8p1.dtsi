@@ -63,6 +63,10 @@
 		gpio-map-pass-thru = <0x0 0x3f>;
 		gpio-map = <ARDUCAM_FFC_40PIN_RESET 0 &ioport7 9 0>;
 	};
+
+	zephyr,user {
+		mipi-dphy-en-gpios = <&ioport1 8 GPIO_ACTIVE_LOW>;
+	};
 };
 
 &xtal {
