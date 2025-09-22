@@ -189,6 +189,12 @@ static int phy_mc_vsc8541_reset(const struct device *dev)
 		if (ret < 0) {
 			return ret;
 		}
+	} else if (cfg->microchip_interface_type == VSC8541_GMII) {
+		ret = phy_mc_vsc8541_write(dev, PHY_REG_PAGE0_EXT_CONTROL_1,
+					   (0x0 << 13) | (0x0 << 11));
+		if (ret) {
+			return ret;
+		}
 	}
 
 	/* software reset */
