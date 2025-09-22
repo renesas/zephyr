@@ -1,0 +1,29 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX Ethernet RMAC
+
+compatible: "renesas,rx-rmac"
+
+include: [ethernet-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  channel:
+    type: int
+    required: true
+
+  gwdi-ctrl:
+    type: phandle
+    description: |
+      Group interrupt controller for the GWCA0 data interrupt (gwdi). This only applies
+      in cases the RX MCU supports group interrupt feature
+
+  gwdi-number:
+    type: int
+    description: |
+      Number of the gwdi (GWCA0 data interrupt) in the interrupt group of gwdi-ctrl
+
+
