@@ -432,6 +432,57 @@
 			status = "okay";
 		};
 
+		eswm: ethernet@874c0000 {
+			compatible = "renesas,rx-eswm";
+			reg = <0x874C0000 0xE000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			clocks = <&eswclk MSTPC 30>, <&eswphyclk MSTPC 28>;
+			clock-names = "esw", "eswphy";
+			ranges;
+
+			rmac0: ethernet@874cb000 {
+				compatible = "renesas,rx-rmac";
+				channel = <0>;
+				reg = <0x874CB000 0x1000>;
+				gwdi-ctrl = <&group_irq_al4>;
+				gwdi-number = <12>;
+				local-mac-address = [00 11 22 33 44 55];
+				phy-connection-type = "gmii";
+				status = "disabled";
+
+				mdio0: mdio {
+					compatible = "renesas,rx-rmac-mdio";
+					#address-cells = <1>;
+					#size-cells = <0>;
+					clocks = <&ethphyclk MSTPC 28>;
+					clock-names = "ethphy";
+					status = "disabled";
+				};
+			};
+
+			rmac1: ethernet@874cd000 {
+				compatible = "renesas,rx-rmac";
+				reg = <0x874CD000 0x1000>;
+				channel = <1>;
+				gwdi-ctrl = <&group_irq_al4>;
+				gwdi-number = <25>;
+				local-mac-address = [00 11 22 33 44 55];
+				phy-connection-type = "gmii";
+				status = "disabled";
+
+				mdio1: mdio {
+					compatible = "renesas,rx-rmac-mdio";
+					#address-cells = <1>;
+					#size-cells = <0>;
+					clocks = <&ethphyclk MSTPC 28>;
+					clock-names = "ethphy";
+					status = "disabled";
+				};
+			};
+		};
+
 		option_setting_mem_cfg_sec: option-setting-mem-cfg-sec@86c2e850 {
 			compatible = "renesas,ofs-memory";
 			reg = <0x86c2e850 0x715b0>;

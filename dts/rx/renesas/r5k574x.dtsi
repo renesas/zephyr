@@ -89,7 +89,9 @@
 
 			pll2p: pll2p {
 				compatible = "renesas,rx-cgc-pll-out";
+				clocks = <&pll2>;
 				div = <2>;
+				mul = <1 0>;
 				status = "disabled";
 				#clock-cells = <0>;
 			};
