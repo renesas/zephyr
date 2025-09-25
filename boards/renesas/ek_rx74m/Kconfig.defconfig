@@ -1,0 +1,17 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_EK_RX74M
+
+if NETWORKING
+
+config NET_L2_ETHERNET
+	default y
+
+config ETH_INIT_PRIORITY
+	int "Ethernet driver init priority"
+	default 55
+
+endif # NETWORKING
+
+endif # BOARD_EK_RX74M

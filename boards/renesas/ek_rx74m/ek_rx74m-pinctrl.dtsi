@@ -11,4 +11,42 @@
 				<RX_PSEL(RX_PSEL_SCI_12, 1, 15)>; /* RX */
 		};
 	};
+
+	mdio_default: mdio_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 8)>, /* RXD4 P508 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 9)>, /* RXD5 P509 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 10)>, /* RXD6 P510 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 11)>, /* RXD7 P511 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 12)>, /* TXD4 PC512 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 13)>, /* TXD5 PC513 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 14)>, /* TXD6 PC514 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 15)>, /* TXD7 PC515 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 0)>, /* RXD0 PB00 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 1)>, /* RXD1 PB01 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 2)>, /* RXD2 PB02 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 3)>, /* RXD3 PB03 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 4)>, /* RX_CLK PB04 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 5)>, /* RX_CTRL PB05 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 11, 6)>, /* RX_ER PB06 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 0)>, /* TX_CLK PC00 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 1)>, /* TXD0 PC01 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 2)>, /* TXD1 PC02 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 3)>, /* TXD2 PC03 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 4)>, /* TXD3 PC04 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 5)>, /* TX_EN/TX_CTL PC05 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 6)>, /* SOS */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 12, 7)>, /* GTX_CLK PC07 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 6)>, /* COL PG06 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 7)>, /* CRS PG07 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 3)>; /* MDINT PG03 */
+		};
+
+		group2 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 4)>, /* MDC PG04 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 5)>, /* MDIO PG05 */
+			        <RX_PSEL(RX_PSEL_CLKOUT, 3, 4)>; /* P304 as ETHPHYCLK. */
+		};
+	};
 };
+

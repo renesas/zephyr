@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2024 Renesas Electronics Corporation
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+* Copyright (c) 2024 Renesas Electronics Corporation
+*
+* SPDX-License-Identifier: Apache-2.0
+*/
 
 /dts-v1/;
 
@@ -60,9 +60,33 @@
 
 &pll {
 	status = "okay";
+	freq = <DT_FREQ_M(1200)>;
 
 	pllp: pllp {
-		freq = <DT_FREQ_M(600)>;
+		div = <3>;
+		freq = <DT_FREQ_M(400)>;
+		status = "okay";
+	};
+
+	pllq: pllq {
+		div = <4>;
+		freq = <DT_FREQ_M(300)>;
+		status = "okay";
+	};
+};
+
+&pll2 {
+	status = "okay";
+
+	/* PLL */
+	clocks = <&xtal>;
+	div = <3>;
+	mul = <125 0>;
+	freq = <DT_FREQ_M(1000)>;
+
+	pll2p: pll2p {
+		div = <2>;
+		freq = <DT_FREQ_M(500)>;
 		status = "okay";
 	};
 };
@@ -73,7 +97,31 @@
 };
 
 &cmt {
-	clock-frequency = <9375000>;
+	clock-frequency = <6250000>;
+	status = "okay";
+};
+
+&eswclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pllq>;
+	div = <2>;
+	#clock-cells = <2>;
+	status = "okay";
+};
+
+&eswphyclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pll2p>;
+	div = <1>;
+	#clock-cells = <2>;
+	status = "okay";
+};
+
+&ethphyclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pllp>;
+	div = <16>;
+	#clock-cells = <2>;
 	status = "okay";
 };
 
@@ -98,4 +146,39 @@
 
 &ioportf {
 	status = "okay";
+};
+
+&ioport4 {
+	status = "okay";
+};
+
+&group_irq_al4 {
+	status = "okay";
+};
+
+&eswm {
+	status = "okay";
+};
+
+&rmac0 {
+	local-mac-address = [74 90 50 A8 60 6A];
+	status = "okay";
+};
+
+&mdio0 {
+	pinctrl-0 = <&mdio_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	phy: ethernet-phy@0 {
+		compatible = "microchip,vsc8541";
+		reg = <0x0>;
+		status = "okay";
+
+		reset-gpios = <&ioport4 13 GPIO_ACTIVE_LOW>;
+
+		microchip,interface-type = "gmii";
+		microchip,rgmii-tx-clk-delay = <0x4>;
+		microchip,rgmii-rx-clk-delay = <0x4>;
+	};
 };
