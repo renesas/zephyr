@@ -15,23 +15,23 @@ static struct k_thread tdata[NUM_THREAD];
 #define IDLE_THRESH k_ms_to_ticks_floor64(200)
 
 /*sleep duration tickless*/
-#define SLEEP_TICKLESS	 k_ticks_to_ms_floor64(IDLE_THRESH)
+#define SLEEP_TICKLESS k_ticks_to_ms_floor64(IDLE_THRESH)
 
 /*sleep duration with tick*/
-#define SLEEP_TICKFUL	 k_ticks_to_ms_floor64(IDLE_THRESH - 1)
+#define SLEEP_TICKFUL k_ticks_to_ms_floor64(IDLE_THRESH - 1)
 
 /*slice size is set as half of the sleep duration*/
-#define SLICE_SIZE	 k_ticks_to_ms_floor64(IDLE_THRESH >> 1)
+#define SLICE_SIZE k_ticks_to_ms_floor64(IDLE_THRESH >> 1)
 
 /*maximum slice duration accepted by the test*/
 #define SLICE_SIZE_LIMIT k_ticks_to_ms_floor64((IDLE_THRESH >> 1) + 1)
 
 /*align to millisecond boundary*/
-#define ALIGN_MS_BOUNDARY()		       \
-	do {				       \
-		uint32_t t = k_uptime_get_32();   \
-		while (t == k_uptime_get_32()) \
-			Z_SPIN_DELAY(50);       \
+#define ALIGN_MS_BOUNDARY()                                                                        \
+	do {                                                                                       \
+		uint32_t t = k_uptime_get_32();                                                    \
+		while (t == k_uptime_get_32())                                                     \
+			Z_SPIN_DELAY(50);                                                          \
 	} while (0)
 
 K_SEM_DEFINE(sema, 0, NUM_THREAD);
@@ -39,26 +39,29 @@ static int64_t elapsed_slice;
 
 static void thread_tslice(void *p1, void *p2, void *p3)
 {
-	int64_t t = k_uptime_delta(&elapsed_slice);
+	int64_t now = k_uptime_get();
+	volatile int64_t *p = &elapsed_slice;
+	int64_t old = *p;
+	int64_t delta = now - old;
+	*p = now;
 
-	TC_PRINT("elapsed slice %" PRId64 ", expected: <%" PRId64 ", %" PRId64 ">\n",
-		t, SLICE_SIZE, SLICE_SIZE_LIMIT);
+	int64_t t = delta;
 
-	/**TESTPOINT: verify slicing scheduler behaves as expected*/
+	TC_PRINT("elapsed slice %" PRId64 ", expected: <%" PRId64 ", %" PRId64 ">\n", t, SLICE_SIZE,
+		 SLICE_SIZE_LIMIT);
+
 	zassert_true(t >= SLICE_SIZE);
-	/*less than one tick delay*/
 	zassert_true(t <= SLICE_SIZE_LIMIT);
 
-	/*keep the current thread busy for more than one slice*/
 	k_busy_wait(1000 * SLEEP_TICKLESS);
 	k_sem_give(&sema);
 }
+
 /**
  * @defgroup  kernel_tickless_tests Tickless
  * @ingroup all_tests
  * @{
  */
-
 
 /**
  * @brief Verify system clock with and without tickless idle
@@ -103,10 +106,8 @@ ZTEST(tickless_concept, test_tickless_slice)
 
 	/*create delayed threads with equal preemptive priority*/
 	for (int i = 0; i < NUM_THREAD; i++) {
-		tid[i] = k_thread_create(&tdata[i], tstack[i], STACK_SIZE,
-					 thread_tslice, NULL, NULL, NULL,
-					 K_PRIO_PREEMPT(0), 0,
-					 K_MSEC(SLICE_SIZE));
+		tid[i] = k_thread_create(&tdata[i], tstack[i], STACK_SIZE, thread_tslice, NULL,
+					 NULL, NULL, K_PRIO_PREEMPT(0), 0, K_MSEC(SLICE_SIZE));
 	}
 	k_uptime_delta(&elapsed_slice);
 	/*relinquish CPU and wait for each thread to complete*/
@@ -126,5 +127,4 @@ ZTEST(tickless_concept, test_tickless_slice)
  * @}
  */
 
-ZTEST_SUITE(tickless_concept, NULL, NULL,
-		ztest_simple_1cpu_before, ztest_simple_1cpu_after, NULL);
+ZTEST_SUITE(tickless_concept, NULL, NULL, ztest_simple_1cpu_before, ztest_simple_1cpu_after, NULL);
