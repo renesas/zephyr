@@ -24,31 +24,6 @@ config ETH_RENESAS_RX_RMAC_THREAD_PRIORITY
 	int "Renesas RX RMAC Ethernet receive thread priority"
 	default 2
 
-config ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH
-	int "Number of Transmit Queue length"
-	default 12
-
-config ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH
-	int "Number of Receive Queue length"
-	default 12
-config ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM
-	int "Number of Transmit Queue"
-	default 4
-	range 1 32
-
-config ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM
-	int "Number of Receive Queue"
-	default 4
-	range 1 32
-
-config ETH_RENESAS_RX_RMAC_NUM_TX_BUF
-	int "Number of Transmit buffer. ETH_RENESAS_RX_RMAC_NUM_TX_BUF = (ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH - 1) * ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM"
-	default 44
-
-config ETH_RENESAS_RX_RMAC_NUM_RX_BUF
-	int "Number of Receive buffer. ETH_RENESAS_RX_RMAC_NUM_RX_BUF = (ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH - 1) * ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM"
-	default 44
-
 config ETH_RENESAS_RX_RMAC_BUF_SIZE
 	int "TX/RX data buffer size"
 	default 1536

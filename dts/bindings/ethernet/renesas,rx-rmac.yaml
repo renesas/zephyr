@@ -14,3 +14,36 @@ properties:
   channel:
     type: int
     required: true
+
+  tx-queue-num:
+    type: int
+    default: 4
+    description: |
+      This field indicates the Number of Transmit Queue.
+      range: 2 - 32
+
+  rx-queue-num:
+    type: int
+    default: 4
+    description: |
+      This field indicates the Number of Receive Queue.
+      range: 2 - 32
+
+  tx-buf-num:
+    type: int
+    default: 44
+    description: |
+      This field indicates the Number of Transmit buffer.
+
+  rx-buf-num:
+    type: int
+    default: 44
+    description: |
+      This field indicates the Number of receive buffer.
+
+  gwdis:
+    type: phandle-array
+    description: |
+      Group interrupt specifier for the GWCA0 data interrupt (gwdi).
+      First cell: phandle to the group interrupt controller
+      Second cell: number of the gwdi in the group

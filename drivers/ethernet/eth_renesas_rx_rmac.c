@@ -29,12 +29,9 @@ LOG_MODULE_REGISTER(rx_rmac, CONFIG_ETHERNET_LOG_LEVEL);
 BUILD_ASSERT((CONFIG_ETH_INIT_PRIORITY < CONFIG_MDIO_INIT_PRIORITY),
 	     "Ethernet driver must be initialized before MDIO driver in the Ethernet RX system");
 
-BUILD_ASSERT(((CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH - 1) *
-	      CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM) == CONFIG_ETH_RENESAS_RX_RMAC_NUM_TX_BUF,
-	     "num_tx_buffers must equal (tx_queue_length - 1) * tx_queue_num");
-BUILD_ASSERT(((CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH - 1) *
-	      CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM) == CONFIG_ETH_RENESAS_RX_RMAC_NUM_RX_BUF,
-	     "num_rx_buffers must equal (rx_queue_length - 1) * rx_queue_num");
+BUILD_ASSERT(
+	(LAYER3_SWITCH_CFG_AVAILABLE_QUEUE_NUM < LAYER3_SWITCH_CFG_MAX_QUEUE_NUM),
+	"LAYER3_SWITCH_CFG_AVAILABLE_QUEUE_NUM must be less than LAYER3_SWITCH_CFG_MAX_QUEUE_NUM");
 
 /* Additional configurations to use with hal_renesas */
 #define ETHER_DEFAULT        NULL
@@ -386,6 +383,16 @@ static int renesas_rx_eth_init(const struct device *dev)
 #define ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(index)
 #endif
 
+#define ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n) DT_INST_PROP(n, tx_queue_num)
+#define ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n) DT_INST_PROP(n, rx_queue_num)
+#define ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n)   DT_INST_PROP(n, tx_buf_num)
+#define ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n)   DT_INST_PROP(n, rx_buf_num)
+
+#define ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH(n)                                                     \
+	(ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n) / ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n)) + 1
+#define ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH(n)                                                     \
+	(ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n) / ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n)) + 1
+
 #define DECLARE_ETHER_RX_BUFFER_WRAP(idx, n)                                                       \
 	uint8_t g_ether##n##_ether_rx_buffer##idx[CONFIG_ETH_RENESAS_RX_RMAC_BUF_SIZE];
 
@@ -398,17 +405,17 @@ static int renesas_rx_eth_init(const struct device *dev)
 /* Descriptor array per queue */
 #define DECLARE_ETHER_TX_DESCRIPTOR_WRAP(idx, n)                                                   \
 	layer3_switch_descriptor_t                                                                 \
-		g_ether##n##_tx_descriptor_array##idx[CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH];
+		g_ether##n##_tx_descriptor_array##idx[ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH(n)];
 
 #define DECLARE_ETHER_RX_DESCRIPTOR_WRAP(idx, n)                                                   \
 	layer3_switch_descriptor_t                                                                 \
-		g_ether##n##_rx_descriptor_array##idx[CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH];
+		g_ether##n##_rx_descriptor_array##idx[ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH(n)];
 
 /* TX queue wrapper */
 #define DECLARE_TX_QUEUE_WRAP(idx, n)                                                              \
 	{                                                                                          \
 		.queue_cfg = {                                                                     \
-			.array_length = CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH,                \
+			.array_length = ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH(n),                    \
 			.p_descriptor_array = g_ether##n##_tx_descriptor_array##idx,               \
 			.ports = (1 << 0),                                                         \
 			.type = LAYER3_SWITCH_QUEUE_TYPE_TX,                                       \
@@ -421,7 +428,7 @@ static int renesas_rx_eth_init(const struct device *dev)
 #define DECLARE_RX_QUEUE_WRAP(idx, n)                                                              \
 	{                                                                                          \
 		.queue_cfg = {                                                                     \
-			.array_length = CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH,                \
+			.array_length = ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH(n),                    \
 			.p_descriptor_array = g_ether##n##_rx_descriptor_array##idx,               \
 			.ports = (1 << 0),                                                         \
 			.type = LAYER3_SWITCH_QUEUE_TYPE_RX,                                       \
@@ -431,18 +438,18 @@ static int renesas_rx_eth_init(const struct device *dev)
 	}
 
 #define DECLARE_ETHER_BUFFERS(n)                                                                   \
-	LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_NUM_RX_BUF, DECLARE_ETHER_RX_BUFFER_WRAP, (;), n)                                                                                    \
-	LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_NUM_TX_BUF, DECLARE_ETHER_TX_BUFFER_WRAP, (;), n)                                                                                    \
-	uint8_t *pp_g_ether##n##_ether_buffers[CONFIG_ETH_RENESAS_RX_RMAC_NUM_RX_BUF +             \
-					       CONFIG_ETH_RENESAS_RX_RMAC_NUM_TX_BUF] = {          \
-		LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_NUM_RX_BUF, DECLARE_ETHER_RX_BUFFER_PTR_WRAP,   \
-			(, ), n),                                                                    \
-			LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_NUM_TX_BUF, DECLARE_ETHER_TX_BUFFER_PTR_WRAP,   \
+	LISTIFY(ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n), DECLARE_ETHER_RX_BUFFER_WRAP, (;), n)                                                                                    \
+	LISTIFY(ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n), DECLARE_ETHER_TX_BUFFER_WRAP, (;), n)                                                                                    \
+	uint8_t *pp_g_ether##n##_ether_buffers[ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n) +                 \
+					       ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n)] = {              \
+		LISTIFY(ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n), DECLARE_ETHER_RX_BUFFER_PTR_WRAP,   \
+			(, ), n),                                \
+			LISTIFY(ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n), DECLARE_ETHER_TX_BUFFER_PTR_WRAP,   \
 			(, ), n)}
 
 #define DECLARE_ETHER_DESCRIPTOR(n)                                                                \
-	LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM, DECLARE_ETHER_RX_DESCRIPTOR_WRAP, (;), n)                                                                                    \
-	LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM, DECLARE_ETHER_TX_DESCRIPTOR_WRAP, (;), n)
+	LISTIFY(ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n), DECLARE_ETHER_RX_DESCRIPTOR_WRAP, (;), n)                                                                                    \
+	LISTIFY(ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n), DECLARE_ETHER_TX_DESCRIPTOR_WRAP, (;), n)
 
 #define ETHER_RX_CONFIG(n)                                                                         \
 	const layer3_switch_extended_cfg_t g_ether_switch##n##_extended_cfg = {                    \
@@ -468,17 +475,17 @@ static int renesas_rx_eth_init(const struct device *dev)
 	/* Descriptor arrays */                                                                    \
 	DECLARE_ETHER_DESCRIPTOR(n);                                                               \
 	/* TX queue list */                                                                        \
-	rmac_queue_info_t g_ether##n##_tx_queue_list[CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM] = {  \
-		LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM, DECLARE_TX_QUEUE_WRAP, (, ), n)};     \
+	rmac_queue_info_t g_ether##n##_tx_queue_list[ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n)] = {      \
+		LISTIFY(ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n), DECLARE_TX_QUEUE_WRAP, (, ), n)};         \
 	/* RX queue list */                                                                        \
-	rmac_queue_info_t g_ether##n##_rx_queue_list[CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM] = {  \
-		LISTIFY(CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM, DECLARE_RX_QUEUE_WRAP, (, ), n)};     \
+	rmac_queue_info_t g_ether##n##_rx_queue_list[ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n)] = {      \
+		LISTIFY(ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n), DECLARE_RX_QUEUE_WRAP, (, ), n)};         \
 	DECLARE_ETHER_BUFFERS(n);                                                                  \
 	uint8_t g_ether##n##_mac_address[6] = DT_INST_PROP_OR(n, local_mac_address, {0});          \
 	const rmac_extended_cfg_t g_ether##n##_extended_cfg = {                                    \
 		.p_ether_switch = &g_ether_switch##n,                                              \
-		.tx_queue_num = CONFIG_ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM,                           \
-		.rx_queue_num = CONFIG_ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM,                           \
+		.tx_queue_num = ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n),                               \
+		.rx_queue_num = ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n),                               \
 		.p_tx_queue_list = g_ether##n##_tx_queue_list,                                     \
 		.p_rx_queue_list = g_ether##n##_rx_queue_list,                                     \
 	};                                                                                         \
@@ -492,8 +499,8 @@ static int renesas_rx_eth_init(const struct device *dev)
 		.padding_offset = ETHER_PADDING_OFFSET,                                            \
 		.broadcast_filter = CONFIG_ETH_RENESAS_RX_RMAC_BROADCAST_FILTER,                   \
 		.p_mac_address = g_ether##n##_mac_address,                                         \
-		.num_tx_descriptors = CONFIG_ETH_RENESAS_RX_RMAC_NUM_TX_BUF,                       \
-		.num_rx_descriptors = CONFIG_ETH_RENESAS_RX_RMAC_NUM_RX_BUF,                       \
+		.num_tx_descriptors = ETH_RENESAS_RX_RMAC_NUM_TX_BUF(n),                           \
+		.num_rx_descriptors = ETH_RENESAS_RX_RMAC_NUM_RX_BUF(n),                           \
 		.pp_ether_buffers = pp_g_ether##n##_ether_buffers,                                 \
 		.ether_buffer_size = CONFIG_ETH_RENESAS_RX_RMAC_BUF_SIZE,                          \
 		.p_callback = ETHER_DEFAULT,                                                       \
