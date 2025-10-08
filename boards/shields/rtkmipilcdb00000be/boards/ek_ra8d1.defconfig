@@ -15,6 +15,10 @@ config LV_Z_VDB_ZEPHYR_REGION
 
 config LV_Z_VDB_ZEPHYR_REGION_NAME
 	default "SDRAM"
+	if LVGL
+
+config LV_ATTRIBUTE_MEM_ALIGN_SIZE
+	default 4
 
 endif # LVGL
 
