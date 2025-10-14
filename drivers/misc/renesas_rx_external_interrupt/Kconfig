@@ -9,3 +9,10 @@ config RENESAS_RX_EXTERNAL_INTERRUPT
 	default y
 	help
 	  Enable config options for Renesas RX external interrupt
+
+config RENESAS_RX_EXTERNAL_INTERRUPT_ICUM
+	bool "Renesas RX ICUM External Interrupt Driver"
+	depends on DT_HAS_RENESAS_RX_EXTERNAL_INTERRUPT_ICUM_ENABLED
+	default y
+	help
+	  Enable config options for Renesas RX ICUM external interrupt
