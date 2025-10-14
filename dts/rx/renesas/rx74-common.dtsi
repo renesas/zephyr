@@ -31,11 +31,12 @@
 		compatible = "renesas,rx-icum";
 		interrupt-controller;
 		reg = <0x87006000 0x100>,
-		      <0x87006200 0x20>,
-		      <0x87006300 0x100>,
-		      <0x870062f0 0x02>,
-		      <0x87006c20 0x20>;
-		reg-names = "IR", "IER", "IPR", "FIR", "IRQCR";
+		<0x87006200 0x20>,
+		<0x87006300 0x100>,
+		<0x870062f0 0x02>,
+		<0x87006c20 0x20>,
+		<0x87006900 0x20>;
+		reg-names = "IR", "IER", "IPR", "FIR", "IRQCR", "SLIXR";
 
 		swint1: swint1@870062e0 {
 			compatible = "renesas,rx-swint";
@@ -60,6 +61,42 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq16 &port_irq17 &port_irq18 &port_irq19
+			&port_irq20 &port_irq21 &port_irq22 &port_irq23
+			&port_irq24 &port_irq25 &port_irq26 &port_irq27
+			&port_irq28 &port_irq29 &port_irq30 &port_irq31>;
+			port-irq-names = "port-irq16",
+							 "port-irq17",
+			                 "port-irq18",
+			                 "port-irq19",
+			                 "port-irq20",
+			                 "port-irq21",
+			                 "port-irq22",
+			                 "port-irq23",
+							 "port-irq24",
+							 "port-irq25",
+			                 "port-irq26",
+			                 "port-irq27",
+			                 "port-irq28",
+			                 "port-irq29",
+			                 "port-irq30",
+			                 "port-irq31";
+			port-irq16-pins = <0>;
+			port-irq17-pins = <1>;
+			port-irq18-pins = <2>;
+			port-irq19-pins = <3>;
+			port-irq20-pins = <4>;
+			port-irq21-pins = <5>;
+			port-irq22-pins = <6>;
+			port-irq23-pins = <7>;
+			port-irq24-pins = <8>;
+			port-irq25-pins = <9>;
+			port-irq26-pins = <10>;
+			port-irq27-pins = <11>;
+			port-irq28-pins = <12>;
+			port-irq29-pins = <13>;
+			port-irq30-pins = <14>;
+			port-irq31-pins = <15>;
 			status = "disabled";
 		};
 
@@ -70,6 +107,42 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq0 &port_irq1 &port_irq2 &port_irq3
+			&port_irq4 &port_irq29 &port_irq30 &port_irq31
+			&port_irq16 &port_irq17 &port_irq18 &port_irq19
+			&port_irq20 &port_irq21 &port_irq22 &port_irq23>;
+			port-irq-names = "port-irq0",
+							 "port-irq1",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq4",
+			                 "port-irq29",
+			                 "port-irq30",
+			                 "port-irq31",
+							 "port-irq16",
+							 "port-irq17",
+			                 "port-irq18",
+			                 "port-irq19",
+			                 "port-irq20",
+			                 "port-irq21",
+			                 "port-irq22",
+			                 "port-irq23";
+			port-irq0-pins = <0>;
+			port-irq1-pins = <1>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq4-pins = <4>;
+			port-irq29-pins = <5>;
+			port-irq30-pins = <6>;
+			port-irq31-pins = <7>;
+			port-irq16-pins = <8>;
+			port-irq17-pins = <9>;
+			port-irq18-pins = <10>;
+			port-irq19-pins = <11>;
+			port-irq20-pins = <12>;
+			port-irq21-pins = <13>;
+			port-irq22-pins = <14>;
+			port-irq23-pins = <15>;
 			status = "disabled";
 		};
 
@@ -80,6 +153,40 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq8 &port_irq9 &port_irq15 &port_irq3
+			&port_irq12 &port_irq5 &port_irq2 &port_irq24
+			&port_irq25 &port_irq26 &port_irq27 &port_irq28
+			&port_irq29 &port_irq30 &port_irq31>;
+			port-irq-names = "port-irq8",
+					 		 "port-irq9",
+							 "port-irq15",
+					 		 "port-irq3",
+							 "port-irq12",
+					 		 "port-irq5",
+							 "port-irq2",
+							 "port-irq24",
+							 "port-irq25",
+			                 "port-irq26",
+			                 "port-irq27",
+			                 "port-irq28",
+			                 "port-irq29",
+			                 "port-irq30",
+			                 "port-irq31";
+			port-irq8-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq15-pins = <2>;
+			port-irq3-pins = <3 7>;
+			port-irq12-pins = <4>;
+			port-irq5-pins = <5>;
+			port-irq2-pins = <6>;
+			port-irq24-pins = <8>;
+			port-irq25-pins = <9>;
+			port-irq26-pins = <10>;
+			port-irq27-pins = <11>;
+			port-irq28-pins = <12>;
+			port-irq29-pins = <13>;
+			port-irq30-pins = <14>;
+			port-irq31-pins = <15>;
 			status = "disabled";
 		};
 
@@ -90,6 +197,24 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq6 &port_irq7 &port_irq4 &port_irq1
+			&port_irq0 &port_irq18 &port_irq19 &port_irq20>;
+			port-irq-names = "port-irq6",
+			                 "port-irq7",
+			                 "port-irq4",
+			                 "port-irq1",
+			                 "port-irq0",
+			                 "port-irq18",
+			                 "port-irq19",
+			                 "port-irq20";
+			port-irq6-pins = <0>;
+			port-irq7-pins = <1>;
+			port-irq4-pins = <2>;
+			port-irq1-pins = <3>;
+			port-irq0-pins = <4 5>;
+			port-irq18-pins = <10>;
+			port-irq19-pins = <11>;
+			port-irq20-pins = <12>;
 			status = "disabled";
 		};
 
@@ -100,6 +225,42 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq8 &port_irq9 &port_irq10 &port_irq11
+			&port_irq12 &port_irq13 &port_irq14 &port_irq15
+			&port_irq24 &port_irq25 &port_irq26 &port_irq27
+			&port_irq28 &port_irq29 &port_irq30 &port_irq31>;
+			port-irq-names = "port-irq8",
+							 "port-irq9",
+			                 "port-irq10",
+			                 "port-irq11",
+			                 "port-irq12",
+			                 "port-irq13",
+			                 "port-irq14",
+			                 "port-irq15",
+							 "port-irq24",
+							 "port-irq25",
+			                 "port-irq26",
+			                 "port-irq27",
+			                 "port-irq28",
+			                 "port-irq29",
+			                 "port-irq30",
+			                 "port-irq31";
+			port-irq8-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq10-pins = <2>;
+			port-irq11-pins = <3>;
+			port-irq12-pins = <4>;
+			port-irq13-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq15-pins = <7>;
+			port-irq24-pins = <8>;
+			port-irq25-pins = <9>;
+			port-irq26-pins = <10>;
+			port-irq27-pins = <11>;
+			port-irq28-pins = <12>;
+			port-irq29-pins = <13>;
+			port-irq30-pins = <14>;
+			port-irq31-pins = <15>;
 			status = "disabled";
 		};
 
@@ -110,6 +271,42 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq0 &port_irq1 &port_irq2 &port_irq3
+			&port_irq4 &port_irq10 &port_irq6 &port_irq7
+			&port_irq16 &port_irq17 &port_irq18 &port_irq19
+			&port_irq20 &port_irq21 &port_irq22 &port_irq23>;
+			port-irq-names = "port-irq0",
+							 "port-irq1",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq4",
+			                 "port-irq10",
+			                 "port-irq6",
+			                 "port-irq7",
+							 "port-irq16",
+							 "port-irq17",
+			                 "port-irq18",
+			                 "port-irq19",
+			                 "port-irq20",
+			                 "port-irq21",
+			                 "port-irq22",
+			                 "port-irq23";
+			port-irq0-pins = <0>;
+			port-irq1-pins = <1>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq4-pins = <4>;
+			port-irq10-pins = <5>;
+			port-irq6-pins = <6>;
+			port-irq7-pins = <7>;
+			port-irq16-pins = <8>;
+			port-irq17-pins = <9>;
+			port-irq18-pins = <10>;
+			port-irq19-pins = <11>;
+			port-irq20-pins = <12>;
+			port-irq21-pins = <13>;
+			port-irq22-pins = <14>;
+			port-irq23-pins = <15>;
 			status = "disabled";
 		};
 
@@ -119,7 +316,25 @@
 			port = <6>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq0 &port_irq1 &port_irq2 &port_irq3
+			&port_irq4 &port_irq13 &port_irq14 &port_irq15>;
+			port-irq-names = "port-irq0",
+							 "port-irq1",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq4",
+			                 "port-irq13",
+			                 "port-irq14",
+			                 "port-irq15";
+			port-irq0-pins = <0>;
+			port-irq1-pins = <1>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq4-pins = <4>;
+			port-irq13-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq15-pins = <7>;
 			status = "disabled";
 		};
 
@@ -130,6 +345,42 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq0 &port_irq1 &port_irq10 &port_irq8
+			&port_irq12 &port_irq13 &port_irq14 &port_irq7
+			&port_irq16 &port_irq17 &port_irq18 &port_irq19
+			&port_irq20 &port_irq21 &port_irq22 &port_irq23>;
+			port-irq-names = "port-irq0",
+							 "port-irq1",
+			                 "port-irq10",
+			                 "port-irq8",
+			                 "port-irq12",
+			                 "port-irq13",
+			                 "port-irq14",
+			                 "port-irq7",
+							 "port-irq16",
+							 "port-irq17",
+			                 "port-irq18",
+			                 "port-irq19",
+			                 "port-irq20",
+			                 "port-irq21",
+			                 "port-irq22",
+			                 "port-irq23";
+			port-irq0-pins = <0>;
+			port-irq1-pins = <1>;
+			port-irq10-pins = <2>;
+			port-irq8-pins = <3>;
+			port-irq12-pins = <4>;
+			port-irq13-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq7-pins = <7>;
+			port-irq16-pins = <8>;
+			port-irq17-pins = <9>;
+			port-irq18-pins = <10>;
+			port-irq19-pins = <11>;
+			port-irq20-pins = <12>;
+			port-irq21-pins = <13>;
+			port-irq22-pins = <14>;
+			port-irq23-pins = <15>;
 			status = "disabled";
 		};
 
@@ -140,6 +391,24 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq8 &port_irq9 &port_irq2 &port_irq3
+			&port_irq4 &port_irq5 &port_irq14 &port_irq15>;
+			port-irq-names = "port-irq8",
+							 "port-irq9",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq4",
+			                 "port-irq5",
+			                 "port-irq14",
+			                 "port-irq15";
+			port-irq8-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq4-pins = <4>;
+			port-irq5-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq15-pins = <7>;
 			status = "disabled";
 		};
 
@@ -150,6 +419,24 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq0 &port_irq9 &port_irq10 &port_irq11
+			&port_irq12 &port_irq13 &port_irq14 &port_irq15>;
+			port-irq-names = "port-irq0",
+							 "port-irq9",
+			                 "port-irq10",
+			                 "port-irq11",
+			                 "port-irq12",
+			                 "port-irq13",
+			                 "port-irq14",
+			                 "port-irq15";
+			port-irq0-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq10-pins = <2>;
+			port-irq11-pins = <3>;
+			port-irq12-pins = <4>;
+			port-irq13-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq15-pins = <7>;
 			status = "disabled";
 		};
 
@@ -159,7 +446,23 @@
 			port = <10>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq1 &port_irq5 &port_irq6 &port_irq7
+			&port_irq10 &port_irq11 &port_irq14>;
+			port-irq-names = "port-irq1",
+			                 "port-irq5",
+			                 "port-irq6",
+			                 "port-irq7",
+			                 "port-irq10",
+			                 "port-irq11",
+			                 "port-irq14";
+			port-irq1-pins = <0>;
+			port-irq5-pins = <4 5>;
+			port-irq6-pins = <3>;
+			port-irq7-pins = <7>;
+			port-irq10-pins = <2>;
+			port-irq11-pins = <1>;
+			port-irq14-pins = <6>;
 			status = "disabled";
 		};
 
@@ -169,7 +472,23 @@
 			port = <11>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq12 &port_irq4 &port_irq2 &port_irq3
+			&port_irq13 &port_irq6 &port_irq15>;
+			port-irq-names = "port-irq12",
+			                 "port-irq4",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq13",
+			                 "port-irq6",
+							 "port-irq15";
+			port-irq12-pins = <0>;
+			port-irq4-pins = <1 4>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq13-pins = <5>;
+			port-irq6-pins = <6>;
+			port-irq15-pins = <15>;
 			status = "disabled";
 		};
 
@@ -179,7 +498,23 @@
 			port = <12>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq14 &port_irq10 &port_irq11 &port_irq12
+			&port_irq5 &port_irq13 &port_irq14>;
+			port-irq-names = "port-irq14",
+			                 "port-irq10",
+			                 "port-irq11",
+			                 "port-irq12",
+			                 "port-irq5",
+			                 "port-irq13",
+			                 "port-irq14";
+			port-irq14-pins = <0>;
+			port-irq10-pins = <2>;
+			port-irq12-pins = <1 4>;
+			port-irq11-pins = <3>;
+			port-irq5-pins = <5>;
+			port-irq13-pins = <6>;
+			port-irq14-pins = <7>;
 			status = "disabled";
 		};
 
@@ -189,7 +524,25 @@
 			port = <13>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq0 &port_irq1 &port_irq2 &port_irq3
+			&port_irq4 &port_irq5 &port_irq6 &port_irq7>;
+			port-irq-names = "port-irq0",
+			                 "port-irq1",
+			                 "port-irq2",
+			                 "port-irq3",
+			                 "port-irq4",
+			                 "port-irq5",
+			                 "port-irq6",
+			                 "port-irq7";
+			port-irq0-pins = <0>;
+			port-irq1-pins = <1>;
+			port-irq2-pins = <2>;
+			port-irq3-pins = <3>;
+			port-irq4-pins = <4>;
+			port-irq5-pins = <5>;
+			port-irq6-pins = <6>;
+			port-irq7-pins = <7>;
 			status = "disabled";
 		};
 
@@ -199,7 +552,23 @@
 			port = <14>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <8>;
+			port-irqs = <&port_irq8 &port_irq9 &port_irq7 &port_irq11
+			&port_irq12 &port_irq5 &port_irq6>;
+			port-irq-names = "port-irq8",
+			                 "port-irq9",
+			                 "port-irq7",
+			                 "port-irq11",
+			                 "port-irq12",
+			                 "port-irq5",
+			                 "port-irq6";
+			port-irq8-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq7-pins = <2 7>;
+			port-irq11-pins = <3>;
+			port-irq12-pins = <4>;
+			port-irq5-pins = <5>;
+			port-irq6-pins = <6>;
 			status = "disabled";
 		};
 
@@ -209,7 +578,11 @@
 			port = <15>;
 			gpio-controller;
 			#gpio-cells = <2>;
-			ngpios = <16>;
+			ngpios = <10>;
+			port-irqs = <&port_irq16 &port_irq17>;
+			port-irq-names = "port-irq16", "port-irq17";
+			port-irq16-pins = <8>;
+			port-irq17-pins = <9>;
 			status = "disabled";
 		};
 
@@ -220,6 +593,344 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			ngpios = <16>;
+			port-irqs = <&port_irq8 &port_irq9 &port_irq10 &port_irq11
+			&port_irq12 &port_irq13 &port_irq14 &port_irq15>;
+			port-irq-names = "port-irq8",
+							 "port-irq9",
+			                 "port-irq10",
+			                 "port-irq11",
+			                 "port-irq12",
+			                 "port-irq13",
+			                 "port-irq14",
+			                 "port-irq15";
+			port-irq8-pins = <0>;
+			port-irq9-pins = <1>;
+			port-irq10-pins = <2>;
+			port-irq11-pins = <3>;
+			port-irq12-pins = <4>;
+			port-irq13-pins = <5>;
+			port-irq14-pins = <6>;
+			port-irq15-pins = <7>;
+			status = "disabled";
+		};
+
+		port_irq0: external-interrupt@87006c20 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C20 0x1>;
+			interrupts = <64 12>;
+			channel = <0>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq1: external-interrupt@87006c21 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C21 0x1>;
+			interrupts = <65 12>;
+			channel = <1>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq2: external-interrupt@87006c22 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C22 0x1>;
+			interrupts = <66 12>;
+			channel = <2>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq3: external-interrupt@87006c23 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C23 0x1>;
+			interrupts = <67 12>;
+			channel = <3>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq4: external-interrupt@87006c24 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C24 0x1>;
+			interrupts = <68 12>;
+			channel = <4>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq5: external-interrupt@87006c25 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C25 0x1>;
+			interrupts = <69 12>;
+			channel = <5>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq6: external-interrupt@87006c26 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C26 0x1>;
+			interrupts = <70 12>;
+			channel = <6>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq7: external-interrupt@87006c27 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C27 0x1>;
+			interrupts = <71 12>;
+			channel = <7>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq8: external-interrupt@87006c28 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C28 0x1>;
+			interrupts = <72 12>;
+			channel = <8>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq9: external-interrupt@87006c29 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C29 0x1>;
+			interrupts = <73 12>;
+			channel = <9>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq10: external-interrupt@87006c2a {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2a 0x1>;
+			interrupts = <74 12>;
+			channel = <10>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq11: external-interrupt@87006c2b {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2B 0x1>;
+			interrupts = <75 12>;
+			channel = <11>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq12: external-interrupt@87006c2c {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2C 0x1>;
+			interrupts = <76 12>;
+			channel = <12>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq13: external-interrupt@87006c2d {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2D 0x1>;
+			interrupts = <77 12>;
+			channel = <13>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq14: external-interrupt@87006c2e {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2E 0x1>;
+			interrupts = <78 12>;
+			channel = <14>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq15: external-interrupt@87006c2f {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C2F 0x1>;
+			interrupts = <79 12>;
+			channel = <15>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq16: external-interrupt@87006c30 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C30 0x1>;
+			interrupts = <128 12>;
+			channel = <16>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq17: external-interrupt@87006c31 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C31 0x1>;
+			interrupts = <129 12>;
+			channel = <17>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq18: external-interrupt@87006c32 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C32 0x1>;
+			interrupts = <130 12>;
+			channel = <18>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq19: external-interrupt@87006c33 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C33 0x1>;
+			interrupts = <131 12>;
+			channel = <19>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq20: external-interrupt@87006c34 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C34 0x1>;
+			interrupts = <132 12>;
+			channel = <20>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq21: external-interrupt@87006c35 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C35 0x1>;
+			interrupts = <133 12>;
+			channel = <21>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq22: external-interrupt@87006c36 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C36 0x1>;
+			interrupts = <134 12>;
+			channel = <22>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq23: external-interrupt@87006c37 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C37 0x1>;
+			interrupts = <135 12>;
+			channel = <23>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq24: external-interrupt@87006c38 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C38 0x1>;
+			interrupts = <136 12>;
+			channel = <24>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq25: external-interrupt@87006c39 {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C39 0x1>;
+			interrupts = <137 12>;
+			channel = <25>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq26: external-interrupt@87006c3a {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3A 0x1>;
+			interrupts = <138 12>;
+			channel = <26>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq27: external-interrupt@87006c3b {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3B 0x1>;
+			interrupts = <139 12>;
+			channel = <27>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq28: external-interrupt@87006c3c {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3C 0x1>;
+			interrupts = <140 12>;
+			channel = <28>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq29: external-interrupt@87006c3d {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3D 0x1>;
+			interrupts = <141 12>;
+			channel = <29>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq30: external-interrupt@87006c3e {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3E 0x1>;
+			interrupts = <142 12>;
+			channel = <30>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
+			status = "disabled";
+		};
+
+		port_irq31: external-interrupt@87006c3f {
+			compatible = "renesas,rx-external-interrupt-icum";
+			reg = <0x87006C3F 0x1>;
+			interrupts = <143 12>;
+			channel = <31>;
+			renesas,sample-clock-div = <64>;
+			#port-irq-cells = <0>;
 			status = "disabled";
 		};
 
@@ -381,7 +1092,7 @@
 
 		sci12: uart12@87458c00 {
 			compatible = "renesas,rx-sci-b";
-			interrupts-extended = <&icu 129 1>, <&icu 130 1>,
+			interrupts-extended = <&icu 144 1>, <&icu 145 1>,
 					      <&group_irq_al1 6 1>, <&group_irq_al1 7 1>;
 			interrupt-names = "rxi", "txi", "tei", "eri";
 			reg = <0x87458c00 0x100>;
@@ -409,8 +1120,8 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 				reg = <0x87826002 0x02>,
-				      <0x87826004 0x02>,
-				      <0x87826006 0x02>;
+				<0x87826004 0x02>,
+				<0x87826006 0x02>;
 				reg-names = "CMCR", "CMCNT", "CMCOR";
 				interrupts = <28 1>;
 				interrupt-names = "cmi";
@@ -420,8 +1131,8 @@
 			cmt1: timer@87826008 {
 				compatible = "renesas,rx-timer-cmt";
 				reg = <0x87826008 0x02>,
-				      <0x8782600A 0x02>,
-				      <0x8782600C 0x02>;
+				<0x8782600A 0x02>,
+				<0x8782600C 0x02>;
 				reg-names = "CMCR", "CMCNT", "CMCOR";
 				interrupts = <29 1>;
 				interrupt-names = "cmi";
@@ -775,8 +1486,8 @@
 			};
 
 			/* Since the RFP tool currently does not support the following OFS regions,
-			 * they have been temporarily commented out to enable flashing via RFP.
-			 */
+			* they have been temporarily commented out to enable flashing via RFP.
+			*/
 
 			// option_setting_ofsps2: option-setting-ofsps2@86e30ee0 {
 			// 	compatible = "zephyr,memory-region";
@@ -786,8 +1497,8 @@
 		};
 
 		// option_setting_anti_rollback_sec: option-setting-anti-rollback-sec@86f41d00 {
-    		// 	compatible = "zephyr,memory-region";
-    		// 	reg = <0x86f41d00 0x00000210>;
+		// 	compatible = "zephyr,memory-region";
+		// 	reg = <0x86f41d00 0x00000210>;
 		// 	zephyr,memory-region = "OFS_ANTI_ROLLBACK_SEC";
 		// 	#address-cells = <1>;
 		// 	#size-cells = <0>;
