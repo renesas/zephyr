@@ -185,8 +185,9 @@ static void phy_link_state_changed(const struct device *pdev, struct phy_link_st
 			LOG_DBG("phy link changed, state->is_up:%d, RMAC.MPIC %d \n", state->is_up,
 				rmac_reg->MPIC);
 
-			rx_grp_intc_callback_set(cfg->gwdi_ctrl, cfg->gwdi_num, layer3_switch_gwdi_isr,
-				       (void *)p_extend->p_ether_switch->p_ctrl);
+			rx_grp_intc_callback_set(cfg->gwdi_ctrl, cfg->gwdi_num,
+						 layer3_switch_gwdi_isr,
+						 (void *)p_extend->p_ether_switch->p_ctrl);
 
 			/* Enable Group interrupt.*/
 			rx_grp_intc_enable(cfg->gwdi_ctrl, cfg->gwdi_num);
@@ -338,7 +339,6 @@ static int renesas_rx_eth_init(const struct device *dev)
 	uint8_t ret = 0;
 	uint8_t fsp_err = 0;
 
-
 	data->link_is_up = false;
 	data->link_speed = -1;
 
@@ -380,8 +380,8 @@ static int renesas_rx_eth_init(const struct device *dev)
 
 #ifdef CONFIG_RENESAS_RX_GRP_INTC_FSP
 #define ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(index)                                                  \
-	.gwdi_ctrl = DEVICE_DT_GET(DT_INST_PHANDLE(index, gwdi_ctrl)),                             \
-	.gwdi_num = DT_INST_PROP(index, gwdi_number),
+	.gwdi_ctrl = DEVICE_DT_GET(DT_INST_IRQ_INTC_BY_NAME(index, gwdi)),                                             \
+	.gwdi_num = DT_INST_IRQ_BY_NAME(index, gwdi, irq),
 #else
 #define ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(index)
 #endif

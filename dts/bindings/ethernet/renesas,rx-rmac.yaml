@@ -14,16 +14,3 @@ properties:
   channel:
     type: int
     required: true
-
-  gwdi-ctrl:
-    type: phandle
-    description: |
-      Group interrupt controller for the GWCA0 data interrupt (gwdi). This only applies
-      in cases the RX MCU supports group interrupt feature
-
-  gwdi-number:
-    type: int
-    description: |
-      Number of the gwdi (GWCA0 data interrupt) in the interrupt group of gwdi-ctrl
-
-

@@ -590,12 +590,6 @@ static void uart_rx_sci_b_eri_isr(const struct device *dev)
 	}
 }
 
-#define UART_RX_SCI_B_IRQ_CONFIG_INIT(index)                                                       \
-	.rxi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), rxi, irq),                                \
-	.txi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, irq),                                \
-	.tei_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), tei, irq),                                \
-	.eri_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), eri, irq),
-
 #define UART_RX_SCI_B_TEI_ERI_INIT(index)                                                          \
 	do {                                                                                       \
 		IRQ_CONNECT(DT_IRQ_BY_NAME(DT_INST_PARENT(index), tei, irq),                       \
@@ -639,10 +633,10 @@ static void uart_rx_sci_b_eri_isr(const struct device *dev)
 #define UART_RX_SCI_B_IRQ_CONFIG_INIT(index)                                                       \
 	.rxi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), rxi, irq),                                \
 	.txi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, irq),                                \
-	.tei_ctrl = DEVICE_DT_GET(DT_PHANDLE(DT_INST_PARENT(index), tei_ctrl)),                    \
-	.tei_num = DT_PROP(DT_INST_PARENT(index), tei_number),                                     \
-	.eri_ctrl = DEVICE_DT_GET(DT_PHANDLE(DT_INST_PARENT(index), eri_ctrl)),                    \
-	.eri_num = DT_PROP(DT_INST_PARENT(index), eri_number),
+	.tei_ctrl = DEVICE_DT_GET(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(index), tei)),                     \
+	.tei_num = DT_IRQ_BY_NAME(DT_INST_PARENT(index), tei, irq),                                \
+	.eri_ctrl = DEVICE_DT_GET(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(index), eri)),                     \
+	.eri_num = DT_IRQ_BY_NAME(DT_INST_PARENT(index), eri, irq)
 #endif /* CONFIG_RENESAS_RX_GRP_INTC_FSP */
 #else  /* CONFIG_UART_INTERRUPT_DRIVEN */
 #define UART_RX_SCI_B_IRQ_CONFIG_INIT(index)

@@ -381,12 +381,9 @@
 
 		sci12: uart12@87458c00 {
 			compatible = "renesas,rx-sci-b";
-			interrupts = <129 1>, <130 1>;
-			interrupt-names = "rxi", "txi";
-			tei-ctrl = <&group_irq_al1>;
-			tei-number = <6>;
-			eri-ctrl = <&group_irq_al1>;
-			eri-number = <7>;
+			interrupts-extended = <&icu 129 1>, <&icu 130 1>,
+					      <&group_irq_al1 6 1>, <&group_irq_al1 7 1>;
+			interrupt-names = "rxi", "txi", "tei", "eri";
 			reg = <0x87458c00 0x100>;
 			clocks = <&sciclk MSTPB 0>;
 			status = "disabled";
@@ -452,8 +449,8 @@
 				compatible = "renesas,rx-rmac";
 				channel = <0>;
 				reg = <0x874CB000 0x1000>;
-				gwdi-ctrl = <&group_irq_al4>;
-				gwdi-number = <12>;
+				interrupts-extended = <&group_irq_al4 12 1>;
+				interrupt-names = "gwdi";
 				local-mac-address = [00 11 22 33 44 55];
 				phy-connection-type = "gmii";
 				status = "disabled";
@@ -472,8 +469,7 @@
 				compatible = "renesas,rx-rmac";
 				reg = <0x874CD000 0x1000>;
 				channel = <1>;
-				gwdi-ctrl = <&group_irq_al4>;
-				gwdi-number = <25>;
+				interrupts-extended = <&group_irq_al4 25 1>;
 				local-mac-address = [00 11 22 33 44 55];
 				phy-connection-type = "gmii";
 				status = "disabled";
