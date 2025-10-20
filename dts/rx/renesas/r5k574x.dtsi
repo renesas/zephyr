@@ -341,9 +341,18 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			mram0: mram@fff00000 {
-				compatible = "soc-nv-flash";
-				reg = <0xfff00000 0x100000>;
+			code_mram: mram@fff00000 {
+				compatible = "renesas,rx-nv-mram";
+				reg = <0xfff00000 DT_SIZE_M(1)>;
+				write-block-size = <1>;
+				erase-block-size = <32>;
+			};
+
+			data_mram: mram@86900000 {
+				compatible = "renesas,rx-nv-mram";
+				reg = <0x86900000 DT_SIZE_K(48)>;
+				write-block-size = <16>;
+				erase-block-size = <16>;
 			};
 		};
 

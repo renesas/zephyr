@@ -54,6 +54,14 @@
 		compatible = "simple-bus";
 		interrupt-parent = <&icu>;
 
+		mram: mram-controller@8709c000 {
+			compatible = "renesas,rx-mram-controller";
+			reg = <0x8709c000 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+		};
+
 		ioport0: gpio@87c00000 {
 			compatible = "renesas,rx-gpio-ioport";
 			reg = <0x87C00000 0x20>;
