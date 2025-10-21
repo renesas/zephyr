@@ -25,14 +25,6 @@ LOG_MODULE_REGISTER(eth_renesas_ra, CONFIG_ETHERNET_LOG_LEVEL);
 /* At this time , HAL only support single descriptor, set fixed buffer length */
 #define ETH_BUF_SIZE (1536)
 
-#if defined(CONFIG_NOCACHE_MEMORY)
-#define __eth_renesas_desc __nocache __aligned(32)
-#define __eth_renesas_buf  __nocache __aligned(32)
-#else /* CONFIG_NOCACHE_MEMORY */
-#define __eth_renesas_desc
-#define __eth_renesas_buf
-#endif /* CONFIG_NOCACHE_MEMORY */
-
 #define ETHPHYCLK_25MHZ MHZ(25)
 #define ETHPHYCLK_50MHZ MHZ(50)
 
@@ -90,7 +82,6 @@ struct eth_renesas_ra_data {
 	rmac_instance_ctrl_t fsp_ctrl;
 	ether_cfg_t fsp_cfg;
 	ether_callback_args_t fsp_cb;
-	bool phy_link_up;
 };
 
 struct eth_renesas_ra_config {
@@ -115,16 +106,13 @@ static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *sta
 	fsp_err_t fsp_err = FSP_SUCCESS;
 
 	if (!state->is_up) {
-		if (data->phy_link_up == true) {
-			/* phy state change from up to down */
-			r_rmac_disable_reception(&data->fsp_ctrl);
-			data->phy_link_up = false;
+		/* phy state change from up to down */
+		r_rmac_disable_reception(&data->fsp_ctrl);
 
-			data->fsp_ctrl.link_establish_status = ETHER_LINK_ESTABLISH_STATUS_DOWN;
+		data->fsp_ctrl.link_establish_status = ETHER_LINK_ESTABLISH_STATUS_DOWN;
 
-			LOG_DBG("Link down");
-			net_eth_carrier_off(data->iface);
-		}
+		LOG_DBG("Link down");
+		net_eth_carrier_off(data->iface);
 		return;
 	}
 
@@ -172,7 +160,6 @@ static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *sta
 	LOG_DBG("Link up");
 
 	net_eth_carrier_on(data->iface);
-	data->phy_link_up = true;
 }
 
 static void eth_rmac_cb(ether_callback_args_t *args)
@@ -616,20 +603,16 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 							: ETH_PHY_REF_CLK_INTERNAL
 
 /* Buffers declare */
-#define ETH_TX_BUF_DECLARE(idx, n)                                                                 \
-	static uint8_t eth##n##_tx_buf##idx[ETH_BUF_SIZE] __eth_renesas_buf;
-#define ETH_RX_BUF_DECLARE(idx, n)                                                                 \
-	static uint8_t eth##n##_rx_buf##idx[ETH_BUF_SIZE] __eth_renesas_buf;
+#define ETH_TX_BUF_DECLARE(idx, n)     static uint8_t eth##n##_tx_buf##idx[ETH_BUF_SIZE];
+#define ETH_RX_BUF_DECLARE(idx, n)     static uint8_t eth##n##_rx_buf##idx[ETH_BUF_SIZE];
 #define ETH_TX_BUF_PTR_DECLARE(idx, n) (uint8_t *)&eth##n##_tx_buf##idx[0]
 #define ETH_RX_BUF_PTR_DECLARE(idx, n) (uint8_t *)&eth##n##_rx_buf##idx[0]
 
 /* Descriptors declare */
 #define ETH_TX_DESC_DECLARE(idx, n)                                                                \
-	static layer3_switch_descriptor_t                                                          \
-		eth##n##_tx_desc_array##idx[ETH_TX_BUF_NUM(n)] __eth_renesas_desc;
+	static layer3_switch_descriptor_t eth##n##_tx_desc_array##idx[ETH_TX_BUF_NUM(n)];
 #define ETH_RX_DESC_DECLARE(idx, n)                                                                \
-	static layer3_switch_descriptor_t                                                          \
-		eth##n##_rx_desc_array##idx[ETH_RX_BUF_NUM(n)] __eth_renesas_desc;
+	static layer3_switch_descriptor_t eth##n##_rx_desc_array##idx[ETH_RX_BUF_NUM(n)];
 
 /* Queues declare */
 #define ETH_TX_QUEUE_DECLARE(idx, n)                                                               \
@@ -679,8 +662,8 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 #else /* CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY */
 #define ETH_RENESAS_RA_DATA_BUF_MODE ETHER_ZEROCOPY_DISABLE
 #define ETH_RENESAS_RA_DATA_BUF_DECLARE(n)                                                         \
-	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE] __eth_renesas_buf;			   \
-	static uint8_t eth##n##_tx_frame[ETH_BUF_SIZE] __eth_renesas_buf;
+	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE];                                            \
+	static uint8_t eth##n##_tx_frame[ETH_BUF_SIZE];
 #define ETH_RENESAS_RA_DATA_BUF_PROP_DECLARE(n)                                                    \
 	.rx_frame = eth##n##_rx_frame, .tx_frame = eth##n##_tx_frame
 #endif /* CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY */
