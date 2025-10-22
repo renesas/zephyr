@@ -17,7 +17,7 @@
 
 	chosen {
 		zephyr,sram = &sram0;
-		zephyr,flash = &mram0;
+		zephyr,flash = &code_mram;
 		zephyr,console = &uart12;
 		zephyr,shell-uart = &uart12;
 		zephyr,canbus = &canfd0;
@@ -326,4 +326,17 @@
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&data_mram {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		storage_partition: partition@0 {
+			label = "storage";
+			reg = <0x0 DT_SIZE_K(48)>;
+		};
+	};
 };
