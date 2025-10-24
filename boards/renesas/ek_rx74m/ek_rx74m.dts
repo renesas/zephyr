@@ -19,6 +19,7 @@
 		zephyr,flash = &mram0;
 		zephyr,console = &uart12;
 		zephyr,shell-uart = &uart12;
+		zephyr,canbus = &canfd0;
 	};
 
 	leds {
@@ -44,6 +45,13 @@
 		led0 = &led1;
 		led1 = &led2;
 		led2 = &led3;
+	};
+
+	transceiver0: can-phy0 {
+		compatible = "can-transceiver-gpio";
+		standby-gpios = <&ioport8 1 GPIO_ACTIVE_HIGH>;
+		max-bitrate = <5000000>;
+		#phy-cells = <0>;
 	};
 };
 
@@ -98,4 +106,26 @@
 
 &ioportf {
 	status = "okay";
+};
+
+&canfdclk {
+	clocks = <&pllp>;
+	div = <5>;
+	status = "okay";
+};
+
+&group_irq_al2 {
+	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+
+	canfd0: canfd0 {
+		pinctrl-0 = <&canfd0_default>;
+		pinctrl-names = "default";
+		rx-max-filters = <64>;
+		phys = <&transceiver0>;
+		status = "okay";
+	};
 };
