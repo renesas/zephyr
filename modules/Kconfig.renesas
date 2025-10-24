@@ -554,4 +554,9 @@ config USE_RX_FSP_SPI_B
 	help
 	  Enable RX FSP SPI-B driver
 
+config USE_RX_FSP_CANFD
+	bool
+	help
+	  Enable RX FSP CANFD driver
+
 endif # HAS_RENESAS_RX_FSP
