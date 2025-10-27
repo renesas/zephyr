@@ -10,5 +10,6 @@ toolchain:
   - zephyr
 supported:
   - serial
+  - i2c
 ram: 1024
 flash: 512
