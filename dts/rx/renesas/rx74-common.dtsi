@@ -945,17 +945,34 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci1: sci1@87458100 {
 			compatible = "renesas,rx-sci-b";
 			reg = <0x87458100 0x100>;
 			clocks = <&sciclk MSTPB 30>;
+			interrupts-extended = <&icu 145 1>,
+					      <&group_irq_al0 3 1>;
+			interrupt-names = "txi", "tei";
 			status = "disabled";
 			channel = <1>;
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -971,6 +988,13 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci3: sci3@87458300 {
@@ -982,6 +1006,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -997,6 +1028,13 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci5: sci5@87458500 {
@@ -1008,6 +1046,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -1023,6 +1068,13 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci7: sci7@87458700 {
@@ -1034,6 +1086,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -1049,6 +1108,13 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci9: sci9@87458900 {
@@ -1060,6 +1126,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -1075,6 +1148,13 @@
 				compatible = "renesas,rx-uart-sci-b";
 				status = "disabled";
 			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
 		};
 
 		sci11: sci11@87458b00 {
@@ -1086,6 +1166,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -1102,6 +1189,13 @@
 
 			uart {
 				compatible = "renesas,rx-uart-sci-b";
+				status = "disabled";
+			};
+
+			i2c {
+				compatible = "renesas,rx-i2c-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
 				status = "disabled";
 			};
 		};
@@ -1528,8 +1622,7 @@
 		// 		status = "okay";
 		// 	};
 		// };
-
-
+		
 		group_irq_il0: grp_intc@87006550 {
 			compatible = "renesas,rx-grp-intc-fsp";
 			interrupt-controller;
