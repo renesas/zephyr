@@ -9,6 +9,14 @@ config SPI_RENESAS_RX
 	help
 	  Enable Renesas RX series SPI driver.
 
+config SPI_B_RENESAS_RX
+	bool "Renesas RX Series SPI Driver"
+	default y
+	depends on DT_HAS_RENESAS_RX_SPI_B_ENABLED
+	select USE_RX_FSP_SPI_B
+	help
+	  Enable Renesas RX series SPI driver.
+
 if SPI_RENESAS_RX
 
 config SPI_RENESAS_RX_INTERRUPT
@@ -39,5 +47,15 @@ config SPI_RENESAS_RX_DTC
 
 config SPI_RENESAS_RX_16BITS_FRAME
 	bool "Test loopback: 16 bits"
+
+endif # SPI_RENESAS_RX
+
+if SPI_B_RENESAS_RX
+
+config SPI_B_RENESAS_RX_INTERRUPT
+	bool "RX MCU RSPI-B Interrupt Support"
+	default y
+	help
+	  Enable Interrupt Support for the RSPI-B Driver of RX family.
 
 endif # SPI_RENESAS_RX
