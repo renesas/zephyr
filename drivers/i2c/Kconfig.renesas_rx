@@ -12,7 +12,16 @@ config I2C_RENESAS_RX_RIIC
 	help
 	  Enable Renesas RX I2C Driver.
 
-if I2C_RENESAS_RX_RIIC
+config I2C_RENESAS_RX_SCI_B
+	bool "Renesas RX SCI-B I2C"
+	default y
+	depends on DT_HAS_RENESAS_RX_I2C_SCI_B_ENABLED
+	select USE_RX_FSP_SCI_B_I2C
+	select PINCTRL
+	help
+	  Enable Renesas RX SCI-B I2C Driver.
+
+if I2C_RENESAS_RX_RIIC || I2C_RENESAS_RX_SCI_B
 
 config I2C_RENESAS_RX_CALLBACK
 	bool "Renesas RX I2C Callback Support"
@@ -29,4 +38,4 @@ config RENESAS_RX_I2C_DTC
 	help
 	  Enable Using DTC module to transfer data
 
-endif # I2C_RENESAS_RX_RIIC
+endif # I2C_RENESAS_RX_RIIC || I2C_RENESAS_RX_SCI_B
