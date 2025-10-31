@@ -381,7 +381,7 @@ static int verify_nth16(struct cdc_ncm_eth_data *const data,
 		return -EINVAL;
 	}
 
-	if (sys_le16_to_cpu(nthdr16->wBlockLength) != len) {
+	if (sys_le16_to_cpu(nthdr16->wBlockLength) > len) {
 		LOG_DBG("DROP: %s len %d", "block",
 			sys_le16_to_cpu(nthdr16->wBlockLength));
 		return -EINVAL;
