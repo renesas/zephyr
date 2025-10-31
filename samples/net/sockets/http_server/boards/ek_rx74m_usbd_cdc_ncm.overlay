@@ -1,0 +1,31 @@
+/*
+* Copyright (c) 2025 Renesas Electronics Corporation
+*
+* SPDX-License-Identifier: Apache-2.0
+*/
+
+/* Disable Ethernet so that USB NCM will be the default eth0 interface */
+
+&eswm {
+	status = "disabled";
+};
+
+&rmac0 {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+
+	phy: ethernet-phy@0 {
+		status = "disabled";
+	};
+};
+
+/ {
+	cdc_ncm_eth0: cdc_ncm_eth0 {
+		compatible = "zephyr,cdc-ncm-ethernet";
+		remote-mac-address = "00005E005301";
+	};
+};
+
