@@ -11,5 +11,8 @@ toolchain:
 supported:
   - serial
   - i2c
+  - can
+  - spi
+  - gpio
 ram: 1024
 flash: 512
