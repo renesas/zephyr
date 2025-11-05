@@ -1236,6 +1236,16 @@
 			status = "disabled";
 		};
 
+		ospi0: ospi@87868000 {
+			compatible = "renesas,rx-ospi-b";
+			reg = <0x87868000 0x19c>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <0>;
+			clocks = <&octaspiclk MSTPB 16>;
+			status = "disabled";
+		};
+
 		cmt: timer@87826000 {
 			compatible = "renesas,rx-timer-cmt-start-control";
 			#address-cells = <1>;
