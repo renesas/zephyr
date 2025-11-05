@@ -1,0 +1,8 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX RSIP-E50D TRNG
+
+compatible: "renesas,rx-rsip-e50d-trng"
+
+include: base.yaml

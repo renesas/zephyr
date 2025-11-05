@@ -1,0 +1,14 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Renesas RX entropy generator driver configuration
+
+config ENTROPY_RENESAS_RX
+	bool "Renesas RA TRNG driver"
+	default y
+	depends on DT_HAS_RENESAS_RX_RSIP_E50D_TRNG_ENABLED        \
+		|| DT_HAS_RENESAS_RX_TRNG_ENABLED
+	select ENTROPY_HAS_DRIVER
+	select USE_RX_FSP_SCE
+	help
+	  This option enables entropy driver for Renesas RX

@@ -1835,5 +1835,10 @@
 			};
 		};
 
+		trng: trng {
+			compatible = "renesas,rx-rsip-e50d-trng";
+			status = "disabled";
+		};
+
 	};
 };

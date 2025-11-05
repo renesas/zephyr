@@ -25,7 +25,7 @@
 		zephyr,canbus = &canfd0;
 		zephyr,flash-controller = &mram;
 		zephyr,code-partition = &slot0_partition;
-
+		zephyr,entropy = &trng;
 	};
 
 	leds {
@@ -412,4 +412,8 @@
 		ospi-max-frequency = <DT_FREQ_M(200)>;
 		status = "okay";
 	};
+};
+
+&trng {
+	status = "okay";
 };

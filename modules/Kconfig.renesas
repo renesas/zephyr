@@ -569,4 +569,20 @@ config USE_RX_FSP_OSPI_B
 	help
 	  Enable RX FSP Octal-SPI driver
 
+config USE_RX_FSP_SCE
+	bool
+	help
+	  Enable RX FSP SCE driver
+
+if USE_RX_FSP_SCE
+
+config HAS_RENESAS_RX_RSIP_E50D
+	bool
+	default y
+	depends on DT_HAS_RENESAS_RX_RSIP_E50D_TRNG_ENABLED
+	help
+	  Includes RSIP-E50D implementation for SCE driver
+
+endif # USE_RX_FSP_SCE
+
 endif # HAS_RENESAS_RX_FSP
