@@ -1,0 +1,18 @@
+# Renesas RX Family
+
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config FLASH_RENESAS_RX_OSPI_B
+	bool "Renesas RX Octal-SPI driver"
+	default y
+	depends on DT_HAS_RENESAS_RX_OSPI_B_NOR_ENABLED
+	select FLASH_HAS_DRIVER_ENABLED
+	select FLASH_HAS_PAGE_LAYOUT
+	select FLASH_HAS_EXPLICIT_ERASE
+	select USE_RX_FSP_OSPI_B
+	select FLASH_JESD216
+	select FLASH_HAS_EX_OP
+	select PINCTRL
+	help
+	  Enable Octal-SPI Nor flash driver for RX series

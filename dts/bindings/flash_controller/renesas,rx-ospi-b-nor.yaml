@@ -1,0 +1,124 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX OSPI FLASH
+
+compatible: "renesas,rx-ospi-b-nor"
+
+include: ["flash-controller.yaml", "jedec,jesd216.yaml"]
+
+on-bus: ospi
+
+properties:
+  reg:
+    required: true
+    description: Chip Select channel on OSPI
+
+  write-block-size:
+    type: int
+    default: 1
+    description: Address alignment required by flash write operations
+
+  protocol-mode:
+    type: int
+    required: true
+    description: |
+     The width and rate of XSPI bus to which flash memory is connected.
+
+     Possible values are :
+      - XSPI_SPI_MODE  <1> = SPI mode on 1 data line
+      - XSPI_DUAL_MODE <2> = Dual mode on 2 data lines
+      - XSPI_QUAD_MODE <4> = Quad mode on 4 data lines
+      - XSPI_OCTO_MODE <8> = Octo mode on 8 data lines
+    enum: [ 1, 2, 4, 8 ]
+
+  data-rate:
+    type: int
+    required: true
+    description: |
+     The SPI data Rate is STR or DTR
+
+     Possible values are :
+      - XSPI_STR_TRANSFER <1> = Single Rate Transfer
+      - XSPI_DTR_TRANSFER <2> = Dual Rate Transfer (only with XSPI_OCTO_MODE)
+    enum:
+      - 1
+      - 2
+
+  ospi-max-frequency:
+    type: int
+    required: true
+    description: Max frequency input on OSPI
+
+  size:
+    required: true
+    description: Total size of the flash memory in bytes
+
+  max-write-size:
+    type: int
+    default: 64
+    description: Maximum number of bytes that can be programmed in a single write operation
+
+  auto-calib-pattern-address-sector:
+    type: int
+    default: 3
+    description: Sector number that stores the auto calibration pattern
+
+  write-status-bit:
+    type: int
+    default: 0
+    description: Bit position of the write in progress (WIP) bit in the status register
+    enum: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  write-enable-bit:
+    type: int
+    default: 1
+    description: Bit position of the write enable latch (WEL) bit in the status register
+    enum: [0, 1, 2, 3, 4, 5, 6, 7]
+
+  command-interval:
+    type: int
+    default: 2
+    description: Minimum clock cycles between 2 commands.
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8 , 9, 10, 11, 12, 13, 14, 15, 16]
+
+  pull-up-delay:
+    type: boolean
+    description: De-assert CS line 1 clock cycle after the last command
+
+  pull-down-lead:
+    type: boolean
+    description: Assert CS line 1 clock cycle before the first command
+
+  sdr-drive-timing:
+    type: int
+    default: 0
+    enum:
+      - 0
+      - 1
+    description: |
+      Selects the SDR drive timing setting
+      - 0: drive 1/2 cycle before CK
+      - 1: drive at CK
+
+  sdr-sampling-edge:
+    type: int
+    default: 0
+    enum:
+      - 0
+      - 1
+    description: |
+      Selects the SDR CK sampling edge
+      - 0: sample at falling edge of CK
+      - 1: sample at rising edge of CK
+
+  sdr-sampling-delay:
+    type: int
+    default: 0
+    description: Number of cycles to delay before sampling data on SDR read operations (0 - 7)
+
+  ddr-sampling-extension:
+    type: int
+    default: 0
+    description: |
+      Number of cycles to extending the data sampling window on DDR read operations (0 - 7)

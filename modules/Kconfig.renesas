@@ -564,4 +564,9 @@ config USE_RX_FSP_CANFD
 	help
 	  Enable RX FSP CANFD driver
 
+config USE_RX_FSP_OSPI_B
+	bool
+	help
+	  Enable RX FSP Octal-SPI driver
+
 endif # HAS_RENESAS_RX_FSP
