@@ -12,6 +12,29 @@
 		};
 	};
 
+	xspi0_default: xspi0_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 1)>, /* SCLK */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 6)>, /* DQS */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 2)>, /* SIO0 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 3)>, /* SIO1 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 4)>, /* SIO2 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 5)>, /* SIO3 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 0)>, /* SIO4 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 1)>, /* SIO5 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 2)>, /* SIO6 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 3)>; /* SIO7 */
+			drive-strength = "DRV6";
+		};
+
+		group2 {
+			psels = <RX_PSEL(RX_PSEL_XSPI0_1A, 0xD, 7)>, /* CS1 */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 6)>, /* RST */
+				<RX_PSEL(RX_PSEL_XSPI0_1A, 0x6, 5)>; /* INT0 */
+			drive-strength = "DRV3";
+		};
+	};
+
 	canfd0_default: canfd0_default {
 		group1 {
 			/* CRX0 CTX0 */

@@ -7,7 +7,8 @@
 /dts-v1/;
 
 #include <renesas/r5k574x.dtsi>
-#include <dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/flash_controller/xspi.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "ek_rx74m-pinctrl.dtsi"
 
@@ -138,6 +139,12 @@
 
 &sciclk {
 	clocks = <&pllp>;
+	status = "okay";
+};
+
+&octaspiclk {
+	clocks = <&pllp>;
+	div = <3>;
 	status = "okay";
 };
 
@@ -337,6 +344,34 @@
 		storage_partition: partition@0 {
 			label = "storage";
 			reg = <0x0 DT_SIZE_K(48)>;
+		};
+	};
+};
+
+&ospi0 {
+	pinctrl-0 = <&xspi0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	mx25lw51245g: ospi-nor-flash@0 {
+		compatible = "renesas,rx-ospi-b-nor";
+		reg = <0>;
+		size = <DT_SIZE_M(64)>; /* 512 Megabits = 64 Megabytes */
+		ospi-max-frequency = <DT_FREQ_M(133)>;
+		protocol-mode = <XSPI_OCTO_MODE>;
+		data-rate = <XSPI_DTR_TRANSFER>;
+		write-block-size = <2>;
+		status = "okay";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "nor";
+				reg = <0x00000000 DT_SIZE_M(4)>;
+			};
 		};
 	};
 };
