@@ -23,6 +23,14 @@
 
 	mdio_default: mdio_default {
 		group1 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 4)>, /* MDC PG04 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 5)>, /* MDIO PG05 */
+			        <RX_PSEL(RX_PSEL_CLKOUT, 3, 4)>; /* P304 as ETHPHYCLK. */
+		};
+	};
+
+	rmac0_default: rmac0_default {
+		group1 {
 			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 8)>, /* RXD4 P508 */
 			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 9)>, /* RXD5 P509 */
 			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 5, 10)>, /* RXD6 P510 */
@@ -50,11 +58,35 @@
 			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 7)>, /* CRS PG07 */
 			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 3)>; /* MDINT PG03 */
 		};
+	};
 
-		group2 {
-			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 4)>, /* MDC PG04 */
-			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 5)>, /* MDIO PG05 */
-			        <RX_PSEL(RX_PSEL_CLKOUT, 3, 4)>; /* P304 as ETHPHYCLK. */
+	rmac1_default: rmac1_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 12)>, /* RXD4 P712 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 13)>, /* RXD5 P713 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 14)>, /* RXD6 P714 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 15)>, /* RXD7 P715 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 8)>, /* TXD4 PG08 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 9)>, /* TXD5 PG09 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 10)>, /* TXD6 PG10 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 11)>, /* TXD7 PG11 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 4)>, /* RXD0 P704 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 5)>, /* RXD1 P705 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 6)>, /* RXD2 P706 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 7)>, /* RXD3 P707 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 0)>, /* RX_CLK PG00 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 1)>, /* RX_CTRL PG01 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 2)>, /* RX_ER PG02 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 2)>, /* TX_CLK PA02 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 3)>, /* TXD0 PA03 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 4)>, /* TXD1 PA04 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 5)>, /* TXD2 PA05 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 6)>, /* TXD3 PA06 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 1)>, /* TX_EN/TX_CTL PA01 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 10, 0)>, /* GTX_CLK PA00 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 12)>, /* COL PG12 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 16, 15)>, /* CRS PG15 */
+			        <RX_PSEL(RX_PSEL_ETH_RMAC_GMII_MII, 7, 0)>; /* MDINT P700 */
 		};
 	};
 

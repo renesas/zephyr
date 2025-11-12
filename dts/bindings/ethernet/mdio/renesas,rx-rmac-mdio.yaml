@@ -8,8 +8,16 @@ compatible: "renesas,rx-rmac-mdio"
 include: [mdio-controller.yaml, pinctrl-device.yaml]
 
 properties:
+  channel:
+    type: int
+    required: true
+
   pinctrl-0:
     required: true
 
   pinctrl-names:
     required: true
+
+  reset-gpios:
+    type: phandle-array
+    description: GPIO connected to MAC PHY reset signal pin. Reset is active low.

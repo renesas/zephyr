@@ -251,21 +251,41 @@
 };
 
 &rmac0 {
+	pinctrl-0 = <&rmac0_default>;
+	pinctrl-names = "default";
 	local-mac-address = [74 90 50 A8 60 6A];
+	phy-handle = <&phy0>;
 	status = "okay";
+};
+
+&rmac1 {
+	pinctrl-0 = <&rmac1_default>;
+	pinctrl-names = "default";
+	local-mac-address = [74 90 50 A8 60 6D];
+	phy-handle = <&phy1>;
+	status = "disabled";
 };
 
 &mdio0 {
 	pinctrl-0 = <&mdio_default>;
 	pinctrl-names = "default";
+	reset-gpios = <&ioport4 13 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
-	phy: ethernet-phy@0 {
+	phy0: ethernet-phy@0 {
 		compatible = "microchip,vsc8541";
 		reg = <0x0>;
 		status = "okay";
 
-		reset-gpios = <&ioport4 13 GPIO_ACTIVE_LOW>;
+		microchip,interface-type = "gmii";
+		microchip,rgmii-tx-clk-delay = <0x4>;
+		microchip,rgmii-rx-clk-delay = <0x4>;
+	};
+
+	phy1: ethernet-phy@1 {
+		compatible = "microchip,vsc8541";
+		reg = <0x1>;
+		status = "disabled";
 
 		microchip,interface-type = "gmii";
 		microchip,rgmii-tx-clk-delay = <0x4>;

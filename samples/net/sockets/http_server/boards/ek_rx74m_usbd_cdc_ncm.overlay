@@ -17,7 +17,7 @@
 &mdio0 {
 	status = "disabled";
 
-	phy: ethernet-phy@0 {
+	phy0: ethernet-phy@0 {
 		status = "disabled";
 	};
 };

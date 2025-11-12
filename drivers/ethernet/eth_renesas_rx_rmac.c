@@ -23,7 +23,7 @@ LOG_MODULE_REGISTER(rx_rmac, CONFIG_ETHERNET_LOG_LEVEL);
 #if defined(CONFIG_RENESAS_RX_GRP_INTC_FSP)
 #include <zephyr/drivers/interrupt_controller/intc_renesas_rx_grp_int_fsp.h>
 #endif /* CONFIG_RENESAS_RX_GRP_INTC_FSP */
-#include <zephyr/drivers/ethernet/eth_renesas_rx_rmac.h>
+#include <zephyr/drivers/ethernet/eth_renesas_rx_eswm.h>
 #include "rp_rmac.h"
 
 BUILD_ASSERT((CONFIG_ETH_INIT_PRIORITY < CONFIG_MDIO_INIT_PRIORITY),
@@ -55,18 +55,23 @@ struct renesas_rx_eth_data {
 	uint8_t mac[6];
 	bool link_is_up;
 	enum phy_link_speed link_speed;
+	uint8_t tx_buf[NET_ETH_MAX_FRAME_SIZE];
+	uint8_t rx_buf[NET_ETH_MAX_FRAME_SIZE];
 
 	K_KERNEL_STACK_MEMBER(thread_stack, CONFIG_ETH_RENESAS_RX_RMAC_THREAD_STACK_SIZE);
 	struct k_thread thread;
 	struct k_sem rx_sem;
+	ether_cfg_t *p_cfg;
 	rmac_instance_ctrl_t ctrl;
 };
 
 struct renesas_rx_eth_config {
 	uint8_t channel;
+	/* pinctrl configs */
+	const struct pinctrl_dev_config *pcfg;
 	/* Use a random MAC address generated when the driver is initialized */
 	bool random_mac_address;
-	const ether_cfg_t *p_cfg;
+	const struct device *eswm_dev;
 	const struct device *phy_dev;
 	RX_MiiType mii;
 	/* Group interrupt controller for the RMAC PHY interrupt (GWDI) */
@@ -88,8 +93,14 @@ void renesas_rx_eth_callback(ether_callback_args_t *p_args)
 	struct device *dev = (struct device *)p_args->p_context;
 	struct renesas_rx_eth_data *data = dev->data;
 
-	if (p_args->event == ETHER_EVENT_RX_COMPLETE) {
+	switch (p_args->event) {
+	case ETHER_EVENT_RX_COMPLETE:
+		__fallthrough;
+	case ETHER_EVENT_RX_MESSAGE_LOST:
 		k_sem_give(&data->rx_sem);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -136,6 +147,13 @@ static void r_eswm_set_link_speed_configuration(const struct device *dev, enum p
 	r_layer3_switch_update_etha_operation_mode(cfg->channel, LAYER3_SWITCH_AGENT_MODE_DISABLE);
 	r_layer3_switch_update_etha_operation_mode(cfg->channel,
 						   LAYER3_SWITCH_AGENT_MODE_OPERATION);
+}
+
+static const struct device *renesas_rx_eth_get_phy(const struct device *dev)
+{
+	const struct renesas_rx_eth_config *config = dev->config;
+
+	return config->phy_dev;
 }
 
 static void phy_link_state_changed(const struct device *pdev, struct phy_link_state *state,
@@ -229,21 +247,20 @@ static int renesas_rx_eth_tx(const struct device *dev, struct net_pkt *pkt)
 	fsp_err_t err = FSP_SUCCESS;
 	struct renesas_rx_eth_data *data = dev->data;
 	uint16_t len = net_pkt_get_len(pkt);
-	static uint8_t tx_buf[NET_ETH_MAX_FRAME_SIZE];
 	int ret = 0;
 
-	if (net_pkt_read(pkt, tx_buf, len)) {
+	if (net_pkt_read(pkt, data->tx_buf, len)) {
 		goto error;
 	}
 
 	/* Check if packet length is less than minimum Ethernet frame size */
 	if (len < NET_ETH_MINIMAL_FRAME_SIZE) {
 		/* Add padding to meet the minimum frame size */
-		memset(tx_buf + len, 0, NET_ETH_MINIMAL_FRAME_SIZE - len);
+		memset(data->tx_buf + len, 0, NET_ETH_MINIMAL_FRAME_SIZE - len);
 		len = NET_ETH_MINIMAL_FRAME_SIZE;
 	}
 
-	err = R_RMAC_Write(&data->ctrl, tx_buf, len);
+	err = R_RMAC_Write(&data->ctrl, data->tx_buf, len);
 
 	if (err != FSP_SUCCESS) {
 		LOG_DBG("RMAC write fail, ERR: %d", err);
@@ -261,6 +278,7 @@ static const struct ethernet_api api_funcs = {
 	.iface_api.init = renesas_rx_eth_initialize,
 	.get_capabilities = renesas_rx_eth_get_capabilities,
 	.send = renesas_rx_eth_tx,
+	.get_phy = renesas_rx_eth_get_phy,
 };
 
 static struct net_pkt *renesas_rx_eth_rx(const struct device *dev)
@@ -269,13 +287,12 @@ static struct net_pkt *renesas_rx_eth_rx(const struct device *dev)
 	struct renesas_rx_eth_data *data;
 	struct net_pkt *pkt = NULL;
 	uint32_t len = 0;
-	static uint8_t rx_buf[NET_ETH_MAX_FRAME_SIZE];
 
 	__ASSERT_NO_MSG(dev != NULL);
 	data = dev->data;
 	__ASSERT_NO_MSG(data != NULL);
 
-	err = R_RMAC_Read(&data->ctrl, rx_buf, &len);
+	err = R_RMAC_Read(&data->ctrl, data->rx_buf, &len);
 	if ((err != FSP_SUCCESS) && (err != FSP_ERR_ETHER_ERROR_NO_DATA)) {
 		LOG_ERR("Failed to read packets");
 		goto out;
@@ -287,7 +304,7 @@ static struct net_pkt *renesas_rx_eth_rx(const struct device *dev)
 		goto out;
 	}
 
-	if (net_pkt_write(pkt, rx_buf, len)) {
+	if (net_pkt_write(pkt, data->rx_buf, len)) {
 		LOG_ERR("Failed to append RX buffer to context buffer");
 		net_pkt_unref(pkt);
 		pkt = NULL;
@@ -333,33 +350,54 @@ static int renesas_rx_eth_init(const struct device *dev)
 {
 	struct renesas_rx_eth_data *data = dev->data;
 	const struct renesas_rx_eth_config *config = dev->config;
+	const struct device *eswm = config->eswm_dev;
+	struct renesas_rx_eswm_data *eswm_data = eswm->data;
 	uint8_t ret = 0;
 	uint8_t fsp_err = 0;
 
 	data->link_is_up = false;
 	data->link_speed = -1;
 
+	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+
+	if (ret != 0) {
+		return ret;
+	}
+
+	if (!device_is_ready(eswm)) {
+		LOG_ERR("eswm device is not init before!");
+		return -EIO;
+	}
+
+	rmac_extended_cfg_t *rmac_extend_cfg = (rmac_extended_cfg_t *)data->p_cfg->p_extend;
+
+	if (eswm_data->ether_switch == NULL) {
+		LOG_ERR("ether_switch is NULL in eswm_data");
+		return -EINVAL;
+	}
+
+	rmac_extend_cfg->p_ether_switch = eswm_data->ether_switch;
+
 	/* Generate or fetch MAC address */
 	if (config->random_mac_address == true) {
 		gen_random_mac(data->mac, 0x74, 0x90, 0x50);
 	}
 
-	memcpy((uint8_t *)config->p_cfg->p_mac_address, data->mac, sizeof(data->mac));
+	memcpy((uint8_t *)data->p_cfg->p_mac_address, data->mac, sizeof(data->mac));
 
-	fsp_err = R_RMAC_Open(&data->ctrl, config->p_cfg);
+	fsp_err = R_RMAC_Open(&data->ctrl, data->p_cfg);
 
 	if (fsp_err != FSP_SUCCESS) {
-		LOG_ERR("R_RMAC_Open fail: %d\n", fsp_err);
-	}
-	if (ret != 0) {
-		LOG_ERR("Failed to set callback for group interrupt GWDI: %d", ret);
-		return ret;
+		LOG_ERR("R_RMAC_Open fail: %d", fsp_err);
+		return -EIO;
 	}
 
 	fsp_err = R_RMAC_CallbackSet(&data->ctrl, renesas_rx_eth_callback, (void *)dev, NULL);
 
 	if (fsp_err != FSP_SUCCESS) {
-		LOG_ERR("R_LAYER3_SWITCH_CallbackSet fail\n");
+		LOG_ERR("R_LAYER3_SWITCH_CallbackSet fail");
+		R_RMAC_Close(&data->ctrl);
+		return -EIO;
 	}
 
 	k_thread_create(&data->thread, data->thread_stack,
@@ -369,15 +407,14 @@ static int renesas_rx_eth_init(const struct device *dev)
 
 	/* start suspended and resume once we have link */
 	k_thread_suspend(&data->thread);
-
 	k_thread_name_set(&data->thread, "mac-rx-thread");
 
-	return ret;
+	return 0;
 }
 
 #ifdef CONFIG_RENESAS_RX_GRP_INTC_FSP
 #define ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(index)                                                  \
-	.gwdi_ctrl = DEVICE_DT_GET(DT_INST_IRQ_INTC_BY_NAME(index, gwdi)),                                             \
+	.gwdi_ctrl = DEVICE_DT_GET(DT_INST_IRQ_INTC_BY_NAME(index, gwdi)),                         \
 	.gwdi_num = DT_INST_IRQ_BY_NAME(index, gwdi, irq),
 #else
 #define ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(index)
@@ -417,7 +454,7 @@ static int renesas_rx_eth_init(const struct device *dev)
 		.queue_cfg = {                                                                     \
 			.array_length = ETH_RENESAS_RX_RMAC_TX_QUEUE_LENGTH(n),                    \
 			.p_descriptor_array = g_ether##n##_tx_descriptor_array##idx,               \
-			.ports = (1 << 0),                                                         \
+			.ports = (1 << DT_INST_PROP(n, channel)),                                  \
 			.type = LAYER3_SWITCH_QUEUE_TYPE_TX,                                       \
 			.write_back_mode = LAYER3_SWITCH_WRITE_BACK_MODE_FULL,                     \
 			.descriptor_format = LAYER3_SWITCH_DISCRIPTOR_FORMTAT_EXTENDED,            \
@@ -430,7 +467,7 @@ static int renesas_rx_eth_init(const struct device *dev)
 		.queue_cfg = {                                                                     \
 			.array_length = ETH_RENESAS_RX_RMAC_RX_QUEUE_LENGTH(n),                    \
 			.p_descriptor_array = g_ether##n##_rx_descriptor_array##idx,               \
-			.ports = (1 << 0),                                                         \
+			.ports = (1 << DT_INST_PROP(n, channel)),                                  \
 			.type = LAYER3_SWITCH_QUEUE_TYPE_RX,                                       \
 			.write_back_mode = LAYER3_SWITCH_WRITE_BACK_MODE_FULL,                     \
 			.descriptor_format = LAYER3_SWITCH_DISCRIPTOR_FORMTAT_EXTENDED,            \
@@ -452,26 +489,6 @@ static int renesas_rx_eth_init(const struct device *dev)
 	LISTIFY(ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n), DECLARE_ETHER_TX_DESCRIPTOR_WRAP, (;), n)
 
 #define ETHER_RX_CONFIG(n)                                                                         \
-	const layer3_switch_extended_cfg_t g_ether_switch##n##_extended_cfg = {                    \
-		.fowarding_target_port_masks =                                                     \
-			{                                                                          \
-				(LAYER3_SWITCH_PORT_BITMASK_PORT2 | 0U),                           \
-				(LAYER3_SWITCH_PORT_BITMASK_PORT2 | 0U),                           \
-			},                                                                         \
-	};                                                                                         \
-	const ether_switch_cfg_t g_ether_switch##n##_cfg = {                                       \
-		.channel = 0,                                                                      \
-		.p_callback = NULL,                                                                \
-		.p_context = NULL,                                                                 \
-		.p_extend = &g_ether_switch##n##_extended_cfg,                                     \
-		.irq = (12 << 8U | 108),                                                           \
-	};                                                                                         \
-	layer3_switch_instance_ctrl_t g_ether_switch##n##_ctrl;                                    \
-	const ether_switch_instance_t g_ether_switch##n = {                                        \
-		.p_ctrl = &g_ether_switch##n##_ctrl,                                               \
-		.p_cfg = &g_ether_switch##n##_cfg,                                                 \
-		.p_api = &g_ether_switch_on_layer3_switch,                                         \
-	};                                                                                         \
 	/* Descriptor arrays */                                                                    \
 	DECLARE_ETHER_DESCRIPTOR(n);                                                               \
 	/* TX queue list */                                                                        \
@@ -482,14 +499,13 @@ static int renesas_rx_eth_init(const struct device *dev)
 		LISTIFY(ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n), DECLARE_RX_QUEUE_WRAP, (, ), n)};         \
 	DECLARE_ETHER_BUFFERS(n);                                                                  \
 	uint8_t g_ether##n##_mac_address[6] = DT_INST_PROP_OR(n, local_mac_address, {0});          \
-	const rmac_extended_cfg_t g_ether##n##_extended_cfg = {                                    \
-		.p_ether_switch = &g_ether_switch##n,                                              \
+	rmac_extended_cfg_t g_ether##n##_extended_cfg = {                                          \
 		.tx_queue_num = ETH_RENESAS_RX_RMAC_TX_QUEUE_NUM(n),                               \
 		.rx_queue_num = ETH_RENESAS_RX_RMAC_RX_QUEUE_NUM(n),                               \
 		.p_tx_queue_list = g_ether##n##_tx_queue_list,                                     \
 		.p_rx_queue_list = g_ether##n##_rx_queue_list,                                     \
 	};                                                                                         \
-	const ether_cfg_t g_ether##n##_cfg = {                                                     \
+	ether_cfg_t g_ether##n##_cfg = {                                                           \
 		.channel = DT_INST_PROP(n, channel),                                               \
 		.zerocopy = ETHER_ZEROCOPY_DISABLE,                                                \
 		.multicast = ETHER_MULTICAST_ENABLE,                                               \
@@ -509,17 +525,20 @@ static int renesas_rx_eth_init(const struct device *dev)
 	};
 
 #define ETHER_RX_INIT(n)                                                                           \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
 	ETHER_RX_CONFIG(n)                                                                         \
 	static struct renesas_rx_eth_data eth_##n##_data = {                                       \
 		.rx_sem = Z_SEM_INITIALIZER(eth_##n##_data.rx_sem, 0, UINT8_MAX),                  \
 		.mac = DT_INST_PROP_OR(n, local_mac_address, {0}),                                 \
+		.p_cfg = &g_ether##n##_cfg,                                                        \
 	};                                                                                         \
 	static struct renesas_rx_eth_config eth_##n##_config = {                                   \
 		.channel = DT_INST_PROP(n, channel),                                               \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.random_mac_address = DT_INST_PROP(n, zephyr_random_mac_address),                  \
-		.p_cfg = &g_ether##n##_cfg,                                                        \
 		.mii = DT_INST_ENUM_IDX(n, phy_connection_type),                                   \
-		.phy_dev = DEVICE_DT_GET(DT_CHILD(DT_INST_CHILD(n, mdio), ethernet_phy_0)),        \
+		.eswm_dev = DEVICE_DT_GET(DT_INST_PARENT(n)),                                      \
+		.phy_dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, phy_handle)),                          \
 		.regs = (R_RMAC0_Type *)DT_INST_REG_ADDR(n),                                       \
 		ETHER_RX_RMAC_GRP_INTC_CONFIG_INIT(n)};                                            \
 	static int renesas_rx_eth_init##n(const struct device *dev)                                \

@@ -12,6 +12,12 @@ config ETH_INIT_PRIORITY
 	int "Ethernet driver init priority"
 	default 55
 
+config PHY_VERIFY_DEVICE_IDENTIFICATION
+	default y
+
+config NET_IF_MAX_IPV4_COUNT
+	default 2
+
 endif # NETWORKING
 
 endif # BOARD_EK_RX74M

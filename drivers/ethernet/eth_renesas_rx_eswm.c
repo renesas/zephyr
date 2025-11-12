@@ -22,23 +22,18 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/net/phy.h>
 
+#include <zephyr/drivers/ethernet/eth_renesas_rx_eswm.h>
+
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-struct renesas_rx_eswm_config {
-	const struct device *eswclk_dev;                     /* eswclk clock */
-	const struct device *eswphyclk_dev;                  /* eswphyclk clock */
-	struct clock_control_rx_subsys_cfg eswclk_subsys;    /* eswclk clock subsys */
-	struct clock_control_rx_subsys_cfg eswphyclk_subsys; /* eswphyclk clock subsys */
-	/* pinctrl configs */
-	const struct pinctrl_dev_config *pcfg;
-};
-
 static int renesas_rx_eswm_init(const struct device *dev)
 {
 	const struct renesas_rx_eswm_config *config = dev->config;
+	struct renesas_rx_eswm_data *data = dev->data;
 	int ret;
+	int fsp_err;
 
 	/* TODO: once Renesas reset drivers are created, use that to reset.
 	 * Until then, make sure reset is done in platform init.
@@ -61,25 +56,68 @@ static int renesas_rx_eswm_init(const struct device *dev)
 				  (clock_control_subsys_t)&config->eswclk_subsys);
 		return ret;
 	}
+
+	uint32_t iclk_dev_freq;
+	uint32_t pclk_dev_freq;
 	uint32_t eswclk_dev_freq;
 	uint32_t eswphyclk_dev_freq;
-	ret = clock_control_get_rate(config->eswphyclk_dev, NULL, &eswphyclk_dev_freq);
-	if (ret) {
-		return ret;
+
+	clock_control_get_rate(config->iclk_dev, NULL, &iclk_dev_freq);
+	clock_control_get_rate(config->pclk_dev, NULL, &pclk_dev_freq);
+	clock_control_get_rate(config->eswphyclk_dev, NULL, &eswphyclk_dev_freq);
+	clock_control_get_rate(config->eswclk_dev, NULL, &eswclk_dev_freq);
+
+	/* Clock restrictions for eswm on HM */
+	if ((iclk_dev_freq * 1.5 < eswclk_dev_freq) || (eswclk_dev_freq <= pclk_dev_freq) ||
+	    (iclk_dev_freq <= pclk_dev_freq)) {
+		LOG_ERR("ESWM clock invalid");
+		return -EIO;
 	}
 
-	ret = clock_control_get_rate(config->eswclk_dev, NULL, &eswclk_dev_freq);
-	if (ret) {
-		return ret;
+	data->ether_switch->p_cfg = data->fsp_cfg;
+	data->ether_switch->p_ctrl = data->fsp_ctrl;
+	data->ether_switch->p_api = &g_ether_switch_on_layer3_switch,
+
+	fsp_err = R_LAYER3_SWITCH_Open(data->fsp_ctrl, data->fsp_cfg);
+	if (fsp_err != FSP_SUCCESS) {
+		LOG_ERR("ESWM open failed, err=%d", fsp_err);
+		return -EIO;
 	}
+
+
 
 	LOG_DBG("eswclk_dev_freq: %d, eswphyclk_dev_freq: %d ", eswclk_dev_freq,
 		eswphyclk_dev_freq);
 
 	return 0;
 }
-PINCTRL_DT_DEFINE(DEV_NODE);
-static const struct renesas_rx_eswm_config renesas_rx_eswm_cfg = {
+
+layer3_switch_extended_cfg_t ether_switch_extended_cfg = {
+	.fowarding_target_port_masks =
+		{
+			(LAYER3_SWITCH_PORT_BITMASK_PORT2 | 0U),
+			(LAYER3_SWITCH_PORT_BITMASK_PORT2 | 0U),
+		},
+};
+ether_switch_cfg_t ether_switch_cfg = {
+	.channel = 0,
+	.p_callback = NULL,
+	.p_context = NULL,
+	.p_extend = &ether_switch_extended_cfg,
+};
+
+layer3_switch_instance_ctrl_t ether_switch_ctrl;
+ether_switch_instance_t ether_switch_inst;
+
+static struct renesas_rx_eswm_data renesas_rx_eswm_context = {
+	.fsp_cfg = &ether_switch_cfg,
+	.fsp_ctrl = &ether_switch_ctrl,
+	.ether_switch = &ether_switch_inst,
+};
+
+static struct renesas_rx_eswm_config renesas_rx_eswm_cfg = {
+	.iclk_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR_BY_NAME(DEV_NODE, iclk)),
+	.pclk_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR_BY_NAME(DEV_NODE, pclk)),
 	.eswclk_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR_BY_NAME(DEV_NODE, esw)),
 	.eswphyclk_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR_BY_NAME(DEV_NODE, eswphy)),
 	.eswclk_subsys =
@@ -92,9 +130,8 @@ static const struct renesas_rx_eswm_config renesas_rx_eswm_cfg = {
 			.mstp = DT_CLOCKS_CELL_BY_NAME(DEV_NODE, eswphy, mstp),
 			.stop_bit = DT_CLOCKS_CELL_BY_NAME(DEV_NODE, eswphy, stop_bit),
 		},
-	.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DEV_NODE),
 };
 
 /* Init the module before any enet device inits so priority 0 */
-DEVICE_DT_DEFINE(DEV_NODE, renesas_rx_eswm_init, NULL, NULL, &renesas_rx_eswm_cfg, POST_KERNEL, 0,
+DEVICE_DT_DEFINE(DEV_NODE, renesas_rx_eswm_init, NULL, &renesas_rx_eswm_context, &renesas_rx_eswm_cfg, POST_KERNEL, CONFIG_ETH_INIT_PRIORITY,
 		 NULL);

@@ -1274,9 +1274,22 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			clocks = <&eswclk MSTPC 30>, <&eswphyclk MSTPC 28>;
-			clock-names = "esw", "eswphy";
+			clocks = <&iclk 0 0>,
+				 <&pclka MSTPC 30>,
+				 <&eswclk MSTPC 30>,
+				 <&eswphyclk MSTPC 28>;
+			clock-names = "iclk", "pclk", "esw", "eswphy";
 			ranges;
+
+			mdio0: mdio {
+				compatible = "renesas,rx-rmac-mdio";
+				channel = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clocks = <&ethphyclk MSTPC 28>;
+				clock-names = "ethphy";
+				status = "disabled";
+			};
 
 			rmac0: ethernet@874cb000 {
 				compatible = "renesas,rx-rmac";
@@ -1288,33 +1301,18 @@
 				phy-connection-type = "gmii";
 				status = "disabled";
 
-				mdio0: mdio {
-					compatible = "renesas,rx-rmac-mdio";
-					#address-cells = <1>;
-					#size-cells = <0>;
-					clocks = <&ethphyclk MSTPC 28>;
-					clock-names = "ethphy";
-					status = "disabled";
-				};
+
 			};
 
 			rmac1: ethernet@874cd000 {
 				compatible = "renesas,rx-rmac";
 				reg = <0x874CD000 0x1000>;
 				channel = <1>;
-				interrupts-extended = <&group_irq_al4 25 1>;
+				interrupts-extended = <&group_irq_al4 12 1>;
+				interrupt-names = "gwdi";
 				local-mac-address = [00 11 22 33 44 55];
 				phy-connection-type = "gmii";
 				status = "disabled";
-
-				mdio1: mdio {
-					compatible = "renesas,rx-rmac-mdio";
-					#address-cells = <1>;
-					#size-cells = <0>;
-					clocks = <&ethphyclk MSTPC 28>;
-					clock-names = "ethphy";
-					status = "disabled";
-				};
 			};
 		};
 
