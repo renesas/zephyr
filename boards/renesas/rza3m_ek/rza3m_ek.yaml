@@ -10,6 +10,7 @@ supported:
   - gpio
   - display
   - mipi_dsi
+  - i2c
 testing:
   ignore_tags:
     - bluetooth
