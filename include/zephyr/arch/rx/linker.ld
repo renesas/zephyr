@@ -287,6 +287,9 @@ SECTIONS
 
 #endif
 
+	/* Sections generated from 'zephyr,memory-region' nodes */
+	LINKER_DT_SECTIONS()
+
 	SECTION_PROLOGUE(_BSS_SECTION_NAME,,)
 	{
 		PLACE_SYMBOL_HERE(_bss);
