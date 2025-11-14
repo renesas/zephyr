@@ -11,6 +11,7 @@
 #include <zephyr/dt-bindings/flash_controller/xspi.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "ek_rx74m-pinctrl.dtsi"
+#include <zephyr/dt-bindings/memory-attr/memory-attr.h>
 
 / {
 	model = "Renesas EK-RX74M";
@@ -72,6 +73,14 @@
 		standby-gpios = <&ioport8 1 GPIO_ACTIVE_HIGH>;
 		max-bitrate = <5000000>;
 		#phy-cells = <0>;
+	};
+
+	psram: memory@50000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x50000000 DT_SIZE_M(32)>;
+		zephyr,memory-region = "PSRAM";
+		zephyr,memory-attr = <DT_MEM_CACHEABLE>;
+		status = "okay";
 	};
 };
 
@@ -373,5 +382,20 @@
 				reg = <0x00000000 DT_SIZE_M(4)>;
 			};
 		};
+	};
+};
+
+&ospi1 {
+	pinctrl-0 = <&xspi1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	memc: is66wvo32m8d: memory@0 {
+		compatible = "renesas,rx-ospi-b-psram";
+		variable-latency;
+		reg = <0>;
+		size = <DT_SIZE_M(32)>; /* 32 Megabytes */
+		ospi-max-frequency = <DT_FREQ_M(200)>;
+		status = "okay";
 	};
 };
