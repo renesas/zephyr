@@ -1,0 +1,117 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX OSPI Pseudo SRAM
+
+compatible: "renesas,rx-ospi-b-psram"
+
+include: [base.yaml]
+
+on-bus: ospi
+
+properties:
+  reg:
+    required: true
+    description: Chip Select channel on OSPI
+
+  size:
+    type: int
+    required: true
+    description: Memory size in bytes
+
+  spi-protocol:
+    type: string
+    default: "8D_8D_8D"
+    description: |
+      SPI protocol mode setting for OSPI communication.
+    enum:
+      - "1S_1S_1S"
+      - "8D_8D_8D"
+
+  variable-latency:
+    type: boolean
+    description: Enable variable latency mode
+
+  frame-format:
+    type: string
+    default: "XSPI_PROFILE_1"
+    description: |
+      Frame format setting for OSPI communication.
+    enum:
+      - "STANDARD"
+      - "XSPI_PROFILE_1"
+      - "XSPI_PROFILE_2"
+      - "XSPI_PROFILE_2_EXTENDED"
+
+  ds-latch-delay:
+    type: int
+    default: 16
+    description: Data strobe latch delay cycles (0 - 31)
+
+  ospi-max-frequency:
+    type: int
+    required: true
+    description: Maximum clock frequency of device's OSPI interface in Hz
+
+  command-to-command-interval:
+    type: int
+    default: 2
+    description: Command to command interval in clock cycles (0 - 15)
+
+  cs-pullup-lag:
+    type: boolean
+    description: Chip select pull-up lag extension 1 cycles
+
+  cs-pulldown-lead:
+    type: boolean
+    description: Chip select pull-down lead extension 1 cycles
+
+  write-size-bytes:
+    type: int
+    default: 32
+    description: Maximum number of bytes to be written in one write operation
+
+  ddr-sampling-extension:
+    type: int
+    default: 0
+    enum: [0, 1, 2, 3, 4, 5, 6, 7]
+    description: DDR sampling extension cycles
+
+  auto-calibration-pattern-address:
+    type: int
+    default: 0x50002000
+    description: |
+      Address that stores the auto calibration pattern.
+      Please refer to the address space section of the MCU user's manual.
+
+  address-bytes:
+    type: int
+    default: 4
+    enum: [1, 2, 3, 4]
+    description: Number of address bytes
+
+  command-bytes:
+    type: int
+    default: 2
+    enum: [1, 2]
+    description: Number of command bytes
+
+  read-command:
+    type: int
+    default: 0xA000
+    description: Read command opcode
+
+  read-dummy-cycles:
+    type: int
+    default: 5
+    description: Number of dummy cycles for read command
+
+  write-command:
+    type: int
+    default: 0x2000
+    description: Write command opcode
+
+  write-dummy-cycles:
+    type: int
+    default: 5
+    description: Number of dummy cycles for write command

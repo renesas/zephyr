@@ -1,0 +1,13 @@
+# Renesas RX Family
+
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config MEMC_RENESAS_RX_OSPI_B_PSRAM
+	bool "Renesas RX OSPI PSRAM controller"
+	default y
+	depends on DT_HAS_RENESAS_RX_OSPI_B_PSRAM_ENABLED
+	select USE_RX_FSP_OSPI_B
+	select PINCTRL
+	help
+	  Enable Renesas RX OSPI PSRAM controller
