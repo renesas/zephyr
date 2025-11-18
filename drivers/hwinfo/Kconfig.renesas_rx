@@ -5,6 +5,7 @@ config HWINFO_RENESAS_RX
 	bool "Renesas RX device ID"
 	default y
 	depends on SOC_FAMILY_RENESAS_RX
+	depends on HAS_RENESAS_RX_FSP
 	select HWINFO_HAS_DRIVER
 	help
 	  Enable RENESAS RX hwinfo driver
