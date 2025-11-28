@@ -1,0 +1,144 @@
+# MbedTLS Renesas alternative related options
+
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+menu "Mbed TLS alternative configuration"
+	depends on MBEDTLS_CUSTOM && MBEDTLS_CFG_FILE = "alt_config.h"
+
+config MBEDTLS_CIPHER_ALT
+	bool "Use cipher alternative implementation"
+	default y
+	depends on MBEDTLS_CIPHER
+
+config MBEDTLS_AES_ALT
+	bool "Use AES alternative implementation"
+	default y
+	depends on MBEDTLS_CIPHER_AES_ENABLED
+
+config MBEDTLS_CCM_ALT
+	bool "Use CCM alternative implementation"
+	default y
+	depends on MBEDTLS_CIPHER_CCM_ENABLED
+
+config MBEDTLS_GCM_ALT
+	bool "Use GCM alternative implemetation"
+	default y
+	depends on MBEDTLS_CIPHER_GCM_ENABLED
+
+config MBEDTLS_CMAC_ALT
+	bool "Use CMAC alternative implementation"
+	default y
+	depends on MBEDTLS_CMAC
+
+config MBEDTLS_RSA_ALT
+	bool "Use RSA alternative implemetation"
+	default y
+	depends on MBEDTLS_RSA_C
+
+config MBEDTLS_PLATFORM_SETUP_TEARDOWN_ALT
+	bool "Use platform setup alternative implemetation"
+	default y
+
+config MBEDTLS_ECP_ALT
+	bool "Use ECP alternative implementation"
+	default y
+	depends on MBEDTLS_ECP_C
+
+config MBEDTLS_SHA256_ALT
+	bool "Use SHA256 alternative implementation"
+	default y
+	depends on MBEDTLS_SHA256
+
+config MBEDTLS_SHA512_ALT
+	bool "Use SHA512 alternative implementation"
+	default y
+	depends on MBEDTLS_SHA512
+
+config MBEDTLS_ECDSA_VERIFY_ALT
+	bool "Use ECDSA verify alternative implementation"
+	default y
+	depends on MBEDTLS_ECDSA_C
+
+config MBEDTLS_ECDSA_SIGN_ALT
+	bool "Use ECDSA sign alternative implementation"
+	default y
+	depends on MBEDTLS_ECDSA_C
+
+config MBEDTLS_CTR_DRBG_C_ALT
+	bool "Use CTR DRBG C alternative implementation"
+	default y
+	depends on MBEDTLS_CTR_DRBG_ENABLED
+
+config MBEDTLS_ECDH_ALT
+	bool "Use ECDH alternative implementation"
+	default y
+	depends on MBEDTLS_ECDH_C
+
+if MBEDTLS_AES_ALT
+
+choice MBEDTLS_AES_KEY_FORMAT
+	prompt "Select AES key format"
+	default MBEDTLS_AES_KEY_WRAPPED_AND_PLAINTEXT
+
+config MBEDTLS_AES_KEY_WRAPPED_AND_PLAINTEXT
+	bool "AES key format include plaintext and wrapped (vendor)"
+
+config MBEDTLS_AES_KEY_PLAINTEXT
+	bool "AES key format include plaintext only"
+
+endchoice # MBEDTLS_AES_KEY_FORMAT
+
+endif # MBEDTLS_AES_ALT
+
+if MBEDTLS_ECP_ALT
+
+choice MBEDTLS_ECC_KEY_FORMAT
+	prompt "Select ECC key format"
+	default MBEDTLS_ECC_KEY_WRAPPED_AND_PLAINTEXT
+
+config MBEDTLS_ECC_KEY_WRAPPED_AND_PLAINTEXT
+	bool "ECC key format include plaintext and wrapped (vendor)"
+
+config MBEDTLS_ECC_KEY_PLAINTEXT
+	bool "ECC key format include plaintext only"
+
+endchoice # MBEDTLS_ECC_KEY_FORMAT
+
+endif # MBEDTLS_ECP_ALT
+
+if MBEDTLS_RSA_ALT
+
+choice MBEDTLS_RSA_KEY_FORMAT
+	prompt "Select RSA key format"
+	default MBEDTLS_RSA_KEY_WRAPPED_AND_PLAINTEXT
+
+config MBEDTLS_RSA_KEY_WRAPPED_AND_PLAINTEXT
+	bool "RSA key format include plaintext and wrapped (vendor)"
+
+config MBEDTLS_RSA_KEY_PLAINTEXT
+	bool "RSA key format include plaintext only"
+
+endchoice # MBEDTLS_RSA_KEY_FORMAT
+
+config MBEDTLS_RSA3K_KEYGEN_ENABLED
+	bool "Enable RSA3072 bits key generator"
+
+config MBEDTLS_RSA3K_SIGNING_ENABLED
+	bool "Enable RSA3072 bits signing"
+
+config MBEDTLS_RSA3K_VERIFICATION_ENABLED
+	bool "Enable RSA3072 bits verification"
+
+config MBEDTLS_RSA4K_KEYGEN_ENABLED
+	bool "Enable RSA4096 bits key generator"
+
+config MBEDTLS_RSA4K_SIGNING_ENABLED
+	bool "Enable RSA4096 bits signing"
+
+config MBEDTLS_RSA4K_VERIFICATION_ENABLED
+	bool "Enable RSA4096 bits verification"
+
+endif # MBEDTLS_RSA_ALT
+
+endmenu
