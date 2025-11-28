@@ -53,7 +53,7 @@ int aes_operation(void)
 	psa_status_t status = PSA_SUCCESS;
 	psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
 	const psa_algorithm_t alg = PSA_ALG_GCM;
-	psa_key_handle_t aes_key_handle = 0;
+	psa_key_id_t aes_key_handle = 0;
 	uint8_t *output_data = NULL;
 	uint8_t *output_data1 = NULL;
 	size_t output_size = 0;
@@ -208,7 +208,7 @@ int ecc_operation(void)
 		"ASYMMETRIC_INPUT_FOR_SIGN_ECC"; /* Buffer containing message to hash. */
 	size_t signature_length = 0;             /* length of signature. */
 	psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT; /* Contains key attributes. */
-	psa_key_handle_t ecc_key_handle = {0};                     /* ECC Key handle. */
+	psa_key_id_t ecc_key_handle = {0};                     /* ECC Key handle. */
 	unsigned char signature[PSA_SIGNATURE_MAX_SIZE] = {
 		0}; /* Buffer containing signature for ecc. */
 	uint8_t payload_hash_ecc[PSA_HASH_MAX_SIZE] = {
@@ -225,7 +225,7 @@ int ecc_operation(void)
 						     PSA_KEY_USAGE_EXPORT);
 	psa_set_key_algorithm(&attributes, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
 	psa_set_key_type(&attributes,
-#ifdef CONFIG_MBEDTLS_ALT
+#ifdef CONFIG_MBEDTLS_CUSTOM
 			 PSA_KEY_TYPE_ECC_KEY_PAIR_WRAPPED(PSA_ECC_FAMILY_SECP_R1)
 #else
 			 PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1)
@@ -310,7 +310,7 @@ int ecc_operation(void)
 int rsa_operation(void)
 {
 	psa_status_t status = (psa_status_t)0;
-	psa_key_handle_t rsa_key_handle = {0}; /* RSA Key handle. */
+	psa_key_id_t rsa_key_handle = {0}; /* RSA Key handle. */
 	unsigned char payload_rsa[] =
 		"ASYMMETRIC_INPUT_FOR_SIGN_RSA"; /* Buffer containing message to hash. */
 	unsigned char signature[PSA_SIGNATURE_MAX_SIZE] = {
@@ -331,7 +331,7 @@ int rsa_operation(void)
 						     PSA_KEY_USAGE_EXPORT);
 	psa_set_key_algorithm(&attributes, PSA_ALG_RSA_PKCS1V15_SIGN_RAW);
 	psa_set_key_type(&attributes,
-#ifdef CONFIG_MBEDTLS_ALT
+#ifdef CONFIG_MBEDTLS_CUSTOM
 			 PSA_KEY_TYPE_RSA_KEY_PAIR_WRAPPED
 #else
 			 PSA_KEY_TYPE_RSA_KEY_PAIR

@@ -10,7 +10,7 @@
 #include <mbedtls/platform.h>
 #include <psa/crypto.h>
 #include <psa/crypto_values.h>
-#ifdef CONFIG_MBEDTLS_ALT
+#ifdef CONFIG_MBEDTLS_CUSTOM
 #include <vendor.h>
 #endif
 

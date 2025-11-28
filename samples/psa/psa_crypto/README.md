@@ -21,16 +21,16 @@ https://gitlab.eng.renesas.com/ra-zephyr-bsp-dev/psa_crypto_driver)
 $ west update
 ```
 
-### Build with MbedTLS Renesas Alternative (Hardware Accelerator)
+### Build with MbedTLS Renesas Custom (Hardware Accelerator)
 
 ```shell
-$ west build -b <board> samples/psa/psa_crypto -DEXTRA_CONF_FILE=mbedtls_alt.conf
+$ west build -b <board> samples/psa/psa_crypto -DEXTRA_CONF_FILE=mbedtls_custom.conf
 $ west flash
 ```
 
 For example, build and flash on target board ek_rx74m
 ```shell
-$ west build -b ek_rx74m samples/psa/psa_crypto -DEXTRA_CONF_FILE=mbedtls_alt.conf
+$ west build -b ek_rx74m samples/psa/psa_crypto -DEXTRA_CONF_FILE=mbedtls_custom.conf
 $ west flash
 ```
 
