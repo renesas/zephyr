@@ -38,6 +38,7 @@ config CPU_RXV3
 config CPU_RXV3E
 	bool
 	select HAS_EXCEPT_VECTOR_TABLE
+	select ARCH_HAS_RAMFUNC_SUPPORT
 	help
 	  Set if the processor supports the Renesas RXv3e instruction set.
 

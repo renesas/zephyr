@@ -47,6 +47,11 @@
 
 #define RAM_START (CONFIG_SRAM_BASE_ADDRESS)
 #define RAM_SIZE  (KB(CONFIG_SRAM_SIZE))
+#ifdef CONFIG_RX_MPU_ENABLE
+#else
+	#define MPU_MIN_SIZE_ALIGN
+	#define MPU_ALIGN(region_size) . = ALIGN(4)
+#endif
 
 _region_min_align = 4;
 
@@ -242,8 +247,8 @@ SECTIONS
 
 	SECTION_DATA_PROLOGUE(_DATA_SECTION_NAME,,)
 	{
-		__data_region_start = .;
-		__data_start = .;
+		PLACE_SYMBOL_HERE(__data_region_start);
+		PLACE_SYMBOL_HERE(__data_start);
 		*(.data)
 		*(.data.*)
 		*(D)
@@ -253,6 +258,9 @@ SECTIONS
 
 #include <snippets-rwdata.ld>
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+
+	___data_region_load_start = LOADADDR(_DATA_SECTION_NAME);
+	PROVIDE(__data_region_load_start = ___data_region_load_start);
 
 	/* the sections defined in common-ram.ld have to be initialized on
 	 * reset as well, to place them before _edata */
@@ -265,7 +273,7 @@ SECTIONS
  */
 #include <snippets-data-sections.ld>
 
-	__data_region_end = .;
+	PLACE_SYMBOL_HERE(__data_region_end);
 
 #if DT_PROP(DT_NODELABEL(code_flash), programming_enable)
 
@@ -281,18 +289,17 @@ SECTIONS
 
 	SECTION_PROLOGUE(_BSS_SECTION_NAME,,)
 	{
-		_bss = .;
-		__bss_start = .;
+		PLACE_SYMBOL_HERE(_bss);
+		PLACE_SYMBOL_HERE(__bss_start);
 		*(.bss)
 		*(.bss.**)
 		*(COMMON)
 		*(B)
 		*(B_1)
 		*(B_2)
-		_ebss = .;
-		__bss_end = .;
+		PLACE_SYMBOL_HERE(_ebss);
+		PLACE_SYMBOL_HERE(__bss_end);
 		. = ALIGN(128);
-		_end = .;
 	} GROUP_LINK_IN(RAMABLE_REGION)
 
 	_ebss = . ;
