@@ -28,11 +28,20 @@ macro(configure_linker_script linker_script_gen linker_pass_define)
   set(extra_dependencies ${ARGN})
   set(STEERING_FILE "${CMAKE_CURRENT_BINARY_DIR}/${linker_script_gen}.xcl")
   set(STEERING_FILE_ARG "-DSTEERING_FILE=${STEERING_FILE}")
+  if("${IAR_TOOLCHAIN_VARIANT}" STREQUAL "iccrh850")
+    set(cmake_linker_script_config_file_script
+        ${ZEPHYR_BASE}/cmake/linker/iar/config_file_script_rh850.cmake)
+  else()
+    set(cmake_linker_script_config_file_script
+        ${ZEPHYR_BASE}/cmake/linker/iar/config_file_script.cmake)
+  endif()
   set(cmake_linker_script_settings
-    ${PROJECT_BINARY_DIR}/include/generated/ld_script_settings_${linker_pass_define}.cmake
+      ${PROJECT_BINARY_DIR}/include/generated/ld_script_settings_${linker_pass_define}.cmake
   )
   if("${linker_pass_define}" STREQUAL "LINKER_ZEPHYR_PREBUILT")
-    set(ILINK_THUMB_CALLS_WARNING_SUPPRESSED "--diag_suppress=Lt056")
+    if(NOT("${IAR_TOOLCHAIN_VARIANT}" STREQUAL "iccrh850"))
+      set(ILINK_THUMB_CALLS_WARNING_SUPPRESSED "--diag_suppress=Lt056")
+    endif()
   else()
     set(ILINK_THUMB_CALLS_WARNING_SUPPRESSED "")
   endif()
@@ -44,21 +53,19 @@ macro(configure_linker_script linker_script_gen linker_pass_define)
   zephyr_linker_generate_linker_settings_file(${cmake_linker_script_settings})
 
   add_custom_command(
-    OUTPUT
-      ${linker_script_gen}
-      ${STEERING_FILE}
+    OUTPUT ${linker_script_gen}
+           ${STEERING_FILE}
     DEPENDS
-      ${extra_dependencies}
-      ${cmake_linker_script_settings}
-      ${DEVICE_API_LD_TARGET}
-    COMMAND
-      ${CMAKE_COMMAND}
+           ${extra_dependencies}
+           ${cmake_linker_script_settings}
+           ${DEVICE_API_LD_TARGET}
+    COMMAND ${CMAKE_COMMAND}
       -C ${cmake_linker_script_settings}
       -DPASS="${linker_pass_define}"
       ${STEERING_FILE_ARG}
       -DOUT_FILE=${CMAKE_CURRENT_BINARY_DIR}/${linker_script_gen}
       ${IAR_LIB_USED}
-      -P ${ZEPHYR_BASE}/cmake/linker/iar/config_file_script.cmake
+      -P ${cmake_linker_script_config_file_script}
   )
 
 endmacro()
