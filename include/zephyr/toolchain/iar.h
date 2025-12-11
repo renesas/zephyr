@@ -150,5 +150,8 @@
 #ifdef __ICCRISCV__
 #include "iar/iccriscv.h"
 #endif
+#ifdef __ICCRH850__
+#include "iar/iccrh850.h"
+#endif
 
 #endif /* ZEPHYR_INCLUDE_TOOLCHAIN_ICCARM_H_ */

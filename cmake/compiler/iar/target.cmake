@@ -95,7 +95,6 @@ elseif("${IAR_TOOLCHAIN_VARIANT}" STREQUAL "iccrh850")
   list(APPEND IAR_COMMON_FLAGS
     --data_model=large
     --core=${ICCRH850_CPU}
-    -DRTT_USE_ASM=0        # WA for VAAK-232
   )
 endif()
 
@@ -114,7 +113,6 @@ if("${IAR_TOOLCHAIN_VARIANT}" STREQUAL "iccarm")
 elseif("${IAR_TOOLCHAIN_VARIANT}" STREQUAL "iccrh850")
   list(APPEND IAR_ASM_FLAGS
     --core=${ICCRH850_CPU}
-    -DRTT_USE_ASM=0       #WA for VAAK-232
     )
 endif()
 
