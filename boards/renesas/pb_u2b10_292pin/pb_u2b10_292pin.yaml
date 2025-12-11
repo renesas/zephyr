@@ -1,0 +1,12 @@
+identifier: pb_u2b10_292pin
+name: Renesas RH850 U2B10 292pin
+type: mcu
+arch: rh850
+ram: 384
+flash: 4096
+toolchain:
+  - zephyr
+  - iar rh850
+supported:
+  - gpio
+vendor: renesas

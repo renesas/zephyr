@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <rh850/renesas/u2b/u2b10/r7f70254xafabb-c.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+
+// #include "pb_u2b10_292pin-pinctrl.dtsi"
+
+/ {
+	model = "Renesas R-H850 U2B10 292pin";
+	compatible = "renesas,u2b10", "renesas,u2b";
+
+	// chosen {
+	//	zephyr,console = &rlin31;
+	//	zephyr,shell-uart = &rlin31;
+	//	zephyr,sram = &sram0;
+	//	zephyr,flash = &flash0;
+	//	zephyr,system-timer = &ostm0;
+	// };
+};
+
+// &ostm0 {
+//	compatible = "renesas,rh850-ostm-os-timer";
+//		channel = <0>;
+//		status = "okay";
+//	interrupt-parent = <&intc2>;
+//	interrupts = <360 0>;
+// };
+
+// &rlin31 {
+//	pinctrl-0 = <&rlin31_default>;
+//	pinctrl-names = "default";
+//		status = "okay";
+//		current-speed = <115200>;
+//  };
+
+//&xtal {
+//	clock-frequency = <20000000>;
+//	mosel = <0>;
+//	#clock-cells = <0>;
+//	status = "okay";
+};
+
+

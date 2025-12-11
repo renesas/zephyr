@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-u2b.h>
+
+&pinctrl {
+	 rlin31_default: rlin31_default {
+		uart0-pinmux {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT8, DIRECT_CONTROL_DISABLE)>,
+					<RH850_PSEL(PORT_02, 4, ALT_IN9, DIRECT_CONTROL_DISABLE)>;
+		};
+	 };
+};
