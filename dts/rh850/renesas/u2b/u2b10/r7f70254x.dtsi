@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/u2b/u2b10/u2b-g4mh-common.dtsi>
+// #include <zephyr/dt-bindings/clock/u2b_clock.h>
+
+/ {
+	// soc {
+	//	sram0: memory@fe000000 {
+	//		compatible = "mmio-sram";
+	//		reg = <0xfe000000 DT_SIZE_K(384)>;
+	//	};
+
+	//   rlin31: rlin31@ff89b100 {
+	//		compatible = "renesas,u2b-rlin3-uart";
+	//		interrupts = <626 1>, <627 1>, <628 1>;
+	//		interrupt-names = "txi", "rxi", "eri";
+	//		reg = <0xff89b100 0x3e0f00>;
+	//		status = "disabled";
+	//		channel = <1>;
+	//   };
+
+	//   ostm0: ostm0@ffbf0000 {
+	//		compatible = "renesas,rh850-ostm-os-timer";
+	//		reg = <0xffbf0000 0x20>;
+	//		reg-names = "cmp";
+	//		status = "disabled";
+	//		channel = <1>;
+	//   };
+	// };
+	//
+	// clocks: clocks {
+	//	#address-cells = <1>;
+	//	#size-cells = <1>;
+
+	//	xtal: clock-main-osc {
+	//		compatible = "renesas,u2b-cgc-external-clock";
+	//		clock-frequency = <80000000>;
+	//		#clock-cells = <0>;
+	//		status = "disabled";
+	//	};
+
+	//	pclk: pclk {
+	//			compatible = "renesas,u2b-cgc-pclk";
+	//			div = <1>;
+	//			#clock-cells = <2>;
+	//			status = "okay";
+	//		};
+
+	//	iclk: iclk {
+	//			compatible = "renesas,u2b-cgc-pclk";
+	//			clock-frequency = <200000000>;
+	//			div = <1>;
+	//			#clock-cells = <2>;
+	//			status = "okay";
+	//		};
+	// };
+};
+
