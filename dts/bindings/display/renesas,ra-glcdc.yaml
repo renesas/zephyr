@@ -124,3 +124,9 @@ properties:
   def-back-color-blue:
     type: int
     description: Default display background color - blue
+
+  ext-sdram:
+    type: phandle
+    description: |
+      External SDRAM in which frame buffer will be stored.
+      If not defined, internal SRAM will be used.
