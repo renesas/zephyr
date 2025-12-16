@@ -114,8 +114,15 @@ if(CONFIG_GEN_ISR_TABLES)
   target_link_libraries(isr_tables zephyr_interface)
   zephyr_library_link_libraries(isr_tables)
 
-  zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>_sw_isr_table)
-  zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>_irq_vector_table)
+  if(CONFIG_RH850)
+    # In the Renesas RH850 CC-RH compiler, internal or system-generated section
+    # names may use double underscores
+    zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>__sw_isr_table)
+    zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>__irq_vector_table)
+  else()
+    zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>_sw_isr_table)
+    zephyr_link_libraries($<TARGET_PROPERTY:linker,undefined>_irq_vector_table)
+  endif()
 endif()
 
 if(CONFIG_COVERAGE)

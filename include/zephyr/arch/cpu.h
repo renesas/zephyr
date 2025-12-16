@@ -33,6 +33,8 @@
 #include <zephyr/arch/sparc/arch.h>
 #elif defined(CONFIG_RX)
 #include <zephyr/arch/rx/arch.h>
+#elif defined(CONFIG_RH850)
+#include <zephyr/arch/rh850/arch.h>
 #endif
 
 #endif /* ZEPHYR_INCLUDE_ARCH_CPU_H_ */

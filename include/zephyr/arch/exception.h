@@ -128,6 +128,8 @@ static inline void arch_exception_call_dump_hook(const char *format, ...)
 #include <zephyr/arch/sparc/exception.h>
 #elif defined(CONFIG_RX)
 #include <zephyr/arch/rx/exception.h>
+#elif defined(CONFIG_RH850)
+#include <zephyr/arch/rh850/exception.h>
 #endif
 
 #endif /* ZEPHYR_INCLUDE_ARCH_EXCEPTION_H_ */
