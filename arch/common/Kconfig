@@ -27,7 +27,7 @@ config ISR_TABLE_SHELL
 config ARCH_SUPPORTS_ROM_OFFSET
 	bool
 	default y
-	depends on  (ARM || X86 || ARM64 || RISCV || ARC)
+	depends on  (ARM || X86 || ARM64 || RISCV || ARC || RX)
 	help
 	  Hidden option to enable support for ROM offset within the linker
 	  script, which will place a block of 0x0 of size

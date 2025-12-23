@@ -25,6 +25,7 @@ config CPU_RXV2
 	bool
 	select HAS_EXCEPT_VECTOR_TABLE
 	select CPU_HAS_FPU
+	select HAS_FLASH_LOAD_OFFSET
 	help
 	  Set if the processor supports the Renesas RXv2 instruction set.
 
@@ -38,6 +39,7 @@ config CPU_RXV3
 config CPU_RXV3E
 	bool
 	select HAS_EXCEPT_VECTOR_TABLE
+	select HAS_FLASH_LOAD_OFFSET
 	select ARCH_HAS_RAMFUNC_SUPPORT
 	help
 	  Set if the processor supports the Renesas RXv3e instruction set.
