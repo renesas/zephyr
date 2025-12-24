@@ -15,6 +15,7 @@
 
 &zephyr_lcdif {
 	input-pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+	ext-sdram = <&sdram1>;
 };
 
 &zephyr_mipi_dsi {
