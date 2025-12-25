@@ -11,6 +11,13 @@
 		};
 	};
 
+	sci1_default: sci1_default {
+		group1 {
+			psels = <RX_PSEL(0xD, 9, 1)>, /* SDA P901*/
+				<RX_PSEL(0xD, 9, 0)>; /* SCL P900*/
+		};
+	};
+
 	spi1_default: spi1_default {
 		group1 {
 			/* MISO MOSI RSPCK SSL*/
