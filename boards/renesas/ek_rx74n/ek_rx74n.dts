@@ -122,8 +122,23 @@
 	status = "okay";
 };
 
+&group_irq_al0 {
+	status = "okay";
+};
+
 &group_irq_al1 {
 	status = "okay";
+};
+
+&sci1 {
+	pinctrl-0 = <&sci1_default>;
+	pinctrl-names = "default";
+
+	i2c1: i2c {
+		sda-output-delay = <300>;
+		noise-filter-clock-select = <1>;
+		bit-rate-modulation;
+	};
 };
 
 &ioport6 {
