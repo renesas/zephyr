@@ -28,4 +28,13 @@
 			drive-strength = "DRV4";
 		};
 	};
+
+	canfd0_default: canfd0_default {
+		group1 {
+			/* CRX0 CTX0 */
+			psels = <RX_PSEL(RX_PSEL_CANFD, 8, 5)>,
+				<RX_PSEL(RX_PSEL_CANFD, 8, 4)>;
+			drive-strength = "DRV4";
+		};
+	};
 };
