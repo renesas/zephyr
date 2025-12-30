@@ -40,3 +40,16 @@ else()
   list(APPEND TOOLCHAIN_C_FLAGS -misa=v3)
   list(APPEND TOOLCHAIN_LD_FLAGS -misa=v3)
 endif()
+
+# Flags not supported by llext linker
+# (regexps are supported and match whole word)
+set(LLEXT_REMOVE_FLAGS
+	-ffunction-sections
+	-fdata-sections
+	-Os
+)
+
+# Flags to be added to llext code compilation
+set(LLEXT_APPEND_FLAGS
+  -mjsr
+)

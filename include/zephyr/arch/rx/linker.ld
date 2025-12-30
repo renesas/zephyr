@@ -75,7 +75,6 @@ SECTIONS
 
 	GROUP_START(ROMABLE_REGION)
 	. = ROM_START;   /* for kernel logging */
-	PLACE_SYMBOL_HERE(__rodata_region_start);
 
 #if CONFIG_HAS_EXCEPT_VECTOR_TABLE
 	.exvectors 0xFFFFFF80: AT(0xFFFFFF80)
@@ -97,7 +96,7 @@ SECTIONS
 	SECTION_PROLOGUE(_TEXT_SECTION_NAME,ROM_START,)
 	{
 		. = ALIGN(4);
-		_image_text_start = .;
+		PLACE_SYMBOL_HERE(_image_text_start);
 /* Located in generated directory. This file is populated by the
  * zephyr_linker_sources() Cmake function.
  */
@@ -110,7 +109,9 @@ SECTIONS
 #include <zephyr/linker/kobject-text.ld>
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
-	_image_text_end = .;
+	PLACE_SYMBOL_HERE(_image_text_end);
+
+	PLACE_SYMBOL_HERE(__rodata_region_start);
 
 	#include <zephyr/linker/common-rom.ld>
 

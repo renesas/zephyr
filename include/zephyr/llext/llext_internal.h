@@ -28,6 +28,15 @@ struct llext_elf_sect_map {
 
 const void *llext_loaded_sect_ptr(struct llext_loader *ldr, struct llext *ext, unsigned int sh_ndx);
 
+#if defined(CONFIG_RX)
+static inline const char *rx_normalize_name(const char *name)
+{
+    if (name && name[0] == '_') {
+        return name + 1;
+    }
+    return name;
+}
+#endif
 
 static inline const char *llext_string(const struct llext_loader *ldr, const struct llext *ext,
 	enum llext_mem mem_idx, unsigned int idx)
@@ -47,7 +56,26 @@ static inline const char *llext_section_name(const struct llext_loader *ldr,
 					     const struct llext *ext,
 					     const elf_shdr_t *shdr)
 {
+#ifndef CONFIG_RX
 	return llext_string(ldr, ext, LLEXT_MEM_SHSTRTAB, shdr->sh_name);
+#else
+	const char *sec_name = llext_string(ldr, ext, LLEXT_MEM_SHSTRTAB, shdr->sh_name);
+
+	if (strstr(sec_name, ".text") != NULL || strcmp(sec_name, "P") == 0) {
+		sec_name = ".text";
+	}
+	else if (strstr(sec_name, ".data") != NULL || strcmp(sec_name, "D") == 0) {
+		sec_name = ".data";
+	}
+	else if (strstr(sec_name, ".bss") != NULL || strcmp(sec_name, "B") == 0) {
+		sec_name = ".bss";
+	}
+	else if (strstr(sec_name, ".rodata") != NULL || strcmp(sec_name, "C") == 0) {
+		sec_name = ".rodata";
+	}
+
+	return sec_name;
+#endif
 }
 
 static inline const char *llext_symbol_name(const struct llext_loader *ldr,
@@ -57,7 +85,12 @@ static inline const char *llext_symbol_name(const struct llext_loader *ldr,
 	if (ELF_ST_TYPE(sym->st_info) == STT_SECTION) {
 		return llext_section_name(ldr, ext, ext->sect_hdrs + sym->st_shndx);
 	} else {
+#ifndef CONFIG_RX
 		return llext_string(ldr, ext, LLEXT_MEM_STRTAB, sym->st_name);
+#else
+		const char *sym_name = llext_string(ldr, ext, LLEXT_MEM_STRTAB, sym->st_name);
+		return rx_normalize_name(sym_name);
+	#endif
 	}
 }
 
