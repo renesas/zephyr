@@ -111,3 +111,32 @@ if(NOT CONFIG_LLEXT_TYPE_ELF_OBJECT AND CONFIG_RISCV)
     ${ZEPHYR_BINARY_DIR}/include/generated/riscv_edge_case_non_paired_hi20_lo12.inc
   )
 endif()
+
+if(CONFIG_RX)
+  foreach(ext_name ${ext_names})
+    set(ext_bin ${PROJECT_BINARY_DIR}/llext/${ext_name}.llext)
+
+    # Create a stamp file to track that we've fixed the flags
+    set(stamp_file ${PROJECT_BINARY_DIR}/llext/${ext_name}.llext.fixed)
+
+    add_custom_command(
+      OUTPUT ${stamp_file}
+      COMMAND ${CMAKE_OBJCOPY}
+        --set-section-flags B=alloc,data,noload
+        --set-section-flags B_1=alloc,data,noload
+        --set-section-flags B_2=alloc,data,noload
+        --rename-section P=.text
+        --rename-section D=.data
+        --rename-section B=.bss
+        --rename-section C=.rodata
+        ${ext_bin}
+      COMMAND ${CMAKE_COMMAND} -E touch ${stamp_file}
+      DEPENDS ${ext_bin}
+      COMMENT "Fixing RX BSS section flags for ${ext_name}.llext"
+    )
+
+    # Make app depend on the stamp file
+    add_custom_target(${ext_name}_ext_fixed DEPENDS ${stamp_file})
+    add_dependencies(app ${ext_name}_ext_fixed)
+  endforeach()
+endif()
