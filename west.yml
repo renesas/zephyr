@@ -237,7 +237,7 @@ manifest:
     - name: hal_renesas_fsp
       remote: renesas
       path: modules/hal/renesas
-      revision: f9a6c9a97d0aadea8e624d226a873101aae34b56
+      revision: 17c34423386b53a51ff6a1421609ac6d606e51f1
       groups:
         - hal
     - name: hal_rpi_pico
