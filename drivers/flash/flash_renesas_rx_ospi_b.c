@@ -396,11 +396,11 @@ static inline bool flash_renesas_rx_ospi_b_is_valid_address(const struct device 
 {
 	const struct flash_renesas_rx_ospi_b_config *config = dev->config;
 
-	if(offset < 0 || len == 0) {
+	if (offset < 0 || len == 0) {
 		return false;
 	}
 
-	if(offset >= config->flash_size) {
+	if (offset >= config->flash_size) {
 		return false;
 	}
 
@@ -915,8 +915,7 @@ static int flash_renesas_rx_ospi_b_init(const struct device *dev)
 	}
 
 	if (config->data_mode == XSPI_OCTO_MODE) {
-		err = flash_renesas_rx_ospi_b_set_protocol_to_opi(
-			&ospi_b_data->ospi_b_ctrl);
+		err = flash_renesas_rx_ospi_b_set_protocol_to_opi(&ospi_b_data->ospi_b_ctrl);
 		if (err != 0) {
 			LOG_ERR("Init OPI mode failed");
 			return -EIO;
@@ -967,6 +966,9 @@ static int flash_renesas_rx_ospi_b_init(const struct device *dev)
 				.sdr_sampling_delay = DT_INST_PROP(index, sdr_sampling_delay),     \
 				.ddr_sampling_extension =                                          \
 					DT_INST_PROP(index, ddr_sampling_extension),               \
+				.output_assert_delay =                                             \
+					_CONCAT(OSPI_B_,                                           \
+						DT_INST_STRING_TOKEN(index, output_assert_delay)), \
 			},                                                                         \
 		.ospi_b_extended_config =                                                          \
 			{                                                                          \

@@ -122,3 +122,13 @@ properties:
     default: 0
     description: |
       Number of cycles to extending the data sampling window on DDR read operations (0 - 7)
+
+  output-assert-delay:
+    type: string
+    default: ASSERTION_DELAY_DISABLE
+    enum:
+      - ASSERTION_DELAY_DISABLE
+      - ASSERTION_DELAY_ENABLE
+    description: |
+      Assertion timing of the output buffer control signal. Setting this  will delays the start
+      of output from the IO pins and the DS pin by one cycle.

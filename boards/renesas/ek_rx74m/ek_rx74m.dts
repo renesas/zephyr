@@ -370,6 +370,7 @@
 		protocol-mode = <XSPI_OCTO_MODE>;
 		data-rate = <XSPI_DTR_TRANSFER>;
 		write-block-size = <2>;
+		output-assert-delay = "ASSERTION_DELAY_ENABLE";
 		status = "okay";
 
 		partitions {
