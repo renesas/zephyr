@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 #define AUTOMOUNT_NODE DT_NODELABEL(ffs1)
 FS_FSTAB_DECLARE_ENTRY(AUTOMOUNT_NODE);
 
-#define FILE_PATH "/RAM:/hello.txt"
+#define FILE_PATH DT_PROP(AUTOMOUNT_NODE, mount_point) "/hello.txt"
 
 int main(void)
 {

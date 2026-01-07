@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&mx25lw51245g {
+ 	partitions {
+ 		/* 64MiB external storage partition */
+ 		external_partition: partition@0 {
+ 			reg = <0x00000000 DT_SIZE_M(64)>;
+ 		};
+ 	};
+};
+
+/ {
+	fstab {
+		compatible = "zephyr,fstab";
+		ffs1: ffs1 {
+			compatible = "zephyr,fstab,fatfs";
+			automount;
+			disk-access;
+			mount-point = "/EXT_FLASH:";
+		};
+	};
+
+	flash_disk0 {
+		status = "okay";
+		compatible = "zephyr,flash-disk";
+		partition = <&external_partition>;
+		disk-name = "EXT_FLASH";
+		cache-size = <4096>;
+	};
+};
