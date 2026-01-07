@@ -1005,7 +1005,7 @@ static int flash_renesas_rx_ospi_b_init(const struct device *dev)
 				.erase_value = ERASE_VALUE,                                        \
 				.caps =                                                            \
 					{                                                          \
-						.no_explicit_erase = true,                         \
+						.no_explicit_erase = false,                        \
 					},                                                         \
 			},                                                                         \
 		FLASH_RENESAS_RX_OSPI_B_PAGES_LAYOUT(index)};                                      \
