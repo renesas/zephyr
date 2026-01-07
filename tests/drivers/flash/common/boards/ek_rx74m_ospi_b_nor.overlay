@@ -5,10 +5,6 @@
 
 /delete-node/ &storage_partition;
 
-&mram {
-	status = "disabled";
-};
-
 &mx25lw51245g {
 	partitions {
 		compatible = "fixed-partitions";
