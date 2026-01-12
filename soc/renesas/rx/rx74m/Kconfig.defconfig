@@ -20,4 +20,7 @@ config FPU
 config DFPU
 	default y if CPU_HAS_FPU_DOUBLE_PRECISION
 
+config BUILD_OUTPUT_HEX
+	default y
+
 endif # SOC_SERIES_RX74M
