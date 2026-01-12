@@ -41,7 +41,11 @@
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_flash), okay)
 #define ROM_START (CONFIG_FLASH_BASE_ADDRESS + FLASH_LOAD_OFFSET)
 #ifndef ROM_SIZE
+#if CONFIG_FLASH_LOAD_SIZE > 0
+#define ROM_SIZE (CONFIG_FLASH_LOAD_SIZE - ROM_END_OFFSET)
+#else
 #define ROM_SIZE (DT_REG_SIZE(DT_CHOSEN(zephyr_flash)) - ROM_END_OFFSET)
+#endif
 #endif
 #endif
 
@@ -63,6 +67,11 @@ MEMORY
 	LINKER_DT_REGIONS()
 	/* Used by and documented in include/linker/intlist.ld */
 	IDT_LIST (wx) : ORIGIN = 0xFFFFF780, LENGTH = 2K
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
+	VECTORS  (rx) : ORIGIN = 0xFFFFFF80, LENGTH = 0x80   /* exvectors */
+	RESETVEC (rx) : ORIGIN = 0xFFFFFFFC, LENGTH = 0x4    /* fvectors */
+
+#endif
 }
 
 ENTRY(CONFIG_KERNEL_ENTRY)
@@ -76,21 +85,25 @@ SECTIONS
 	GROUP_START(ROMABLE_REGION)
 	. = ROM_START;   /* for kernel logging */
 
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #if CONFIG_HAS_EXCEPT_VECTOR_TABLE
-	.exvectors 0xFFFFFF80: AT(0xFFFFFF80)
+	.exvectors 0xFFFFFF80 : AT(0xFFFFFF80)
 	{
+		PLACE_SYMBOL_HERE(__exvectors_start);
 		KEEP(*(.exvectors))
-	} GROUP_LINK_IN(ROMABLE_REGION)
+		PLACE_SYMBOL_HERE(__exvectors_end);
+	} > VECTORS
 
-	 .fvectors 0xFFFFFFFC: AT(0xFFFFFFFC)
+	.fvectors 0xFFFFFFFC : AT(0xFFFFFFFC)
 	{
 		KEEP(*(.fvectors))
-	} GROUP_LINK_IN(ROMABLE_REGION)
+	} > RESETVEC
 #else
 	.fvectors 0xFFFFFF80: AT(0xFFFFFF80)
 	{
 		KEEP(*(.fvectors))
-	} GROUP_LINK_IN(ROMABLE_REGION)
+	} > VECTORS
+#endif
 #endif
 
 	SECTION_PROLOGUE(_TEXT_SECTION_NAME,ROM_START,)
@@ -101,6 +114,9 @@ SECTIONS
  * zephyr_linker_sources() Cmake function.
  */
 #include <snippets-rom-start.ld>
+#if defined(CONFIG_HAS_EXCEPT_VECTOR_TABLE) && defined(CONFIG_BOOTLOADER_MCUBOOT)
+		KEEP(*(.exvectors))
+#endif
 		*(.text)
 		*(.text.*)
 		*(P)
