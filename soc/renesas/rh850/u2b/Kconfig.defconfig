@@ -6,7 +6,7 @@ config CLOCK_CONTROL_INIT_PRIORITY
 	default 30
 
 config NUM_IRQS
-	default 768
+	default 1024
 
 DT_ICLK_PATH := $(dt_nodelabel_path,iclk)
 

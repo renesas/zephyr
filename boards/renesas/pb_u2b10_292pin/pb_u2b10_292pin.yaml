@@ -5,8 +5,7 @@ arch: rh850
 ram: 384
 flash: 4096
 toolchain:
-  - zephyr
-  - iar rh850
+  - iar
 supported:
   - gpio
 vendor: renesas

@@ -9,6 +9,8 @@
 // #include <zephyr/dt-bindings/clock/u2b_clock.h>
 
 / {
+	#address-cells = <1>;
+	#size-cells = <1>;
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -20,101 +22,4 @@
 			status = "okay";
 		};
 	};
-
-	// icu: interrupt-controller {
-	// compatible = "simple-bus";
-	//     #address-cells = <1>;
-	//     #size-cells = <1>;
-
-	//  intc1: intc1@fffc4000 {
-	//		compatible = "renesas,rh850-intc";
-	//		#interrupt-cells = <2>;
-	//		#address-cells = <1>;
-	//		#size-cells = <1>;
-	//		interrupt-controller;
-	//		reg = <0xfffc4000 0x00018000>;
-
-	//		intc1_pe0: pe0@fffc4000 {
-	//			reg = <0xfffc4000 0x40>,
-	//				  <0xfffc4100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-
-	//		intc1_pe1: pe1@fffc8000 {
-	//			reg = <0xfffc8000 0x40>,
-	//				  <0xfffc8100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-
-	//		intc1_pe2: pe2@fffcc000 {
-	//			reg = <0xfffcc000 0x40>,
-	//				  <0xfffcc100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-
-	//		intc1_pe3: pe3@fffd0000 {
-	//			reg = <0xfffd0000 0x40>,
-	//				  <0xfffd0100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-
-	//		intc1_pe4: pe4@fffd4000 {
-	//			reg = <0xfffd4000 0x40>,
-	//				  <0xfffd4100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-
-	//		intc1_pe5: pe5@fffd8000 {
-	//			reg = <0xfffd8000 0x40>,
-	//				  <0xfffd8100 0x80>;
-	//			reg-names = "EIC", "EIBD";
-	//		};
-	//  };
-
-	//  intc2: intc2@fff80000 {
-	//		compatible = "renesas,rh850-intc";
-	//			#interrupt-cells = <2>;
-	//		#address-cells = <1>;
-	//		#size-cells = <1>;
-	//         interrupt-controller;
-
-	//		reg = <0xfff80000 0x40>,
-	//			  <0xfff82000 0x80>;
-	//		reg-names = "EIC", "EIBD";
-	//  };
-
-	//  feinc: feinc@ff9a3b00 {
-	//		compatible = "renesas,rh850-intc";
-	//		#interrupt-cells = <2>;
-	//		#address-cells = <1>;
-	//		#size-cells = <1>;
-	//		interrupt-controller;
-
-	//		reg = <0xff9a3b00 0x4>,
-	//			  <0xff9a3b04 0x4>,
-	//			  <0xff9a3b08 0x4>;
-	//		reg-names = "FEINTF", "FEINTMSK", "FEINTC";
-	//  };
-	// };
-
-	// soc {
-	//  #address-cells = <1>;
-	//  #size-cells = <1>;
-	//  compatible = "simple-bus";
-	//  interrupt-parent = <&intc1>;
-
-	//  pinctrl: pin-controller@ffd90000 {
-	//		compatible = "renesas,rh850-pinctrl";
-	//		reg = <0xffd90000 0x40>;
-	//		status = "okay";
-	//  };
-
-	//  swint0: swint0@ffc00000 {
-	//		compatible = "renesas,rh850-swint";
-	//		reg = <0xffc00000 0x01>;
-	//		interrupts = <14 14>;
-	//		interrupt-parent = <&intc1>;
-	//		status = "okay";
-	//  };
-	// };
 };

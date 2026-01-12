@@ -3,7 +3,7 @@
 Overview
 ********
 
-This RH850/U2B is a 32-bit single-chip microcontroller with multiple CPUs, Code Flash, Data Flash,
+This RH850/U2B is a 32-bit single-chip microcontroller with multiple CPU cores, Code Flash, Data Flash,
 RAM modules, DMA controllers, A/D converters, timer units and many communication interfaces that
 are used in the automotive applications. This microcontroller conforms to the Automotive Safety
 Integrity Level (ASIL) that is highly demanded in the recent automotive field (ASIL D level).
@@ -12,16 +12,16 @@ The key features of the RH850/U2B are as follows:
 
 **RH850 multi-core CPU**
 
-- This microcontroller contains multi RH850G4MH2 cores support RISC-type instruction sets
+- This microcontroller contains multiple RH850G4MH2 cores that support RISC-type instruction sets
   and have significantly improved the instruction execution speed with basic instructions (one
   clock cycle per instruction) and the optimized 10-stage pipeline configurations. Furthermore, this
   product also supports multiplication instructions using a 32-bit hardware multiplier, saturated
   product-sum operation instructions, and bit manipulation instructions as instructions best suited
-  for various fields.In addition, this product also support CPU virtualization function.
+  for various fields. In addition, this product also support CPU virtualization function.
   Two-byte basic instructions and high-level language instructions improve object code efficiency
   for the C compiler and reduce the program size. Furthermore, this product is suited for advanced
   real-time control applications by offering a high-speed response time including the processing
-  time of the onchip interrupt controller.
+  time of the on-chip interrupt controller.
 
 **On-Chip Code Flash and Data Flash**
 
@@ -89,19 +89,19 @@ building and running.
 Flashing
 ========
 
-Program can be flashed to PB_U2B10_292PIN via 46-pin Aurora debug connector (e.g.., for
+Program can be flashed to PB_U2B10_292PIN via 46-pin Aurora debug connector (e.g, for
 using the Renesas standard emulator for RH850/U2B is the E2 emulator)
 
 E2 emulator User's Manual at https://www.renesas.com/en/document/mat/emulation-adapter-rh850u2b-users-manual?r=488796
 
-E2 emulator's driver are available at https://www.renesas.com/en/document/uid/usb-driver-renesas-mcu-toolse2e2-liteie850ie850apg-fp5-v27700for-32-bit-version-windows-os?r=488796
+Driver are available at https://www.renesas.com/en/document/uid/usb-driver-renesas-mcu-toolse2e2-liteie850ie850apg-fp5-v27700for-32-bit-version-windows-os?r=488796
 
-To flash the program to board
+To flash a program to the board:
 
 1. Connect to E2 emulator via 46-pin Aurora debug connector to host PC
 
 2. Make sure 46-pin Aurora debug connector is in default configuration as
-describe in `RH850/U2B 292pin User's Manual Piggy Board`_
+described in `RH850/U2B 292pin User's Manual Piggy Board`_
 
 3. Using IAR Embedded Workbench for Renesas RH850 IDE to load external executable file.
 
