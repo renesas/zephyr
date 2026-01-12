@@ -23,6 +23,9 @@
 		zephyr,console = &uart12;
 		zephyr,shell-uart = &uart12;
 		zephyr,canbus = &canfd0;
+		zephyr,flash-controller = &mram;
+		zephyr,code-partition = &slot0_partition;
+
 	};
 
 	leds {
@@ -344,15 +347,25 @@
 	status = "okay";
 };
 
-&data_mram {
+&code_mram {
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		storage_partition: partition@0 {
-			label = "storage";
-			reg = <0x0 DT_SIZE_K(48)>;
+		slot0_partition: partition@0 {
+			label = "image-0";
+			reg = <0x0 DT_SIZE_K(448)>;
+		};
+
+		slot1_partition: partition@70000 {
+			label = "image-1";
+			reg = <0x70000 DT_SIZE_K(448)>;
+		};
+
+		boot_partition: partition@e0000 {
+			label = "mcuboot";
+			reg = <0xe0000 DT_SIZE_K(128)>;
 		};
 	};
 };
