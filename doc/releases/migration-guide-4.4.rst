@@ -46,6 +46,8 @@ Boards
   in the respective board CMakeLists.txt files. Applications that depended on these definitions
   being globally available may need to be updated. (:github:`101322`)
 
+* Renesas ``ek_ra8t2/r7ka8t2lfecac/cm85`` is renamed to ``ek_ra8t2/r7ka8t2lflcac/cm85``.
+
 Device Drivers and Devicetree
 *****************************
 
