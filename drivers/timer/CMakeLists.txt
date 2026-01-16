@@ -61,4 +61,5 @@ zephyr_library_sources_ifdef(CONFIG_TI_DM_TIMER ti_dmtimer.c)
 zephyr_library_sources_ifdef(CONFIG_TI_RTI_TIMER ti_rti_timer.c)
 zephyr_library_sources_ifdef(CONFIG_XLNX_PSTTC_TIMER xlnx_psttc_timer.c)
 zephyr_library_sources_ifdef(CONFIG_XTENSA_TIMER xtensa_sys_timer.c)
+zephyr_library_sources_ifdef(CONFIG_RH850_OSTM_SYSTEM_TIMER renesas_rh850_ostm_timer.c)
 # zephyr-keep-sorted-stop
