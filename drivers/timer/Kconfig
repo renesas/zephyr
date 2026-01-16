@@ -133,6 +133,7 @@ source "drivers/timer/Kconfig.wch_ch32v00x"
 source "drivers/timer/Kconfig.x86"
 source "drivers/timer/Kconfig.xlnx_psttc"
 source "drivers/timer/Kconfig.xtensa"
+source "drivers/timer/Kconfig.renesas_rh850_ostm"
 # zephyr-keep-sorted-stop
 
 endmenu
