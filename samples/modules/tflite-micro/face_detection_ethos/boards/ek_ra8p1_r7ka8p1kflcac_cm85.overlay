@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&npu0 {
+	interrupts = <21 1>;
+	interrupt-names = "npu-irq";
+	status = "okay";
+};
+
+&code_mram_cm85 {
+	reg = <0x2000000 DT_SIZE_K(1024)>;
+};
+
+&code_mram_cm33 {
+	status = "disabled";
+};
+
+&sram0 {
+	reg = <0x22000000 0x1D4000>;
+};
+
+&sram1 {
+	status = "disabled";
+};

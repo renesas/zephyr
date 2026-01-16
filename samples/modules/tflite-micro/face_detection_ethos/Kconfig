@@ -1,0 +1,86 @@
+mainmenu "Video capture to LVGL sample application"
+
+menu "Video capture configuration"
+
+config VIDEO_WIDTH
+	int "Define the width of the video"
+	default 640
+
+config VIDEO_HEIGHT
+	int "Define the height of the video"
+	default 480
+
+endmenu
+
+menu "Screen Configuration"
+
+config SCREEN_ORIENTATION
+	int "Screen orientation"
+	default 90
+	help
+	  Orientation of the screen in degrees (0, 90, 180, 270).
+
+config SCREEN_WIDTH
+	int "Screen width"
+	default 854
+	help
+	  Width of the screen in pixels.
+
+config SCREEN_HEIGHT
+	int "Screen height"
+	default 480
+	help
+	  Height of the screen in pixels.
+endmenu
+
+menu "AI Configuration"
+
+config AI_INPUT_WIDTH
+	int "AI input image width"
+	default 192
+	help
+	  Width of the input image for AI model.
+
+config AI_INPUT_HEIGHT
+	int "AI input image height"
+	default 192
+	help
+	  Height of the input image for AI model.
+
+config AI_INPUT_BYTE_PER_PIXEL
+	int "AI input image bytes per pixel"
+	default 1
+	help
+	  Bytes per pixel (1 = grayscale, 3 = RGB).
+
+config AI_MAX_DETECTION_NUM
+	int "Maximum number of detections"
+	default 20
+	help
+	  Maximum number of faces (or objects) the model can detect.
+
+endmenu
+
+menu "Thread Stack Sizes"
+
+config AI_THREAD_STACK_SIZE
+	int "AI task stack size"
+	default 16384
+	help
+	  Stack size for the AI processing task.
+
+config CAMERA_THREAD_STACK_SIZE
+	int "Camera task stack size"
+	default 4096
+	help
+	  Stack size for the camera capture task.
+
+config DISPLAY_THREAD_STACK_SIZE
+	int "Display task stack size"
+	default 4096
+	help
+	  Stack size for the display task.
+
+endmenu
+
+source "Kconfig.zephyr"
