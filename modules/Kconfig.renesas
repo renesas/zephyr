@@ -60,6 +60,11 @@ config HAS_RENESAS_RH850_FSP
 	help
 	  Enable Renesas RH850 FSP support
 
+config HAS_RENESAS_RH850_FSP
+	bool
+	help
+	  Enable Renesas RH850 FSP support
+
 config USE_RA_FSP_SCI_I2C
 	bool
 	help
@@ -550,3 +555,4 @@ config USE_RH850_FSP_DTSC
 	  Enable RH850 FSP DTSC driver
 
 endif # HAS_RENESAS_RH850_FSP
+
