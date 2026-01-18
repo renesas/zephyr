@@ -1,0 +1,28 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <rh850/renesas/rh850u2b/r7f70254xafabg-c.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "pb_rh850u2b_468pin-pinctrl.dtsi"
+
+/ {
+	model = "Renesas RH850 U2B 468pin";
+	compatible = "renesas,u2b10", "renesas,u2b";
+
+	chosen {
+		zephyr,system-timer = &ostm0;
+	};
+};
+
+&ostm0 {
+	status = "okay";
+
+	timer {
+		status = "okay";
+	};
+};

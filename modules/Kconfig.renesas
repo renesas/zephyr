@@ -550,4 +550,3 @@ config USE_RH850_FSP_DTSC
 	  Enable RH850 FSP DTSC driver
 
 endif # HAS_RENESAS_RH850_FSP
-

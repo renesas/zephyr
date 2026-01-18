@@ -7,7 +7,7 @@
 #include <rh850/renesas/rh850u2b/u2b-g4mh-common.dtsi>
 
 / {
-    soc {
+	soc {
 		sram0: memory@fe000000 {
 			compatible = "mmio-sram";
 			reg = <0xfe000000 DT_SIZE_K(384)>;
@@ -26,5 +26,5 @@
 				status = "disabled";
 			};
 		};
-    };
+	};
 };

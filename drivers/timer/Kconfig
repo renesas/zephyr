@@ -116,6 +116,7 @@ source "drivers/timer/Kconfig.openrisc_tick"
 source "drivers/timer/Kconfig.rcar_cmt"
 source "drivers/timer/Kconfig.realtek_rts5912_rtmr"
 source "drivers/timer/Kconfig.renesas_ra_ulpt"
+source "drivers/timer/Kconfig.renesas_rh850_ostm"
 source "drivers/timer/Kconfig.renesas_rx"
 source "drivers/timer/Kconfig.renesas_rz"
 source "drivers/timer/Kconfig.renesas_rza2m"
@@ -133,7 +134,6 @@ source "drivers/timer/Kconfig.wch_ch32v00x"
 source "drivers/timer/Kconfig.x86"
 source "drivers/timer/Kconfig.xlnx_psttc"
 source "drivers/timer/Kconfig.xtensa"
-source "drivers/timer/Kconfig.renesas_rh850_ostm"
 # zephyr-keep-sorted-stop
 
 endmenu
