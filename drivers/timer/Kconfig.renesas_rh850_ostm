@@ -7,6 +7,5 @@ config RH850_OSTM_SYSTEM_TIMER
 	depends on DT_HAS_RENESAS_RH850_OSTM_TIMER_ENABLED
 	select USE_RH850_FSP_OSTM
 	select TICKLESS_CAPABLE
-	select SYS_CLOCK_DRIVER
 	help
 	  Use RH850 OSTM via FSP as the system timer (periodic tick / tickless).
