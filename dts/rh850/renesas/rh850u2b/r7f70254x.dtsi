@@ -12,6 +12,19 @@
 			compatible = "mmio-sram";
 			reg = <0xfe000000 DT_SIZE_K(384)>;
 		};
-    };
 
+		ostm0: ostm0@ffbf0000 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0000 0x20>;
+			channel = <0>;
+			interrupts = <360 0>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+    };
 };
