@@ -83,6 +83,7 @@ zephyr_library_sources_ifdef(CONFIG_UART_RENESAS_RZA2M_SCIF uart_renesas_rza2m_s
 zephyr_library_sources_ifdef(CONFIG_UART_RENESAS_RZ_SCI uart_renesas_rz_sci.c)
 zephyr_library_sources_ifdef(CONFIG_UART_RENESAS_RZ_SCIF uart_renesas_rz_scif.c)
 zephyr_library_sources_ifdef(CONFIG_UART_RENESAS_RZ_SCI_B uart_renesas_rz_sci.c)
+zephyr_library_sources_ifdef(CONFIG_UART_RLIN3_RH850 uart_renesas_rh850_rlin3.c)
 zephyr_library_sources_ifdef(CONFIG_UART_RPI_PICO_PIO uart_rpi_pico_pio.c)
 zephyr_library_sources_ifdef(CONFIG_UART_RPMSG uart_rpmsg.c)
 zephyr_library_sources_ifdef(CONFIG_UART_RTS5912 uart_realtek_rts5912.c)
@@ -114,7 +115,6 @@ zephyr_library_sources_ifdef(CONFIG_UART_XMC4XXX uart_xmc4xxx.c)
 zephyr_library_sources_ifdef(CONFIG_USART_GD32 usart_gd32.c)
 zephyr_library_sources_ifdef(CONFIG_USART_SAM usart_sam.c)
 zephyr_library_sources_ifdef(CONFIG_USERSPACE uart_handlers.c)
-zephyr_library_sources_ifdef(CONFIG_UART_RLIN3_RH850 uart_renesas_rh850_rlin3.c)
 # zephyr-keep-sorted-stop
 
 if(CONFIG_UART_NATIVE_PTY)
