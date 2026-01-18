@@ -75,6 +75,7 @@ static void ostm_irq_handler(timer_callback_args_t *arg)
 
 	if (!IS_ENABLED(CONFIG_TICKLESS_KERNEL)) {
 		uint32_t next_cycle = data->last_cycle + CYC_PER_TICK;
+
 		ostm_period_set(next_cycle);
 	} else {
 		irq_disable(DT_IRQN(TIMER_NODE));
@@ -106,6 +107,7 @@ static void ostm_period_set(uint32_t period_counts)
 	/* Update period member of FSP timer ctrl struct */
 	struct rh850_os_timer_data *data = (struct rh850_os_timer_data *)g_os_timer_dev->data;
 	ostm_instance_ctrl_t *g_timer0_ctrl = (ostm_instance_ctrl_t *)data->fsp_ctrl;
+
 	g_timer0_ctrl->period = period_counts;
 }
 
