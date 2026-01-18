@@ -26,5 +26,50 @@
 				status = "disabled";
 			};
 		};
+
+		rlin30: rlin30@ffc7c000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <620 1>, <621 1>, <622 1>, <623 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c000 0x3e0f00>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart0: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <0>;
+				status = "disabled";
+			};
+		};
+
+		rlin31: rlin31@ff89b100 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <625 1>, <626 1>, <627 1>, <628 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xff89b100 0x3e0f00>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart1: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <1>;
+				status = "disabled";
+			};
+		};
+
+		rlin32: rlin32@ffc7c200 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <630 1>, <631 1>, <632 1>, <633 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c200 0x3e0f00>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart2: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <2>;
+				status = "disabled";
+			};
+		};
 	};
 };
