@@ -188,6 +188,8 @@ if(CONFIG_IAR_LIBC)
   # only has it for full LIBC support, so always choose
   # full libc when using IAR C libraries.
   list(APPEND IAR_COMMON_FLAGS --dlib_config full)
+else()
+  list(APPEND IAR_COMMON_FLAGS --dlib_config normal)
 endif()
 
 foreach(F ${IAR_COMMON_FLAGS})
