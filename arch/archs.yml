@@ -32,3 +32,6 @@ archs:
   - name: rx
     path: rx
     full_name: Renesas RX
+  - name: rh850
+    path: rh850
+    full_name: Renesas RH850
