@@ -1,4 +1,4 @@
-.. zephyr:board:: pb_u2b10_292pin
+.. zephyr:board:: pb_rh850u2b_292pin
 
 Overview
 ********
@@ -62,7 +62,7 @@ Hardware
 ********
 Detailed hardware features for the RH850/U2B MCU group can be found at `RH850/U2B Group User's Manual Hardware`_
 
-.. figure:: u2b10_292pin_block_diagram.webp
+.. figure:: rh850u2b_292pin_block_diagram.webp
 	:width: 442px
 	:align: center
 	:alt: RH850/U2B MCU group feature
@@ -81,7 +81,7 @@ Programming and Debugging
 
 .. zephyr:board-supported-runners::
 
-Applications for the ``pb_u2b10_292pin`` board target configuration can be
+Applications for the ``pb_rh850u2b_292pin`` board target configuration can be
 built, flashed, and debugged in the usual way. See
 :ref:`build_an_application` and :ref:`application_run` for more details on
 building and running.
@@ -89,7 +89,7 @@ building and running.
 Flashing
 ========
 
-Program can be flashed to PB_U2B10_292PIN via 46-pin Aurora debug connector (e.g, for
+Program can be flashed to PB_RH850U2B_292PIN via 46-pin Aurora debug connector (e.g, for
 using the Renesas standard emulator for RH850/U2B is the E2 emulator)
 
 E2 emulator User's Manual at https://www.renesas.com/en/document/mat/emulation-adapter-rh850u2b-users-manual?r=488796

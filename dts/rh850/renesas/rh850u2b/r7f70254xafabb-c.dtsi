@@ -4,9 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <rh850/renesas/u2b/u2b10/u2b-g4mh-common.dtsi>
+#include <rh850/renesas/rh850u2b/r7f70254x.dtsi>
 
 / {
 
 };
-

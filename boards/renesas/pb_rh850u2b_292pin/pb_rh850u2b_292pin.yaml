@@ -1,5 +1,5 @@
-identifier: pb_u2b10_292pin
-name: Renesas RH850 U2B10 292pin
+identifier: pb_rh850u2b_292pin
+name: Renesas RH850 U2B 292pin
 type: mcu
 arch: rh850
 ram: 384

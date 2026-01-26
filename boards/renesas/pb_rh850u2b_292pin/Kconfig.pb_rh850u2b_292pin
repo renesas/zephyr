@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-config BOARD_PB_U2B10_292PIN
+config BOARD_PB_RH850U2B_292PIN
 	select SOC_R7F70254xAFABB_C
