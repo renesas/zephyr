@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include <rh850/renesas/u2b/u2b10/r7f70254xafabg-c.dtsi>
+#include <rh850/renesas/rh850u2b/r7f70254xafabg-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 
 #include "pb_rh850u2b_468pin-pinctrl.dtsi"
@@ -48,5 +48,3 @@
 	#clock-cells = <0>;
 	status = "okay";
 };
-
-
