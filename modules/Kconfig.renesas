@@ -50,6 +50,11 @@ config USE_RA_FSP_I2C_IIC_TARGET
 	help
 	  Enable Renesas RA I2C IIC Target driver
 
+config HAS_RENESAS_RH850_FSP
+	bool
+	help
+	  Enable Renesas RH850 FSP support
+
 config USE_RA_FSP_SCI_I2C
 	bool
 	help
@@ -516,3 +521,28 @@ config USE_RX_RDP_LPC
 	  Enable RX RDP LPC driver
 
 endif # HAS_RENESAS_RX_RDP
+
+if HAS_RENESAS_RH850_FSP
+
+config USE_RH850_FSP_IOPORT
+	bool
+	help
+	  Enable RH850 FSP IOPORT driver
+
+config USE_RH850_FSP_OSTM
+	bool
+	help
+	  Enable RH850 FSP OSTM driver
+
+config USE_RH850_FSP_RLIN3_UART
+	bool
+	help
+	  Enable RH850 FSP RLIN3 UART driver
+
+config USE_RH850_FSP_DTSC
+	bool
+	help
+	  Enable RH850 FSP DTSC driver
+
+endif # HAS_RENESAS_RH850_FSP
+
