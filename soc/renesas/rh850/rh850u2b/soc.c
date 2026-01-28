@@ -18,7 +18,7 @@ void soc_early_init_hook(void)
 	uint32_t key = irq_lock();
 
 	/* Configure system clocks. */
-	bsp_clock_init();
+	R_BSP_InitClock();
 
 	/* Enable Guard write access for all configured modules */
 	R_BSP_GuardEnableAccessAll();

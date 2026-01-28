@@ -4,3 +4,4 @@ board:
   vendor: renesas
   socs:
   - name: r7f70254xafabg-c
+  - name: r7f70254xfabg-c
