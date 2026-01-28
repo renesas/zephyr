@@ -10,7 +10,7 @@ config SOC_R7F70254xFABG_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xFABG_C
+config SOC_R7F70254xFABA_C
 	bool
 	select SOC_SERIES_RH850U2B
 
@@ -47,7 +47,7 @@ config SOC_SERIES
 
 config SOC
 	default "r7f70254xfabg-c"   if SOC_R7F70254xFABG_C
-	default "r7f70254xfaba-c"   if SOC_R7F70254xFABG_C
+	default "r7f70254xfaba-c"   if SOC_R7F70254xFABA_C
 	default "r7f70254xfabb-c"   if SOC_R7F70254xFABB_C
 	default "r7f70254xafabg-c"  if SOC_R7F70254xAFABG_C
 	default "r7f70254xafaba-c"  if SOC_R7F70254xAFABA_C
