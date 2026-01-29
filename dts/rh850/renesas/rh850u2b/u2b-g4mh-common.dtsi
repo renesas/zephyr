@@ -7,8 +7,6 @@
 #include <mem.h>
 
 / {
-	#address-cells = <1>;
-	#size-cells = <1>;
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -46,7 +44,7 @@
 				compatible = "renesas,rh850-intc";
 				interrupt-controller;
 				reg = <0xfffc4000 0x40>,
-						<0xfffc4100 0x80>;
+				      <0xfffc4100 0x80>;
 				reg-names = "EIC", "EIBD";
 				num-lines = <32>;
 			};
@@ -57,7 +55,7 @@
 				compatible = "renesas,rh850-intc";
 				interrupt-controller;
 				reg = <0xfffc8000 0x40>,
-						<0xfffc8100 0x80>;
+				      <0xfffc8100 0x80>;
 				reg-names = "EIC", "EIBD";
 				num-lines = <32>;
 			};
@@ -69,7 +67,7 @@
 			compatible = "renesas,rh850-intc";
 			interrupt-controller;
 			reg = <0xfff80000 0x40>,
-				  <0xfff82000 0x80>;
+			      <0xfff82000 0x80>;
 			reg-names = "EIC", "EIBD";
 			num-lines = <992>;
 		};
@@ -85,10 +83,10 @@
 				#interrupt-cells = <1>;
 				compatible = "renesas,rh850-feinc";
 				interrupt-controller;
-			reg = <0xff9a3b00 0x4>,
-				  <0xff9a3b04 0x4>,
-				  <0xff9a3b08 0x4>;
-			reg-names = "FEINTF", "FEINTMSK", "FEINTC";
+				reg = <0xff9a3b00 0x4>,
+				      <0xff9a3b04 0x4>,
+				      <0xff9a3b08 0x4>;
+				reg-names = "FEINTF", "FEINTMSK", "FEINTC";
 				num-lines = <3>;
 			};
 
@@ -98,8 +96,8 @@
 				compatible = "renesas,rh850-feinc";
 				interrupt-controller;
 				reg = <0xff9a3c00 0x4>,
-					  <0xff9a3c04 0x4>,
-					  <0xff9a3c08 0x4>;
+				      <0xff9a3c04 0x4>,
+				      <0xff9a3c08 0x4>;
 				reg-names = "FEINTF", "FEINTMSK", "FEINTC";
 				num-lines = <3>;
 			};
@@ -115,8 +113,8 @@
 		swint0: swint@ffc00000 {
 			compatible = "renesas,rh850-swint";
 			reg = <0xffc00000 0x01>;
-			interrupts-extended =	<&intc1_pe0 14 14>,
-									<&intc1_pe1 14 14>;
+			interrupts-extended = <&intc1_pe0 14 14>,
+					      <&intc1_pe1 14 14>;
 			interrupt-names = "swint_pe0", "swint_pe1";
 			status = "okay";
 		};
