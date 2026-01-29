@@ -26,7 +26,6 @@ endif()
 
 if(CONFIG_ETH_RENESAS_RX_RMAC)
   zephyr_library_sources(eth_renesas_rx_rmac.c)
-  zephyr_library_sources(eth_renesas_rx_eswm.c)
 endif()
 
 add_subdirectory(dsa)

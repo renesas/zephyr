@@ -2,41 +2,59 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config ETH_RENESAS_RX_RMAC
-	bool "Renesas RX RMAC Ethernet"
+	bool "Renesas RX ethernet RMAC driver"
 	default y
 	depends on DT_HAS_RENESAS_RX_RMAC_ENABLED
 	select USE_RX_FSP_RMAC
+	select USE_RX_FSP_LAYER3_SWITCH
 	select RENESAS_RX_GRP_INTC_FSP
+	select NOCACHE_MEMORY if ARCH_HAS_NOCACHE_MEMORY_SUPPORT
 	select MDIO
 	help
-	  Enable Renesas RX RMAC Ethernet Driver.
+	  Add support for Renesas RX RMAC Ethernet device driver.
 
 if ETH_RENESAS_RX_RMAC
 
-config ETH_RENESAS_RX_RMAC_THREAD_STACK_SIZE
+config ETH_RENESAS_RX_RX_THREAD_STACK_SIZE
 	int "Stack size for internal incoming packet handler"
 	default 1500
 	help
 	  Size of the stack used for internal thread which is ran for
 	  incoming packet processing.
 
-config ETH_RENESAS_RX_RMAC_THREAD_PRIORITY
-	int "Renesas RX RMAC Ethernet receive thread priority"
+config ETH_RENESAS_RX_RX_THREAD_PRIORITY
+	int "Renesas RX Ethernet receive thread priority"
 	default 2
 
-config ETH_RENESAS_RX_RMAC_BUF_SIZE
-	int "TX/RX data buffer size"
-	default 1536
-	range 1514 1536
+config ETH_RENESAS_RX_USE_ZERO_COPY
+	bool "Use zero-copy for ethernet buffers"
+	default y
 	help
-	  Size, in bytes, of the TX data buffer. The size must be big enough to
-	  store one complete Ethernet frame, and be a multiple of 8.
+	  Enable this option to use zero-copy mode, allowing the driver to directly
+	  access DMA buffers without using a staging buffer.
 
-config ETH_RENESAS_RX_RMAC_BROADCAST_FILTER
-	int "TX/RX data buffer size"
-	default 65535
-	range 0 65535
+config ETH_RENESAS_RX_USE_HW_WRITEBACK
+	bool "Wait hardware writeback of ethernet buffers"
+	default n
 	help
-	  Limit of the number broadcast frame received continuously.
+	  Enable this option to wait for Ethernet descriptor writeback, ensuring
+	  that the TX frame is written successfully. Note that enabling this option
+	  may cause ethernet write operations to take slightly longer.
+
+config ESWM_RENESAS_RX_INIT_PRIORITY
+	int "Ethernet driver init priority"
+	default 55
+	help
+	  Ethernet switch module ESWM device driver initialization priority.
+
+config ETH_RENESAS_RX_RECEIVE_BUDGET
+	int "Receive thread budget"
+	default 128
+	range 1 1024
+	help
+	  The budget parameter places a limit on the amount of work the driver
+	  may do in the RX thread before yielding the processor, in case there
+	  is more work to do. This is to prevent the RX thread to starve other
+	  threads. Each received frame counts as one unit of work.
 
 endif

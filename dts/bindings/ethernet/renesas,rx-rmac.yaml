@@ -15,31 +15,59 @@ properties:
     type: int
     required: true
 
-  tx-queue-num:
+  phy-handle:
+    required: true
+
+  phy-clock:
+    type: phandle
+    required: true
+    description: |
+      Specifies the reference clock node for PHY device.
+
+  phy-clock-type:
+    type: string
+    required: true
+    enum:
+      - "xtal"
+      - "internal"
+    description: |
+      Specifies the clock type of reference clock:
+      "xtal": use xtal as clock source
+      "internal": use ETHPHYCLK pin output as clock source
+
+  txq-num:
+    type: int
+    default: 2
+    description: Number of TX queues
+
+  rxq-num:
+    type: int
+    default: 2
+    description: Number of RX queues
+
+  txq-len:
     type: int
     default: 4
     description: |
-      This field indicates the Number of Transmit Queue.
-      range: 2 - 32
+      Number of descriptors in each TX queue
 
-  rx-queue-num:
+  rxq-len:
     type: int
     default: 4
     description: |
-      This field indicates the Number of Receive Queue.
-      range: 2 - 32
+      Number of descriptors in each RX queue
 
-  tx-buf-num:
+  txb-num:
     type: int
-    default: 44
+    default: 12
     description: |
-      This field indicates the Number of Transmit buffer.
+      Number of TX buffers
 
-  rx-buf-num:
+  rxb-num:
     type: int
-    default: 44
+    default: 12
     description: |
-      This field indicates the Number of receive buffer.
+      Number of RX buffers
 
   gwdis:
     type: phandle-array

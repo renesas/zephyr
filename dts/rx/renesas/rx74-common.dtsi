@@ -1305,18 +1305,19 @@
 
 			clocks = <&iclk 0 0>,
 				 <&pclka MSTPC 30>,
-				 <&eswclk MSTPC 30>,
-				 <&eswphyclk MSTPC 28>;
-			clock-names = "iclk", "pclk", "esw", "eswphy";
-			ranges;
+				 <&eswclk 0 0>,
+				 <&eswphyclk 0 0>,
+				 <&ethphyclk MSTPC 28>;
+			clock-names = "gwcaclk", "pclk", "eswclk", "eswphyclk", "ethphyclk";
+
+			interrupts-extended = <&group_irq_al4 12 1>;
+				interrupt-names = "gwdi";
 
 			mdio0: mdio {
 				compatible = "renesas,rx-rmac-mdio";
 				channel = <0>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-				clocks = <&ethphyclk MSTPC 28>;
-				clock-names = "ethphy";
 				status = "disabled";
 			};
 
@@ -1324,8 +1325,6 @@
 				compatible = "renesas,rx-rmac";
 				channel = <0>;
 				reg = <0x874CB000 0x1000>;
-				interrupts-extended = <&group_irq_al4 12 1>;
-				interrupt-names = "gwdi";
 				local-mac-address = [00 11 22 33 44 55];
 				phy-connection-type = "gmii";
 				status = "disabled";
@@ -1337,8 +1336,6 @@
 				compatible = "renesas,rx-rmac";
 				reg = <0x874CD000 0x1000>;
 				channel = <1>;
-				interrupts-extended = <&group_irq_al4 12 1>;
-				interrupt-names = "gwdi";
 				local-mac-address = [00 11 22 33 44 55];
 				phy-connection-type = "gmii";
 				status = "disabled";

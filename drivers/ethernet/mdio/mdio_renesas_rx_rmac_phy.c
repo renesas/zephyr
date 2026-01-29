@@ -10,10 +10,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/mdio.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/net/ethernet.h>
+#include <zephyr/drivers/ethernet/eth_renesas_rx_rmac.h>
 #include <zephyr/net/mdio.h>
-#include <zephyr/drivers/ethernet/eth_renesas_rx_eswm.h>
+#include <zephyr/drivers/gpio.h>
 #include "r_rmac_phy.h"
 
 #include <zephyr/logging/log.h>
@@ -22,205 +22,174 @@ LOG_MODULE_REGISTER(renesas_rx_rmac_mdio, CONFIG_MDIO_LOG_LEVEL);
 
 #define DT_DRV_COMPAT renesas_rx_rmac_mdio
 
-struct renesas_rx_mdio_config {
+struct mdio_renesas_rx_config {
+	const struct device *eswclk_dev;
 	const struct pinctrl_dev_config *pincfg;
-	const struct device *ethphyclk_dev;                  /* ethphyclk clock */
-	struct clock_control_rx_subsys_cfg ethphyclk_subsys; /* ethphyclk clock subsys */
-	R_RMAC0_Type *const regs;
-	uint8_t channel;
-	const struct gpio_dt_spec reset_gpio;
 };
 
-struct renesas_rx_mdio_data {
-	struct k_mutex rw_mutex;
-	struct st_ether_phy_cfg ether_phy_cfg;
-	struct st_rmac_phy_instance_ctrl ether_phy_ctrl;
+struct mdio_renesas_rx_data {
+	struct k_mutex rw_lock;
+	rmac_phy_instance_ctrl_t fsp_ctrl;
+	ether_phy_cfg_t fsp_cfg;
 };
 
-extern void r_rmac_phy_set_mii_type_configuration(rmac_phy_instance_ctrl_t *p_instance_ctrl,
-						  uint8_t port);
-
-static int renesas_rx_mdio_read(const struct device *dev, uint8_t prtad, uint8_t regad,
-				uint16_t *data)
+static int mdio_renesas_rx_get_port(const struct device *dev, uint8_t prtad, uint8_t *port)
 {
-	struct renesas_rx_mdio_data *dev_data = dev->data;
-	uint32_t read;
-	fsp_err_t err;
+	struct mdio_renesas_rx_data *data = dev->data;
+	rmac_phy_extended_cfg_t *p_extend =
+		(rmac_phy_extended_cfg_t *)data->fsp_ctrl.p_ether_phy_cfg->p_extend;
 
-	k_mutex_lock(&dev_data->rw_mutex, K_FOREVER);
-
-	R_RMAC_PHY_ChipSelect(&dev_data->ether_phy_ctrl, prtad);
-
-	err = R_RMAC_PHY_Read(&dev_data->ether_phy_ctrl, regad, &read);
-
-	k_mutex_unlock(&dev_data->rw_mutex);
-
-	if (err != FSP_SUCCESS) {
-		return -EIO;
-	}
-
-	*data = read & UINT16_MAX;
-
-	return 0;
-}
-
-static int renesas_rx_mdio_write(const struct device *dev, uint8_t prtad, uint8_t regad,
-				 uint16_t data)
-{
-	struct renesas_rx_mdio_data *dev_data = dev->data;
-	fsp_err_t err;
-
-	k_mutex_lock(&dev_data->rw_mutex, K_FOREVER);
-
-	R_RMAC_PHY_ChipSelect(&dev_data->ether_phy_ctrl, prtad);
-
-	err = R_RMAC_PHY_Write(&dev_data->ether_phy_ctrl, regad, data);
-
-	if (err) {
-		LOG_ERR("R_RMAC_PHY_Write failed!");
-	}
-
-	k_mutex_unlock(&dev_data->rw_mutex);
-
-	if (err != FSP_SUCCESS) {
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static int renesas_rx_mdio_initialize(const struct device *dev)
-{
-	struct renesas_rx_mdio_data *data = dev->data;
-	const struct renesas_rx_mdio_config *cfg = dev->config;
-	rmac_phy_instance_ctrl_t *p_instance_ctrl =
-		(rmac_phy_instance_ctrl_t *)&data->ether_phy_ctrl;
-	int err;
-	fsp_err_t fsp_err;
-	uint32_t clock_dev_freq;
-
-	err = pinctrl_apply_state(cfg->pincfg, PINCTRL_STATE_DEFAULT);
-	if (err != 0) {
-		return err;
-	}
-
-	/* Enable ETHPHY clock */
-	err = clock_control_on(cfg->ethphyclk_dev, (clock_control_subsys_t)&cfg->ethphyclk_subsys);
-	if (err) {
-		LOG_ERR("Failed to enable ETHPHY clock (err %d)", err);
-		return err;
-	}
-
-	err = clock_control_get_rate(cfg->ethphyclk_dev, NULL, &clock_dev_freq);
-	if (err) {
-		return err;
-	}
-
-	LOG_DBG("ETHPHY clock freq: %d", clock_dev_freq);
-
-	/* Set ETHA to CONFIG mode */
-	r_layer3_switch_update_etha_operation_mode(cfg->channel, LAYER3_SWITCH_AGENT_MODE_DISABLE);
-	r_layer3_switch_update_etha_operation_mode(cfg->channel, LAYER3_SWITCH_AGENT_MODE_CONFIG);
-
-	fsp_err = R_RMAC_PHY_Open(p_instance_ctrl, &data->ether_phy_cfg);
-
-	if (fsp_err != FSP_SUCCESS) {
-		LOG_ERR("Failed to init mdio driver - R_RMAC_PHY_Open fail, fsp_err: %d", fsp_err);
-		return -EIO;
-	}
-
-	R_RMAC_PHY_ChipSelect(p_instance_ctrl, cfg->channel);
-
-	r_rmac_phy_set_mii_type_configuration(p_instance_ctrl, cfg->channel);
-
-	k_mutex_init(&data->rw_mutex);
-
-	if (!cfg->reset_gpio.port) {
-		LOG_WRN("missing reset port definition");
-		return -EINVAL;
-	}
-
-	/* configure the reset pin */
-	err = gpio_pin_configure_dt(&cfg->reset_gpio, GPIO_OUTPUT_INACTIVE);
-	if (err < 0) {
-		return err;
-	}
-
-	for (uint32_t i = 0; i < 2; i++) {
-		/* Start reset */
-		err = gpio_pin_set_dt(&cfg->reset_gpio, 1);
-		if (err < 0) {
-			LOG_WRN("failed to set reset gpio");
-			return -EINVAL;
+	for (int i = 0; i < BSP_FEATURE_ETHER_NUM_CHANNELS; i++) {
+		if (p_extend->p_phy_lsi_cfg_list[i]->address == prtad) {
+			*port = i;
+			return 0;
 		}
-
-		/* Wait as specified by datasheet */
-		k_sleep(K_MSEC(200));
-
-		/* Reset over */
-		gpio_pin_set_dt(&cfg->reset_gpio, 0);
-
-		/* After de-asserting reset, must wait before using the config interface */
-		k_sleep(K_MSEC(200));
 	}
 
-	LOG_DBG("Init MDIO success!");
+	return -ENXIO;
+}
+
+static int mdio_renesas_rx_read(const struct device *dev, uint8_t prtad, uint8_t regad,
+				uint16_t *regval)
+{
+	struct mdio_renesas_rx_data *data = dev->data;
+	fsp_err_t fsp_err = FSP_SUCCESS;
+	uint32_t val = 0;
+	uint8_t port;
+	int ret;
+
+	ret = r_rmac_phy_get_operation_mode(&data->fsp_ctrl);
+	if (ret != RENESAS_RX_ETHA_OPERATION_MODE) {
+		return -EACCES;
+	}
+
+	ret = mdio_renesas_rx_get_port(dev, prtad, &port);
+	if (ret < 0) {
+		return ret;
+	}
+
+	k_mutex_lock(&data->rw_lock, K_FOREVER);
+
+	R_RMAC_PHY_ChipSelect(&data->fsp_ctrl, port);
+	fsp_err = R_RMAC_PHY_Read(&data->fsp_ctrl, regad, &val);
+	ret = (fsp_err == FSP_SUCCESS) ? 0 : -EIO;
+
+	*regval = val & UINT16_MAX;
+
+	k_mutex_unlock(&data->rw_lock);
+
+	return ret;
+}
+
+static int mdio_renesas_rx_write(const struct device *dev, uint8_t prtad, uint8_t regad,
+				 uint16_t regval)
+{
+	struct mdio_renesas_rx_data *data = dev->data;
+	fsp_err_t fsp_err = FSP_SUCCESS;
+	uint8_t port;
+	int ret;
+
+	ret = r_rmac_phy_get_operation_mode(&data->fsp_ctrl);
+	if (ret != RENESAS_RX_ETHA_OPERATION_MODE) {
+		return -EACCES;
+	}
+
+	ret = mdio_renesas_rx_get_port(dev, prtad, &port);
+	if (ret < 0) {
+		return ret;
+	}
+
+	k_mutex_lock(&data->rw_lock, K_FOREVER);
+
+	R_RMAC_PHY_ChipSelect(&data->fsp_ctrl, port);
+	fsp_err = R_RMAC_PHY_Write(&data->fsp_ctrl, regad, (uint32_t)regval);
+	ret = (fsp_err == FSP_SUCCESS) ? 0 : -EIO;
+
+	k_mutex_unlock(&data->rw_lock);
+
+	return ret;
+}
+
+static int mdio_renesas_rx_initialize(const struct device *dev)
+{
+	struct mdio_renesas_rx_data *data = dev->data;
+	const struct mdio_renesas_rx_config *config = dev->config;
+	rmac_phy_extended_cfg_t *p_extend = (rmac_phy_extended_cfg_t *)data->fsp_cfg.p_extend;
+	uint32_t eswclk;
+	fsp_err_t fsp_err = FSP_SUCCESS;
+	int ret = 0;
+
+	ret = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = clock_control_get_rate(config->eswclk_dev, NULL, &eswclk);
+	if (ret < 0) {
+		return ret;
+	}
+
+	p_extend->mdio_hold_time =
+		DIV_ROUND_UP(eswclk * CONFIG_MDIO_RENESAS_RX_RMAC_MDIO_HOLD_NS, 1e9);
+	p_extend->mdio_capture_time =
+		DIV_ROUND_UP(eswclk * CONFIG_MDIO_RENESAS_RX_RMAC_MDIO_CAPTURE_NS, 1e9);
+
+	fsp_err = R_RMAC_PHY_Open(&data->fsp_ctrl, &data->fsp_cfg);
+	if (fsp_err != FSP_SUCCESS) {
+		LOG_ERR("Failed to init mdio driver - R_RMAC_PHY_Open fail, err=%d", fsp_err);
+		return -EIO;
+	}
+
+	k_mutex_init(&data->rw_lock);
 
 	return 0;
 }
 
-static DEVICE_API(mdio, renesas_rx_mdio_api) = {
-	.read = renesas_rx_mdio_read,
-	.write = renesas_rx_mdio_write,
+static DEVICE_API(mdio, mdio_renesas_rx_api) = {
+	.read = mdio_renesas_rx_read,
+	.write = mdio_renesas_rx_write,
 };
 
-#define DECLARE_ETHER_PHY_LSI_WRAP(child_node_id)                                                  \
-	static const ether_phy_lsi_cfg_t g_phy_lsi_##child_node_id = {                             \
-		.address = DT_REG_ADDR(child_node_id),                                             \
-		.type = ETHER_PHY_LSI_TYPE_CUSTOM,                                                 \
-	};
+#define PHY_CONFIG_DEFINE(id)                                                                      \
+	static ether_phy_lsi_cfg_t phy_cfg_list##id = {.address = DT_REG_ADDR(id),                 \
+						       .type = ETHER_PHY_LSI_TYPE_CUSTOM};
+#define PHY_CONFIG_PTR_DECLARE(id) &phy_cfg_list##id,
 
-#define DECLARE_ETHER_PHY_LSI_PTR_WRAP(child_node_id) &g_phy_lsi_##child_node_id
+#define PHY_CONNECTION_TYPE(n)                                                                     \
+	((DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, rgmii)                                    \
+		  ? ETHER_PHY_MII_TYPE_RGMII                                                       \
+		  : (DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, gmii)                          \
+			     ? ETHER_PHY_MII_TYPE_GMII                                             \
+			     : (DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, rmii)               \
+					? ETHER_PHY_MII_TYPE_RMII                                  \
+					: ETHER_PHY_MII_TYPE_MII))))
 
-#define RENESAS_RX_MDIO_INSTANCE_DEFINE(n)                                                         \
+#define RENSAS_RX_MDIO_RMAC_DEFINE(n)                                                              \
+	BUILD_ASSERT(DT_INST_CHILD_NUM(n) <= BSP_FEATURE_ETHER_NUM_CHANNELS);                      \
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
-	DT_INST_FOREACH_CHILD(n, DECLARE_ETHER_PHY_LSI_WRAP);                                      \
-	static const rmac_phy_extended_cfg_t g_rmac_phy##n##_extended_cfg = {                      \
-		.p_target_init = NULL,                                                             \
-		.p_target_link_partner_ability_get = NULL,                                         \
+	DT_INST_FOREACH_CHILD_STATUS_OKAY(n, PHY_CONFIG_DEFINE);                                   \
+                                                                                                   \
+	static rmac_phy_extended_cfg_t renesas_rx_mdio##n##_p_extend = {                           \
 		.frame_format = RMAC_PHY_FRAME_FORMAT_MDIO,                                        \
-		.mdc_clock_rate = 2500000U,                                                        \
-		.mdio_hold_time = 7,                                                               \
-		.mdio_capture_time = 0U,                                                           \
-		.p_phy_lsi_cfg_list = {DT_INST_FOREACH_CHILD_SEP(                                  \
-			n, DECLARE_ETHER_PHY_LSI_PTR_WRAP, (, ))},                                 \
-		.default_phy_lsi_cfg_index = 0,                                                    \
-	};                                                                                         \
-	static struct renesas_rx_mdio_data renesas_rx_mdio##n##_data = {                           \
-		.ether_phy_cfg =                                                                   \
+		.mdc_clock_rate = DT_INST_PROP(n, clock_frequency),                                \
+		.p_phy_lsi_cfg_list = {                                                            \
+			DT_INST_FOREACH_CHILD_STATUS_OKAY(n, PHY_CONFIG_PTR_DECLARE)}};            \
+                                                                                                   \
+	static struct mdio_renesas_rx_data renesas_rx_mdio##n##_data = {                           \
+		.fsp_cfg =                                                                         \
 			{                                                                          \
 				.channel = DT_INST_PROP(n, channel),                               \
-				.phy_reset_wait_time = 0x00020000U,                                \
-				.mii_bit_access_wait_time = 8U,                                    \
-				.mii_type = ETHER_PHY_MII_TYPE_GMII,                               \
 				.flow_control = ETHER_PHY_FLOW_CONTROL_DISABLE,                    \
-				.p_extend = &g_rmac_phy##n##_extended_cfg,                         \
+				.mii_type = PHY_CONNECTION_TYPE(n),                                \
+				.p_extend = &renesas_rx_mdio##n##_p_extend,                        \
 			},                                                                         \
 	};                                                                                         \
-	static const struct renesas_rx_mdio_config renesas_rx_mdio##n##_cfg = {                    \
-		.channel = DT_INST_PROP(n, channel),                                               \
-		.regs = (R_RMAC0_Type *)DT_REG_ADDR(DT_INST_PARENT(n)),                            \
+	static const struct mdio_renesas_rx_config renesas_rx_mdio##n##_cfg = {                    \
+		.eswclk_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR_BY_NAME(DT_INST_PARENT(n), eswclk)),    \
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                       \
-		.ethphyclk_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                            \
-		.ethphyclk_subsys =                                                                \
-			{                                                                          \
-				.mstp = DT_INST_CLOCKS_CELL(n, mstp),                              \
-				.stop_bit = DT_INST_CLOCKS_CELL(n, stop_bit),                      \
-			},                                                                         \
-		.reset_gpio = GPIO_DT_SPEC_INST_GET_OR(n, reset_gpios, {0}),                       \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(n, &renesas_rx_mdio_initialize, NULL, &renesas_rx_mdio##n##_data,    \
+	DEVICE_DT_INST_DEFINE(n, &mdio_renesas_rx_initialize, NULL, &renesas_rx_mdio##n##_data,    \
 			      &renesas_rx_mdio##n##_cfg, POST_KERNEL, CONFIG_MDIO_INIT_PRIORITY,   \
-			      &renesas_rx_mdio_api);
+			      &mdio_renesas_rx_api);
 
-DT_INST_FOREACH_STATUS_OKAY(RENESAS_RX_MDIO_INSTANCE_DEFINE)
+DT_INST_FOREACH_STATUS_OKAY(RENSAS_RX_MDIO_RMAC_DEFINE)

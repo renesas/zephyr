@@ -18,6 +18,16 @@ config PHY_VERIFY_DEVICE_IDENTIFICATION
 config NET_IF_MAX_IPV4_COUNT
 	default 2
 
+if MDIO
+
+config MDIO_RENESAS_RX_RMAC_MDIO_HOLD_NS
+	default 7
+
+config MDIO_RENESAS_RX_RMAC_MDIO_CAPTURE_NS
+	default 7
+
+endif #MDIO
+
 endif # NETWORKING
 
 endif # BOARD_EK_RX74M

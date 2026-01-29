@@ -2,10 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config MDIO_RENESAS_RX_RMAC_PHY
-	bool "RENESAS MDIO controller driver"
+	bool "RENESAS MDIO RMAC controller driver"
 	default y
 	depends on DT_HAS_RENESAS_RX_RMAC_MDIO_ENABLED
 	select PINCTRL
 	select USE_RX_FSP_RMAC_PHY
 	help
-	  Enable RENESAS MDIO support.
+	  Enable RENESAS MDIO RMAC support.
+
+if MDIO_RENESAS_RX_RMAC_PHY
+
+config MDIO_RENESAS_RX_RMAC_MDIO_HOLD_NS
+	int "MDIO hold time"
+	default 0
+	help
+	  Time for changing MDO after rising edge of MDC in nanoseconds.
+	  This value depends on PHY chip AC Characteristics. Use 0 to disable.
+
+config MDIO_RENESAS_RX_RMAC_MDIO_CAPTURE_NS
+	int "MDIO capture time"
+	default 0
+	help
+	  Time for capturing MDI after rising edge of MDC in nanoseconds.
+	  This value depends on PHY chip AC Characteristics. Use 0 to disable.
+
+endif

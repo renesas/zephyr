@@ -21,3 +21,13 @@ properties:
   reset-gpios:
     type: phandle-array
     description: GPIO connected to MAC PHY reset signal pin. Reset is active low.
+
+  phy-connection-type:
+    type: string
+    description: |
+      Specifies the interface connection type between ethernet MAC and PHY.
+    enum:
+      - "mii"
+      - "rmii"
+      - "gmii"
+      - "rgmii"
