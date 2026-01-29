@@ -52,12 +52,12 @@
 #define RAM_START (CONFIG_SRAM_BASE_ADDRESS)
 #define RAM_SIZE  (KB(CONFIG_SRAM_SIZE))
 #ifdef CONFIG_RX_MPU_ENABLE
+	#define MPU_ALIGN(region_size) . = ALIGN(CONFIG_RX_MPU_MIN_ALIGN_REGION_SIZE)
+	#define MPU_MIN_SIZE_ALIGN . = ALIGN(CONFIG_RX_MPU_MIN_ALIGN_REGION_SIZE)
 #else
 	#define MPU_MIN_SIZE_ALIGN
 	#define MPU_ALIGN(region_size) . = ALIGN(4)
 #endif
-
-_region_min_align = 4;
 
 MEMORY
 {
@@ -84,6 +84,7 @@ SECTIONS
 
 	GROUP_START(ROMABLE_REGION)
 	. = ROM_START;   /* for kernel logging */
+	PLACE_SYMBOL_HERE(__rom_region_start);
 
 #if !defined(CONFIG_BOOTLOADER_MCUBOOT)
 #if CONFIG_HAS_EXCEPT_VECTOR_TABLE
@@ -109,7 +110,7 @@ SECTIONS
 	SECTION_PROLOGUE(_TEXT_SECTION_NAME,ROM_START,)
 	{
 		. = ALIGN(4);
-		PLACE_SYMBOL_HERE(_image_text_start);
+		PLACE_SYMBOL_HERE(__image_text_start);
 /* Located in generated directory. This file is populated by the
  * zephyr_linker_sources() Cmake function.
  */
@@ -125,16 +126,7 @@ SECTIONS
 #include <zephyr/linker/kobject-text.ld>
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
-	PLACE_SYMBOL_HERE(_image_text_end);
-
-	PLACE_SYMBOL_HERE(__rodata_region_start);
-
-	#include <zephyr/linker/common-rom.ld>
-
-/* Located in generated directory. This file is populated by calling
- * zephyr_linker_sources(ROM_SECTIONS ...). Useful for grouping iterable RO structs.
- */
-#include <snippets-rom-sections.ld>
+	PLACE_SYMBOL_HERE(__image_text_end);
 
 	SECTION_PROLOGUE(.rvectors,,)
 	{
@@ -142,6 +134,40 @@ SECTIONS
 		KEEP(*(.rvectors))
 		_rvectors_end = .;
 	} GROUP_LINK_IN(ROMABLE_REGION)
+
+	PLACE_SYMBOL_HERE(__rodata_region_start);
+
+	#include <zephyr/linker/common-rom.ld>
+	/* Located in generated directory. This file is populated by calling
+ 	* zephyr_linker_sources(ROM_SECTIONS ...). Useful for grouping iterable RO structs.
+ 	*/
+#include <snippets-rom-sections.ld>
+#include <zephyr/linker/thread-local-storage.ld>
+
+    	SECTION_PROLOGUE(_RODATA_SECTION_NAME,,)
+	{
+		. = ALIGN(8);
+		*(.rodata)
+		*(.rodata.*)
+		*(.gnu.linkonce.r)
+		*(.gnu.linkonce.r.*)
+		*(C_1)
+		*(C_2)
+		*(C)
+
+/* Located in generated directory. This file is populated by the
+ * zephyr_linker_sources() Cmake function.
+ */
+#include <snippets-rodata.ld>
+
+	} GROUP_LINK_IN(ROMABLE_REGION)
+
+/* Located in generated directory. This file is populated by calling
+ * zephyr_linker_sources(ROM_SECTIONS ...). Useful for grouping iterable RO structs.
+ */
+#include <snippets-rom-sections.ld>
+
+
 	SECTION_PROLOGUE(init,,)
 	{
 		KEEP(*(.init))
@@ -157,49 +183,19 @@ SECTIONS
 		KEEP(*(SORT(.fini_array.*)))
 		__fini_array_end = .;
 	} GROUP_LINK_IN(ROMABLE_REGION)
+
 	SECTION_PROLOGUE(fini,,)
 	{
 		KEEP(*(.fini))
 	} GROUP_LINK_IN(ROMABLE_REGION)
+
 	SECTION_PROLOGUE(got,,)
 	{
 		*(.got)
 		*(.got.plt)
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
-#include <zephyr/linker/thread-local-storage.ld>
 #include <zephyr/linker/cplusplus-rom.ld>
-
-	SECTION_PROLOGUE(_RODATA_SECTION_NAME,,)
-	{
-		*(.rodata)
-		*(.rodata.*)
-		*(.gnu.linkonce.r)
-		*(.gnu.linkonce.r.*)
-		*(C_1)
-		*(C_2)
-		*(C)
-
-/* Located in generated directory. This file is populated by the
- * zephyr_linker_sources() Cmake function.
- */
-#include <snippets-rodata.ld>
-#include <zephyr/linker/kobject-rom.ld>
-
-		_erodata = .;
-	} GROUP_LINK_IN(ROMABLE_REGION)
-	SECTION_PROLOGUE(eh_frame_hdr,,)
-	{
-		*(.eh_frame_hdr)
-	} GROUP_LINK_IN(ROMABLE_REGION)
-	SECTION_PROLOGUE(eh_frame,,)
-	{
-		*(.eh_frame)
-	} GROUP_LINK_IN(ROMABLE_REGION)
-	SECTION_PROLOGUE(jcr,,)
-	{
-		*(.jcr)
-	} GROUP_LINK_IN(ROMABLE_REGION)
 
 #if DT_PROP(DT_NODELABEL(code_flash), programming_enable)
 	SECTION_PROLOGUE(.pfram,ALIGN(4),)
@@ -230,11 +226,15 @@ SECTIONS
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
 	PLACE_SYMBOL_HERE(__rodata_region_end);
+
+	MPU_ALIGN(__rodata_region_end - ADDR(__rodata_region_start));
+
 	GROUP_END(ROMABLE_REGION)
 
 	GROUP_START(RAMABLE_REGION)
 
-	_image_ram_start = .;
+	. = RAM_START;
+	PLACE_SYMBOL_HERE(_image_ram_start);
 
 #include <app_data_alignment.ld>
 

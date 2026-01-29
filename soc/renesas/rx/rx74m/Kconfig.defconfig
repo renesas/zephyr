@@ -23,4 +23,13 @@ config DFPU
 config BUILD_OUTPUT_HEX
 	default y
 
+config CACHE_MANAGEMENT
+	default y
+
+config ICACHE
+	default y
+
+config DCACHE
+	default y
+
 endif # SOC_SERIES_RX74M

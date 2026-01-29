@@ -41,6 +41,9 @@ config CPU_RXV3E
 	select HAS_EXCEPT_VECTOR_TABLE
 	select HAS_FLASH_LOAD_OFFSET
 	select ARCH_HAS_RAMFUNC_SUPPORT
+	select ARCH_HAS_NOCACHE_MEMORY_SUPPORT
+	select CPU_HAS_DCACHE
+	select CPU_HAS_ICACHE
 	help
 	  Set if the processor supports the Renesas RXv3e instruction set.
 
@@ -94,5 +97,39 @@ config HAS_MAPPED_INTERRUPTS
 	bool
 	help
 	  Support for mapped interrupts.
+
+if CPU_HAS_MPU
+
+menuconfig RX_MPU
+	bool "RX MPU Support"
+	select MPU
+	select SRAM_REGION_PERMISSIONS
+	help
+	  Enable support for RX Memory Protection Unit.
+
+if RX_MPU
+
+config RX_MPU_MIN_ALIGN_REGION_SIZE
+	int "RX MPU minimum aligned region size (in bytes)"
+	default 32
+	help
+	  This option specifies the minimum aligned region size supported by RX MPU.
+	  It is used to align memory regions when configuring the MPU.
+
+config RX_MPU_NUM_REGIONS
+	default 8
+	int "Number of RX MPU regions"
+	help
+	  This option specifies the number of regions supported by RX MPU.
+
+endif # RX_MPU
+
+config DCACHE_LINE_SIZE
+	default 32
+
+config ICACHE_LINE_SIZE
+	default 32
+
+endif # CPU_HAS_MPU
 
 endmenu

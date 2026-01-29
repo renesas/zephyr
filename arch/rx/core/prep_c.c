@@ -21,6 +21,8 @@
 #include <zephyr/linker/sections.h>
 #include <zephyr/arch/common/xip.h>
 #include <zephyr/arch/common/init.h>
+#include <zephyr/arch/rx/mpu.h>
+#include <zephyr/arch/cache.h>
 
 K_KERNEL_PINNED_STACK_ARRAY_DEFINE(z_initialization_process_stacks, CONFIG_MP_MAX_NUM_CPUS,
 				   CONFIG_INITIALIZATION_STACK_SIZE);
@@ -36,6 +38,14 @@ FUNC_NORETURN void z_prep_c(void)
 	arch_bss_zero();
 
 	arch_data_copy();
+
+#ifdef CONFIG_MPU
+	rx_mpu_init();
+#endif
+
+#if CONFIG_ARCH_CACHE
+	arch_cache_init();
+#endif
 
 	z_cstart();
 	CODE_UNREACHABLE;
