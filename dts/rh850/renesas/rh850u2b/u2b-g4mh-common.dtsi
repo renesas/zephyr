@@ -111,5 +111,14 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		ranges;
+
+		swint0: swint@ffc00000 {
+			compatible = "renesas,rh850-swint";
+			reg = <0xffc00000 0x01>;
+			interrupts-extended =	<&intc1_pe0 14 14>,
+									<&intc1_pe1 14 14>;
+			interrupt-names = "swint_pe0", "swint_pe1";
+			status = "okay";
+		};
 	};
 };
