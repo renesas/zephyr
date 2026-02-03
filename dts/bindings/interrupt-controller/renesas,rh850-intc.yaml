@@ -13,6 +13,11 @@ properties:
   "#interrupt-cells":
     const: 2
 
+  num-lines:
+    type: int
+    required: true
+    description: Number of interrupt lines supported by the interrupt controller.
+
 interrupt-cells:
   - irq
   - priority
