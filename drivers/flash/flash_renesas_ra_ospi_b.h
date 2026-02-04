@@ -83,6 +83,11 @@ static spi_flash_erase_command_t high_speed_erase_command_list[] = {
 /* Erase command length */
 #define ERASE_COMMAND_LENGTH(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+static ospi_b_table_t const erase_commands = {
+	.p_table = &erase_command_list,
+	.length = ERASE_COMMAND_LENGTH(erase_command_list),
+};
+
 static ospi_b_table_t const high_speed_erase_commands = {
 	.p_table = &high_speed_erase_command_list,
 	.length = ERASE_COMMAND_LENGTH(high_speed_erase_command_list),
