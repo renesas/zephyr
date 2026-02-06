@@ -6,14 +6,14 @@
 
 /**
  * @file
- * @brief Renesas RA6E2 Event Link Controller (ELC) definitions
+ * @brief Renesas RA4T1 Event Link Controller (ELC) definitions
  */
 
-#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA6E2_ELC_H_
-#define ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA6E2_ELC_H_
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA4T1_ELC_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA4T1_ELC_H_
 
 /**
- * @name Event codes for Renesas RA6E2 Event Link Controller (ELC).
+ * @name Event codes for Renesas RA4T1 Event Link Controller (ELC).
  * @{
  */
 #define RA_ELC_EVENT_NONE                   0x0   /**< Link disabled. */
@@ -57,9 +57,6 @@
 #define RA_ELC_EVENT_AGT1_COMPARE_B         0x045 /**< Compare match B. */
 #define RA_ELC_EVENT_IWDT_UNDERFLOW         0x052 /**< IWDT underflow. */
 #define RA_ELC_EVENT_WDT_UNDERFLOW          0x053 /**< WDT underflow. */
-#define RA_ELC_EVENT_RTC_ALARM              0x054 /**< Alarm interrupt. */
-#define RA_ELC_EVENT_RTC_PERIOD             0x055 /**< Periodic interrupt. */
-#define RA_ELC_EVENT_RTC_CARRY              0x056 /**< Carry interrupt. */
 #define RA_ELC_EVENT_CAN_RXF                0x059 /**< Global receive FIFO interrupt. */
 #define RA_ELC_EVENT_CAN_GLERR              0x05A /**< Global error. */
 #define RA_ELC_EVENT_CAN_DMAREQ0            0x05B /**< RX fifo DMA request 0. */
@@ -69,17 +66,12 @@
 #define RA_ELC_EVENT_CAN0_COMFRX            0x065 /**< Common FIFO receive interrupt. */
 #define RA_ELC_EVENT_CAN0_CF_DMAREQ         0x066 /**< Channel  DMA request. */
 #define RA_ELC_EVENT_CAN0_RXMB              0x067 /**< Receive message buffer interrupt. */
-#define RA_ELC_EVENT_USBFS_INT              0x06D /**< USBFS interrupt. */
-#define RA_ELC_EVENT_USBFS_RESUME           0x06E /**< USBFS resume interrupt. */
-#define RA_ELC_EVENT_SSI0_TXI               0x08A /**< Transmit data empty. */
-#define RA_ELC_EVENT_SSI0_RXI               0x08B /**< Receive data full. */
-#define RA_ELC_EVENT_SSI0_INT               0x08D /**< Error interrupt. */
+#define RA_ELC_EVENT_ACMPHS0_INT            0x08E /**< High Speed Comparator channel 0 interrupt. */
+#define RA_ELC_EVENT_ACMPHS1_INT            0x08F /**< High Speed Comparator channel 1 interrupt. */
+#define RA_ELC_EVENT_ACMPHS2_INT            0x090 /**< High Speed Comparator channel 2 interrupt. */
 #define RA_ELC_EVENT_CAC_FREQUENCY_ERROR    0x09E /**< Frequency error interrupt. */
 #define RA_ELC_EVENT_CAC_MEASUREMENT_END    0x09F /**< Measurement end interrupt. */
 #define RA_ELC_EVENT_CAC_OVERFLOW           0x0A0 /**< Overflow interrupt. */
-#define RA_ELC_EVENT_CEC_INTDA              0x0AB /**< Data interrupt. */
-#define RA_ELC_EVENT_CEC_INTCE              0x0AC /**< Communication complete interrupt. */
-#define RA_ELC_EVENT_CEC_INTERR             0x0AD /**< Error interrupt. */
 #define RA_ELC_EVENT_IOPORT_EVENT_1         0x0B1 /**< Port 1 event. */
 #define RA_ELC_EVENT_IOPORT_EVENT_2         0x0B2 /**< Port 2 event. */
 #define RA_ELC_EVENT_IOPORT_EVENT_3         0x0B3 /**< Port 3 event. */
@@ -183,7 +175,6 @@
 #define RA_ELC_EVENT_SPI1_ERI               0x1CC /**< Error. */
 #define RA_ELC_EVENT_SPI1_TEI               0x1CD /**< Transmission complete event. */
 #define RA_ELC_EVENT_CAN0_MRAM_ERI          0x1D0 /**< CANFD0 ECC error. */
-#define RA_ELC_EVENT_QSPI_INT               0x1DA /**< QSPI interrupt. */
 #define RA_ELC_EVENT_DOC_INT                0x1DB /**< Data operation circuit interrupt. */
 #define RA_ELC_EVENT_I3C0_RESPONSE          0x1DC /**< Response status buffer full. */
 #define RA_ELC_EVENT_I3C0_COMMAND           0x1DD /**< Command buffer empty. */
@@ -234,4 +225,4 @@
 
 /** @} */
 
-#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA6E2_ELC_H_ */
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_MISC_RENESAS_RA_ELC_RA4T1_ELC_H_ */
