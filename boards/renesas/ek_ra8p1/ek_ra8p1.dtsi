@@ -9,6 +9,7 @@
 #include "ek_ra8p1-pinctrl.dtsi"
 #include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
 #include <zephyr/dt-bindings/memory-controller/renesas,ra-sdram.h>
+#include <zephyr/dt-bindings/flash_controller/ospi.h>
 
 / {
 	leds {
@@ -137,6 +138,12 @@
 	status = "okay";
 };
 
+&octaspiclk {
+	clocks = <&pll2r>;
+	div = <4>;
+	status = "okay";
+};
+
 &ioport0 {
 	status = "okay";
 };
@@ -220,5 +227,41 @@
 					   SDRAM_TCL_3CYCLES
 					   937
 					   SDRAM_TREFW_8CYCLES>;
+	};
+};
+
+&ospi0 {
+	pinctrl-0 = <&ospi0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	mx25lw51245g: ospi-nor-flash@90000000 {
+		compatible = "renesas,ra-ospi-b-nor";
+		reg = <0x90000000 DT_SIZE_M(64)>;
+		ranges = <0x0 0x90000000 DT_SIZE_M(64)>;
+		size = <DT_SIZE_M(64*8)>;
+		channel = <1>;
+		write-block-size = <8>;
+		erase-block-size = <DT_SIZE_K(4)>;
+		protocol-mode = <OSPI_OPI_MODE>;
+		data-rate = <OSPI_DTR_TRANSFER>;
+		ospi-max-frequency = <DT_FREQ_M(133)>;
+		spi-word-data-swapped;
+		jedec-id = [c2 86 3a];
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+
+			partition@0 {
+				label = "nor";
+				reg = <0x00000000 DT_SIZE_M(64)>;
+			};
+		};
 	};
 };
