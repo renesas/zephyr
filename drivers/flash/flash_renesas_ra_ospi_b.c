@@ -21,25 +21,29 @@ struct flash_renesas_ra_ospi_b_data {
 	ospi_b_instance_ctrl_t ospi_b_ctrl;
 	spi_flash_cfg_t ospi_b_cfg;
 	ospi_b_timing_setting_t ospi_b_timing_settings;
-	ospi_b_xspi_command_set_t ospi_b_high_speed_command_set[2];
+	ospi_b_xspi_command_set_t ospi_b_command_set_table[2];
 	ospi_b_extended_cfg_t ospi_b_config_extend;
-	ospi_b_table_t const xspi_command_set;
+	ospi_b_table_t const ospi_b_command_set;
+	struct flash_pages_layout *pages_layouts;
+	size_t pages_layouts_size;
 	struct k_sem sem;
 };
 
 struct flash_renesas_ra_ospi_b_config {
+	const struct device *clock_dev;
+	struct clock_control_ra_subsys_cfg clock_subsys;
+	const struct pinctrl_dev_config *pcfg;
+	const struct flash_parameters flash_parameters;
+	uint32_t start_address;
 	size_t flash_size;
 	int protocol;
 	int data_rate;
 	uint32_t max_frequency;
-	const struct device *clock_dev;
-	struct clock_control_ra_subsys_cfg clock_subsys;
-	const struct pinctrl_dev_config *pcfg;
-};
-
-static const struct flash_parameters ospi_b_ra_param = {
-	.write_block_size = DT_PROP(RA_OSPI_B_NOR_NODE, write_block_size),
-	.erase_value = ERASE_VALUE,
+	const uint32_t erase_block_size;
+	const bool spi_word_data_swapped;
+#if defined(CONFIG_FLASH_PAGE_LAYOUT)
+	const struct flash_pages_layout layout;
+#endif
 };
 
 static void acquire_device(const struct device *dev)
@@ -83,7 +87,7 @@ static int flash_renesas_ra_ospi_b_write_enable(ospi_b_instance_ctrl_t *p_ctrl)
 	/* Transfer write enable command */
 	transfer = (SPI_FLASH_PROTOCOL_EXTENDED_SPI == p_ctrl->spi_protocol)
 			   ? direct_transfer[TRANSFER_WRITE_ENABLE_SPI]
-			   : direct_transfer[TRANSFER_WRITE_ENABLE_OSPI];
+			   : direct_transfer[TRANSFER_WRITE_ENABLE_OPI];
 	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
@@ -91,7 +95,7 @@ static int flash_renesas_ra_ospi_b_write_enable(ospi_b_instance_ctrl_t *p_ctrl)
 	/* Read Status Register */
 	transfer = (SPI_FLASH_PROTOCOL_EXTENDED_SPI == p_ctrl->spi_protocol)
 			   ? direct_transfer[TRANSFER_READ_STATUS_SPI]
-			   : direct_transfer[TRANSFER_READ_STATUS_OSPI];
+			   : direct_transfer[TRANSFER_READ_STATUS_OPI];
 	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
 	/* Check Write Enable bit in Status Register */
 	if ((err != FSP_SUCCESS) || (SPI_NOR_WREN_MASK != (transfer.data & SPI_NOR_WREN_MASK))) {
@@ -101,25 +105,39 @@ static int flash_renesas_ra_ospi_b_write_enable(ospi_b_instance_ctrl_t *p_ctrl)
 	return 0;
 }
 
-static int flash_renesas_ra_ospi_b_setup_calibrate_data(ospi_b_instance_ctrl_t *p_ctrl)
+static int flash_renesas_ra_ospi_b_setup_calibrate_data(ospi_b_instance_ctrl_t *p_ctrl,
+							uint8_t *address_calib_sector,
+							bool spi_word_data_swapped,
+							uint32_t sector_size)
 {
-	uint32_t autocalibration_data[] = {0xFFFF0000U, 0x000800FFU, 0x00FFF700U, 0xF700F708U};
+	uint32_t autocalibration_data[4];
+
+	if (spi_word_data_swapped) {
+		autocalibration_data[0] = 0xFFFF0000U;
+		autocalibration_data[1] = 0x0800FF00U;
+		autocalibration_data[2] = 0xFF0000F7U;
+		autocalibration_data[3] = 0x00F708F7U;
+	} else {
+		autocalibration_data[0] = 0xFFFF0000U;
+		autocalibration_data[1] = 0x000800FFU;
+		autocalibration_data[2] = 0x00FFF700U;
+		autocalibration_data[3] = 0xF700F708U;
+	}
 
 	/* Verify auto-calibration data */
-	if (memcmp((uint8_t *)APP_ADDRESS(SECTOR_THREE), &autocalibration_data,
-		   sizeof(autocalibration_data)) != RESET_VALUE) {
+	if (memcmp(address_calib_sector, &autocalibration_data, sizeof(autocalibration_data)) !=
+	    0) {
 		fsp_err_t err;
 
 		/* Erase the flash sector that stores auto-calibration data */
-		err = R_OSPI_B_Erase(p_ctrl, (uint8_t *)APP_ADDRESS(SECTOR_THREE),
-				     SPI_NOR_SECTOR_SIZE);
+		err = R_OSPI_B_Erase(p_ctrl, address_calib_sector, sector_size);
 		if (err != FSP_SUCCESS) {
 			LOG_DBG("Erase the flash sector Failed");
 			return -EIO;
 		}
 
 		/* Wait until erase operation completes */
-		err = flash_renesas_ra_ospi_b_wait_operation(p_ctrl, TIME_ERASE_4K);
+		err = flash_renesas_ra_ospi_b_wait_operation(p_ctrl, TIME_ERASE_256K);
 		if (err != FSP_SUCCESS) {
 			LOG_DBG("Wait for erase operation completes Failed");
 			return -EIO;
@@ -127,8 +145,7 @@ static int flash_renesas_ra_ospi_b_setup_calibrate_data(ospi_b_instance_ctrl_t *
 
 		/* Write auto-calibration data to the flash */
 		err = R_OSPI_B_Write(p_ctrl, (uint8_t *)&autocalibration_data,
-				     (uint8_t *)APP_ADDRESS(SECTOR_THREE),
-				     sizeof(autocalibration_data));
+				     (uint8_t *)address_calib_sector, sizeof(autocalibration_data));
 		if (err != FSP_SUCCESS) {
 			LOG_DBG("Write auto-calibration data Failed");
 			return -EIO;
@@ -161,9 +178,6 @@ static int flash_renesas_ra_ospi_b_spi_mode_init(ospi_b_instance_ctrl_t *p_ctrl,
 		return -EIO;
 	}
 
-	/* DDR sampling window extend */
-	R_XSPI0->LIOCFGCS_b[p_ctrl->channel].DDRSMPEX = 1;
-
 	/* Switch OSPI module to 1S-1S-1S mode to configure flash device */
 	err = R_OSPI_B_SpiProtocolSet(p_ctrl, SPI_FLASH_PROTOCOL_EXTENDED_SPI);
 	if (err != FSP_SUCCESS) {
@@ -184,6 +198,7 @@ static int flash_renesas_ra_ospi_b_spi_mode_init(ospi_b_instance_ctrl_t *p_ctrl,
 		return -EIO;
 	}
 
+#if defined(CONFIG_BOARD_EK_RA8M1) || defined(CONFIG_BOARD_EK_RA8D1)
 	/* Write to CFR2V to configure Address Byte Length and Memory Array Read Latency */
 	transfer = direct_transfer[TRANSFER_WRITE_CFR2V_SPI];
 	transfer.address_length = ADDRESS_LENGTH_THREE;
@@ -233,14 +248,62 @@ static int flash_renesas_ra_ospi_b_spi_mode_init(ospi_b_instance_ctrl_t *p_ctrl,
 		LOG_DBG("Verify CFR3V register data Failed");
 		return -EIO;
 	}
+#elif defined(CONFIG_BOARD_EK_RA8P1)
 
-	/* Setup calibrate data */
-	err = flash_renesas_ra_ospi_b_setup_calibrate_data(p_ctrl);
+	/* Write to ADDR 00000300H of CR2 to configure dummy cycle */
+	transfer = direct_transfer[TRANSFER_WRITE_CR2_300H_SPI];
+	transfer.data = DATA_SET_CR2_300H;
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
 	if (err != FSP_SUCCESS) {
-		LOG_DBG("Setup calibrate data Failed");
+		LOG_DBG("Write to CR2 register Failed");
 		return -EIO;
 	}
 
+	/* Read back and verify CR2 register data */
+	transfer = direct_transfer[TRANSFER_READ_CR2_300H_SPI];
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Read back CR2 register Failed");
+		return -EIO;
+	}
+
+	if (DATA_SET_CR2_300H != (uint8_t)transfer.data) {
+		LOG_DBG("Verify CR2 register data Failed");
+		return -EIO;
+	}
+
+#elif defined(CONFIG_BOARD_EK_RA8D2)
+	/* Enter 4-bytes address */
+	transfer = direct_transfer[TRANSFER_ENTER_4BYTES_ADDRESS];
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Enter 4-bytes address Failed");
+		return -EIO;
+	}
+
+	/* Write to ADDR 00000001H of CR to configure dummy cycle */
+	transfer = direct_transfer[TRANSFER_WRITE_CR_01H_SPI];
+	transfer.data = DATA_SET_CR_01H;
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Write to CR register Failed");
+		return -EIO;
+	}
+
+	/* Read back and verify CR register data */
+	transfer = direct_transfer[TRANSFER_READ_CR_01H_SPI];
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Read back CR register Failed");
+		return -EIO;
+	}
+
+	if (DATA_SET_CR_01H != (uint8_t)transfer.data) {
+		LOG_DBG("Data mismatched in SPI mode");
+		return -EIO;
+	}
+
+#endif
 	return 0;
 }
 
@@ -257,9 +320,10 @@ static int flash_renesas_ra_ospi_b_set_protocol_to_opi(ospi_b_instance_ctrl_t *p
 		return -EIO;
 	}
 
+#if defined(CONFIG_BOARD_EK_RA8M1) || defined(CONFIG_BOARD_EK_RA8D1)
 	/* Write to CFR5V Register to Configure flash device interface mode */
 	transfer = direct_transfer[TRANSFER_WRITE_CFR5V_SPI];
-	transfer.data = DATA_SET_OSPI_CFR5V_REGISTER;
+	transfer.data = DATA_SET_OPI_CFR5V_REGISTER;
 	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
 	if (err != FSP_SUCCESS) {
 		LOG_DBG("Configure flash device interface mode Failed");
@@ -274,18 +338,79 @@ static int flash_renesas_ra_ospi_b_set_protocol_to_opi(ospi_b_instance_ctrl_t *p
 	}
 
 	/* Read back and verify CFR5V register data */
-	transfer = direct_transfer[TRANSFER_READ_CFR5V_OSPI];
+	transfer = direct_transfer[TRANSFER_READ_CFR5V_OPI];
 	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
 	if (err != FSP_SUCCESS) {
 		LOG_DBG("Read back CFR5V register Failed");
 		return -EIO;
 	}
 
-	if (DATA_SET_OSPI_CFR5V_REGISTER != (uint8_t)transfer.data) {
+	if (DATA_SET_OPI_CFR5V_REGISTER != (uint8_t)transfer.data) {
 		LOG_DBG("CFR5V register data is Incorrect");
 		return -EIO;
 	}
+#elif defined(CONFIG_BOARD_EK_RA8P1)
 
+	/* Change to DOPI mode */
+	transfer = direct_transfer[TRANSFER_WRITE_CR2_000H_SPI];
+	transfer.data = DATA_SET_OPI_CR2_000H;
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Write CR2 register Failed");
+		return -EIO;
+	}
+
+	/* Switch OSPI module mode to OPI mode */
+	err = R_OSPI_B_SpiProtocolSet(p_ctrl, SPI_FLASH_PROTOCOL_8D_8D_8D);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Switch to OPI mode Failed");
+		return -EIO;
+	}
+
+	/* Read back and verify CR2 register data */
+	transfer = direct_transfer[TRANSFER_READ_CR2_000H_OPI];
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Read back CR2 register Failed");
+		return -EIO;
+	}
+
+	if (DATA_SET_OPI_CR2_000H != (uint8_t)transfer.data) {
+		LOG_DBG("Data mismatched in OPI mode");
+		return -EIO;
+	}
+
+#elif defined(CONFIG_BOARD_EK_RA8D2)
+	/* Change to DOPI mode */
+	transfer = direct_transfer[TRANSFER_WRITE_CR_00H_SPI];
+	transfer.data = DATA_SET_OPI_CR_00H;
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Change to DOPI mode Failed");
+		return -EIO;
+	}
+
+	/* Switch OSPI module mode to OSPI mode */
+	err = R_OSPI_B_SpiProtocolSet(p_ctrl, SPI_FLASH_PROTOCOL_8D_8D_8D);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Switch to OPI mode Failed");
+		return -EIO;
+	}
+
+	/* Read back and verify CR register data */
+	transfer = direct_transfer[TRANSFER_READ_CR_00H_OPI];
+	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+	if (err != FSP_SUCCESS) {
+		LOG_DBG("Read back CR register Failed");
+		return -EIO;
+	}
+
+	if (DATA_SET_OPI_CR_00H != (uint8_t)transfer.data) {
+		LOG_DBG("Data mismatched in OPI mode");
+		return -EIO;
+	}
+
+#endif
 	return 0;
 }
 
@@ -294,73 +419,20 @@ static inline bool flash_renesas_ra_ospi_b_is_valid_address(const struct device 
 {
 	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
 
-	return (offset >= 0 && (offset < (config->flash_size)) &&
-		(len <= (config->flash_size - offset)));
+	return (offset >= 0 && (offset < (config->flash_size - config->erase_block_size)) &&
+		(len <= ((config->flash_size - config->erase_block_size) - offset)));
 }
-
-#if defined(CONFIG_FLASH_EX_OP_ENABLED)
-static int flash_renesas_ra_ospi_b_ex_op(const struct device *dev, uint16_t code,
-					 const uintptr_t in, void *out)
-{
-	struct flash_renesas_ra_ospi_b_data *ospi_b_data = dev->data;
-	spi_flash_direct_transfer_t transfer = {RESET_VALUE};
-	int ret = -ENOTSUP;
-
-	ARG_UNUSED(in);
-	ARG_UNUSED(out);
-
-	acquire_device(dev);
-
-	if (code == FLASH_EX_OP_RESET) {
-		fsp_err_t err = flash_renesas_ra_ospi_b_write_enable(&ospi_b_data->ospi_b_ctrl);
-
-		if (err == FSP_SUCCESS) {
-			/* Enable reset */
-			transfer = (SPI_FLASH_PROTOCOL_EXTENDED_SPI ==
-				    ospi_b_data->ospi_b_ctrl.spi_protocol)
-					   ? direct_transfer[TRANSFER_RESET_ENABLE_SPI]
-					   : direct_transfer[TRANSFER_RESET_ENABLE_OSPI];
-			err = R_OSPI_B_DirectTransfer(&ospi_b_data->ospi_b_ctrl, &transfer,
-						      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
-		}
-
-		if (err == FSP_SUCCESS) {
-			/* Reset Register */
-			transfer = (SPI_FLASH_PROTOCOL_EXTENDED_SPI ==
-				    ospi_b_data->ospi_b_ctrl.spi_protocol)
-					   ? direct_transfer[TRANSFER_RESET_MEM_SPI]
-					   : direct_transfer[TRANSFER_RESET_MEM_OSPI];
-			err = R_OSPI_B_DirectTransfer(&ospi_b_data->ospi_b_ctrl, &transfer,
-						      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
-		}
-
-		if (err == FSP_SUCCESS) {
-			ret = 0;
-		} else {
-			ret = -EIO;
-		}
-	}
-
-	release_device(dev);
-
-	return ret;
-}
-#endif /* CONFIG_FLASH_EX_OP_ENABLED */
 
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
-#define SET_PAGES(node_id)                                                                         \
-	{.pages_count = DT_PROP(node_id, pages_count), .pages_size = DT_PROP(node_id, pages_size)},
-
-static const struct flash_pages_layout ospi_b_flash_ra_layout[] = {
-	DT_FOREACH_CHILD(DT_NODELABEL(pages_layout), SET_PAGES)};
 
 void flash_renesas_ra_ospi_b_page_layout(const struct device *dev,
 					 const struct flash_pages_layout **layout,
 					 size_t *layout_size)
 {
-	ARG_UNUSED(dev);
-	*layout = ospi_b_flash_ra_layout;
-	*layout_size = ARRAY_SIZE(ospi_b_flash_ra_layout);
+	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
+
+	*layout = &config->layout;
+	*layout_size = 1;
 }
 #endif /* CONFIG_FLASH_PAGE_LAYOUT */
 
@@ -374,14 +446,21 @@ static int flash_renesas_ra_ospi_b_read_device_id(ospi_b_instance_ctrl_t *p_ctrl
 	/* Read and check flash device ID */
 	transfer = (SPI_FLASH_PROTOCOL_EXTENDED_SPI == p_ctrl->spi_protocol)
 			   ? direct_transfer[TRANSFER_READ_DEVICE_ID_SPI]
-			   : direct_transfer[TRANSFER_READ_DEVICE_ID_OSPI];
+			   : direct_transfer[TRANSFER_READ_DEVICE_ID_OPI];
 	err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer, SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
 
 	/* Get flash device ID */
+#if defined(CONFIG_BOARD_EK_RA8D1) || defined(CONFIG_BOARD_EK_RA8M1) ||                            \
+	defined(CONFIG_BOARD_EK_RA8D2)
 	memcpy(p_id, &transfer.data, sizeof(transfer.data));
+#elif defined(CONFIG_BOARD_EK_RA8P1)
+	for (int i = 0; i < JESD216_READ_ID_LEN; i++) {
+		*(p_id + i) = *((uint8_t *)(&transfer.data_u64) + i * 2);
+	}
+#endif
 
 	return 0;
 }
@@ -414,6 +493,7 @@ static int flash_renesas_ra_ospi_b_read_jedec_id(const struct device *dev, uint8
 static int flash_renesas_ra_ospi_b_sfdp_read(const struct device *dev, off_t offset, void *data,
 					     size_t len)
 {
+	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
 	struct flash_renesas_ra_ospi_b_data *ospi_b_data = dev->data;
 	spi_flash_direct_transfer_t transfer = {RESET_VALUE};
 	size_t size;
@@ -432,7 +512,7 @@ static int flash_renesas_ra_ospi_b_sfdp_read(const struct device *dev, off_t off
 	if (ospi_b_data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_EXTENDED_SPI) {
 		transfer = direct_transfer[TRANSFER_READ_SFDP_ID_SPI];
 	} else {
-		transfer = direct_transfer[TRANSFER_READ_SFDP_ID_OSPI];
+		transfer = direct_transfer[TRANSFER_READ_SFDP_ID_OPI];
 	}
 
 	while (len > 0) {
@@ -449,11 +529,21 @@ static int flash_renesas_ra_ospi_b_sfdp_read(const struct device *dev, off_t off
 			return -EIO;
 		}
 
-		memcpy(data, &transfer.data, size);
+		if (config->spi_word_data_swapped) {
+			uint8_t *dst = (uint8_t *)data;
+			uint8_t *src = (uint8_t *)&transfer.data;
+
+			for (size_t i = 0; i < ((size + 1) / 2); i++) {
+				dst[i * 2] = src[(i * 2) + 1];
+				dst[(i * 2) + 1] = src[i * 2];
+			}
+		} else {
+			memcpy(data, &transfer.data, size);
+		}
 
 		len -= size;
 		offset += size;
-		data += size;
+		data = (uint8_t *)data + size;
 	}
 
 	release_device(dev);
@@ -507,19 +597,13 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 
 			erase_size = SPI_FLASH_ERASE_SIZE_CHIP_ERASE;
 			erase_timeout = UINT32_MAX;
-		} else if ((offset) <= (off_t)(ospi_b_flash_ra_layout[0].pages_size *
-					       (ospi_b_flash_ra_layout[0].pages_count))) {
-			erase_size = SPI_NOR_SECTOR_SIZE;
-			erase_timeout = TIME_ERASE_4K;
 		} else {
-			erase_size = SECTOR_SIZE_256K;
+			erase_size = config->erase_block_size;
 			erase_timeout = TIME_ERASE_256K;
 		}
 
-		err = R_OSPI_B_Erase(
-			&ospi_b_data->ospi_b_ctrl,
-			(uint8_t *)(BSP_FEATURE_OSPI_B_DEVICE_1_START_ADDRESS + offset),
-			erase_size);
+		err = R_OSPI_B_Erase(&ospi_b_data->ospi_b_ctrl,
+				     (uint8_t *)(config->start_address + offset), erase_size);
 		if (err != FSP_SUCCESS) {
 			LOG_ERR("Erase at address 0x%lx, size %zu Failed", offset, erase_size);
 			ret = -EIO;
@@ -546,6 +630,8 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 static int flash_renesas_ra_ospi_b_read(const struct device *dev, off_t offset, void *data,
 					size_t len)
 {
+	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
+
 	if (!len) {
 		return 0;
 	}
@@ -557,7 +643,7 @@ static int flash_renesas_ra_ospi_b_read(const struct device *dev, off_t offset, 
 		return -EINVAL;
 	}
 
-	memcpy(data, (uint8_t *)(BSP_FEATURE_OSPI_B_DEVICE_1_START_ADDRESS) + offset, len);
+	memcpy(data, (uint32_t *)(config->start_address + offset), len);
 
 	return 0;
 }
@@ -565,6 +651,7 @@ static int flash_renesas_ra_ospi_b_read(const struct device *dev, off_t offset, 
 static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset, const void *data,
 					 size_t len)
 {
+	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
 	struct flash_renesas_ra_ospi_b_data *ospi_b_data = dev->data;
 	fsp_err_t err;
 	int ret = 0;
@@ -589,6 +676,11 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		return -EINVAL;
 	}
 
+	if ((offset % config->flash_parameters.write_block_size) ||
+	    (len % config->flash_parameters.write_block_size)) {
+		return -EINVAL;
+	}
+
 	acquire_device(dev);
 
 	while (len > 0) {
@@ -596,9 +688,8 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 			       ? ospi_b_data->ospi_b_cfg.page_size_bytes
 			       : len;
 
-		err = R_OSPI_B_Write(
-			&ospi_b_data->ospi_b_ctrl, p_src,
-			(uint8_t *)(BSP_FEATURE_OSPI_B_DEVICE_1_START_ADDRESS + offset), size);
+		err = R_OSPI_B_Write(&ospi_b_data->ospi_b_ctrl, p_src,
+				     (uint8_t *)(config->start_address + offset), size);
 		if (err != FSP_SUCCESS) {
 			LOG_ERR("Write at address 0x%lx, size %zu", offset, size);
 			ret = -EIO;
@@ -625,9 +716,9 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 static const struct flash_parameters *
 flash_renesas_ra_ospi_b_get_parameters(const struct device *dev)
 {
-	ARG_UNUSED(dev);
+	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
 
-	return &ospi_b_ra_param;
+	return &config->flash_parameters;
 }
 
 static int flash_renesas_ra_ospi_b_get_size(const struct device *dev, uint64_t *size)
@@ -651,9 +742,6 @@ static DEVICE_API(flash, flash_renesas_ra_ospi_b_api) = {
 	.sfdp_read = flash_renesas_ra_ospi_b_sfdp_read,
 	.read_jedec_id = flash_renesas_ra_ospi_b_read_jedec_id,
 #endif /* CONFIG_FLASH_JESD216_API */
-#if defined(CONFIG_FLASH_EX_OP_ENABLED)
-	.ex_op = flash_renesas_ra_ospi_b_ex_op,
-#endif /* CONFIG_FLASH_EX_OP_ENABLED */
 };
 
 static int flash_renesas_ra_ospi_b_init(const struct device *dev)
@@ -707,10 +795,24 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 
 	k_sem_init(&data->sem, 1, 1);
 
+	data->ospi_b_config_extend.p_autocalibration_preamble_pattern_addr =
+		(uint8_t *)(config->start_address +
+			    (config->flash_size - config->erase_block_size));
+
 	ret = flash_renesas_ra_ospi_b_spi_mode_init(&data->ospi_b_ctrl, &data->ospi_b_cfg);
 	if (ret) {
 		LOG_ERR("Init SPI mode failed");
 		return ret;
+	}
+
+	/* Setup calibrate data */
+	ret = flash_renesas_ra_ospi_b_setup_calibrate_data(
+		&data->ospi_b_ctrl,
+		data->ospi_b_config_extend.p_autocalibration_preamble_pattern_addr,
+		config->spi_word_data_swapped, config->erase_block_size);
+	if (ret != FSP_SUCCESS) {
+		LOG_ERR("Setup calibrate data Failed");
+		return -EIO;
 	}
 
 	if (config->protocol == OSPI_OPI_MODE) {
@@ -725,96 +827,113 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 
 	return ret;
 }
+#ifdef CONFIG_FLASH_PAGE_LAYOUT
+#define OSPI_B_RENESAS_RA_PAGE_LAYOUT(idx)                                                         \
+	.layout = {                                                                                \
+		.pages_count = DT_INST_PROP(idx, size) / 8 / DT_INST_PROP(idx, erase_block_size),  \
+		.pages_size = DT_INST_PROP(idx, erase_block_size),                                 \
+	}
+#else
+#define OSPI_B_RENESAS_RA_PAGE_LAYOUT(idx)
+#endif /* CONFIG_FLASH_PAGE_LAYOUT */
 
-PINCTRL_DT_DEFINE(DT_INST_PARENT(0));
-static const struct flash_renesas_ra_ospi_b_config ospi_b_config = {
-	.flash_size = DT_REG_SIZE(RA_OSPI_B_NOR_NODE),
-	.protocol = DT_PROP(RA_OSPI_B_NOR_NODE, protocol_mode),
-	.data_rate = DT_PROP(RA_OSPI_B_NOR_NODE, data_rate),
-	.max_frequency = DT_PROP(RA_OSPI_B_NOR_NODE, ospi_max_frequency),
-	.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(0))),
-	.clock_subsys = {.mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(0), mstp),
-			 .stop_bit = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(0), stop_bit)},
-	.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(0))};
+#define OSPI_B_RENESAS_RA_INIT(idx)                                                                \
+	PINCTRL_DT_DEFINE(DT_INST_PARENT(idx));                                                    \
+	static const struct flash_renesas_ra_ospi_b_config ospi_b_config_##idx = {                 \
+		.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(0)),                              \
+		.start_address = DT_INST_REG_ADDR(idx),                                            \
+		.flash_size = DT_INST_PROP(idx, size) / 8,                                         \
+		.protocol = DT_INST_PROP(idx, protocol_mode),                                      \
+		.data_rate = DT_INST_PROP(idx, data_rate),                                         \
+		.max_frequency = DT_INST_PROP(idx, ospi_max_frequency),                            \
+		.erase_block_size = DT_INST_PROP(idx, erase_block_size),                           \
+		.spi_word_data_swapped = DT_INST_PROP_OR(idx, spi_word_data_swapped, false),       \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(0))),                     \
+		.clock_subsys =                                                                    \
+			{                                                                          \
+				.mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(0), mstp),         \
+				.stop_bit = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(0), stop_bit), \
+			},                                                                         \
+		.flash_parameters =                                                                \
+			{                                                                          \
+				.write_block_size = DT_INST_PROP(idx, write_block_size),           \
+				.erase_value = 0xff,                                               \
+			},                                                                         \
+		OSPI_B_RENESAS_RA_PAGE_LAYOUT(idx),                                                \
+	};                                                                                         \
+                                                                                                   \
+	static struct flash_renesas_ra_ospi_b_data ospi_b_data_##idx = {                           \
+		.ospi_b_timing_settings =                                                          \
+			{                                                                          \
+				.command_to_command_interval = OSPI_B_COMMAND_INTERVAL_CLOCKS_2,   \
+				.cs_pullup_lag = OSPI_B_COMMAND_CS_PULLUP_CLOCKS_NO_EXTENSION,     \
+				.cs_pulldown_lead =                                                \
+					OSPI_B_COMMAND_CS_PULLDOWN_CLOCKS_NO_EXTENSION,            \
+				.sdr_drive_timing = OSPI_B_SDR_DRIVE_TIMING_BEFORE_CK,             \
+				.sdr_sampling_edge = OSPI_B_CK_EDGE_FALLING,                       \
+				.sdr_sampling_delay = OSPI_B_SDR_SAMPLING_DELAY_NONE,              \
+				.ddr_sampling_extension = OSPI_B_DDR_SAMPLING_EXTENSION_7,         \
+			},                                                                         \
+		.ospi_b_command_set_table =                                                        \
+			{                                                                          \
+				{                                                                  \
+					.protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,                   \
+					.frame_format = OSPI_B_FRAME_FORMAT_STANDARD,              \
+					.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                 \
+					.command_bytes = OSPI_B_COMMAND_BYTES_1,                   \
+					.address_bytes = SPI_FLASH_ADDRESS_BYTES_4,                \
+					.address_msb_mask = 0xF0,                                  \
+					.status_needs_address = false,                             \
+					.status_address = 0U,                                      \
+					.status_address_bytes = (spi_flash_address_bytes_t)0U,     \
+					.p_erase_commands = &erase_commands,                       \
+					COMMAND_SET_1S_1S_1S,                                      \
+				},                                                                 \
+				{                                                                  \
+					.protocol = SPI_FLASH_PROTOCOL_8D_8D_8D,                   \
+					.frame_format = OSPI_B_FRAME_FORMAT_XSPI_PROFILE_1,        \
+					.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                 \
+					.command_bytes = OSPI_B_COMMAND_BYTES_2,                   \
+					.address_bytes = SPI_FLASH_ADDRESS_BYTES_4,                \
+					.address_msb_mask = 0xF0,                                  \
+					.status_needs_address = true,                              \
+					.status_address = 0x00,                                    \
+					.status_address_bytes = SPI_FLASH_ADDRESS_BYTES_4,         \
+					.p_erase_commands = &high_speed_erase_commands,            \
+					COMMAND_SET_8D_8D_8D,                                      \
+				},                                                                 \
+			},                                                                         \
+		.ospi_b_command_set =                                                              \
+			{                                                                          \
+				.p_table = &ospi_b_data_##idx.ospi_b_command_set_table,            \
+				.length = 2U,                                                      \
+			},                                                                         \
+		.ospi_b_config_extend =                                                            \
+			{                                                                          \
+				.ospi_b_unit = 0,                                                  \
+				.channel = DT_INST_PROP(idx, channel),                             \
+				.data_latch_delay_clocks = OSPI_B_DS_TIMING_DELAY_NONE,            \
+				.p_timing_settings = &ospi_b_data_##idx.ospi_b_timing_settings,    \
+				.p_xspi_command_set = &ospi_b_data_##idx.ospi_b_command_set,       \
+			},                                                                         \
+		.ospi_b_cfg =                                                                      \
+			{                                                                          \
+				.spi_protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,                       \
+				.read_mode = SPI_FLASH_READ_MODE_STANDARD,                         \
+				.address_bytes = SPI_FLASH_ADDRESS_BYTES_4,                        \
+				.dummy_clocks = SPI_FLASH_DUMMY_CLOCKS_DEFAULT,                    \
+				.page_program_address_lines = (spi_flash_data_lines_t)0U,          \
+				.page_size_bytes = 64,                                             \
+				.write_status_bit = 0,                                             \
+				.write_enable_bit = 1,                                             \
+				.erase_command_list_length = 0,                                    \
+				.p_erase_command_list = NULL,                                      \
+				.p_extend = &ospi_b_data_##idx.ospi_b_config_extend,               \
+			},                                                                         \
+	};                                                                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(idx, flash_renesas_ra_ospi_b_init, NULL, &ospi_b_data_##idx,         \
+			      &ospi_b_config_##idx, POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY,       \
+			      &flash_renesas_ra_ospi_b_api);
 
-static struct flash_renesas_ra_ospi_b_data ospi_b_data = {
-	.ospi_b_timing_settings = {.command_to_command_interval = OSPI_B_COMMAND_INTERVAL_CLOCKS_2,
-				   .cs_pullup_lag = OSPI_B_COMMAND_CS_PULLUP_CLOCKS_NO_EXTENSION,
-				   .cs_pulldown_lead =
-					   OSPI_B_COMMAND_CS_PULLDOWN_CLOCKS_NO_EXTENSION,
-				   .sdr_drive_timing = OSPI_B_SDR_DRIVE_TIMING_BEFORE_CK,
-				   .sdr_sampling_edge = OSPI_B_CK_EDGE_FALLING,
-				   .sdr_sampling_delay = OSPI_B_SDR_SAMPLING_DELAY_NONE,
-				   .ddr_sampling_extension = OSPI_B_DDR_SAMPLING_EXTENSION_7},
-	.ospi_b_high_speed_command_set =
-		{{.protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,
-		  .frame_format = OSPI_B_FRAME_FORMAT_STANDARD,
-		  .latency_mode = OSPI_B_LATENCY_MODE_FIXED,
-		  .command_bytes = OSPI_B_COMMAND_BYTES_1,
-		  .address_bytes = SPI_FLASH_ADDRESS_BYTES_4,
-		  .address_msb_mask = 0xF0,
-		  .status_needs_address = false,
-		  .status_address = 0U,
-		  .status_address_bytes = (spi_flash_address_bytes_t)0U,
-		  .p_erase_commands = &erase_commands,
-		  .read_command = 0x0B,
-		  .read_dummy_cycles = 3,
-		  .program_command = 0x12,
-		  .program_dummy_cycles = 0,
-		  .row_load_command = 0x00,
-		  .row_load_dummy_cycles = 0,
-		  .row_store_command = 0x00,
-		  .row_store_dummy_cycles = 0,
-		  .write_enable_command = 0x06,
-		  .status_command = 0x05,
-		  .status_dummy_cycles = 0},
-		 {.protocol = SPI_FLASH_PROTOCOL_8D_8D_8D,
-		  .frame_format = OSPI_B_FRAME_FORMAT_XSPI_PROFILE_1,
-		  .latency_mode = OSPI_B_LATENCY_MODE_FIXED,
-		  .command_bytes = OSPI_B_COMMAND_BYTES_2,
-		  .address_bytes = SPI_FLASH_ADDRESS_BYTES_4,
-		  .address_msb_mask = 0xF0,
-		  .status_needs_address = true,
-		  .status_address = 0x00,
-		  .status_address_bytes = SPI_FLASH_ADDRESS_BYTES_4,
-		  .p_erase_commands = &high_speed_erase_commands,
-		  .read_command = S28HX512T_SPI_NOR_OCMD_READ,
-		  .read_dummy_cycles = S28HX512T_SPI_NOR_DUMMY_RD_MEM_OCTAL,
-		  .program_command = S28HX512T_SPI_NOR_OCMD_PP_4B,
-		  .program_dummy_cycles = S28HX512T_SPI_NOR_DUMMY_WR_OCTAL,
-		  .row_load_command = 0x00,
-		  .row_load_dummy_cycles = 0,
-		  .row_store_command = 0x00,
-		  .row_store_dummy_cycles = 0,
-		  .write_enable_command = S28HX512T_SPI_NOR_OCMD_WEN,
-		  .status_command = S28HX512T_SPI_NOR_OCMD_RSR,
-		  .status_dummy_cycles = S28HX512T_SPI_NOR_DUMMY_RD_REG_OCTAL}},
-	.xspi_command_set = {.p_table = &ospi_b_data.ospi_b_high_speed_command_set, .length = 2U},
-	.ospi_b_config_extend = {.ospi_b_unit = 0,
-				 .channel = OSPI_B_DEVICE_NUMBER_1,
-				 .data_latch_delay_clocks = 0,
-				 .p_timing_settings = &ospi_b_data.ospi_b_timing_settings,
-				 .p_xspi_command_set = &ospi_b_data.xspi_command_set,
-				 .p_autocalibration_preamble_pattern_addr =
-					 APP_ADDRESS(SECTOR_THREE)},
-	.ospi_b_cfg = {.spi_protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,
-		       .read_mode = SPI_FLASH_READ_MODE_STANDARD,
-		       .address_bytes = SPI_FLASH_ADDRESS_BYTES_4,
-		       .dummy_clocks = SPI_FLASH_DUMMY_CLOCKS_DEFAULT,
-		       .page_program_address_lines = (spi_flash_data_lines_t)0U,
-		       .page_size_bytes = PAGE_SIZE_BYTE,
-		       .write_status_bit = WRITE_STATUS_BIT,
-		       .write_enable_bit = WRITE_ENABLE_BIT,
-		       .page_program_command = SPI_NOR_CMD_PP_4B,
-		       .write_enable_command = SPI_NOR_CMD_WREN,
-		       .status_command = SPI_NOR_CMD_RDSR,
-		       .read_command = SPI_NOR_CMD_READ_FAST,
-		       .xip_enter_command = 0U,
-		       .xip_exit_command = 0U,
-		       .erase_command_list_length = ERASE_COMMAND_LENGTH(erase_command_list),
-		       .p_erase_command_list = &erase_command_list[0],
-		       .p_extend = &ospi_b_data.ospi_b_config_extend},
-};
-
-DEVICE_DT_INST_DEFINE(0, flash_renesas_ra_ospi_b_init, NULL, &ospi_b_data, &ospi_b_config,
-		      POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, &flash_renesas_ra_ospi_b_api);
+DT_INST_FOREACH_STATUS_OKAY(OSPI_B_RENESAS_RA_INIT);
