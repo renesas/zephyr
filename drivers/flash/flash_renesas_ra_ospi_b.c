@@ -663,15 +663,15 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 	uint32_t clock_freq;
 	int ret;
 
-	/* protocol/data_rate of XSPI checking */
-	if (config->protocol == XSPI_DUAL_MODE || config->protocol == XSPI_QUAD_MODE) {
-		LOG_ERR("XSPI mode DUAL|QUAD currently not support");
+	/* protocol/data_rate of OSPI checking */
+	if (config->protocol == OSPI_DUAL_MODE || config->protocol == OSPI_QUAD_MODE) {
+		LOG_ERR("OSPI mode DUAL|QUAD currently not support");
 		return -ENOTSUP;
-	} else if (((config->protocol != XSPI_OCTO_MODE) &&
-		    (config->data_rate == XSPI_DTR_TRANSFER)) ||
-		   ((config->protocol == XSPI_OCTO_MODE) &&
-		    (config->data_rate == XSPI_STR_TRANSFER))) {
-		LOG_ERR("XSPI mode SPI/DTR or OPI/STR is not valid");
+	} else if (((config->protocol != OSPI_OPI_MODE) &&
+		    (config->data_rate == OSPI_DTR_TRANSFER)) ||
+		   ((config->protocol == OSPI_OPI_MODE) &&
+		    (config->data_rate == OSPI_STR_TRANSFER))) {
+		LOG_ERR("OSPI mode SPI/DTR or OPI/STR is not valid");
 		return -ENOTSUP;
 	}
 
@@ -693,8 +693,8 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 		return ret;
 	}
 
-	if ((config->protocol == XSPI_SPI_MODE && (config->max_frequency / 2) < clock_freq) ||
-	    (config->protocol == XSPI_OCTO_MODE && (config->max_frequency) < clock_freq)) {
+	if ((config->protocol == OSPI_SPI_MODE && (config->max_frequency / 2) < clock_freq) ||
+	    (config->protocol == OSPI_OPI_MODE && (config->max_frequency) < clock_freq)) {
 		LOG_ERR("Invalid clock frequency (%u)", clock_freq);
 		return -EINVAL;
 	}
@@ -713,7 +713,7 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 		return ret;
 	}
 
-	if (config->protocol == XSPI_OCTO_MODE) {
+	if (config->protocol == OSPI_OPI_MODE) {
 		ret = flash_renesas_ra_ospi_b_set_protocol_to_opi(&data->ospi_b_ctrl, dev);
 		if (ret) {
 			LOG_ERR("Init OPI mode failed");

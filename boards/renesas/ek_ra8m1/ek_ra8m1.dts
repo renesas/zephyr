@@ -7,7 +7,7 @@
 
 #include <renesas/ra/ra8/r7fa8m1ahecbd.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
-#include <zephyr/dt-bindings/flash_controller/xspi.h>
+#include <zephyr/dt-bindings/flash_controller/ospi.h>
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "ek_ra8m1-pinctrl.dtsi"
@@ -474,8 +474,8 @@ pmod_sd_shield: &sdhc0 {};
 
 	s28hl512t: ospi-nor-flash@90000000 {
 		compatible = "renesas,ra-ospi-b-nor";
-		protocol-mode = <XSPI_OCTO_MODE>;
-		data-rate = <XSPI_DTR_TRANSFER>;
+		protocol-mode = <OSPI_OPI_MODE>;
+		data-rate = <OSPI_DTR_TRANSFER>;
 		ospi-max-frequency = <DT_FREQ_M(200)>;
 		reg = <0x90000000 DT_SIZE_M(64)>;
 		write-block-size = <1>;
