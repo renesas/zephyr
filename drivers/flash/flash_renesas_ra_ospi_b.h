@@ -8,7 +8,7 @@
 #define ZEPHYR_DRIVERS_FLASH_RENESAS_RA_OSPI_B_H_
 
 #include <zephyr/drivers/flash.h>
-#include <zephyr/dt-bindings/flash_controller/xspi.h>
+#include <zephyr/dt-bindings/flash_controller/ospi.h>
 #include <zephyr/drivers/clock_control/renesas_ra_cgc.h>
 #include <r_spi_flash_api.h>
 #include <r_ospi_b.h>
