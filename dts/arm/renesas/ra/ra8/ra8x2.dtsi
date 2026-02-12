@@ -103,6 +103,24 @@
 			status = "okay";
 		};
 
+		ospi0: ospi@40268000 {
+			compatible = "renesas,ra-ospi-b";
+			reg = <0x40268000 0x19c>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			clocks = <&octaspiclk MSTPB 16>;
+			status = "disabled";
+		};
+
+		ospi1: ospi@40268400 {
+			compatible = "renesas,ra-ospi-b";
+			reg = <0x40268400 0x19c>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			clocks = <&octaspiclk MSTPB 17>;
+			status = "disabled";
+		};
+
 		ioport0: gpio@40400000 {
 			compatible = "renesas,ra-gpio-ioport";
 			reg = <0x40400000 0x20>;
