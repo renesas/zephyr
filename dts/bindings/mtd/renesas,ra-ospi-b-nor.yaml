@@ -1,0 +1,66 @@
+# Copyright (c) 2024-2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA OSPI FLASH
+
+compatible: "renesas,ra-ospi-b-nor"
+
+include: ["jedec,jesd216.yaml", "soc-nv-flash.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  channel:
+    type: int
+    required: true
+    description: |
+      The OSPI channel to which flash memory is connected.
+
+  protocol-mode:
+    type: int
+    required: true
+    description: |
+     The width of OSPI bus to which flash memory is connected.
+
+     Possible values are :
+      - OSPI_SPI_MODE  <1> = SPI mode on 1 data line
+      - OSPI_DUAL_MODE <2> = Dual mode on 2 data lines
+      - OSPI_QUAD_MODE <4> = Quad mode on 4 data lines
+      - OSPI_OPI_MODE  <8> = Octo mode on 8 data lines
+    enum:
+      - 1
+      - 2
+      - 4
+      - 8
+
+  data-rate:
+    type: int
+    required: true
+    description: |
+     The SPI data Rate is STR or DTR
+
+     Possible values are :
+      - OSPI_STR_TRANSFER <1> = Single Rate Transfer
+      - OSPI_DTR_TRANSFER <2> = Dual Rate Transfer (only with OSPI_OPI_MODE)
+    enum:
+      - 1
+      - 2
+
+  ospi-max-frequency:
+    type: int
+    required: true
+    description: |
+      Max frequency input on OSPI
+
+  spi-word-data-swapped:
+    type: boolean
+    description: |
+      Specifies whether word data is swapped in the spi transaction. If true, the byte
+      order of each word is swapped.
+
+  erase-block-size:
+    type: int
+    description: |
+      The flash controller is limited by hardware to erase whole blocks of flash
+      at a time. This property describes the largest erase block size in erase-blocks.
