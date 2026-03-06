@@ -243,8 +243,8 @@
 		channel = <1>;
 		write-block-size = <8>;
 		erase-block-size = <DT_SIZE_K(4)>;
-		protocol-mode = <OSPI_OPI_MODE>;
-		data-rate = <OSPI_DTR_TRANSFER>;
+		protocol-mode = <OSPI_SPI_MODE>;
+		data-rate = <OSPI_STR_TRANSFER>;
 		ospi-max-frequency = <DT_FREQ_M(133)>;
 		spi-word-data-swapped;
 		jedec-id = [c2 86 3a];

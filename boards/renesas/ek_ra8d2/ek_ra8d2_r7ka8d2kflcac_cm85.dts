@@ -170,6 +170,12 @@
 	};
 };
 
+&drw {
+	interrupt-names = "drw";
+	interrupts = <27 12>;
+	status = "okay";
+};
+
 &code_mram_cm85 {
 	partitions {
 		compatible = "fixed-partitions";
