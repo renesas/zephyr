@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * The on-board mikrobus_header doesn't have a LIN interface.
+ * Delete pre-defined on board header and use directly access to MCU native pin.
+ * A new header should be defined to map actual board pin signal to be used with the shield.
+ */
+/delete-node/ &mikrobus_header;
+
+/ {
+	/*
+	 * Notes: a 10kOhm register pull-up should be added for EK-RA8M1 P609
+	 *
+	 * EK-RA8M1        Mikroe LIN Click
+	 *   P609 <-------------> RXD
+	 *   P610 <-------------> TXD
+	 *   GND  <-------------> GND
+	 *   3.3V <-------------> 3V3
+	 *   P601 <-------------> EN
+	 *   P602 <-------------> WK
+	 */
+	mikrobus_header: mikrobus-connector {
+		compatible = "mikro-bus";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <2 0 &ioport6 2 0>,	/* WK */
+			   <6 0 &ioport6 1 0>;	/* EN */
+	};
+};
+
+&sci0 {
+	uart {
+		status = "disabled";
+	};
+};
+
+&ioport6 {
+	status = "okay";
+};
