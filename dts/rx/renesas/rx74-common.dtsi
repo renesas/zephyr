@@ -1208,6 +1208,21 @@
 			};
 		};
 
+		sdhc0: sdhc@87852000 {
+			compatible = "renesas,rx-sdhc";
+			reg = <0x87852000 0x0400>;
+			channel = <0>;
+			bus-width = <4>;
+			sd-support;
+			card-detect;
+			max-bus-freq = <52000000>;
+			clocks = <&pclkb MSTPC 12>;
+			interrupt-names = "accs", "card", "sbfai";
+			interrupts-extended = <&group_irq_bl0 1 1>, <&group_irq_bl0 0 1>,
+					      <&icu 146 1>;
+			status = "disabled";
+		};
+
 		spi0: spi@8745c000 {
 			compatible = "renesas,rx-spi-b";
 			#address-cells = <1>;

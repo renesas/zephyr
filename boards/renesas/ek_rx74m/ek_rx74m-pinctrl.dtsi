@@ -169,5 +169,22 @@
 			drive-strength = "DRV4";
 		};
 	};
+
+	sdhc0_default: sdhc0_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_SDHI, 2, 5)>, /* SDCD */
+				<RX_PSEL(RX_PSEL_SDHI, 2, 0)>, /* SDCMD */
+				<RX_PSEL(RX_PSEL_SDHI, 2, 2)>, /* SDDATA0 */
+				<RX_PSEL(RX_PSEL_SDHI, 2, 3)>, /* SDDATA1 */
+				<RX_PSEL(RX_PSEL_SDHI, 1, 6)>, /* SDDATA2 */
+				<RX_PSEL(RX_PSEL_SDHI, 1, 7)>; /* SDDATA3 */
+				drive-strength = "DRV4";
+		};
+
+		group2 {
+			psels = <RX_PSEL(RX_PSEL_SDHI, 2, 1)>; /* SDCLK */
+			drive-strength = "DRV4";
+		};
+	};
 };
 

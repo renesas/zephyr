@@ -69,6 +69,7 @@
 		led2 = &led3;
 		sw0 = &sw1;
 		sw1 = &sw2;
+		sdhc0 = &sdhc0;
 	};
 
 	zephyr,user {
@@ -267,6 +268,22 @@
 	status = "okay";
 };
 
+&ioport2 {
+	status = "okay";
+};
+
+&ioport3 {
+	status = "okay";
+};
+
+&ioport7 {
+	status = "okay";
+};
+
+&ioportc {
+	status = "okay";
+};
+
 &port_irq17 {
 	status = "okay";
 };
@@ -443,5 +460,22 @@
 };
 
 &trng {
+	status = "okay";
+};
+
+&sdhc0 {
+	pinctrl-0 = <&sdhc0_default>;
+	enable-gpios = <&ioport7 1 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
+		status = "okay";
+	};
+};
+
+&group_irq_bl0 {
 	status = "okay";
 };
