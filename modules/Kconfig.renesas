@@ -574,6 +574,16 @@ config USE_RX_FSP_SCE
 	help
 	  Enable RX FSP SCE driver
 
+config USE_RX_FSP_DTC
+	bool
+	help
+	  Enable RX FSP DTC driver
+
+config USE_RX_FSP_SDHI
+	bool
+	help
+	  Enable RX FSP SDHI driver
+
 if USE_RX_FSP_SCE
 
 config HAS_RENESAS_RX_RSIP_E50D
