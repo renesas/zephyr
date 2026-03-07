@@ -234,7 +234,7 @@ manifest:
     - name: hal_renesas
       remote: renesas
       path: modules/hal/renesas
-      revision: ra_support_ospi_ra8x2
+      revision: ra_support_ospi_drw_integrate_ra8x2
       groups:
         - hal
     - name: hal_rpi_pico
