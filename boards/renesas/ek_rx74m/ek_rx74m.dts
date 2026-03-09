@@ -88,7 +88,6 @@
 		compatible = "zephyr,memory-region";
 		reg = <0x50000000 DT_SIZE_M(32)>;
 		zephyr,memory-region = "PSRAM";
-		zephyr,memory-attr = <DT_MEM_CACHEABLE>;
 		status = "okay";
 	};
 };
@@ -170,7 +169,7 @@
 };
 
 &octaspiclk {
-	clocks = <&pllp>;
+	clocks = <&pllq>;
 	div = <3>;
 	status = "okay";
 };
