@@ -36,12 +36,6 @@ int arch_dcache_flush_all(void)
 	return 0;
 }
 
-int arch_dcache_invd_all(void)
-{
-	arch_dcache_flush_and_invd_all();
-	return 0;
-}
-
 int arch_dcache_flush_and_invd_all(void)
 {
 	R_CACHE->OACAFCT_b.FL = 1;
@@ -49,6 +43,12 @@ int arch_dcache_flush_and_invd_all(void)
 	{
 		/* Wait until cache is enabled and ready */
 	}
+	return 0;
+}
+
+int arch_dcache_invd_all(void)
+{
+	arch_dcache_flush_and_invd_all();
 	return 0;
 }
 
