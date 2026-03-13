@@ -60,6 +60,8 @@
 #define DEV_CFG(cfg, dev) struct rx_grp_int_cfg *cfg = (struct rx_grp_int_cfg *)(dev->config)
 
 struct rx_grp_int_cfg {
+	/*  Group Interrupt Request Enable Register (GENxxx)  */
+	volatile uint32_t *gen;
 	/* vector number */
 	const uint8_t vector;
 	/* priority */
@@ -209,9 +211,33 @@ int rx_grp_intc_callback_set(const struct device *dev, uint16_t factor, void (*c
 	return 0;
 }
 
+int rx_grp_intc_set_gen(const struct device *dev, uint8_t vector_num, bool set)
+{
+	DEV_CFG(cfg, dev);
+
+	if (vector_num > 31) {
+		return -EINVAL;
+	}
+
+	k_spinlock_key_t key = k_spin_lock(&cfg->lock);
+
+	if (set) {
+		*cfg->gen |= (1U << vector_num);
+	} else {
+		*cfg->gen &= ~(1U << vector_num);
+	}
+
+	k_spin_unlock(&cfg->lock, key);
+
+	return 0;
+}
+
 #define GRP_INT_RX_INIT(index)                                                                     \
 	static struct rx_grp_int_cfg rx_grp_int_##index##_cfg = {                                  \
-		.vector = DT_INST_IRQN(index), .priority = DT_INST_IRQ(index, priority)};          \
+		.vector = DT_INST_IRQN(index),                                                     \
+		.priority = DT_INST_IRQ(index, priority),                                          \
+		.gen = (volatile uint32_t *)DT_INST_REG_ADDR_BY_NAME(index, GEN),                  \
+	};                                                                                         \
 	static int rx_grp_int_##index##_init(const struct device *dev)                             \
 	{                                                                                          \
 		IRQ_CONNECT(DT_INST_IRQN(index), 0, handler_group, DEVICE_DT_INST_GET(index), 0);  \

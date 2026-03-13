@@ -11,5 +11,6 @@
 int rx_grp_intc_enable(const struct device *dev, uint16_t factor);
 int rx_grp_intc_disable(const struct device *dev, uint16_t factor);
 int rx_grp_intc_callback_set(const struct device *dev, uint16_t factor, void (*callback)(void), void *context);
+int rx_grp_intc_set_gen(const struct device *dev, uint8_t vector_num, bool set);
 
 #endif /* ZEPHYR_DRIVERS_INTERRUPT_CONTROLLER_INTC_RX_GRP_FSP_H_ */
