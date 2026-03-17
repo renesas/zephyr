@@ -90,25 +90,6 @@ extern void z_rh850_isr_exit(void);
 		arch_irq_priority_set(irq_p, priority_p, flags_p);                                 \
 	}
 
-#define ARCH_IRQ_DIRECT_CONNECT(irq_p, priority_p, isr_p, flags_p)                                 \
-	{                                                                                          \
-		Z_ISR_DECLARE_DIRECT(irq_p, ISR_FLAG_DIRECT, isr_p);                               \
-		arch_irq_priority_set(irq_p, priority_p, flags_p);                                 \
-	}
-
-#if CONFIG_TRACING_ISR
-#define ARCH_ISR_DIRECT_HEADER()                                                                   \
-	{                                                                                          \
-		z_rh850_isr_enter();                                                               \
-		sys_trace_isr_enter();                                                             \
-	}
-#else
-#define ARCH_ISR_DIRECT_HEADER()                                                                   \
-	{                                                                                          \
-		z_rh850_isr_enter();                                                               \
-	}
-#endif
-
 static ALWAYS_INLINE unsigned int arch_irq_lock(void)
 {
 	unsigned int status;
