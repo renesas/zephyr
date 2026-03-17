@@ -17,7 +17,7 @@
   public __isr_wrapper
 __isr_wrapper:
 /* Context save */
-  SAVE_FULL_CONTEXT
+  SAVE_FULL_CONTEXT_EI
 
 /* nested++ for the current CPU */
   jarl _z_rh850_isr_enter, lp

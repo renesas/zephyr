@@ -59,7 +59,9 @@ void rh850_irq_enable(unsigned int irq)
 	uint32_t key = irq_lock();
 
 	/* Get the current coreID */
-	uint8_t coreID = STSR_REGSEL(0, 2);
+	uint8_t coreID;
+
+	__asm__ volatile("stsr 0, %0, 2\n" : "=r"(coreID) : : "memory");
 
 	/* INTC1 */
 	if (irq < RH850_IRQ_INTC1_VECTOR_MAX_ENTRIES) {
@@ -110,7 +112,9 @@ void rh850_irq_disable(unsigned int irq)
 	uint32_t key = irq_lock();
 
 	/* Get the current coreID */
-	uint8_t coreID = STSR_REGSEL(0, 2);
+	uint8_t coreID;
+
+	__asm__ volatile("stsr 0, %0, 2\n" : "=r"(coreID) : : "memory");
 
 	/* INTC1 */
 	if (irq < RH850_IRQ_INTC1_VECTOR_MAX_ENTRIES) {
@@ -145,7 +149,9 @@ int rh850_irq_is_enabled(unsigned int irq)
 	__ASSERT(irq >= CONFIG_GEN_IRQ_START_VECTOR, "is_enabled on reserved interrupt (%u)", irq);
 
 	/* Get the current coreID */
-	uint8_t coreID = STSR_REGSEL(0, 2);
+	uint8_t coreID;
+
+	__asm__ volatile("stsr 0, %0, 2\n" : "=r"(coreID) : : "memory");
 
 	/* INTC1 */
 	if (irq < RH850_IRQ_INTC1_VECTOR_MAX_ENTRIES) {
@@ -188,7 +194,9 @@ void rh850_irq_priority_set(unsigned int irq, unsigned int prio, uint32_t flags)
 		/* INTC1 */
 		if (irq < RH850_IRQ_INTC1_VECTOR_MAX_ENTRIES) {
 			/* Get the current coreID */
-			uint8_t coreID = STSR_REGSEL(0, 2);
+			uint8_t coreID;
+
+			__asm__ volatile("stsr 0, %0, 2\n" : "=r"(coreID) : : "memory");
 
 			/* Set bit EICn.EIPn[0:3] */
 			volatile uint16_t *R_INTC1_PEx_EIC =

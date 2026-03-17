@@ -9,7 +9,7 @@
 
 #include <zephyr/types.h>
 
-#if defined(CONFIG_CPU_G4MH)
+#if defined(CONFIG_CPU_G4MH) || (CONFIG_CPU_G4KH)
 /* Per CPU architecture specifics */
 struct _cpu_arch {
 	int8_t exc_depth;

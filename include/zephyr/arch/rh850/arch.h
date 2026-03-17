@@ -30,7 +30,6 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/irq.h>
-#include <bsp_api.h>
 
 #define ARCH_STACK_PTR_ALIGN 4
 
@@ -112,29 +111,40 @@ extern void z_rh850_isr_exit(void);
 
 static ALWAYS_INLINE unsigned int arch_irq_lock(void)
 {
-	unsigned int s = STSR_REGSEL(5, 0); /* Save PSW state */
+	unsigned int status;
 
-	DI();                               /* Disable acknowledgment of EI interrrupts */
-	return s & (1U << 5);               /* Return PSW.ID before setting as key */
+	__asm__ volatile("stsr 5, %0, 0\n" /* Save PSW state */
+			 "di\n"
+			 : "=r"(status)
+			 :
+			 : "memory");
+
+	return (status & (1U << 5)); /* Return PSW.ID before setting as key */
 }
 
-static inline void arch_irq_unlock(unsigned int key)
+static ALWAYS_INLINE void arch_irq_unlock(unsigned int key)
 {
-	if (0U == (key & (1U << 5))) {
-		EI(); /* Enable acknowledgment of EI interrrupts */
+	volatile unsigned int k = key;
+
+	if (0U == (k & (1U << 5))) {
+		__asm__ volatile("ei" : : : "memory"); /* Enable acknowledgment of EI interrrupts */
 	}
 }
 
-static inline bool arch_irq_unlocked(unsigned int key)
+static ALWAYS_INLINE bool arch_irq_unlocked(unsigned int key)
 {
-	return (0U == (key & (1U << 5)));
+	volatile unsigned int k = key;
+
+	return (0U == (k & (1U << 5)));
 }
 
 static ALWAYS_INLINE uint32_t rh850_get_core_id(void)
 {
-	uint32_t peid = STSR_REGSEL(0, 2); /* PEID reg */
+	uint32_t peid;
 
-	return peid & 0x1Fu;               /* bits [4:0] is PEID */
+	__asm__ volatile("stsr 0, %0, 2\n" : "=r"(peid) : : "memory");
+
+	return (peid & 0x1FU); /* bits [4:0] is PEID */
 }
 
 static ALWAYS_INLINE _cpu_t *arch_curr_cpu(void)
