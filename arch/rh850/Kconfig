@@ -15,13 +15,58 @@ config HAS_EXCEPT_VECTOR_TABLE
 	help
 	  Set if the processor has the exception vector table.
 
+config CPU_G3K
+	bool
+	help
+	  Set if the processor supports the Renesas G3K instruction set.
+
+config CPU_G3KH
+	bool
+	help
+	  Set if the processor supports the Renesas G3KH instruction set.
+
+config CPU_G3M
+	bool
+	help
+	  Set if the processor supports the Renesas G3M instruction set.
+
+config CPU_G3MH
+	bool
+	help
+	  Set if the processor supports the Renesas G3MH instruction set.
+
 config CPU_G4MH
 	bool
 	help
 	  Set if the processor supports the Renesas G4MH instruction set.
 
+config CPU_G4KH
+	bool
+	help
+	  Set if the processor supports the Renesas G4KH instruction set.
+
+config RH850_CUSTOM_INTERRUPT_CONTROLLER
+	bool
+	help
+	  This option indicates that the RH850 CPU is connected to a custom
+	  interrupt controller.
+
+if CPU_HAS_MPU
+
+config RH850_MPU_REGION_MIN_ALIGN_AND_SIZE
+	int
+	default 4
+	help
+	  Minimum size (and alignment) of an RH850 MPU region. Use this
+	  symbol to guarantee minimum size and alignment of MPU regions.
+	  A minimum 4-byte alignment is enforced in RH850 builds without
+	  support for Memory Protection.
+
+endif # CPU_HAS_MPU
+
 config CPU_HAS_FXU
 	bool
+	depends on CPU_G4MH
 	help
 	  This option is enabled when the CPU has hardware Extended
 	  floating-point operation unit.

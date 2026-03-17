@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/arch/rh850/g4mh/g4mh.h>
+#include <zephyr/arch/rh850/g4x/g4x.h>
 
 /* Definition of PE number */
 #define PE0       0

@@ -6,8 +6,7 @@
 
 #include <zephyr/kernel.h>
 #include <kswap.h>
-#include <zephyr/arch/rh850/g4mh/g4mh.h>
-#include <bsp_api.h>
+#include <zephyr/arch/rh850/g4x/g4x.h>
 
 static k_thread_entry_t s_main_entry;
 
@@ -24,14 +23,14 @@ extern void z_thread_entry(k_thread_entry_t entry, void *p1, void *p2, void *p3)
 void __noinline z_rh850_thread_boot(void)
 {
 	/* Enable acknowledgment of EI interrrupts */
-	EI();
+	__asm__ volatile("ei" : : : "memory");
 	z_thread_entry(s_main_entry, NULL, NULL, NULL);
 }
 
 void __noinline z_rh850_exit(void)
 {
 	while (1) {
-		NOP();
+		__asm__ volatile("nop" : : : "memory");
 	}
 }
 
@@ -197,8 +196,11 @@ void arch_cpu_idle(void)
 	sys_trace_idle();
 #endif
 
-	HALT();
-	EI();
+	__asm__ volatile("halt\n"
+			 "ei\n"
+			 :
+			 :
+			 : "memory");
 
 #if defined(CONFIG_TRACING)
 	sys_trace_idle_exit();
@@ -211,7 +213,7 @@ void arch_cpu_atomic_idle(unsigned int key)
 	sys_trace_idle();
 #endif
 
-	HALT();
+	__asm__ volatile("halt" : : : "memory");
 
 #if defined(CONFIG_TRACING)
 	sys_trace_idle_exit();

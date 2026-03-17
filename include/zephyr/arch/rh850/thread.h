@@ -32,6 +32,14 @@ struct _thread_arch {
 
 typedef struct _thread_arch _thread_arch_t;
 
+#define ARCH_EXCEPT(reason_p)                                                                      \
+	do {                                                                                       \
+		arch_irq_unlock(0);                                                                \
+		__asm__ volatile("mov %[_reason], r6\n\t"                                          \
+				 "trap 0x10\n\t" ::[_reason] "r"(reason_p)                         \
+				 : "r6", "memory");                                                \
+	} while (false)
+
 #ifdef __cplusplus
 }
 #endif

@@ -10,9 +10,9 @@
 /* -----------------------------------------------------------------------------
  * TRAP0: yield path
  *-----------------------------------------------------------------------------*/
-  public _TRAP0_handler
-_TRAP0_handler:
-  SAVE_FULL_CONTEXT
+  public _z_rh850_switch
+_z_rh850_switch:
+  SAVE_FULL_CONTEXT_EI
 
 /* Perform context switch */
   jarl _z_rh850_arch_switch_isr, lp
@@ -24,8 +24,9 @@ _TRAP0_handler:
  *   a1 (r6) = switch_to      (context handle = frame pointer)
  *   a2 (r7) = switched_from  (pointer to handle output) */
   public _z_rh850_arch_switch_thread
+
 _z_rh850_arch_switch_thread:
-/* Trigger TRAP0 to call _TRAP0_handler */
+/* Trigger TRAP0 to call _z_rh850_switch */
   trap 0
 
 /* When return, restore the current context thread */

@@ -13,7 +13,11 @@
   section `.exc_vector_table`:CONST:ROOT(9)
   extern _z_rh850_reset
   extern _z_irq_spurious
-  extern _TRAP0_handler
+  extern _z_rh850_rie
+  extern _z_rh850_ucpop
+  extern _z_rh850_mae
+  extern _z_rh850_fatal
+  extern _z_rh850_switch
 
 /* RESET */
   align  4
@@ -29,19 +33,19 @@
   jr  _z_irq_spurious
 /* TRAP0 */
   align  4
-  jr  _TRAP0_handler
+  jr  _z_rh850_switch
 /* TRAP1 */
   align  4
-  jr  _z_irq_spurious
+  jr  _z_rh850_fatal
 /* RIE */
   align  4
-  jr  _z_irq_spurious
+  jr  _z_rh850_rie
 /* FPP/FPI */
   align  4
   jr  _z_irq_spurious
 /* UCPOP */
   align  4
-  jr  _z_irq_spurious
+  jr  _z_rh850_ucpop
 /* MIP/MDP */
   align  4
   jr  _z_irq_spurious
@@ -53,7 +57,7 @@
   jr  _z_irq_spurious
 /* MAE */
   align  4
-  jr  _z_irq_spurious
+  jr  _z_rh850_mae
 /* (R.F.U.) */
   align  4
   jr  _z_irq_spurious
