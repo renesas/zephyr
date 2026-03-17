@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef _G4MH_CPU_H
-#define _G4MH_CPU_H
+#ifndef _G4X_CPU_H
+#define _G4X_CPU_H
 
 /* Basic System Registers ID (regID) */
 #define CPU_REG_EIPC  0
@@ -61,4 +61,4 @@
 #define FXSR_FS_Pos 17U
 #define FXSR_FS     (1UL << FXSR_FS_Pos)
 
-#endif
+#endif  /* _G4X_CPU_H */
