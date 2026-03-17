@@ -88,6 +88,8 @@ void entry_cpu_exception(void *p1, void *p2, void *p3)
 #elif defined(CONFIG_RISCV)
 	/* Illegal instruction on RISCV. */
 	__asm__ volatile (".word 0x77777777");
+#elif defined(CONFIG_RH850)
+	__asm__ volatile ("rie");
 #else
 	/* Triggers usage fault on ARM, illegal instruction on
 	 * xtensa, TLB exception (instruction fetch) on MIPS.
@@ -130,6 +132,8 @@ void entry_cpu_exception_extend(void *p1, void *p2, void *p3)
 	__asm__ volatile ("swi");
 #elif defined(CONFIG_OPENRISC)
 	__asm__ volatile ("l.trap 0");
+#elif defined(CONFIG_RH850)
+	__asm__ volatile ("rie");
 #else
 	/* used to create a divide by zero error on X86 and MIPS */
 	volatile int error;
