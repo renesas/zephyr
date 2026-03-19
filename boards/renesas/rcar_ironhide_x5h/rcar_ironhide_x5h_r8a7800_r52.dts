@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+#include <arm/renesas/rcar/gen5/r8a7800.dtsi>
+#include "rcar_ironhide_x5h_r8a7800_r52-pinctrl.dtsi"
+
+/ {
+	model = "R-Car Ironhide X5H R52";
+	compatible = "renesas,ironhide-x5h-cr52";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,console = &scif1;
+		zephyr,shell-uart = &scif1;
+	};
+};
+
+&scif1 {
+	pinctrl-0 = <&scif1_data_tx_default &scif1_data_rx_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

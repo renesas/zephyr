@@ -13,26 +13,34 @@
 #include <stdint.h>
 #include <zephyr/sys/util_macro.h>
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
 struct rcar_pin_func {
-	uint8_t bank:5;      /* bank number 0 - 18 */
-	uint8_t shift:5;     /* bit shift 0 - 28 */
-	uint8_t func:4;      /* choice from 0x0 to 0xF */
+	uint8_t pin: 5;   /* pin number 0 - 31 */
+	uint8_t group: 4; /* gpio group 0 - 10 */
+	uint8_t func: 4;  /* choice from 0x0 to 0xF */
 };
+#else
+struct rcar_pin_func {
+	uint8_t bank: 5;  /* bank number 0 - 18 */
+	uint8_t shift: 5; /* bit shift 0 - 28 */
+	uint8_t func: 4;  /* choice from 0x0 to 0xF */
+};
+#endif
 
 /** Pull-up, pull-down, or bias disable is requested */
-#define RCAR_PIN_FLAGS_PULL_SET BIT(0)
+#define RCAR_PIN_FLAGS_PULL_SET   BIT(0)
 /** Performs on/off control of the pull resistors */
-#define RCAR_PIN_FLAGS_PUEN     BIT(1)
+#define RCAR_PIN_FLAGS_PUEN       BIT(1)
 /** Select pull-up resistor if set pull-down otherwise */
-#define RCAR_PIN_FLAGS_PUD      BIT(2)
+#define RCAR_PIN_FLAGS_PUD        BIT(2)
 /** Alternate function for the pin is requested */
-#define RCAR_PIN_FLAGS_FUNC_SET BIT(3)
+#define RCAR_PIN_FLAGS_FUNC_SET   BIT(3)
 /** Ignore IPSR settings for alternate function pin */
 #define RCAR_PIN_FLAGS_FUNC_DUMMY BIT(4)
 
 #define RCAR_PIN_PULL_UP      (RCAR_PIN_FLAGS_PULL_SET | RCAR_PIN_FLAGS_PUEN | RCAR_PIN_FLAGS_PUD)
 #define RCAR_PIN_PULL_DOWN    (RCAR_PIN_FLAGS_PULL_SET | RCAR_PIN_FLAGS_PUEN)
-#define RCAR_PIN_PULL_DISABLE  RCAR_PIN_FLAGS_PULL_SET
+#define RCAR_PIN_PULL_DISABLE RCAR_PIN_FLAGS_PULL_SET
 
 /** Type for R-Car pin. */
 typedef struct pinctrl_soc_pin {
@@ -43,43 +51,66 @@ typedef struct pinctrl_soc_pin {
 	uint8_t voltage;
 } pinctrl_soc_pin_t;
 
-#define RCAR_IPSR(node_id) DT_PROP_BY_IDX(node_id, pin, 1)
+#define RCAR_IPSR(node_id)     DT_PROP_BY_IDX(node_id, pin, 1)
 #define RCAR_HAS_IPSR(node_id) DT_PROP_HAS_IDX(node_id, pin, 1)
 
+#define RCAR_ALTSEL(node_id)     DT_PROP_BY_IDX(node_id, pin, 1)
+#define RCAR_HAS_ALTSEL(node_id) DT_PROP_HAS_IDX(node_id, pin, 1)
+
 /* Offsets are defined in dt-bindings pinctrl-rcar-common.h */
-#define RCAR_PIN_FUNC(node_id)			       \
-	{					       \
-		((RCAR_IPSR(node_id) >> 10U) & 0x1FU), \
-		((RCAR_IPSR(node_id) >> 4U) & 0x1FU),  \
-		((RCAR_IPSR(node_id) & 0xFU))	       \
-	}
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+#define RCAR_PIN_FUNC(node_id)                                                                     \
+	{((RCAR_ALTSEL(node_id) >> 8U) & 0x1FU), ((RCAR_ALTSEL(node_id) >> 4U) & 0xFU),            \
+	 ((RCAR_ALTSEL(node_id) & 0xFU))}
+#else
+#define RCAR_PIN_FUNC(node_id)                                                                     \
+	{((RCAR_IPSR(node_id) >> 10U) & 0x1FU), ((RCAR_IPSR(node_id) >> 4U) & 0x1FU),              \
+	 ((RCAR_IPSR(node_id) & 0xFU))}
+#endif
 
-#define RCAR_PIN_IS_FUNC_DUMMY(node_id)					       \
-	((((RCAR_IPSR(node_id) >> 10U) & 0x1FU) == 0x1F) &&		       \
-	 (((RCAR_IPSR(node_id) >> 4U) & 0x1FU) == 0x1F) &&		       \
-	 ((RCAR_IPSR(node_id) & 0xFU) == 0xF))
+#define RCAR_PIN_IS_FUNC_DUMMY(node_id)                                                            \
+	((((RCAR_IPSR(node_id) >> 10U) & 0x1FU) == 0x1F) &&                                        \
+	 (((RCAR_IPSR(node_id) >> 4U) & 0x1FU) == 0x1F) && ((RCAR_IPSR(node_id) & 0xFU) == 0xF))
 
-#define RCAR_PIN_FLAGS(node_id)						       \
-	DT_PROP(node_id, bias_pull_up)   * RCAR_PIN_PULL_UP |		       \
-	DT_PROP(node_id, bias_pull_down) * RCAR_PIN_PULL_DOWN |		       \
-	DT_PROP(node_id, bias_disable)   * RCAR_PIN_PULL_DISABLE |	       \
-	RCAR_HAS_IPSR(node_id) * RCAR_PIN_FLAGS_FUNC_SET |		       \
-	RCAR_PIN_IS_FUNC_DUMMY(node_id) * RCAR_PIN_FLAGS_FUNC_DUMMY
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+#define RCAR_PIN_FLAGS(node_id)                                                                    \
+	DT_PROP(node_id, bias_pull_up) * RCAR_PIN_PULL_UP |                                        \
+		DT_PROP(node_id, bias_pull_down) * RCAR_PIN_PULL_DOWN |                            \
+		DT_PROP(node_id, bias_disable) * RCAR_PIN_PULL_DISABLE |                           \
+		RCAR_HAS_ALTSEL(node_id) * RCAR_PIN_FLAGS_FUNC_SET
+#else
+#define RCAR_PIN_FLAGS(node_id)                                                                    \
+	DT_PROP(node_id, bias_pull_up) * RCAR_PIN_PULL_UP |                                        \
+		DT_PROP(node_id, bias_pull_down) * RCAR_PIN_PULL_DOWN |                            \
+		DT_PROP(node_id, bias_disable) * RCAR_PIN_PULL_DISABLE |                           \
+		RCAR_HAS_IPSR(node_id) * RCAR_PIN_FLAGS_FUNC_SET |                                 \
+		RCAR_PIN_IS_FUNC_DUMMY(node_id) * RCAR_PIN_FLAGS_FUNC_DUMMY
+#endif
 
-#define RCAR_DT_PIN(node_id)						       \
-	{								       \
-		.pin = DT_PROP_BY_IDX(node_id, pin, 0),			       \
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+#define RCAR_DT_PIN(node_id)                                                                       \
+	{                                                                                          \
+		.pin = DT_PROP_BY_IDX(node_id, pin, 0),                               \
+		.func = COND_CODE_1(RCAR_HAS_ALTSEL(node_id),	\
+				(RCAR_PIN_FUNC(node_id)), {0}), .flags = RCAR_PIN_FLAGS(node_id),  \
+			.drive_strength = COND_CODE_1(DT_NODE_HAS_PROP(node_id, drive_strength), \
+				(DT_PROP(node_id, drive_strength)), (0)),                  \
+					   .voltage = PIN_VOLTAGE_NONE,                            \
+				  },
+#else
+#define RCAR_DT_PIN(node_id)                                                                       \
+	{                                                                                          \
+		.pin = DT_PROP_BY_IDX(node_id, pin, 0),                                            \
 		.func = COND_CODE_1(RCAR_HAS_IPSR(node_id),		       \
-				    (RCAR_PIN_FUNC(node_id)), {0}),	       \
-		.flags = RCAR_PIN_FLAGS(node_id),			       \
-		.drive_strength =					       \
-			COND_CODE_1(DT_NODE_HAS_PROP(node_id, drive_strength), \
-				    (DT_PROP(node_id, drive_strength)), (0)),  \
-		.voltage = COND_CODE_1(DT_NODE_HAS_PROP(node_id,	       \
+			(RCAR_PIN_FUNC(node_id)), {0}), .flags = RCAR_PIN_FLAGS(node_id),   \
+			 .drive_strength = COND_CODE_1(DT_NODE_HAS_PROP(node_id, drive_strength), \
+				(DT_PROP(node_id, drive_strength)), (0)),                 \
+				  .voltage = COND_CODE_1(DT_NODE_HAS_PROP(node_id,	       \
 							power_source),	       \
 				       (DT_PROP(node_id, power_source)),       \
-				       (PIN_VOLTAGE_NONE)),		       \
-	},
+				       (PIN_VOLTAGE_NONE)),     \
+				  },
+#endif
 
 /**
  * @brief Utility macro to initialize each pin.
@@ -88,7 +119,7 @@ typedef struct pinctrl_soc_pin {
  * @param state_prop State property name.
  * @param idx State property entry index.
  */
-#define Z_PINCTRL_STATE_PIN_INIT(node_id, state_prop, idx) \
+#define Z_PINCTRL_STATE_PIN_INIT(node_id, state_prop, idx)                                         \
 	RCAR_DT_PIN(DT_PROP_BY_IDX(node_id, state_prop, idx))
 
 /**
@@ -97,8 +128,8 @@ typedef struct pinctrl_soc_pin {
  * @param node_id Node identifier.
  * @param prop Property name describing state pins.
  */
-#define Z_PINCTRL_STATE_PINS_INIT(node_id, prop) \
-	{ DT_FOREACH_PROP_ELEM(node_id, prop, Z_PINCTRL_STATE_PIN_INIT) }
+#define Z_PINCTRL_STATE_PINS_INIT(node_id, prop)                                                   \
+	{DT_FOREACH_PROP_ELEM(node_id, prop, Z_PINCTRL_STATE_PIN_INIT)}
 
 struct pfc_drive_reg_field {
 	uint16_t pin;
@@ -106,14 +137,21 @@ struct pfc_drive_reg_field {
 	uint8_t size;
 };
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+struct pfc_drive_reg {
+	uint32_t drvctrl[3];
+	const uint16_t pins[32];
+};
+#else
 struct pfc_drive_reg {
 	uint32_t reg;
 	const struct pfc_drive_reg_field fields[8];
 };
+#endif
 
 struct pfc_bias_reg {
-	uint32_t puen;		/** Pull-enable or pull-up control register */
-	uint32_t pud;		/** Pull-up/down or pull-down control register */
+	uint32_t puen; /** Pull-enable or pull-up control register */
+	uint32_t pud;  /** Pull-up/down or pull-down control register */
 	const uint16_t pins[32];
 };
 

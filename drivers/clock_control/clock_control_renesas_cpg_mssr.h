@@ -43,85 +43,82 @@ struct rcar_cpg_mssr_data {
 	int (*set_rate_helper)(uint32_t module, uint32_t *div, uint32_t *div_mask);
 };
 
-#define RCAR_CPG_NONE -1
+#define RCAR_CPG_NONE     -1
 #define RCAR_CPG_KHZ(khz) ((khz) * 1000U)
 #define RCAR_CPG_MHZ(mhz) (RCAR_CPG_KHZ(mhz) * 1000U)
 
-#define RCAR_CORE_CLK_INFO_ITEM(id, off, par_id, in_frq)	\
-	{							\
-		.domain		= CPG_CORE,			\
-		.module		= id,				\
-		.offset		= off,				\
-		.parent_id	= par_id,			\
-		.in_freq	= in_frq,			\
-		.out_freq	= RCAR_CPG_NONE,		\
-		.status		= CLOCK_CONTROL_STATUS_UNKNOWN,	\
-		.parent		= NULL,				\
-		.children_list	= NULL,				\
-		.next_sibling	= NULL,				\
+#define RCAR_CORE_CLK_INFO_ITEM(id, off, par_id, in_frq)                                           \
+	{                                                                                          \
+		.domain = CPG_CORE,                                                                \
+		.module = id,                                                                      \
+		.offset = off,                                                                     \
+		.parent_id = par_id,                                                               \
+		.in_freq = in_frq,                                                                 \
+		.out_freq = RCAR_CPG_NONE,                                                         \
+		.status = CLOCK_CONTROL_STATUS_UNKNOWN,                                            \
+		.parent = NULL,                                                                    \
+		.children_list = NULL,                                                             \
+		.next_sibling = NULL,                                                              \
 	}
 
-#define RCAR_MOD_CLK_INFO_ITEM(id, par_id)			\
-	{							\
-		.domain		= CPG_MOD,			\
-		.module		= id,				\
-		.offset		= RCAR_CPG_NONE,		\
-		.parent_id	= par_id,			\
-		.in_freq	= RCAR_CPG_NONE,		\
-		.out_freq	= RCAR_CPG_NONE,		\
-		.status		= CLOCK_CONTROL_STATUS_UNKNOWN,	\
-		.parent		= NULL,				\
-		.children_list	= NULL,				\
-		.next_sibling	= NULL,				\
+#define RCAR_MOD_CLK_INFO_ITEM(id, par_id)                                                         \
+	{                                                                                          \
+		.domain = CPG_MOD,                                                                 \
+		.module = id,                                                                      \
+		.offset = RCAR_CPG_NONE,                                                           \
+		.parent_id = par_id,                                                               \
+		.in_freq = RCAR_CPG_NONE,                                                          \
+		.out_freq = RCAR_CPG_NONE,                                                         \
+		.status = CLOCK_CONTROL_STATUS_UNKNOWN,                                            \
+		.parent = NULL,                                                                    \
+		.children_list = NULL,                                                             \
+		.next_sibling = NULL,                                                              \
 	}
 
 #ifdef CONFIG_SOC_SERIES_RCAR_GEN3
 /* Software Reset Clearing Register offsets */
-#define SRSTCLR(i)      (0x940 + (i) * 4)
+#define SRSTCLR(i) (0x940 + (i) * 4)
 
 /* CPG write protect offset */
-#define CPGWPR          0x900
+#define CPGWPR 0x900
 
 /* Realtime Module Stop Control Register offsets */
 static const uint16_t mstpcr[] = {
-	0x110, 0x114, 0x118, 0x11c,
-	0x120, 0x124, 0x128, 0x12c,
-	0x980, 0x984, 0x988, 0x98c,
+	0x110, 0x114, 0x118, 0x11c, 0x120, 0x124, 0x128, 0x12c, 0x980, 0x984, 0x988, 0x98c,
 };
 
 /* Software Reset Register offsets */
 static const uint16_t srcr[] = {
-	0x0A0, 0x0A8, 0x0B0, 0x0B8,
-	0x0BC, 0x0C4, 0x1C8, 0x1CC,
-	0x920, 0x924, 0x928, 0x92C,
+	0x0A0, 0x0A8, 0x0B0, 0x0B8, 0x0BC, 0x0C4, 0x1C8, 0x1CC, 0x920, 0x924, 0x928, 0x92C,
 };
 #elif defined(CONFIG_SOC_SERIES_RCAR_GEN4)
 /* Software Reset Clearing Register offsets */
 #define SRSTCLR(i) (0x2C80 + (i) * 4)
 
 /* CPG write protect offset */
-#define CPGWPR      0x0
+#define CPGWPR     0x0
 
 /* Realtime Module Stop Control Register offsets */
 static const uint16_t mstpcr[] = {
-	0x2D00, 0x2D04, 0x2D08, 0x2D0C,
-	0x2D10, 0x2D14, 0x2D18, 0x2D1C,
-	0x2D20, 0x2D24, 0x2D28, 0x2D2C,
-	0x2D30, 0x2D34, 0x2D38, 0x2D3C,
-	0x2D40, 0x2D44, 0x2D48, 0x2D4C,
-	0x2D50, 0x2D54, 0x2D58, 0x2D5C,
-	0x2D60, 0x2D64, 0x2D68, 0x2D6C,
+	0x2D00, 0x2D04, 0x2D08, 0x2D0C, 0x2D10, 0x2D14, 0x2D18, 0x2D1C, 0x2D20, 0x2D24,
+	0x2D28, 0x2D2C, 0x2D30, 0x2D34, 0x2D38, 0x2D3C, 0x2D40, 0x2D44, 0x2D48, 0x2D4C,
+	0x2D50, 0x2D54, 0x2D58, 0x2D5C, 0x2D60, 0x2D64, 0x2D68, 0x2D6C,
 };
 
 /* Software Reset Register offsets */
 static const uint16_t srcr[] = {
-	0x2C00, 0x2C04, 0x2C08, 0x2C0C,
-	0x2C10, 0x2C14, 0x2C18, 0x2C1C,
-	0x2C20, 0x2C24, 0x2C28, 0x2C2C,
-	0x2C30, 0x2C34, 0x2C38, 0x2C3C,
-	0x2C40, 0x2C44, 0x2C48, 0x2C4C,
-	0x2C50, 0x2C54, 0x2C58, 0x2C5C,
-	0x2C60, 0x2C64, 0x2C68, 0x2C6C,
+	0x2C00, 0x2C04, 0x2C08, 0x2C0C, 0x2C10, 0x2C14, 0x2C18, 0x2C1C, 0x2C20, 0x2C24,
+	0x2C28, 0x2C2C, 0x2C30, 0x2C34, 0x2C38, 0x2C3C, 0x2C40, 0x2C44, 0x2C48, 0x2C4C,
+	0x2C50, 0x2C54, 0x2C58, 0x2C5C, 0x2C60, 0x2C64, 0x2C68, 0x2C6C,
+};
+#elif defined(CONFIG_SOC_SERIES_RCAR_GEN5)
+/* CPG write protect offset */
+#define CPGWPR 0x0CF4
+
+/* Realtime Module Stop Control Register offsets */
+static const uint16_t mstpcr[] = {
+	0x900, 0x904, 0x908, 0x90C, 0x910, 0x914, 0x918, 0x91C,
+	0x920, 0x924, 0x928, 0x92C, 0x930, 0x934, 0x938, 0x93C,
 };
 #endif /* CONFIG_SOC_SERIES_RCAR_GEN3 */
 
@@ -130,8 +127,7 @@ void rcar_cpg_write(uint32_t base_address, uint32_t reg, uint32_t val);
 int rcar_cpg_mstp_clock_endisable(uint32_t base_address, uint32_t module, bool enable);
 
 struct cpg_clk_info_table *rcar_cpg_find_clk_info_by_module_id(const struct device *dev,
-							       uint32_t domain,
-							       uint32_t id);
+							       uint32_t domain, uint32_t id);
 
 void rcar_cpg_build_clock_relationship(const struct device *dev);
 

@@ -15,5 +15,8 @@ family:
               - name: r52
               - name: a55
           - name: r8a779g0
+      - name: rcar_gen5
+        socs:
+          - name: r8a7800
             cpuclusters:
               - name: r52

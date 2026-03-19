@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <renesas/rcar/gen5/rcar_gen5_cr52.dtsi>
+#include <zephyr/dt-bindings/clock/r8a7800_cpg_mssr.h>
+
+/ {
+	soc {
+		pfc: pin-controller@c1080000 {
+			compatible = "renesas,rcar-pfc-x5h";
+			reg = <0xc1080000 0x16c>, <0xc1080800 0x16c>,
+			      <0xc1081000 0x16c>, <0xc0800000 0x16c>,
+			      <0xc0800800 0x16c>, <0xc0400000 0x16c>,
+			      <0xc0400800 0x16c>, <0xc0401000 0x16c>,
+			      <0xc0401800 0x16c>, <0xc9b00000 0x16c>,
+			      <0xc9b00800 0x16c>;
+		};
+
+		cpg: clock-controller@c3060000 {
+			compatible = "renesas,r8a7800-cpg-mssr";
+			reg = <0xc3060000 0x4000>;
+			#clock-cells = <2>;
+		};
+
+		scif1: serial@c0704000 {
+			interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&cpg CPG_MOD 130>,
+				 <&cpg CPG_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
+		};
+	};
+};

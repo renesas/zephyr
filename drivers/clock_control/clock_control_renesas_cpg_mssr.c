@@ -16,11 +16,20 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(clock_control_rcar);
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+static void rcar_cpg_reset(uint32_t base_address, uint32_t reg, uint32_t bit)
+{
+	ARG_UNUSED(base_address);
+	ARG_UNUSED(reg);
+	ARG_UNUSED(bit);
+}
+#else
 static void rcar_cpg_reset(uint32_t base_address, uint32_t reg, uint32_t bit)
 {
 	rcar_cpg_write(base_address, srcr[reg], BIT(bit));
 	rcar_cpg_write(base_address, SRSTCLR(reg), BIT(bit));
 }
+#endif
 
 void rcar_cpg_write(uint32_t base_address, uint32_t reg, uint32_t val)
 {
@@ -131,7 +140,7 @@ static int rcar_cpg_update_out_freq(const struct device *dev, struct cpg_clk_inf
 }
 
 static int64_t rcar_cpg_get_in_update_out_freq(const struct device *dev,
-					   struct cpg_clk_info_table *clk_info)
+					       struct cpg_clk_info_table *clk_info)
 {
 	int64_t freq = -ENOTSUP;
 	struct cpg_clk_info_table *parent_clk;

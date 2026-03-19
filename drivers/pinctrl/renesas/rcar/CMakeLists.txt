@@ -1,7 +1,11 @@
 # Copyright (c) 2024 EPAM Systems
 # SPDX-License-Identifier: Apache-2.0
 
+if(CONFIG_SOC_SERIES_RCAR_GEN3 OR CONFIG_SOC_SERIES_RCAR_GEN4)
 zephyr_library_sources(pfc_rcar.c)
+elseif(CONFIG_SOC_SERIES_RCAR_GEN5)
+  zephyr_library_sources(pfc_rcar_x5h.c)
+endif()
 
 if(CONFIG_SOC_R8A77951_R7 OR CONFIG_SOC_R8A77951_A57)
   zephyr_library_sources(pfc_r8a77951.c)

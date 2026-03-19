@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+
+&pfc {
+	scif1_data_tx_default: scif1_data_tx_default {
+		pin = <PIN_HTX1 FUNC_TX1>;
+	};
+
+	scif1_data_rx_default: scif1_data_rx_default {
+		pin = <PIN_HRX1 FUNC_RX1>;
+	};
+};
