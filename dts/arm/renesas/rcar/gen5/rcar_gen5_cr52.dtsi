@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <arm/armv8-r.dtsi>
+#include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/renesas_cpg_mssr.h>
+#include <mem.h>
+
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-r52";
+			reg = <0>;
+		};
+	};
+
+	soc {
+		interrupt-parent = <&gic>;
+
+		sram0: memory@10200000 {
+			compatible = "mmio-sram";
+			reg = <0x10200000 DT_SIZE_M(15)>;
+		};
+
+		sram1: memory@11100000 {
+			compatible = "mmio-sram";
+			reg = <0x11100000 DT_SIZE_M(15)>;
+		};
+
+		dram0: memory@40000000 {
+			compatible = "mmio-dram";
+			reg = <0x40000000 DT_SIZE_M(10)>;
+		};
+
+		gic: interrupt-controller@f0000000 {
+			compatible = "arm,gic", "arm,gic-v3";
+			reg = <0xf0000000 0x100000>,
+			      <0xf0100000 0x100000>;
+			interrupt-controller;
+			#interrupt-cells = <4>;
+			status = "okay";
+		};
+
+		arch_timer: timer {
+			compatible = "arm,armv8-timer";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				     <GIC_PPI 14 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				     <GIC_PPI 11 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				     <GIC_PPI 10 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+		};
+
+		scif1: serial@c0704000 {
+			compatible = "renesas,rcar-scif";
+			reg = <0xc0704000 0x64>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+	};
+};

@@ -98,4 +98,36 @@
 #define PIN_VOLTAGE_1P8V 1
 #define PIN_VOLTAGE_3P3V 2
 
+/**
+ * @brief Utility macro to build ALTSEL property entry.
+ * IPSR: Peripheral Function Select Register
+ *
+ * @param group the gpio group number (0-10).
+ * @param pin the pin number (0-31).
+ * @param func the ALTSEL function (0 - 0xF).
+ *
+ * Function code    [ 0 : 3 ]
+ * Group            [ 4 : 7 ]
+ * Pin              [ 8 : 12 ]
+ * Empty            [ 13: 31 ]
+ *
+ */
+#define ALTSEL(group, pin, func) (((pin) << 8U) | ((group) << 4U) | (func))
+
+/**
+ * @brief Utility macro to build ALTSEL property entry.
+ * IPSR: Peripheral Function Select Register
+ *
+ * @param group the gpio group number (0-10).
+ * @param pin the pin number (0-31).
+ * @param func the ALTSEL function (0 - 0xF).
+ *
+ * Function code    [ 0 : 3 ]
+ * Group            [ 4 : 7 ]
+ * Pin              [ 8 : 12 ]
+ * Empty            [ 13: 31 ]
+ *
+ */
+#define ALTSEL(group, pin, func) (((pin) << 8U) | ((group) << 4U) | (func))
+
 #endif /* ZEPHYR_INCLUDE_DT_BINDINGS_PINCTRL_RENESAS_PINCTRL_RCAR_COMMON_H_ */
