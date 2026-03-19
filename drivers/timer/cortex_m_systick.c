@@ -239,37 +239,52 @@ uint64_t z_sys_clock_lpm_exit(void)
 	/**
 	 * Calculate how much time elapsed according to counter.
 	 */
-	uint32_t idle_timer_post, idle_timer_diff, idle_timer_top;
-	bool idle_timer_int_pending, idle_timer_wrap;
+	uint32_t idle_timer_post, idle_timer_diff;
+	uint32_t elapsed_pre, elapsed_post;
+	const uint32_t idle_timer_top = counter_get_top_value(idle_timer);
+	const bool idle_timer_int_pending = counter_get_pending_int(idle_timer) != 0;
+	const bool idle_timer_counting_up = counter_is_counting_up(idle_timer);
+	bool idle_timer_wrap;
 
-	idle_timer_int_pending = counter_get_pending_int(idle_timer) ? true : false;
-	idle_timer_top = counter_get_top_value(idle_timer);
 	counter_get_value(idle_timer, &idle_timer_post);
 
-	/**
-	 * Check for counter timer overflow
-	 * (TODO: this doesn't work for downcounting timers!)
+	/* Normalize both raw counter values to elapsed ticks since
+	 * period start, so that wrap detection and difference
+	 * calculation stay direction-agnostic.
+	 *
+	 * An up-counter starts at 0 and increases, so the raw value
+	 * already equals elapsed ticks.
+	 * A down-counter starts at its top value and decreases, so
+	 * subtracting the raw value from the top gives the equivalent
+	 * elapsed ticks.
 	 */
-	if (idle_timer_pre_idle > idle_timer_post) {
-		/* Pre > Post: counter wrapped (overflow occurred) */
-		idle_timer_wrap = true;
-	} else if (idle_timer_pre_idle == idle_timer_post) {
-		/* Pre == Post: consider wrap only if interrupt is pending */
-		idle_timer_wrap = idle_timer_int_pending;
+	if (idle_timer_counting_up) {
+		elapsed_pre = idle_timer_pre_idle;
+		elapsed_post = idle_timer_post;
 	} else {
-		/* Pre < Post: normally no wrap; if interrupt pending and the
-		 * expected sleep spans the counter top, treat as wrap.
-		 */
-		idle_timer_wrap = idle_timer_int_pending &&
-			((uint64_t)idle_timer_pre_idle + idle_timer_scheduled_sleep_ticks
-				>= idle_timer_top);
+		elapsed_pre = idle_timer_top - idle_timer_pre_idle;
+		elapsed_post = idle_timer_top - idle_timer_post;
 	}
 
-	if (idle_timer_wrap) {
-		idle_timer_diff = idle_timer_top - idle_timer_pre_idle + idle_timer_post + 1;
-	} else {
-		idle_timer_diff = idle_timer_post - idle_timer_pre_idle;
-	}
+	/* Determine whether the counter wrapped at least once during idle.
+	 *
+	 * After normalization, both samples represent elapsed ticks
+	 * counting up from zero, so two cases imply a wrap:
+	 *
+	 *  elapsed_pre > elapsed_post: the counter has passed the
+	 *  top value and started a new period during idle.
+	 *
+	 *  Interrupt pending and scheduled sleep >= remaining ticks
+	 *  to top: an interrupt has occurred and the scheduled sleep
+	 *  was long enough to reach or cross the top value, meaning
+	 *  the counter wrapped even if elapsed_pre <= elapsed_post.
+	 */
+	idle_timer_wrap = (elapsed_pre > elapsed_post) ||
+			  (idle_timer_int_pending &&
+			   (idle_timer_scheduled_sleep_ticks >= idle_timer_top - elapsed_pre));
+
+	idle_timer_diff = idle_timer_wrap ? (idle_timer_top - elapsed_pre) + elapsed_post + 1
+					  : elapsed_post - elapsed_pre;
 
 	return (uint64_t)counter_ticks_to_us(idle_timer, idle_timer_diff);
 }
