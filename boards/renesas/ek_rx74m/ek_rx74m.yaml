@@ -14,5 +14,5 @@ supported:
   - can
   - spi
   - gpio
-ram: 1024
-flash: 512
+ram: 1536
+flash: 1024
