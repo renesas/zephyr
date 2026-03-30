@@ -87,37 +87,42 @@ SECTIONS
 	PLACE_SYMBOL_HERE(__rom_region_start);
 
 #if !defined(CONFIG_BOOTLOADER_MCUBOOT)
-#if CONFIG_HAS_EXCEPT_VECTOR_TABLE
-	.exvectors 0xFFFFFF80 : AT(0xFFFFFF80)
-	{
-		PLACE_SYMBOL_HERE(__exvectors_start);
-		KEEP(*(.exvectors))
-		PLACE_SYMBOL_HERE(__exvectors_end);
-	} > VECTORS
+	#if CONFIG_HAS_EXCEPT_VECTOR_TABLE
+		.exvectors 0xFFFFFF80 : AT(0xFFFFFF80)
+		{
+			PLACE_SYMBOL_HERE(__exvectors_start);
+			KEEP(*(.exvectors))
+			PLACE_SYMBOL_HERE(__exvectors_end);
+		} > VECTORS
 
-	.fvectors 0xFFFFFFFC : AT(0xFFFFFFFC)
+		.fvectors 0xFFFFFFFC : AT(0xFFFFFFFC)
+		{
+			KEEP(*(.fvectors))
+		} > RESETVEC
+	#else
+		.fvectors 0xFFFFFF80: AT(0xFFFFFF80)
+		{
+			KEEP(*(.fvectors))
+		} > VECTORS
+	#endif
+#else 
+	SECTION_PROLOGUE(.exvectors, ROM_START,)
 	{
-		KEEP(*(.fvectors))
-	} > RESETVEC
-#else
-	.fvectors 0xFFFFFF80: AT(0xFFFFFF80)
-	{
-		KEEP(*(.fvectors))
-	} > VECTORS
-#endif
-#endif
-
-	SECTION_PROLOGUE(_TEXT_SECTION_NAME,ROM_START,)
-	{
-		. = ALIGN(4);
-		PLACE_SYMBOL_HERE(__image_text_start);
 /* Located in generated directory. This file is populated by the
  * zephyr_linker_sources() Cmake function.
  */
 #include <snippets-rom-start.ld>
-#if defined(CONFIG_HAS_EXCEPT_VECTOR_TABLE) && defined(CONFIG_BOOTLOADER_MCUBOOT)
+		PLACE_SYMBOL_HERE(__exvectors_start);
 		KEEP(*(.exvectors))
+		PLACE_SYMBOL_HERE(__exvectors_end);
+	} GROUP_LINK_IN(ROMABLE_REGION)
 #endif
+
+	SECTION_PROLOGUE(_TEXT_SECTION_NAME,,)
+	{
+		. = ALIGN(4);
+		PLACE_SYMBOL_HERE(__image_text_start);
+		KEEP(*(.text._start))
 		*(.text)
 		*(.text.*)
 		*(P)
