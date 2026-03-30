@@ -9,8 +9,17 @@ config SOC_SERIES_RX74M
 	select XIP
 	select CLOCK_CONTROL_RENESAS_RX_CGC if CLOCK_CONTROL
 	select HAS_RENESAS_RX_FSP
+	select SOC_EARLY_INIT_HOOK
 	select CLOCK_CONTROL
 	select CLOCK_CONTROL_FIXED_RATE_CLOCK
 	select CPU_HAS_MPU
 	select CPU_HAS_RX_MPU
 	select RX_MPU
+
+config SOC_RX74M_SKIP_OSPI_CLOCK_SETUP
+	bool "Skip OSPI clock frequency configuration in system initialization"
+	default n
+	help
+	  With this option, the OSPI clock frequency is not set during system
+	  initialization. This is required when the OSPI flash is used as the
+	  boot source

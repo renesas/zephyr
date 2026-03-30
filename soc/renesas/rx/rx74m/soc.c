@@ -14,24 +14,37 @@
 #include <zephyr/arch/cpu.h>
 #include <soc.h>
 #include <bsp_api.h>
+#include <zephyr/drivers/clock_control/renesas_rx_cgc.h>
 
 uint32_t SystemCoreClock BSP_SECTION_EARLY_INIT;
 volatile uint32_t g_protect_pfswe_counter BSP_SECTION_EARLY_INIT;
 
-extern
-/**
- * @brief Perform basic hardware initialization at boot.
- *
- * This needs to be run from the very beginning.
- * So the init priority has to be 0 (zero).
- *
- * @return 0
- */
 void soc_early_init_hook(void)
 {
 	SystemCoreClock = BSP_MOCO_HZ;
 	g_protect_pfswe_counter = 0;
 	renesas_rx_register_protect_open();
+	
+	/* Initialize the system clock and peripheral clock */
+	bsp_clock_init();
+
+	FSP_HARDWARE_REGISTER_WAIT(R_SYSTEM->PDCTRESWM_b.PDCSF, 0);
+
+	if (1 == R_SYSTEM->PDCTRESWM_b.PDPGSF) {
+		/* Turn on ESWM power domain.
+		 * This requires MOCO to be enabled, but MOCO is always enabled after
+		 * bsp_clock_init().
+		 */
+		R_BSP_RegisterProtectDisable(BSP_REG_PROTECT_OM_LPC_BATT_SWR);
+		FSP_HARDWARE_REGISTER_WAIT((R_SYSTEM->PDCTRESWM & (R_SYSTEM_PDCTRESWM_PDCSF_Msk |
+								   R_SYSTEM_PDCTRESWM_PDPGSF_Msk)),
+					   R_SYSTEM_PDCTRESWM_PDPGSF_Msk);
+		R_SYSTEM->PDCTRESWM = 0;
+		FSP_HARDWARE_REGISTER_WAIT((R_SYSTEM->PDCTRESWM & (R_SYSTEM_PDCTRESWM_PDCSF_Msk |
+								   R_SYSTEM_PDCTRESWM_PDPGSF_Msk)),
+					   0);
+		R_BSP_RegisterProtectEnable(BSP_REG_PROTECT_OM_LPC_BATT_SWR);
+	}
 }
 
 static inline uint16_t BIT_U16(unsigned n)
