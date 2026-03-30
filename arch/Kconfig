@@ -279,11 +279,7 @@ config XIP
 	  option increases both the code and data footprint of the image.
 
 
-<<<<<<< HEAD
-if ARC || ARM || ARM64 || X86 || RISCV || RX || OPENRISC || ARCH_POSIX
-=======
-if ARC || ARM || ARM64 || X86 || RISCV || RX || ARCH_POSIX || RH850
->>>>>>> 6750e02a818 (arch: Add initial support for Renesas RH850 architecture)
+if ARC || ARM || ARM64 || X86 || RISCV || RX || OPENRISC || ARCH_POSIX || RH850
 
 # Workaround for not being able to have commas in macro arguments
 DT_CHOSEN_Z_FLASH := zephyr,flash

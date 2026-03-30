@@ -233,8 +233,9 @@ manifest:
       groups:
         - hal
     - name: hal_renesas
+      url: https://github.com/renesas/hal_renesas.git
+      revision: wip_rh850
       path: modules/hal/renesas
-      revision: 29d0d3b9c7f9e3929839c74a6cb10c487c24994f
       groups:
         - hal
     - name: hal_rpi_pico
