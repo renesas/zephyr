@@ -102,6 +102,8 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 #define GET_FRAME_FORMAT(idx)                                                                      \
 	CONCAT(OSPI_B_FRAME_FORMAT_, DT_INST_STRING_UPPER_TOKEN(idx, frame_format))
 
+#define GET_ADDRESS_MODE(idx) CONCAT(OSPI_B_, DT_INST_STRING_UPPER_TOKEN(idx, address_mode))
+
 #define RENESAS_RX_OSPI_B_PSRAM_INIT(idx)                                                          \
                                                                                                    \
 	PINCTRL_DT_DEFINE(DT_INST_PARENT(idx));                                                    \
@@ -114,6 +116,8 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 		.sdr_sampling_edge = OSPI_B_CK_EDGE_FALLING,                                       \
 		.sdr_sampling_delay = OSPI_B_SDR_SAMPLING_DELAY_NONE,                              \
 		.ddr_sampling_extension = DT_INST_PROP(idx, ddr_sampling_extension),               \
+		.output_assert_delay = OSPI_B_ASSERTION_DELAY_ENABLE,                              \
+		.write_data_mask_enable = DT_INST_PROP(idx, write_data_mask_enable),               \
 	};                                                                                         \
                                                                                                    \
 	static ospi_b_xspi_command_set_t psram_ospi_b_command_set_##idx = {                        \
@@ -122,6 +126,7 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 		.latency_mode = DT_INST_PROP(idx, variable_latency),                               \
 		.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,                             \
 		.address_msb_mask = 0xF0,                                                          \
+		.address_mode = GET_ADDRESS_MODE(idx),                                             \
                                                                                                    \
 		.command_bytes = DT_INST_PROP(idx, command_bytes),                                 \
 		.read_command = DT_INST_PROP(idx, read_command),                                   \
@@ -159,7 +164,7 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 					(uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(idx), stop_bit),   \
 			},                                                                         \
 		.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(idx)),                            \
-		.ospi_pregs = (volatile R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(idx)),                    \
+		.ospi_pregs = (volatile R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(idx)),           \
 		.flash_size = DT_INST_PROP(idx, size),                                             \
 		.max_frequency = DT_INST_PROP(idx, ospi_max_frequency),                            \
 		.ospi_b_config =                                                                   \

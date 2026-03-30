@@ -115,3 +115,14 @@ properties:
     type: int
     default: 5
     description: Number of dummy cycles for write command
+
+  address-mode:
+    type: string
+    default: "NORMAL_ADDRESS_MODE"
+    enum:
+      - "NORMAL_ADDRESS_MODE"
+      - "ARRAY_ADDRESS_MODE"
+
+  write-data-mask-enable:
+    type: boolean
+    description: Use the XSPIn_DS signal as a mask signal for each byte in the write data
