@@ -7,6 +7,9 @@
 #include <mem.h>
 
 / {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -109,6 +112,12 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		ranges;
+
+		pinctrl: pin-controller@ffd90000 {
+			compatible = "renesas,rh850-pinctrl";
+			reg = <0xffd90000 0x40>;
+			status = "okay";
+		};
 
 		swint0: swint@ffc00000 {
 			compatible = "renesas,rh850-swint";
