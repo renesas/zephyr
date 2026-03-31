@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&pinctrl {
+	rlin31_default: rlin31_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT8)>,
+					<RH850_PSEL(PORT_02, 4, ALT_IN9)>;
+		};
+	};
+
+    rlin32_default: rlin32_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 0, ALT_OUT8)>,
+					<RH850_PSEL(PORT_02, 2, ALT_IN8)>;
+		};
+	};
+};
+
+&rlin31 {
+	pinctrl-0 = <&rlin31_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&rlin32 {
+	pinctrl-0 = <&rlin32_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+dut: &uart1 {
+	status = "okay";
+	current-speed = <115200>;
+};
+
+dut_aux: &uart2 {
+	status = "okay";
+	current-speed = <115200>;
+};
