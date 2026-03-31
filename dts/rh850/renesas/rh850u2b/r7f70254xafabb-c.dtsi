@@ -7,5 +7,9 @@
 #include <rh850/renesas/rh850u2b/r7f70254x.dtsi>
 
 / {
-
+    flash0: flash@0 {
+            compatible = "renesas,rh850-code-flash";
+            reg = <0x0 DT_SIZE_M(4)>;
+            renesas,programming-enable;
+	};
 };
