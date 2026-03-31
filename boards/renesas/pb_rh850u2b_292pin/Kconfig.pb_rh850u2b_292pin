@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config BOARD_PB_RH850U2B_292PIN
-	select SOC_R7F70254xAFABB_C
+	select SOC_R7F70254xAFABB_C if BOARD_PB_RH850U2B_292PIN
