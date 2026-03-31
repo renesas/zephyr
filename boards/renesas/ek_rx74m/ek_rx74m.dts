@@ -448,13 +448,26 @@
 	pinctrl-0 = <&xspi1_default>;
 	pinctrl-names = "default";
 	status = "okay";
-
 	memc: is66wvo32m8d: memory@0 {
 		compatible = "renesas,rx-ospi-b-psram";
 		variable-latency;
 		reg = <0>;
 		size = <DT_SIZE_M(32)>; /* 32 Megabytes */
 		ospi-max-frequency = <DT_FREQ_M(200)>;
+		spi-protocol = "8D_8D_8D";
+		address-mode = "ARRAY_ADDRESS_MODE";
+		frame-format = "XSPI_PROFILE_1";
+		write-size-bytes = <32>;
+		ds-latch-delay = <22>;
+		address-bytes = <4>;
+		command-to-command-interval = <2>;
+		ddr-sampling-extension = <0>;
+		command-bytes = <2>;
+		read-dummy-cycles = <5>;
+		write-dummy-cycles = <5>;
+		write-command = <0x2000>;
+		read-command = <0xA000>;
+		write-data-mask-enable;
 		status = "okay";
 	};
 };
