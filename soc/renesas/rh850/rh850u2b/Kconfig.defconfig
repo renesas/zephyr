@@ -22,9 +22,6 @@ config BUILD_OUTPUT_BIN
 config BUILD_OUTPUT_S19
 	default y
 
-config CLOCK_CONTROL
-	default y
-
 config DYNAMIC_INTERRUPTS
 	default y
 
