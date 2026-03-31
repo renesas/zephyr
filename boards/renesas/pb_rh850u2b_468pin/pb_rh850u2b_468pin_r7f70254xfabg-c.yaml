@@ -1,12 +1,11 @@
-identifier: pb_rh850u2b_468pin
+identifier: pb_rh850u2b_468pin/r7f70254xfabg-c
 name: Renesas RH850 U2B 468pin
 type: mcu
 arch: rh850
 ram: 832
 flash: 4096
 toolchain:
-  - zephyr
-  - gnuarmemb
+  - iar
 supported:
   - gpio
 vendor: renesas
