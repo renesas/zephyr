@@ -1,0 +1,23 @@
+/delete-node/ &psram;
+
+/ {
+	chosen {
+		zephyr,flash = &memc;
+		zephyr,flash-controller = &memc;
+		zephyr,code-partition = &psram_slot0;
+	};
+};
+
+&memc {
+	reg = <0x50000000>;
+	ranges;
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		psram_slot0: partition@0 {
+			reg = <0x0 DT_SIZE_M(32)>;
+		};
+	};
+};
