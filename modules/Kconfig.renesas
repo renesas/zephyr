@@ -55,16 +55,6 @@ config USE_RA_FSP_I2C_IIC_TARGET
 	help
 	  Enable Renesas RA I2C IIC Target driver
 
-config HAS_RENESAS_RH850_FSP
-	bool
-	help
-	  Enable Renesas RH850 FSP support
-
-config HAS_RENESAS_RH850_FSP
-	bool
-	help
-	  Enable Renesas RH850 FSP support
-
 config USE_RA_FSP_SCI_I2C
 	bool
 	help
