@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2c.h>
+
+&pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 1, ALT_OUT1)>,
+				<RH850_PSEL(PORT_04, 2, ALT_IN1)>;
+		};
+	};
+};
