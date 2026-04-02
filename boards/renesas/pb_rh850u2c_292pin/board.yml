@@ -1,0 +1,7 @@
+board:
+  name: pb_rh850u2c_292pin
+  full_name: Piggy Board RH850 U2C 292pin
+  vendor: renesas
+  socs:
+  - name: r7f702600afabb-c
+  - name: r7f702600fabb-c

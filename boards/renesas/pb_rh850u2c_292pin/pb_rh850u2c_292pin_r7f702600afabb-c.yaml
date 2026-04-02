@@ -1,5 +1,5 @@
-identifier: pb_rh850u2b_468pin/r7f70254xfabg-c
-name: Renesas RH850 U2B 468pin
+identifier: pb_rh850u2c_292pin/r7f702600afabb-c
+name: Renesas RH850 U2C 292pin
 type: mcu
 arch: rh850
 ram: 384
