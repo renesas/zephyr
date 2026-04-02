@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2c/u2c-g4kh-common.dtsi>
+
+/ {
+	soc {
+		sram0: memory@fe000000 {
+			compatible = "mmio-sram";
+			reg = <0xfe000000 DT_SIZE_K(384)>;
+		};
+
+		ostm0: ostm0@ffbf0000 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0000 0x20>;
+			channel = <0>;
+			interrupts = <63 0>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		rlin30: rlin30@ffc7c000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <173 1>, <174 1>, <175 1>, <176 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c000 0x3e0f00>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart0: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <0>;
+				status = "disabled";
+			};
+		};
+	};
+};
