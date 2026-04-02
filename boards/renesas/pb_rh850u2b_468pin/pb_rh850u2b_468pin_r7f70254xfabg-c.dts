@@ -12,7 +12,7 @@
 
 / {
 	model = "Renesas RH850 U2B 468pin";
-	compatible = "renesas,u2b10", "renesas,u2b";
+	compatible = "renesas,pb-rh850u2b-468pin", "renesas,u2b";
 
 	chosen {
 		zephyr,console = &uart0;
@@ -41,4 +41,3 @@
 		status = "okay";
 	};
 };
-

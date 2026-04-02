@@ -5,14 +5,14 @@
 
 /dts-v1/;
 
-#include <rh850/renesas/rh850u2b/r7f70254xafabg-c.dtsi>
+#include <rh850/renesas/rh850u2c/r7f702600fabb-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 
-#include "pb_rh850u2b_468pin-pinctrl.dtsi"
+#include "pb_rh850u2c_292pin-pinctrl.dtsi"
 
 / {
-	model = "Renesas RH850 U2B 468pin";
-	compatible = "renesas,pb-rh850u2b-468pin", "renesas,u2b";
+	model = "Renesas RH850 U2C 292pin";
+	compatible = "renesas,pb-rh850u2c-292pin", "renesas,u2c";
 
 	chosen {
 		zephyr,console = &uart0;

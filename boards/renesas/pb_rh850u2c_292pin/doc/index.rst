@@ -1,18 +1,18 @@
-.. zephyr:board:: pb_rh850u2b_468pin
+.. zephyr:board:: pb_rh850u2c_292pin
 
 Overview
 ********
 
-This RH850/U2B is a 32-bit single-chip microcontroller with multiple CPU cores, Code Flash, Data Flash,
+This RH850/U2C is a 32-bit single-chip microcontroller with multiple CPU cores, Code Flash, Data Flash,
 RAM modules, DMA controllers, A/D converters, timer units and many communication interfaces that
 are used in the automotive applications. This microcontroller conforms to the Automotive Safety
 Integrity Level (ASIL) that is highly demanded in the recent automotive field (ASIL D level).
 
-The key features of the RH850/U2B are as follows:
+The key features of the RH850/U2C are as follows:
 
 **RH850 multi-core CPU**
 
-- This microcontroller contains multiple RH850G4MH2 cores that support RISC-type instruction sets
+- This microcontroller contains multiple RH850G4KH cores that support RISC-type instruction sets
   and have significantly improved the instruction execution speed with basic instructions (one
   clock cycle per instruction) and the optimized 10-stage pipeline configurations. Furthermore, this
   product also supports multiplication instructions using a 32-bit hardware multiplier, saturated
@@ -60,16 +60,16 @@ The key features of the RH850/U2B are as follows:
 
 Hardware
 ********
-Detailed hardware features for the RH850/U2B MCU group can be found at `RH850 U2B Group User Manual Hardware`_
+Detailed hardware features for the RH850/U2C MCU group can be found at `RH850 U2C Group User Manual Hardware`_
 
-.. figure:: rh850u2b_468pin_block_diagram.webp
+.. figure:: rh850u2c_292pin_block_diagram.webp
 	:width: 442px
 	:align: center
-	:alt: RH850/U2B MCU group feature
+	:alt: RH850/U2C MCU group feature
 
-	RH850/U2B Block diagram (Credit: Renesas Electronics Corporation)
+	RH850/U2C Block diagram (Credit: Renesas Electronics Corporation)
 
-Detailed hardware features for the RH850/U2B MCU can be found at `RH850 U2B 468pin User Manual Piggy Board`_
+Detailed hardware features for the RH850/U2C MCU can be found at `RH850 U2C 292pin User Manual Piggy Board`_
 
 Supported Features
 ==================
@@ -81,13 +81,13 @@ Programming and Debugging
 
 .. zephyr:board-supported-runners::
 
-Applications for the ``pb_rh850u2b_468pin`` board target configuration can be
-built, flashed, and debugged in the usual way. There are many supported soc in
-``pb_rh850u2b_468pin`` board such as ``r7f70254xafabg-c`` and ``r7f70254xfabg-c``.
-See :ref:`build_an_application` and :ref:`application_run` for more details on
+Applications for the ``pb_rh850u2c_292pin`` board target configuration can be built, flashed, and
+debugged in the usual way. There are many supported soc in ``pb_rh850u2c_292pin`` board such as
+``r7f702600fabb-c`` and ``r7f702600afabb-c``. See :ref:`build_an_application` and
+:ref:`application_run` for more details on
 building and running.
 
-**Note:** Currently, the pb_rh850u2b_468pin is built and programmed using the IAR for RH850 toolchain.
+**Note:** Currently, the pb_rh850u2c_292pin is built and programmed using the IAR for RH850 toolchain.
 Please follow the steps below to program it onto the board:
 
   1. Download and install IAR toolchain:
@@ -100,20 +100,20 @@ Please follow the steps below to program it onto the board:
       export ZEPHYR_TOOLCHAIN_VARIANT=iar
       export IAR_TOOLCHAIN_PATH=<Path/to/your/toolchain>/rh850
 
-  3. Build the Blinky Sample for pb_rh850u2b_468pin
+  3. Build the Blinky Sample for pb_rh850u2c_292pin
 
    .. code-block:: console
 
       cd ~/zephyrproject/zephyr
-      west build -p always -b pb_rh850u2b_468pin/@socname samples/basic/blinky
+      west build -p always -b pb_rh850u2c_292pin/@socname samples/basic/blinky
 
 Flashing
 ========
 
-Program can be flashed to PB_RH850U2B_468PIN via 46-pin Aurora debug connector (e.g, for
-using the Renesas standard emulator for RH850/U2B is the E2 emulator)
+Program can be flashed to PB_RH850U2C_292PIN via 46-pin Aurora debug connector (e.g, for
+using the Renesas standard emulator for RH850/U2C is the E2 emulator)
 
-E2 emulator User's Manual at https://www.renesas.com/en/document/mat/emulation-adapter-rh850u2b-users-manual?r=488796
+E2 emulator User's Manual at https://www.renesas.com/en/document/mat/e2-emulator-ie850a-additional-document-users-manual-notes-connection-rh850u2c-series?queryID=af55a2aaccb285dc5471452ce18f8651
 
 Driver are available at https://www.renesas.com/en/document/uid/usb-driver-renesas-mcu-toolse2e2-liteie850ie850apg-fp5-v27700for-32-bit-version-windows-os?r=488796
 
@@ -122,7 +122,7 @@ To flash a program to the board:
 1. Connect to E2 emulator via 46-pin Aurora debug connector to host PC
 
 2. Make sure 46-pin Aurora debug connector is in default configuration as
-described in `RH850 U2B 468pin User Manual Piggy Board`_
+described in `RH850 U2C 292pin User Manual Piggy Board`_
 
 3. Execute west command
 
@@ -138,7 +138,7 @@ You can use IAR Embedded Workbench for Renesas RH850 (`IAR Embedded Workbench Do
 Once downloaded and installed, open IarIdePm and configure the debug project
 like so:
 
-* Target Device: RH850 - R7F70254x
+* Target Device: RH850 - R7F70260x
 * Driver: E2
 * Power Supply: 5V
 * Program File: <path/to/your/build/zephyr.elf>
@@ -148,20 +148,20 @@ use this or later version of IAR Embedded Workbench
 
 References
 **********
-- `RH850 U2B Website`_
-- `RH850 U2B MCU group Website`_
+- `RH850 U2C Website`_
+- `RH850 U2C MCU group Website`_
 
-.. _RH850 U2B Website:
-   https://www.renesas.com/en/products/rh850-u2b
+.. _RH850 U2C Website:
+   https://www.renesas.com/en/products/rh850-u2c
 
-.. _RH850 U2B MCU group Website:
-   https://www.renesas.com/en/document/dst/rh850u2b-datasheet-rev-100
+.. _RH850 U2C MCU group Website:
+   https://www.renesas.com/en/document/dst/rh850u2c-datasheet
 
-.. _RH850 U2B Group User Manual Hardware:
-   https://www.renesas.com/en/document/mah/rh850u2b-hardware-users-manual-rev-120-r01uh0923ej0120?r=1539266
+.. _RH850 U2C Group User Manual Hardware:
+   https://www.renesas.com/en/document/mah/rh850u2c-group-users-manual-hardware-rev100
 
-.. _RH850 U2B 468pin User Manual Piggy Board:
-   https://www.renesas.com/en/design-resources/boards-kits/y-rh850-u2b-468pin-pb-t1-v1
+.. _RH850 U2C 292pin User Manual Piggy Board:
+   https://www.renesas.com/en/document/mat/rh850u2c-292pin-users-manual-piggyback-board-y-rh850-u2c-292pin-pb-t1-v1-rev400
 
 .. _IAR Embedded Workbench Download:
    https://www.iar.com/embedded-development-tools/free-trials
