@@ -12,4 +12,7 @@ family:
           - name: r7f70255xfabb-c
           - name: r7f70255xafabb-c
           - name: r7f70255xbfabb-c
-
+      - name: rh850u2c
+        socs:
+          - name: r7f702600afabb-c
+          - name: r7f702600fabb-c
