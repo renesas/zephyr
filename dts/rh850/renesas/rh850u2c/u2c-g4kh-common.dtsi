@@ -1,0 +1,131 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <mem.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "renesas,g4kh";
+			reg = <0>;
+			status = "okay";
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "renesas,g4kh";
+			reg = <1>;
+			status = "disabled";
+		};
+	};
+
+	intc: interrupt-controller {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+
+		intc1: intc1 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "simple-bus";
+			ranges;
+
+			intc1_pe0: interrupt-controller@fffc4000 {
+				#address-cells = <1>;
+				#interrupt-cells = <2>;
+				compatible = "renesas,rh850-intc";
+				interrupt-controller;
+				reg = <0xfffc4000 0x40>,
+				      <0xfffc4100 0x80>;
+				reg-names = "EIC", "EIBD";
+				num-lines = <32>;
+			};
+
+			intc1_pe1: interrupt-controller@fffc8000 {
+				#address-cells = <1>;
+				#interrupt-cells = <2>;
+				compatible = "renesas,rh850-intc";
+				interrupt-controller;
+				reg = <0xfffc8000 0x40>,
+				      <0xfffc8100 0x80>;
+				reg-names = "EIC", "EIBD";
+				num-lines = <32>;
+			};
+		};
+
+		intc2: interrupt-controller@fff80000 {
+			#address-cells = <1>;
+			#interrupt-cells = <2>;
+			compatible = "renesas,rh850-intc";
+			interrupt-controller;
+			reg = <0xfff80000 0x40>,
+			      <0xfff82000 0x80>;
+			reg-names = "EIC", "EIBD";
+			num-lines = <992>;
+		};
+
+		feinc: feinc {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "simple-bus";
+			ranges;
+
+			feinc_pe0: interrupt-controller@ff9a3b00 {
+				#address-cells = <1>;
+				#interrupt-cells = <1>;
+				compatible = "renesas,rh850-feinc";
+				interrupt-controller;
+				reg = <0xff9a3b00 0x4>,
+				      <0xff9a3b04 0x4>,
+				      <0xff9a3b08 0x4>;
+				reg-names = "FEINTF", "FEINTMSK", "FEINTC";
+				num-lines = <3>;
+			};
+
+			feinc_pe1: interrupt-controller@ff9a3c00 {
+				#address-cells = <1>;
+				#interrupt-cells = <1>;
+				compatible = "renesas,rh850-feinc";
+				interrupt-controller;
+				reg = <0xff9a3c00 0x4>,
+				      <0xff9a3c04 0x4>,
+				      <0xff9a3c08 0x4>;
+				reg-names = "FEINTF", "FEINTMSK", "FEINTC";
+				num-lines = <3>;
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+
+		pinctrl: pin-controller@ffd90000 {
+			compatible = "renesas,rh850-pinctrl";
+			reg = <0xffd90000 0x40>;
+			status = "okay";
+		};
+
+		swint0: swint@ffc00000 {
+			compatible = "renesas,rh850-swint";
+			reg = <0xffc00000 0x01>;
+			interrupts-extended = <&intc1_pe0 14 14>,
+					      <&intc1_pe1 14 14>;
+			interrupt-names = "swint_pe0", "swint_pe1";
+			status = "okay";
+		};
+	};
+};
