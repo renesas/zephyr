@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/delete-node/ &mx25lw51245g;
+
+&xspi0 {
+	is25lp256d: ospi-nor-flash@0 {
+		compatible = "renesas,rx-xspi-nor";
+		reg = <0>;
+		size = <DT_SIZE_M(32)>; /* 256 Megabits = 32 Megabytes */
+		ospi-max-frequency = <DT_FREQ_M(133)>;
+		protocol-mode = <XSPI_QUAD_MODE>;
+		data-rate = <XSPI_STR_TRANSFER>;
+		write-block-size = <2>;
+		output-assert-delay = "ASSERTION_DELAY_ENABLED";
+		status = "okay";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "nor";
+				reg = <0x00000000 DT_SIZE_M(32)>;
+			};
+		};
+	};
+};
