@@ -35,7 +35,6 @@ struct spi_renesas_ra_sci_b_config {
 
 struct spi_renesas_ra_sci_b_data {
 	struct spi_context ctx;
-	struct spi_config config;
 #ifdef CONFIG_SPI_RENESAS_RA_SCI_B_INTERRUPT
 	uint32_t data_len;
 #endif
@@ -129,21 +128,6 @@ static inline void renesas_ra_spi_context_unlock_unconditionally(const struct de
 		k_sem_give(&ctx->lock);
 	}
 #endif /* CONFIG_MULTITHREADING */
-}
-
-/* Check whether the configuration is similar */
-static inline bool renesas_ra_sci_b_context_configured(const struct device *dev,
-						       const struct spi_config *config)
-{
-	struct spi_renesas_ra_sci_b_data *data = dev->data;
-
-	if ((data->config.frequency == config->frequency) &&
-	    (data->config.operation == config->operation) &&
-	    (data->config.slave == config->slave)) {
-		return true;
-	}
-
-	return false;
 }
 
 static bool spi_renesas_ra_sci_b_transfer_ongoing(struct spi_renesas_ra_sci_b_data *data)
@@ -287,8 +271,8 @@ static int spi_renesas_ra_sci_b_configure(const struct device *dev, const struct
 	struct spi_renesas_ra_sci_b_data *data = dev->data;
 	fsp_err_t fsp_err;
 
-	/* Check whether the configuration is changed */
-	if (renesas_ra_sci_b_context_configured(dev, config)) {
+	/* Check whether the congiguration is changed */
+	if (spi_context_configured(&data->ctx, config)) {
 		return 0;
 	}
 
@@ -373,7 +357,6 @@ static int spi_renesas_ra_sci_b_configure(const struct device *dev, const struct
 		if (fsp_err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		memset(&data->config, 0, sizeof(struct spi_config));
 	}
 
 	fsp_err = R_SCI_B_SPI_Open(&data->fsp_ctrl, &data->fsp_cfg);
@@ -381,8 +364,7 @@ static int spi_renesas_ra_sci_b_configure(const struct device *dev, const struct
 		LOG_ERR("Failed to apply spi configuration");
 		return -EINVAL;
 	}
-	memcpy(&data->config, config, sizeof(struct spi_config));
-	data->ctx.config = &data->config;
+	data->ctx.config = config;
 
 	return 0;
 }
