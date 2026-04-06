@@ -126,3 +126,7 @@ properties:
   write-data-mask-enable:
     type: boolean
     description: Use the XSPIn_DS signal as a mask signal for each byte in the write data
+
+  write-enable-command:
+    type: int
+    description: Write enable command opcode

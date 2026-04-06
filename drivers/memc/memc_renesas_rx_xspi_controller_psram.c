@@ -121,7 +121,8 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 	static xspi_controller_command_set_t psram_xspi_controller_command_set_##idx = {      \
 		.protocol = GET_SPI_PROTOCOL(idx),                                                 \
 		.frame_format = GET_FRAME_FORMAT(idx),                                             \
-		.latency_mode = DT_INST_PROP(idx, variable_latency),                               \
+		.latency_mode = DT_INST_PROP(idx, variable_latency) ? OSPI_B_LATENCY_MODE_VARIABLE \
+								    : OSPI_B_LATENCY_MODE_FIXED,   \
 		.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,                             \
 		.address_msb_mask = 0xF0,                                                          \
 		.address_mode = GET_ADDRESS_MODE(idx),                                             \
@@ -131,9 +132,9 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 		.read_dummy_cycles = DT_INST_PROP(idx, read_dummy_cycles),                         \
 		.program_command = DT_INST_PROP(idx, write_command),                               \
 		.program_dummy_cycles = DT_INST_PROP(idx, write_dummy_cycles),                     \
+		.write_enable_command = DT_INST_PROP_OR(idx, write_enable_command, UNUSED_VALUE),  \
                                                                                                    \
 		/** Unused fields */                                                               \
-		.write_enable_command = UNUSED_VALUE,                                              \
 		.status_command = UNUSED_VALUE,                                                    \
 		.row_load_command = UNUSED_VALUE,                                                  \
 		.row_store_command = UNUSED_VALUE,                                                 \
