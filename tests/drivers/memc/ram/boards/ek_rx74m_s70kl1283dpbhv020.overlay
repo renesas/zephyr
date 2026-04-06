@@ -1,0 +1,26 @@
+/*
+* Copyright (c) 2026 Renesas Electronics Corporation
+*
+* SPDX-License-Identifier: Apache-2.0
+*/
+
+/delete-node/ &memc;
+
+&xspi1 {
+	status = "okay";
+
+	memc: s70kl1283dpbhv020: memory@0 {
+		compatible = "renesas,rx-xspi-psram";
+		reg = <0>;
+		size = <DT_SIZE_M(16)>; /* 16 Megabytes = 128 Mbit */
+		ospi-max-frequency = <DT_FREQ_M(200)>;
+		command-bytes = <1>;
+		address-bytes = <4>;
+		read-command = <0xee>;
+		write-command = <0xde>;
+		write-enable-command = <0x06>;
+		read-dummy-cycles = <14>;
+		write-dummy-cycles = <14>;
+		status = "okay";
+	};
+};
