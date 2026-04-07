@@ -1328,9 +1328,21 @@
 			interrupts-extended = <&group_irq_al4 12 1>;
 				interrupt-names = "gwdi";
 
-			mdio0: mdio {
+			mdio0: mdio@874cb000 {
 				compatible = "renesas,rx-rmac-mdio";
 				channel = <0>;
+				reg = <0x874cb000 0x4>, <0x874cb004 0x4>;
+				reg-names = "mpsm", "mpic";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			mdio1: mdio@874cd000 {
+				compatible = "renesas,rx-rmac-mdio";
+				channel = <0>;
+				reg = <0x874cd000 0x4>, <0x874cd004 0x4>;
+				reg-names = "mpsm", "mpic";
 				#address-cells = <1>;
 				#size-cells = <0>;
 				status = "disabled";

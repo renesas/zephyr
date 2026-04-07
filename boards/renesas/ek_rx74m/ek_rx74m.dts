@@ -317,6 +317,7 @@
 	txb-num = <128>;
 	rxb-num = <128>;
 	phy-handle = <&phy0>;
+	phy-connection-type = "gmii";
 	status = "okay";
 };
 
@@ -327,13 +328,15 @@
 	phy-clock = <&ethphyclk>;
 	phy-clock-type = "internal";
 	phy-handle = <&phy1>;
+	phy-connection-type = "gmii";
 	status = "disabled";
 };
 
 &mdio0 {
 	pinctrl-0 = <&mdio_default>;
 	pinctrl-names = "default";
-	phy-connection-type = "gmii";
+	mdio-hold-time-ns = <7>;
+	mdio-capture-time-ns = <7>;
 	status = "okay";
 
 	phy0: ethernet-phy@0 {

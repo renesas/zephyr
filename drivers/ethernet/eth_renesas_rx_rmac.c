@@ -100,11 +100,11 @@ struct eth_renesas_rx_data {
 };
 
 struct eth_renesas_rx_config {
-	ether_phy_mii_type_t mii_type;
 	const struct pinctrl_dev_config *pin_cfg;
 	const struct device *phy_dev;
 	const struct device *phy_clock;
 	enum phy_clock_type phy_clock_type;
+	uint8_t phy_conn_type;
 	uint8_t random_mac; /* 0 if not using random mac */
 	uint8_t valid_mac;  /* 1 if mac is valid */
 };
@@ -211,6 +211,40 @@ static void eth_switch_cb(ether_switch_callback_args_t *args)
 {
 	/* Do nothing */
 	ARG_UNUSED(args);
+}
+
+static void phy_type_setting(const struct device *dev)
+{
+	struct eth_renesas_rx_data *data = dev->data;
+	const struct eth_renesas_rx_config *config = dev->config;
+	volatile uint32_t *p_miicr_register;
+
+	/* Configure pins for MII or RMII. Set PHYMODE0 if MII is selected. */
+	R_PMISC->PFENET = (uint8_t)((0 == config->phy_conn_type)
+				    << (R_PMISC_PFENET_PHYMODE0_Pos + data->fsp_cfg->channel));
+
+	/* Get pointer to a MIICRn register. */
+	p_miicr_register = &(R_ESWM->MIICR0) + data->fsp_cfg->channel;
+
+	/* Configure ESWM as MII, RMII, or RGMII. */
+	switch (config->phy_conn_type) {
+	case 1: /* RMII */
+		*p_miicr_register = 2;
+		break;
+
+	case 3: /* RGMII */
+		*p_miicr_register = (R_ESWM_MIICR0_TXCIDE_Msk | 1);
+
+		/* Enable TXC generation.  */
+		R_ESWM->MIIRR =
+			R_ESWM->MIIRR | (1 << (R_ESWM_MIIRR_RGRST0_Pos + data->fsp_cfg->channel));
+		break;
+
+	default:
+		/* MII or GMII. */
+		*p_miicr_register = 0;
+		break;
+	}
 }
 
 static enum ethernet_hw_caps eth_renesas_rx_get_capabilities(const struct device *dev)
@@ -492,6 +526,8 @@ static int renesas_rx_eth_init(const struct device *dev)
 		return -EIO;
 	}
 
+	phy_type_setting(dev);
+
 	fsp_err = R_RMAC_CallbackSet(data->fsp_ctrl, (void *)&eth_rmac_cb, (void *)dev,
 				     &data->fsp_cb);
 	if (fsp_err != FSP_SUCCESS) {
@@ -592,15 +628,6 @@ DEVICE_DT_INST_DEFINE(0, renesas_rx_eswm_init, NULL, &eswm_data, &eswm_config, P
 #define ETH_DESC_NUM(n)                                                                            \
 	(ETH_TX_QUEUE_NUM(n) * (ETH_TX_QUEUE_LEN(n) - 1) +                                         \
 	 (ETH_RX_QUEUE_NUM(n) * (ETH_RX_QUEUE_LEN(n) - 1)))
-
-#define ETH_PHY_CONN_TYPE(n)                                                                       \
-	((DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, rgmii)                                    \
-		  ? ETHER_PHY_MII_TYPE_RGMII                                                       \
-		  : (DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, gmii)                          \
-			     ? ETHER_PHY_MII_TYPE_GMII                                             \
-			     : (DT_INST_ENUM_HAS_VALUE(n, phy_connection_type, rmii)               \
-					? ETHER_PHY_MII_TYPE_RMII                                  \
-					: ETHER_PHY_MII_TYPE_MII))))
 #define ETH_PHY_CLOCK_TYPE(n)                                                                      \
 	DT_INST_ENUM_HAS_VALUE(n, phy_clock_type, xtal) ? ETH_PHY_REF_CLK_XTAL                     \
 							: ETH_PHY_REF_CLK_INTERNAL
@@ -737,7 +764,7 @@ DEVICE_DT_INST_DEFINE(0, renesas_rx_eswm_init, NULL, &eswm_data, &eswm_config, P
 	static struct eth_renesas_rx_config eth##n##_renesas_rx_config = {                         \
 		.random_mac = DT_INST_PROP(n, zephyr_random_mac_address),                          \
 		.valid_mac = NODE_HAS_VALID_MAC_ADDR(DT_DRV_INST(n)),                              \
-		.mii_type = ETH_PHY_CONN_TYPE(n),                                                  \
+		.phy_conn_type = DT_INST_ENUM_IDX(n, phy_connection_type),                         \
 		.pin_cfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                      \
 		.phy_dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, phy_handle)),                          \
 		.phy_clock = DEVICE_DT_GET(DT_INST_PHANDLE(n, phy_clock)),                         \

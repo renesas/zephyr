@@ -18,16 +18,16 @@ properties:
   pinctrl-names:
     required: true
 
-  reset-gpios:
-    type: phandle-array
-    description: GPIO connected to MAC PHY reset signal pin. Reset is active low.
-
-  phy-connection-type:
-    type: string
+  mdio-hold-time-ns:
+    type: int
+    default: 0
     description: |
-      Specifies the interface connection type between ethernet MAC and PHY.
-    enum:
-      - "mii"
-      - "rmii"
-      - "gmii"
-      - "rgmii"
+      Time for changing MDO after rising edge of MDC in nanoseconds. This value depends on PHY chip
+      AC Characteristics. Use 0 to disable.
+
+  mdio-capture-time-ns:
+    type: int
+    default: 0
+    description: |
+      Time for sampling MDI after rising edge of MDC in nanoseconds. This value depends on PHY chip
+      AC Characteristics. Use 0 to disable.
