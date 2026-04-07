@@ -5,6 +5,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/input/input-event-codes.h>
 #include <rh850/renesas/rh850u2b/r7f70254xfabg-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -20,6 +21,19 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
+	};
+
+	aliases {
+		led0 = &led2;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led2: led2 {
+			gpios = <&ioport11 0 GPIO_ACTIVE_HIGH>;
+			label = "LED2";
+		};
 	};
 };
 
@@ -40,4 +54,22 @@
 		current-speed = <115200>;
 		status = "okay";
 	};
+};
+
+&irq35 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq35_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&irq36 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq36_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ioport11 {
+	status = "okay";
 };

@@ -22,6 +22,19 @@
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
 	};
+
+	aliases {
+		led0 = &led10;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led10: led10 {
+			gpios = <&ioaport4 0 GPIO_ACTIVE_HIGH>;
+			label = "LED10";
+		};
+	};
 };
 
 &ostm0 {
@@ -43,8 +56,10 @@
 	};
 };
 
-&ioport2 {
-	irqs = <&irq35 4>;
+&irq17 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq17_ioport>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
@@ -52,5 +67,14 @@
 	trigger-type = "falling";
 	pinctrl-0 = <&irq35_ioport>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ioport2 {
+	irqs = <&irq35 4>;
+	status = "okay";
+};
+
+&ioaport4 {
 	status = "okay";
 };
