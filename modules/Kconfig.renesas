@@ -559,15 +559,15 @@ config USE_RX_FSP_SPI_B
 	help
 	  Enable RX FSP SPI-B driver
 
-config USE_RX_FSP_CANFD
+config USE_RX_FSP_CANFDG
 	bool
 	help
-	  Enable RX FSP CANFD driver
+	  Enable RX FSP CANFDG driver
 
-config USE_RX_FSP_OSPI_B
+config USE_RX_FSP_XSPI_CONTROLLER
 	bool
 	help
-	  Enable RX FSP Octal-SPI driver
+	  Enable RX FSP XSPI controller Octal-SPI driver
 
 config USE_RX_FSP_SCE
 	bool
