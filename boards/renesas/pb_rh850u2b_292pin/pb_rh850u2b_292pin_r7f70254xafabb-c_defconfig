@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Enable GPIO
-CONFIG_GPIO=n
+CONFIG_GPIO=y
 
 # Serial Drivers
 CONFIG_SERIAL=y

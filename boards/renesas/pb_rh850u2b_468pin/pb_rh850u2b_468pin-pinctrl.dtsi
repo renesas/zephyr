@@ -12,4 +12,16 @@
 				<RH850_PSEL(PORT_02, 5, ALT_IN11)>;
 		};
 	};
+
+	irq35_ioport: irq35_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_34, 0, ALT_IN11)>;
+		};
+	};
+
+	irq36_ioport: irq36_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_34, 1, ALT_IN11)>;
+		};
+	};
 };
