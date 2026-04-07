@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2025 Renesas Electronics Corporation
+ * Copyright (c) 2025-2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT renesas_rx_ospi_b_psram
+#define DT_DRV_COMPAT renesas_rx_xspi_psram
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -13,35 +13,35 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/dt-bindings/flash_controller/xspi.h>
-#include <r_ospi_b.h>
+#include <r_xspi_controller.h>
 
-LOG_MODULE_REGISTER(memc_renesas_rx_ospi_b_psram, CONFIG_MEMC_LOG_LEVEL);
+LOG_MODULE_REGISTER(memc_renesas_rx_xspi_controller_psram, CONFIG_MEMC_LOG_LEVEL);
 
 #define RESET_LOW_PULSE_WIDTH_US    10U
 #define RESET_HIGH_BEFORE_CS_LOW_US 10U
 
 #define UNUSED_VALUE 0x00
 
-struct memc_renesas_rx_ospi_b_psram_config {
+struct memc_renesas_rx_xspi_controller_psram_config {
 	const struct device *clock_dev;
 	struct clock_control_rx_subsys_cfg clock_config;
 	const struct pinctrl_dev_config *pcfg;
-	volatile R_XSPI0_Type *ospi_pregs;
+	volatile R_XSPI0_Type *xspi_pregs;
 	size_t flash_size;
 	uint32_t max_frequency;
-	spi_flash_cfg_t ospi_b_config;
-	ospi_b_extended_cfg_t ospi_b_extended_config;
+	spi_flash_cfg_t xspi_controller_config;
+	xspi_controller_extended_cfg_t xspi_controller_extended_config;
 };
 
-struct memc_renesas_rx_ospi_b_psram_data {
-	ospi_b_instance_ctrl_t ospi_b_ctrl;
+struct memc_renesas_rx_xspi_controller_psram_data {
+	xspi_controller_instance_ctrl_t xspi_controller_ctrl;
 	struct k_sem sem;
 };
 
-static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
+static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 {
-	const struct memc_renesas_rx_ospi_b_psram_config *config = dev->config;
-	struct memc_renesas_rx_ospi_b_psram_data *data = dev->data;
+	const struct memc_renesas_rx_xspi_controller_psram_config *config = dev->config;
+	struct memc_renesas_rx_xspi_controller_psram_data *data = dev->data;
 	uint32_t clock_freq;
 	int ret;
 	fsp_err_t err;
@@ -77,20 +77,17 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 
 	k_sem_init(&data->sem, 1, 1);
 
-	/** Initialize the OSPI B module */
-	err = R_OSPI_B_Open(&data->ospi_b_ctrl, &config->ospi_b_config);
+	/** Initialize the XSPI Controller module */
+	err = R_XSPI_CONTROLLER_Open(&data->xspi_controller_ctrl, &config->xspi_controller_config);
 	if (err != FSP_SUCCESS) {
-		LOG_ERR("R_OSPI_B_Open failed");
+		LOG_ERR("R_XSPI_CONTROLLER_Open failed");
 		return -EIO;
 	}
 
-	/* Enable array address mode */
-	config->ospi_pregs->CMCFGCS[config->ospi_b_extended_config.channel].CMCFG0_b.ARYAMD = 1;
-
 	/* Reset flash device by driving OM_RESET pin */
-	config->ospi_pregs->LIOCTL_b.RSTCS0 = 0;
+	config->xspi_pregs->LIOCTL_b.RSTCS0 = 0;
 	k_usleep(RESET_LOW_PULSE_WIDTH_US);
-	config->ospi_pregs->LIOCTL_b.RSTCS0 = 1;
+	config->xspi_pregs->LIOCTL_b.RSTCS0 = 1;
 	k_usleep(RESET_HIGH_BEFORE_CS_LOW_US);
 
 	return 0;
@@ -100,27 +97,28 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 	CONCAT(SPI_FLASH_PROTOCOL_, DT_INST_STRING_UPPER_TOKEN(idx, spi_protocol))
 
 #define GET_FRAME_FORMAT(idx)                                                                      \
-	CONCAT(OSPI_B_FRAME_FORMAT_, DT_INST_STRING_UPPER_TOKEN(idx, frame_format))
+	CONCAT(XSPI_CONTROLLER_FRAME_FORMAT_, DT_INST_STRING_UPPER_TOKEN(idx, frame_format))
 
-#define GET_ADDRESS_MODE(idx) CONCAT(OSPI_B_, DT_INST_STRING_UPPER_TOKEN(idx, address_mode))
+#define GET_ADDRESS_MODE(idx)                                                                      \
+	CONCAT(XSPI_CONTROLLER_, DT_INST_STRING_UPPER_TOKEN(idx, address_mode))
 
-#define RENESAS_RX_OSPI_B_PSRAM_INIT(idx)                                                          \
+#define RENESAS_RX_XSPI_CONTROLLER_PSRAM_INIT(idx)                                                 \
                                                                                                    \
 	PINCTRL_DT_DEFINE(DT_INST_PARENT(idx));                                                    \
                                                                                                    \
-	static ospi_b_timing_setting_t ospi_b_timing_setting_##idx = {                             \
+	static xspi_controller_timing_setting_t xspi_controller_timing_setting_##idx = {           \
 		.command_to_command_interval = DT_INST_PROP(idx, command_to_command_interval),     \
 		.cs_pullup_lag = DT_INST_PROP(idx, cs_pullup_lag),                                 \
 		.cs_pulldown_lead = DT_INST_PROP(idx, cs_pulldown_lead),                           \
-		.sdr_drive_timing = OSPI_B_SDR_DRIVE_TIMING_BEFORE_CK,                             \
-		.sdr_sampling_edge = OSPI_B_CK_EDGE_FALLING,                                       \
-		.sdr_sampling_delay = OSPI_B_SDR_SAMPLING_DELAY_NONE,                              \
+		.sdr_drive_timing = XSPI_CONTROLLER_SDR_DRIVE_TIMING_BEFORE_CK,                    \
+		.sdr_sampling_edge = XSPI_CONTROLLER_CK_EDGE_FALLING,                              \
+		.sdr_sampling_delay = XSPI_CONTROLLER_SDR_SAMPLING_DELAY_NONE,                     \
 		.ddr_sampling_extension = DT_INST_PROP(idx, ddr_sampling_extension),               \
-		.output_assert_delay = OSPI_B_ASSERTION_DELAY_ENABLE,                              \
+		.output_assert_delay = XSPI_CONTROLLER_ASSERTION_DELAY_ENABLED,                     \
 		.write_data_mask_enable = DT_INST_PROP(idx, write_data_mask_enable),               \
 	};                                                                                         \
                                                                                                    \
-	static ospi_b_xspi_command_set_t psram_ospi_b_command_set_##idx = {                        \
+	static xspi_controller_command_set_t psram_xspi_controller_command_set_##idx = {      \
 		.protocol = GET_SPI_PROTOCOL(idx),                                                 \
 		.frame_format = GET_FRAME_FORMAT(idx),                                             \
 		.latency_mode = DT_INST_PROP(idx, variable_latency),                               \
@@ -148,47 +146,55 @@ static int memc_renesas_rx_ospi_b_psram_init(const struct device *dev)
 		.p_erase_commands = NULL,                                                          \
 	};                                                                                         \
                                                                                                    \
-	static ospi_b_table_t psram_ospi_command_table_##idx = {                                   \
-		.p_table = &psram_ospi_b_command_set_##idx,                                        \
+	static xspi_controller_table_t psram_xspi_controller_command_table_##idx = {          \
+		.p_table = &psram_xspi_controller_command_set_##idx,                               \
 		.length = 1,                                                                       \
 	};                                                                                         \
                                                                                                    \
-	static struct memc_renesas_rx_ospi_b_psram_data ospi_b_psram_data_##idx;                   \
+	static struct memc_renesas_rx_xspi_controller_psram_data xspi_controller_psram_data_##idx; \
                                                                                                    \
-	static const struct memc_renesas_rx_ospi_b_psram_config ospi_b_psram_config_##idx = {      \
-		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(idx))),                   \
-		.clock_config =                                                                    \
-			{                                                                          \
-				.mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(idx), mstp),       \
-				.stop_bit =                                                        \
-					(uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(idx), stop_bit),   \
-			},                                                                         \
-		.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(idx)),                            \
-		.ospi_pregs = (volatile R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(idx)),           \
-		.flash_size = DT_INST_PROP(idx, size),                                             \
-		.max_frequency = DT_INST_PROP(idx, ospi_max_frequency),                            \
-		.ospi_b_config =                                                                   \
-			{                                                                          \
-				.spi_protocol = GET_SPI_PROTOCOL(idx),                             \
-				.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,             \
-				.page_size_bytes = DT_INST_PROP(idx, write_size_bytes),            \
-				.p_extend = &ospi_b_psram_config_##idx.ospi_b_extended_config,     \
-			},                                                                         \
-		.ospi_b_extended_config =                                                          \
-			{                                                                          \
-				.ospi_b_unit = DT_PROP(DT_INST_PARENT(idx), unit),                 \
-				.channel = DT_INST_REG_ADDR(idx),                                  \
-				.p_timing_settings = &ospi_b_timing_setting_##idx,                 \
-				.p_xspi_command_set = &psram_ospi_command_table_##idx,             \
-				.data_latch_delay_clocks = DT_INST_PROP(idx, ds_latch_delay),      \
-				.p_autocalibration_preamble_pattern_addr =                         \
-					(uint8_t *)DT_INST_PROP(idx,                               \
-								auto_calibration_pattern_address), \
-			},                                                                         \
+	static const struct memc_renesas_rx_xspi_controller_psram_config                           \
+		xspi_controller_psram_config_##idx = {                                             \
+			.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(idx))),           \
+			.clock_config =                                                            \
+				{                                                                  \
+					.mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(idx),      \
+									 mstp),                    \
+					.stop_bit = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(idx),  \
+									     stop_bit),            \
+				},                                                                 \
+			.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(idx)),                    \
+			.xspi_pregs = (volatile R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(idx)),   \
+			.flash_size = DT_INST_PROP(idx, size),                                     \
+			.max_frequency = DT_INST_PROP(idx, ospi_max_frequency),                    \
+			.xspi_controller_config =                                                  \
+				{                                                                  \
+					.spi_protocol = GET_SPI_PROTOCOL(idx),                     \
+					.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,     \
+					.page_size_bytes = DT_INST_PROP(idx, write_size_bytes),    \
+					.p_extend = &xspi_controller_psram_config_##idx            \
+							     .xspi_controller_extended_config,     \
+				},                                                                 \
+			.xspi_controller_extended_config =                                         \
+				{                                                                  \
+					.xspi_controller_unit =                                    \
+						DT_PROP(DT_INST_PARENT(idx), unit),                \
+					.channel = DT_INST_REG_ADDR(idx),                          \
+					.p_timing_settings =                                       \
+						&xspi_controller_timing_setting_##idx,             \
+					.p_xspi_command_set =                                      \
+						&psram_xspi_controller_command_table_##idx,        \
+					.data_latch_delay_clocks =                                 \
+						DT_INST_PROP(idx, ds_latch_delay),                 \
+					.p_autocalibration_preamble_pattern_addr =                 \
+						(uint8_t *)DT_INST_PROP(                           \
+							idx, auto_calibration_pattern_address),    \
+				},                                                                 \
 	};                                                                                         \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(idx, &memc_renesas_rx_ospi_b_psram_init, NULL,                       \
-			      &ospi_b_psram_data_##idx, &ospi_b_psram_config_##idx, POST_KERNEL,   \
+	DEVICE_DT_INST_DEFINE(idx, &memc_renesas_rx_xspi_controller_psram_init, NULL,              \
+			      &xspi_controller_psram_data_##idx,                                   \
+			      &xspi_controller_psram_config_##idx, POST_KERNEL,                    \
 			      CONFIG_KERNEL_INIT_PRIORITY_DEVICE, NULL);
 
-DT_INST_FOREACH_STATUS_OKAY(RENESAS_RX_OSPI_B_PSRAM_INIT)
+DT_INST_FOREACH_STATUS_OKAY(RENESAS_RX_XSPI_CONTROLLER_PSRAM_INIT)

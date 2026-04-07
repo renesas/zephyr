@@ -1251,8 +1251,8 @@
 			status = "disabled";
 		};
 
-		ospi0: ospi@87868000 {
-			compatible = "renesas,rx-ospi-b";
+		xspi0: xspi@87868000 {
+			compatible = "renesas,rx-xspi";
 			reg = <0x87868000 0x19c>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1261,8 +1261,8 @@
 			status = "disabled";
 		};
 
-		ospi1: ospi@87868400 {
-			compatible = "renesas,rx-ospi-b";
+		xspi1: xspi@87868400 {
+			compatible = "renesas,rx-xspi";
 			reg = <0x87868400 0x19c>;
 			#address-cells = <1>;
 			#size-cells = <0>;

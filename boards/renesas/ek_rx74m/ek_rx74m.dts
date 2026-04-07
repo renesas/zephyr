@@ -418,20 +418,20 @@
 	};
 };
 
-&ospi0 {
+&xspi0 {
 	pinctrl-0 = <&xspi0_default>;
 	pinctrl-names = "default";
 	status = "okay";
 
 	mx25lw51245g: ospi-nor-flash@0 {
-		compatible = "renesas,rx-ospi-b-nor";
+		compatible = "renesas,rx-xspi-nor";
 		reg = <0>;
 		size = <DT_SIZE_M(64)>; /* 512 Megabits = 64 Megabytes */
 		ospi-max-frequency = <DT_FREQ_M(133)>;
 		protocol-mode = <XSPI_OCTO_MODE>;
 		data-rate = <XSPI_DTR_TRANSFER>;
 		write-block-size = <2>;
-		output-assert-delay = "ASSERTION_DELAY_ENABLE";
+		output-assert-delay = "ASSERTION_DELAY_ENABLED";
 		status = "okay";
 
 		partitions {
@@ -447,12 +447,13 @@
 	};
 };
 
-&ospi1 {
+&xspi1 {
 	pinctrl-0 = <&xspi1_default>;
 	pinctrl-names = "default";
 	status = "okay";
+
 	memc: is66wvo32m8d: memory@0 {
-		compatible = "renesas,rx-ospi-b-psram";
+		compatible = "renesas,rx-xspi-psram";
 		variable-latency;
 		reg = <0>;
 		size = <DT_SIZE_M(32)>; /* 32 Megabytes */

@@ -1,9 +1,9 @@
 # Copyright (c) 2025 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-description: Renesas RX OSPI FLASH
+description: Renesas RX XSPI FLASH
 
-compatible: "renesas,rx-ospi-b-nor"
+compatible: "renesas,rx-xspi-nor"
 
 include: ["flash-controller.yaml", "jedec,jesd216.yaml"]
 
@@ -125,10 +125,10 @@ properties:
 
   output-assert-delay:
     type: string
-    default: ASSERTION_DELAY_DISABLE
+    default: ASSERTION_DELAY_DISABLED
     enum:
-      - ASSERTION_DELAY_DISABLE
-      - ASSERTION_DELAY_ENABLE
+      - ASSERTION_DELAY_DISABLED
+      - ASSERTION_DELAY_ENABLED
     description: |
       Assertion timing of the output buffer control signal. Setting this  will delays the start
       of output from the IO pins and the DS pin by one cycle.

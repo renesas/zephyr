@@ -3,14 +3,14 @@
 # Copyright (c) 2025 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-config FLASH_RENESAS_RX_OSPI_B
+config FLASH_RENESAS_RX_XSPI
 	bool "Renesas RX Octal-SPI driver"
 	default y
-	depends on DT_HAS_RENESAS_RX_OSPI_B_NOR_ENABLED
+	depends on DT_HAS_RENESAS_RX_XSPI_NOR_ENABLED
 	select FLASH_HAS_DRIVER_ENABLED
 	select FLASH_HAS_PAGE_LAYOUT
 	select FLASH_HAS_EXPLICIT_ERASE
-	select USE_RX_FSP_OSPI_B
+	select USE_RX_FSP_XSPI_CONTROLLER
 	select FLASH_JESD216
 	select FLASH_HAS_EX_OP
 	select PINCTRL
