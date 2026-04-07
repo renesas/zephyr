@@ -239,7 +239,7 @@
 };
 
 &canfdclk {
-	clocks = <&pllp>;
+	clocks = <&pllq>;
 	div = <5>;
 	status = "okay";
 };
