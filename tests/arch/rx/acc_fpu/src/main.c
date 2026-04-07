@@ -767,9 +767,9 @@ static void thread_2_entry(void *p1, void *p2, void *p3)
 ZTEST(rx_acc_tests, test_counting_value)
 {
 
-	k_tid_t tid_1 = k_thread_create(&thread_1, tstack_thread_1, STACK_SIZE, thread_1_entry,
+	k_thread_create(&thread_1, tstack_thread_1, STACK_SIZE, thread_1_entry,
 					NULL, NULL, NULL, K_PRIO_COOP(1), 0, K_NO_WAIT);
 
-	k_tid_t tid_2 = k_thread_create(&thread_2, tstack_thread_2, STACK_SIZE, thread_2_entry,
+	k_thread_create(&thread_2, tstack_thread_2, STACK_SIZE, thread_2_entry,
 					NULL, NULL, NULL, K_PRIO_COOP(1), 0, K_NO_WAIT);
 }
