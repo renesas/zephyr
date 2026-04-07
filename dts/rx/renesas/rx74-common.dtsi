@@ -1822,8 +1822,8 @@
 			#interrupt-cells = <2>;
 		};
 
-		canfd_global: canfd_global@87480000 {
-			compatible = "renesas,rx-canfd-global";
+		canfdg_global: canfdg_global@87480000 {
+			compatible = "renesas,rx-canfdg-global";
 			interrupts-extended = <&group_irq_al2 0 1>,
 					      <&group_irq_al2 1 1>;
 			interrupt-names = "rfri", "glei";
@@ -1834,8 +1834,8 @@
 			reg = <0x87480000 0x20>;
 			status = "disabled";
 
-			canfd0: canfd0 {
-				compatible = "renesas,rx-canfd";
+			canfdg0: canfdg0 {
+				compatible = "renesas,rx-canfdg";
 				channel = <0>;
 				interrupts-extended = <&group_irq_al2 2 1>,
 						      <&group_irq_al2 3 1>,
@@ -1846,8 +1846,8 @@
 				status = "disabled";
 			};
 
-			canfd1: canfd1 {
-				compatible = "renesas,rx-canfd";
+			canfdg1: canfdg1 {
+				compatible = "renesas,rx-canfdg";
 				channel = <1>;
 				interrupts-extended = <&group_irq_al2 5 1>,
 						      <&group_irq_al2 6 1>,

@@ -22,7 +22,7 @@
 		zephyr,flash = &code_mram;
 		zephyr,console = &uart12;
 		zephyr,shell-uart = &uart12;
-		zephyr,canbus = &canfd0;
+		zephyr,canbus = &canfdg0;
 		zephyr,flash-controller = &mram;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,entropy = &trng;
@@ -248,11 +248,11 @@
 	status = "okay";
 };
 
-&canfd_global {
+&canfdg_global {
 	status = "okay";
 
-	canfd0: canfd0 {
-		pinctrl-0 = <&canfd0_default>;
+	canfdg0: canfdg0 {
+		pinctrl-0 = <&canfdg0_default>;
 		pinctrl-names = "default";
 		rx-max-filters = <64>;
 		phys = <&transceiver0>;

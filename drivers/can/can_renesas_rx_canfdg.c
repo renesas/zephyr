@@ -12,11 +12,11 @@
 #include <zephyr/drivers/interrupt_controller/intc_renesas_rx_grp_int_fsp.h>
 
 #include "r_can_api.h"
-#include "r_canfd.h"
+#include "r_canfdg.h"
 
-LOG_MODULE_REGISTER(can_renesas_rx, CONFIG_CAN_LOG_LEVEL);
+LOG_MODULE_REGISTER(can_renesas_rx_canfdg, CONFIG_CAN_LOG_LEVEL);
 
-#define DT_DRV_COMPAT renesas_rx_canfd
+#define DT_DRV_COMPAT renesas_rx_canfdg
 
 #define CAN_RENESAS_RX_TIMING_MAX                                                                  \
 	{                                                                                          \
@@ -55,7 +55,7 @@ LOG_MODULE_REGISTER(can_renesas_rx, CONFIG_CAN_LOG_LEVEL);
 	}
 #endif /* CONFIG_CAN_FD_MODE */
 
-#define CANFD_GROUP_IRQ DT_IRQ(DT_NODELABEL(group_irq_al2), irq)
+#define CANFDG_GROUP_IRQ DT_IRQ(DT_NODELABEL(group_irq_al2), irq)
 
 /* This frame ID will be reserved. Any filter using this ID may cause undefined behavior. */
 #define CAN_RENESAS_RX_RESERVED_ID (CAN_EXT_ID_MASK)
@@ -64,77 +64,77 @@ LOG_MODULE_REGISTER(can_renesas_rx, CONFIG_CAN_LOG_LEVEL);
  * Common FIFO configuration: refer to '45.2.27 Common FIFO n Configuration Register (CFCRn)' -
  * RX74M MCU group HWM
  */
-#define CANFD_CFG_COMMONFIFO                                                                       \
-	{CANFD_CFG_COMMONFIFO0, CANFD_CFG_COMMONFIFO1, CANFD_CFG_COMMONFIFO2,                      \
-	 CANFD_CFG_COMMONFIFO3, CANFD_CFG_COMMONFIFO4, CANFD_CFG_COMMONFIFO5}
+#define CANFDG_CFG_COMMONFIFO                                                                       \
+	{CANFDG_CFG_COMMONFIFO0, CANFDG_CFG_COMMONFIFO1, CANFDG_CFG_COMMONFIFO2,                      \
+	 CANFDG_CFG_COMMONFIFO3, CANFDG_CFG_COMMONFIFO4, CANFDG_CFG_COMMONFIFO5}
 
-#define CANFD_CFG_RX_FIFO0                                                                         \
-	((1U << R_CANFD_RFCR_RFE_Pos) |  /* RX FIFO Enable */                                      \
-	 (1U << R_CANFD_RFCR_RFIE_Pos) | /* RX FIFO Interrupt Enable */                            \
-	 (7U << R_CANFD_RFCR_PLS_Pos) |  /* RX FIFO Payload Data Size: 64 */                       \
-	 (3U << R_CANFD_RFCR_FDS_Pos) |  /* RX FIFO Depth: 16 messages */                          \
-	 (1U << R_CANFD_RFCR_RFIM_Pos))  /* Interrupt generated at the end of                      \
+#define CANFDG_CFG_RX_FIFO0                                                                         \
+	((1U << R_CANFDG_RFCR_RFE_Pos) |  /* RX FIFO Enable */                                      \
+	 (1U << R_CANFDG_RFCR_RFIE_Pos) | /* RX FIFO Interrupt Enable */                            \
+	 (7U << R_CANFDG_RFCR_PLS_Pos) |  /* RX FIFO Payload Data Size: 64 */                       \
+	 (3U << R_CANFDG_RFCR_FDS_Pos) |  /* RX FIFO Depth: 16 messages */                          \
+	 (1U << R_CANFDG_RFCR_RFIM_Pos))  /* Interrupt generated at the end of                      \
 					  *  every received message storage                        \
 					  */
 
-#define CANFD_CFG_RX_FIFO1 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO1 Disable */
-#define CANFD_CFG_RX_FIFO2 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO2 Disable */
-#define CANFD_CFG_RX_FIFO3 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO3 Disable */
-#define CANFD_CFG_RX_FIFO4 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO4 Disable */
-#define CANFD_CFG_RX_FIFO5 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO5 Disable */
-#define CANFD_CFG_RX_FIFO6 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO6 Disable */
-#define CANFD_CFG_RX_FIFO7 (0U << R_CANFD_RFCR_RFE_Pos) /* RX FIFO7 Disable */
+#define CANFDG_CFG_RX_FIFO1 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO1 Disable */
+#define CANFDG_CFG_RX_FIFO2 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO2 Disable */
+#define CANFDG_CFG_RX_FIFO3 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO3 Disable */
+#define CANFDG_CFG_RX_FIFO4 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO4 Disable */
+#define CANFDG_CFG_RX_FIFO5 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO5 Disable */
+#define CANFDG_CFG_RX_FIFO6 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO6 Disable */
+#define CANFDG_CFG_RX_FIFO7 (0U << R_CANFDG_RFCR_RFE_Pos) /* RX FIFO7 Disable */
 
 /*
  * RX FIFO configuration: refer to '45.2.24 Receive FIFO n Configuration Register (RFCRn)' -
  * RX74M MCU group HWM
  */
-#define CANFD_CFG_RXFIFO                                                                           \
-	{CANFD_CFG_RX_FIFO0, CANFD_CFG_RX_FIFO1, CANFD_CFG_RX_FIFO2, CANFD_CFG_RX_FIFO3,           \
-	 CANFD_CFG_RX_FIFO4, CANFD_CFG_RX_FIFO5, CANFD_CFG_RX_FIFO6, CANFD_CFG_RX_FIFO7}
+#define CANFDG_CFG_RXFIFO                                                                           \
+	{CANFDG_CFG_RX_FIFO0, CANFDG_CFG_RX_FIFO1, CANFDG_CFG_RX_FIFO2, CANFDG_CFG_RX_FIFO3,           \
+	 CANFDG_CFG_RX_FIFO4, CANFDG_CFG_RX_FIFO5, CANFDG_CFG_RX_FIFO6, CANFDG_CFG_RX_FIFO7}
 
 /*
  * Global Configuration: refer to '45.2.10 Global Configuration Register (GCFG)' - RX74M MCU
  * group HWM
  */
-#define CANFD_CFG_GLOBAL                                                                           \
-	((0U << R_CANFD_GCFG_TPRI_Pos) | /* Transmission Priority: ID priority */                  \
-	 (0U << R_CANFD_GCFG_DCE_Pos) |  /* DLC check disabled */                                  \
-	 (0U << R_CANFD_GCFG_DLLCS_Pos)) /* DLL Clock Select: CANFDCLK */
+#define CANFDG_CFG_GLOBAL                                                                           \
+	((0U << R_CANFDG_GCFG_TPRI_Pos) | /* Transmission Priority: ID priority */                  \
+	 (0U << R_CANFDG_GCFG_DCE_Pos) |  /* DLC check disabled */                                  \
+	 (0U << R_CANFDG_GCFG_DLLCS_Pos)) /* DLL Clock Select: CANFDCLK */
 
 /*
  * TX Message Buffer Interrupt Enable Configuration: refer to '45.2.52 Transmit Message Buffer
  * Interrupt Enable Register m (TMIERm)' - RX74M MCU group HWM
  */
-#define CANFD_CFG_TXMB_TXI_ENABLE (BIT(0)) /* Enable TXMB0 interrupt */
+#define CANFDG_CFG_TXMB_TXI_ENABLE (BIT(0)) /* Enable TXMB0 interrupt */
 
 /*
  * Number and size of RX Message Buffers: refer to '45.2.22 Receive Message Buffer Configuration
  * Register (RMCR)' - RX74M MCU group HWM
  */
-#define CANFD_CFG_RXMB (0U << R_CANFD_RMCR_NMB_Pos) /* Number of RX Message Buffers: 0 */
+#define CANFDG_CFG_RXMB (0U << R_CANFDG_RMCR_NMB_Pos) /* Number of RX Message Buffers: 0 */
 
 /*
  * Channel Error IRQ configurations: refer to '45.2.2 Channel Control Register (CHCR)' - RX74M MCU
  * group HWM
  */
-#define CANFD_CFG_ERR_IRQ                                                                          \
-	(BIT(R_CANFD_CFDC_CHCR_EWIE_Pos) |  /* Error Warning Interrupt Enable */                   \
-	 BIT(R_CANFD_CFDC_CHCR_EPIE_Pos) |  /* Error Passive Interrupt Enable */                   \
-	 BIT(R_CANFD_CFDC_CHCR_BOEIE_Pos) | /* Bus-Off Entry Interrupt Enable */                   \
-	 BIT(R_CANFD_CFDC_CHCR_BORIE_Pos) | /* Bus-Off Recovery Interrupt Enable */                \
-	 BIT(R_CANFD_CFDC_CHCR_OLIE_Pos))   /* Overload Interrupt Enable */
+#define CANFDG_CFG_ERR_IRQ                                                                          \
+	(BIT(R_CANFDG_CFDC_CHCR_EWIE_Pos) |  /* Error Warning Interrupt Enable */                   \
+	 BIT(R_CANFDG_CFDC_CHCR_EPIE_Pos) |  /* Error Passive Interrupt Enable */                   \
+	 BIT(R_CANFDG_CFDC_CHCR_BOEIE_Pos) | /* Bus-Off Entry Interrupt Enable */                   \
+	 BIT(R_CANFDG_CFDC_CHCR_BORIE_Pos) | /* Bus-Off Recovery Interrupt Enable */                \
+	 BIT(R_CANFDG_CFDC_CHCR_OLIE_Pos))   /* Overload Interrupt Enable */
 
 /*
  * Global Error IRQ configurations: refer to '45.2.11 Global Control Register (GCR)' - RX74M MCU
  * group HWM
  */
-#define CANFD_CFG_GLERR_IRQ                                                                        \
-	((3UL << R_CANFD_GCR_MDC_Pos) |   /* Global Mode Control: Keep current value */            \
-	 (0UL << R_CANFD_GCR_DEIE_Pos) |  /* DLC check interrupt disabled */                       \
-	 (0UL << R_CANFD_GCR_MLIE_Pos) |  /* Message lost error interrupt disabled */              \
-	 (0UL << R_CANFD_GCR_THLIE_Pos) | /* TX history list entry lost interrupt disabled */      \
-	 (0UL << R_CANFD_GCR_POIE_Pos))   /* CANFD message payload overflow flag interrupt         \
+#define CANFDG_CFG_GLERR_IRQ                                                                        \
+	((3UL << R_CANFDG_GCR_MDC_Pos) |   /* Global Mode Control: Keep current value */            \
+	 (0UL << R_CANFDG_GCR_DEIE_Pos) |  /* DLC check interrupt disabled */                       \
+	 (0UL << R_CANFDG_GCR_MLIE_Pos) |  /* Message lost error interrupt disabled */              \
+	 (0UL << R_CANFDG_GCR_THLIE_Pos) | /* TX history list entry lost interrupt disabled */      \
+	 (0UL << R_CANFDG_GCR_POIE_Pos))   /* CANFD message payload overflow flag interrupt         \
 					   * disabled                                              \
 					   */
 /* Keycode to enable/disable accessing to AFL entry */
@@ -158,7 +158,7 @@ struct can_renesas_rx_global_cfg {
 };
 
 struct can_renesas_rx_global_data {
-	canfd_global_cfg_t fsp_canfd_global_cfg;
+	canfdg_global_cfg_t fsp_canfdg_global_cfg;
 	const struct device *can_global_intc;
 	const unsigned int rfri_num;
 	const unsigned int glei_num;
@@ -190,9 +190,9 @@ struct can_renesas_rx_data {
 
 	/* Renesas RX FSP data */
 	can_instance_t fsp_can;
-	canfd_instance_ctrl_t fsp_canfd_ctrl;
+	canfdg_instance_ctrl_t fsp_canfdg_ctrl;
 	can_cfg_t fsp_can_cfg;
-	canfd_extended_cfg_t fsp_canfd_extend;
+	canfdg_extended_cfg_t fsp_canfdg_extend;
 	can_bit_timing_cfg_t bit_timing;
 	can_bit_timing_cfg_t data_timing;
 
@@ -202,10 +202,10 @@ struct can_renesas_rx_data {
 	unsigned int chri_num;
 };
 
-extern void canfd_error_isr(void);
-extern void canfd_rx_fifo_isr(void);
-extern void canfd_common_fifo_rx_isr(void);
-extern void canfd_channel_tx_isr(void);
+extern void canfdg_error_isr(void);
+extern void canfdg_rx_fifo_isr(void);
+extern void canfdg_common_fifo_rx_isr(void);
+extern void canfdg_channel_tx_isr(void);
 
 /**************************************************************************************************
  * Subsys APIs implementation
@@ -252,12 +252,12 @@ static int can_renesas_rx_start(const struct device *dev)
 
 	int ret = 0;
 
-	data->fsp_canfd_extend.p_data_timing =
+	data->fsp_canfdg_extend.p_data_timing =
 		(data->common.mode & CAN_MODE_FD)
 			? (can_bit_timing_cfg_t *)&data->data_timing
 			: (can_bit_timing_cfg_t *)&classic_can_data_timing_default;
 
-	if (data->fsp_canfd_ctrl.open != 0) {
+	if (data->fsp_canfdg_ctrl.open != 0) {
 		if (FSP_SUCCESS != can_api->close(data->fsp_can.p_ctrl)) {
 			LOG_DBG("CAN close failed");
 			ret = -EIO;
@@ -380,11 +380,11 @@ static inline void can_renesas_rx_call_rx_cb(const struct device *dev, can_callb
 		.id = p_args->frame.id,
 		.flags = (((p_args->frame.id_mode == CAN_ID_MODE_EXTENDED) ? CAN_FRAME_IDE : 0UL) |
 			  ((p_args->frame.type == CAN_FRAME_TYPE_REMOTE) ? CAN_FRAME_RTR : 0UL) |
-			  ((p_args->frame.options & CANFD_FRAME_OPTION_FD) != 0 ? CAN_FRAME_FDF
+			  ((p_args->frame.options & CANFDG_FRAME_OPTION_FD) != 0 ? CAN_FRAME_FDF
 										: 0UL) |
-			  ((p_args->frame.options & CANFD_FRAME_OPTION_ERROR) != 0 ? CAN_FRAME_ESI
+			  ((p_args->frame.options & CANFDG_FRAME_OPTION_ERROR) != 0 ? CAN_FRAME_ESI
 										   : 0UL) |
-			  ((p_args->frame.options & CANFD_FRAME_OPTION_BRS) != 0 ? CAN_FRAME_BRS
+			  ((p_args->frame.options & CANFDG_FRAME_OPTION_BRS) != 0 ? CAN_FRAME_BRS
 										 : 0UL)),
 	};
 
@@ -437,8 +437,8 @@ static void can_renesas_rx_call_state_change_cb(const struct device *dev, enum c
 static int recover_bus(const struct device *dev, k_timeout_t timeout)
 {
 	struct can_renesas_rx_data *data = dev->data;
-	canfd_instance_ctrl_t *p_ctrl = &data->fsp_canfd_ctrl;
-	R_CANFD_Type *p_reg = p_ctrl->p_reg;
+	canfdg_instance_ctrl_t *p_ctrl = &data->fsp_canfdg_ctrl;
+	R_CANFDG_Type *p_reg = p_ctrl->p_reg;
 	uint32_t chcr = p_reg->CFDC->CHCR;
 	int ret = 0;
 
@@ -573,14 +573,14 @@ static int can_renesas_rx_send(const struct device *dev, const struct can_frame 
 							      : CAN_FRAME_TYPE_DATA,
 		.data_length_code = can_dlc_to_bytes(frame->dlc),
 		.options =
-			((((frame->flags & CAN_FRAME_FDF) != 0) ? CANFD_FRAME_OPTION_FD : 0UL) |
-			 (((frame->flags & CAN_FRAME_BRS) != 0) ? CANFD_FRAME_OPTION_BRS : 0UL) |
-			 (((frame->flags & CAN_FRAME_ESI) != 0) ? CANFD_FRAME_OPTION_ERROR : 0UL)),
+			((((frame->flags & CAN_FRAME_FDF) != 0) ? CANFDG_FRAME_OPTION_FD : 0UL) |
+			 (((frame->flags & CAN_FRAME_BRS) != 0) ? CANFDG_FRAME_OPTION_BRS : 0UL) |
+			 (((frame->flags & CAN_FRAME_ESI) != 0) ? CANFDG_FRAME_OPTION_ERROR : 0UL)),
 	};
 
 	memcpy(fsp_frame.data, frame->data, fsp_frame.data_length_code);
 
-	if (FSP_SUCCESS != can_api->write(data->fsp_can.p_ctrl, CANFD_TX_MB_0, &fsp_frame)) {
+	if (FSP_SUCCESS != can_api->write(data->fsp_can.p_ctrl, CANFDG_TX_MB_0, &fsp_frame)) {
 		data->tx_cb = NULL;
 		data->tx_usr_data = NULL;
 		LOG_DBG("Can send failed");
@@ -611,9 +611,9 @@ static inline void set_afl_rule(const struct device *dev, const struct can_filte
 				uint32_t afl_offset)
 {
 	struct can_renesas_rx_data *data = dev->data;
-	canfd_afl_entry_t *afl = (canfd_afl_entry_t *)&data->fsp_canfd_extend.p_afl[afl_offset];
+	canfdg_afl_entry_t *afl = (canfdg_afl_entry_t *)&data->fsp_canfdg_extend.p_afl[afl_offset];
 
-	*afl = (canfd_afl_entry_t){
+	*afl = (canfdg_afl_entry_t){
 		.id = {.id = filter->id,
 #ifndef CONFIG_CAN_ACCEPT_RTR
 		       .frame_type = CAN_FRAME_TYPE_DATA,
@@ -636,13 +636,13 @@ static inline void set_afl_rule(const struct device *dev, const struct can_filte
 			},
 		.destination =
 			{
-				.fifo_select_flags = CANFD_RX_FIFO_0,
+				.fifo_select_flags = CANFDG_RX_FIFO_0,
 			},
 	};
 
 	if (data->common.started) {
-		canfd_instance_ctrl_t *p_ctrl = &data->fsp_canfd_ctrl;
-		R_CANFD_Type *reg = p_ctrl->p_reg;
+		canfdg_instance_ctrl_t *p_ctrl = &data->fsp_canfdg_ctrl;
+		R_CANFDG_Type *reg = p_ctrl->p_reg;
 		uint32_t channel = data->fsp_can_cfg.channel;
 
 		/* Update AFL rules while CAN module is running */
@@ -650,21 +650,21 @@ static inline void set_afl_rule(const struct device *dev, const struct can_filte
 		reg->AFIGSR_b.IGCS = channel & 0x1FF;
 
 		/* Ignore entry enabled*/
-		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFD_AFIGER_KEY_Pos) |
-			       BIT(R_CANFD_AFIGER_IGEE_Pos));
+		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFDG_AFIGER_KEY_Pos) |
+			       BIT(R_CANFDG_AFIGER_IGEE_Pos));
 
 		/* Set AFL page number and enable AFL write */
-		reg->AFCR = (afl_offset >> 4) | R_CANFD_AFCR_AFLWE_Msk;
+		reg->AFCR = (afl_offset >> 4) | R_CANFDG_AFCR_AFLWE_Msk;
 
 		/* Write AFL configuration */
-		reg->AFL[afl_offset & 0xF] = *(R_CANFD_AFL_Type *)afl;
+		reg->AFL[afl_offset & 0xF] = *(R_CANFDG_AFL_Type *)afl;
 
 		/*Set Information Label 0 to the channel being configured*/
 		reg->AFL[afl_offset & 0xF].PTR0_b.IFL0 = channel & 1U;
 
 		/* Lock AFL entry access */
 		reg->AFCR = 0;
-		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFD_AFIGER_KEY_Pos));
+		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFDG_AFIGER_KEY_Pos));
 	}
 }
 
@@ -698,10 +698,10 @@ static int can_renesas_rx_add_rx_filter(const struct device *dev, can_rx_callbac
 static inline void remove_afl_rule(const struct device *dev, uint32_t afl_offset)
 {
 	struct can_renesas_rx_data *data = dev->data;
-	canfd_afl_entry_t *afl = (canfd_afl_entry_t *)&data->fsp_canfd_extend.p_afl[afl_offset];
+	canfdg_afl_entry_t *afl = (canfdg_afl_entry_t *)&data->fsp_canfdg_extend.p_afl[afl_offset];
 
 	/* Set the AFL ID to reserved ID */
-	*afl = (canfd_afl_entry_t){
+	*afl = (canfdg_afl_entry_t){
 		.id =
 			{
 				.id = CAN_RENESAS_RX_RESERVED_ID,
@@ -715,29 +715,29 @@ static inline void remove_afl_rule(const struct device *dev, uint32_t afl_offset
 	};
 
 	if (data->common.started) {
-		canfd_instance_ctrl_t *p_ctrl = &data->fsp_canfd_ctrl;
-		R_CANFD_Type *reg = p_ctrl->p_reg;
+		canfdg_instance_ctrl_t *p_ctrl = &data->fsp_canfdg_ctrl;
+		R_CANFDG_Type *reg = p_ctrl->p_reg;
 		uint32_t channel = data->fsp_can_cfg.channel;
 
 		/* Update AFL rules while CAN module is running */
 		reg->AFIGSR_b.IGES = afl_offset & 0x7F;
 		reg->AFIGSR_b.IGCS = channel & 0x1FF;
 		/* Ignore entry enabled*/
-		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFD_AFIGER_KEY_Pos) |
-			       BIT(R_CANFD_AFIGER_IGEE_Pos));
+		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFDG_AFIGER_KEY_Pos) |
+			       BIT(R_CANFDG_AFIGER_IGEE_Pos));
 
 		/* Set AFL page number and enable AFL write */
-		reg->AFCR = (afl_offset >> 4) | R_CANFD_AFCR_AFLWE_Msk;
+		reg->AFCR = (afl_offset >> 4) | R_CANFDG_AFCR_AFLWE_Msk;
 
 		/* Write AFL configuration */
-		reg->AFL[afl_offset & 0xF] = *(R_CANFD_AFL_Type *)afl;
+		reg->AFL[afl_offset & 0xF] = *(R_CANFDG_AFL_Type *)afl;
 
 		/*Set Information Label 0 to the channel being configured*/
 		reg->AFL[afl_offset & 0xF].PTR0_b.IFL0 = channel & 1U;
 
 		/* Lock AFL entry access */
 		reg->AFCR = 0;
-		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFD_AFIGER_KEY_Pos));
+		reg->AFIGER = ((AFIGER_KEY_CODE << R_CANFDG_AFIGER_KEY_Pos));
 	}
 }
 
@@ -803,13 +803,13 @@ static int can_renesas_rx_get_state(const struct device *dev, enum can_state *st
 		if (!data->common.started) {
 			*state = CAN_STATE_STOPPED;
 		} else {
-			if (fsp_info.error_code & R_CANFD_CFDC_CHESR_BOEDF_Msk) {
+			if (fsp_info.error_code & R_CANFDG_CFDC_CHESR_BOEDF_Msk) {
 				*state = CAN_STATE_BUS_OFF;
-			} else if (fsp_info.error_code & R_CANFD_CFDC_CHESR_EPDF_Msk) {
+			} else if (fsp_info.error_code & R_CANFDG_CFDC_CHESR_EPDF_Msk) {
 				*state = CAN_STATE_ERROR_PASSIVE;
-			} else if (fsp_info.error_code & R_CANFD_CFDC_CHESR_EWDF_Msk) {
+			} else if (fsp_info.error_code & R_CANFDG_CFDC_CHESR_EWDF_Msk) {
 				*state = CAN_STATE_ERROR_WARNING;
-			} else if (fsp_info.error_code & R_CANFD_CFDC_CHESR_BEDF_Msk) {
+			} else if (fsp_info.error_code & R_CANFDG_CFDC_CHESR_BEDF_Msk) {
 				*state = CAN_STATE_ERROR_ACTIVE;
 			}
 		}
@@ -830,21 +830,21 @@ static void can_renesas_rx_set_state_change_callback(const struct device *dev,
 						     void *user_data)
 {
 	struct can_renesas_rx_data *data = dev->data;
-	canfd_instance_ctrl_t *p_ctrl = data->fsp_can.p_ctrl;
+	canfdg_instance_ctrl_t *p_ctrl = data->fsp_can.p_ctrl;
 	int key = irq_lock();
 
 	k_mutex_lock(&data->inst_mutex, K_FOREVER);
 	if (callback != NULL) {
 		/* Enable state change interrupt */
-		p_ctrl->p_reg->CFDC->CHCR |= (uint32_t)CANFD_CFG_ERR_IRQ;
+		p_ctrl->p_reg->CFDC->CHCR |= (uint32_t)CANFDG_CFG_ERR_IRQ;
 	} else {
 		/* Disable state change interrupt */
-		p_ctrl->p_reg->CFDC->CHCR &= (uint32_t)~CANFD_CFG_ERR_IRQ;
+		p_ctrl->p_reg->CFDC->CHCR &= (uint32_t)~CANFDG_CFG_ERR_IRQ;
 
 		/* Clear error flags */
 		p_ctrl->p_reg->CFDC->CHESR &=
-			~(BIT(R_CANFD_CFDC_CHESR_BOEDF_Pos) | BIT(R_CANFD_CFDC_CHESR_EWDF_Pos) |
-			  BIT(R_CANFD_CFDC_CHESR_EPDF_Pos) | BIT(R_CANFD_CFDC_CHESR_BEDF_Pos));
+			~(BIT(R_CANFDG_CFDC_CHESR_BOEDF_Pos) | BIT(R_CANFDG_CFDC_CHESR_EWDF_Pos) |
+			  BIT(R_CANFDG_CFDC_CHESR_EPDF_Pos) | BIT(R_CANFDG_CFDC_CHESR_BEDF_Pos));
 	}
 
 	data->common.state_change_cb = callback;
@@ -911,16 +911,16 @@ void can_renesas_rx_fsp_cb(can_callback_args_t *p_args)
 	}
 
 	case CAN_EVENT_ERR_CHANNEL: {
-		if (p_args->error & R_CANFD_CFDC_CHESR_BEDF_Msk) {
+		if (p_args->error & R_CANFDG_CFDC_CHESR_BEDF_Msk) {
 			can_renesas_rx_call_state_change_cb(dev, CAN_STATE_ERROR_ACTIVE);
 		}
-		if (p_args->error & R_CANFD_CFDC_CHESR_EWDF_Msk) {
+		if (p_args->error & R_CANFDG_CFDC_CHESR_EWDF_Msk) {
 			can_renesas_rx_call_state_change_cb(dev, CAN_STATE_ERROR_WARNING);
 		}
-		if (p_args->error & R_CANFD_CFDC_CHESR_EPDF_Msk) {
+		if (p_args->error & R_CANFDG_CFDC_CHESR_EPDF_Msk) {
 			can_renesas_rx_call_state_change_cb(dev, CAN_STATE_ERROR_PASSIVE);
 		}
-		if (p_args->error & R_CANFD_CFDC_CHESR_BOEDF_Msk) {
+		if (p_args->error & R_CANFDG_CFDC_CHESR_BOEDF_Msk) {
 			can_renesas_rx_call_state_change_cb(dev, CAN_STATE_BUS_OFF);
 		}
 		break;
@@ -954,7 +954,7 @@ static int can_renesas_rx_apply_default_config(const struct device *dev)
 	}
 #endif /* CONFIG_CAN_FD_MODE */
 
-	data->fsp_canfd_extend.p_global_cfg = &global_data->fsp_canfd_global_cfg;
+	data->fsp_canfdg_extend.p_global_cfg = &global_data->fsp_canfdg_global_cfg;
 	for (uint32_t filter_id = 0; filter_id < cfg->rx_filter_num; filter_id++) {
 		remove_afl_rule(dev, filter_id);
 	}
@@ -1038,7 +1038,7 @@ static int can_renesas_rx_chei_enable(const struct device *dev)
 		return ret;
 	}
 
-	ret = rx_grp_intc_callback_set(data->can_intc, data->chei_num, canfd_error_isr,
+	ret = rx_grp_intc_callback_set(data->can_intc, data->chei_num, canfdg_error_isr,
 				       (void *)dev);
 	return ret;
 }
@@ -1053,7 +1053,7 @@ static int can_renesas_rx_chri_enable(const struct device *dev)
 		return ret;
 	}
 
-	ret = rx_grp_intc_callback_set(data->can_intc, data->chri_num, canfd_common_fifo_rx_isr,
+	ret = rx_grp_intc_callback_set(data->can_intc, data->chri_num, canfdg_common_fifo_rx_isr,
 				       (void *)dev);
 	return ret;
 }
@@ -1068,7 +1068,7 @@ static int can_renesas_rx_chti_enable(const struct device *dev)
 		return ret;
 	}
 
-	ret = rx_grp_intc_callback_set(data->can_intc, data->chti_num, canfd_channel_tx_isr,
+	ret = rx_grp_intc_callback_set(data->can_intc, data->chti_num, canfdg_channel_tx_isr,
 				       (void *)dev);
 	return ret;
 }
@@ -1083,7 +1083,7 @@ static int can_renesas_rx_glei_enable(const struct device *dev)
 		return ret;
 	}
 
-	ret = rx_grp_intc_callback_set(data->can_global_intc, data->glei_num, canfd_error_isr,
+	ret = rx_grp_intc_callback_set(data->can_global_intc, data->glei_num, canfdg_error_isr,
 				       (void *)dev);
 	return ret;
 }
@@ -1098,7 +1098,7 @@ static int can_renesas_rx_rfri_enable(const struct device *dev)
 		return ret;
 	}
 
-	ret = rx_grp_intc_callback_set(data->can_global_intc, data->rfri_num, canfd_rx_fifo_isr,
+	ret = rx_grp_intc_callback_set(data->can_global_intc, data->rfri_num, canfdg_rx_fifo_isr,
 				       (void *)dev);
 	return ret;
 }
@@ -1237,15 +1237,15 @@ static const struct can_driver_api can_renesas_rx_driver_api = {
 
 #define CAN_RENESAS_RX_GLOBAL_INIT(id)                                                             \
 	static struct can_renesas_rx_global_data can_renesas_rx_global_data##id = {                \
-		.fsp_canfd_global_cfg =                                                            \
+		.fsp_canfdg_global_cfg =                                                            \
 			{                                                                          \
-				.global_interrupts = CANFD_CFG_GLERR_IRQ,                          \
-				.global_config = CANFD_CFG_GLOBAL,                                 \
-				.rx_fifo_config = CANFD_CFG_RXFIFO,                                \
-				.rx_mb_config = CANFD_CFG_RXMB,                                    \
+				.global_interrupts = CANFDG_CFG_GLERR_IRQ,                          \
+				.global_config = CANFDG_CFG_GLOBAL,                                 \
+				.rx_fifo_config = CANFDG_CFG_RXFIFO,                                \
+				.rx_mb_config = CANFDG_CFG_RXMB,                                    \
 				.global_err_ipl = DT_IRQ_BY_NAME(id, glei, priority),              \
 				.rx_fifo_ipl = DT_IRQ_BY_NAME(id, rfri, priority),                 \
-				.common_fifo_config = CANFD_CFG_COMMONFIFO,                        \
+				.common_fifo_config = CANFDG_CFG_COMMONFIFO,                        \
 			},                                                                         \
 		.rfri_num = DT_IRQ_BY_NAME(id, rfri, irq),                                         \
 		.glei_num = DT_IRQ_BY_NAME(id, glei, irq),                                         \
@@ -1273,11 +1273,11 @@ static const struct can_driver_api can_renesas_rx_driver_api = {
 			 &can_renesas_rx_global_cfg##id, PRE_KERNEL_2, CONFIG_CAN_INIT_PRIORITY,   \
 			 NULL)
 
-DT_FOREACH_STATUS_OKAY(renesas_rx_canfd_global, CAN_RENESAS_RX_GLOBAL_INIT)
+DT_FOREACH_STATUS_OKAY(renesas_rx_canfdg_global, CAN_RENESAS_RX_GLOBAL_INIT)
 
 #define CAN_RENESAS_RX_INIT(index)                                                                 \
 	PINCTRL_DT_INST_DEFINE(index);                                                             \
-	static canfd_afl_entry_t canfd_afl##index[DT_INST_PROP(index, rx_max_filters)] = {0};      \
+	static canfdg_afl_entry_t canfdg_afl##index[DT_INST_PROP(index, rx_max_filters)] = {0};      \
 	struct can_renesas_rx_filter                                                               \
 		can_renesas_rx_rx_filter##index[DT_INST_PROP(index, rx_max_filters)];              \
 	static const struct can_renesas_rx_cfg can_renesas_rx_cfg##index = {                       \
@@ -1299,9 +1299,9 @@ DT_FOREACH_STATUS_OKAY(renesas_rx_canfd_global, CAN_RENESAS_RX_GLOBAL_INIT)
 		.can_intc = DEVICE_DT_GET(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(index), chei)),          \
 		.fsp_can =                                                                         \
 			{                                                                          \
-				.p_ctrl = &can_renesas_rx_data##index.fsp_canfd_ctrl,              \
+				.p_ctrl = &can_renesas_rx_data##index.fsp_canfdg_ctrl,              \
 				.p_cfg = &can_renesas_rx_data##index.fsp_can_cfg,                  \
-				.p_api = &g_canfd_on_canfd,                                        \
+				.p_api = &g_canfd_on_canfdg,                                        \
 			},                                                                         \
 		.fsp_can_cfg =                                                                     \
 			{                                                                          \
@@ -1309,20 +1309,20 @@ DT_FOREACH_STATUS_OKAY(renesas_rx_canfd_global, CAN_RENESAS_RX_GLOBAL_INIT)
 				.p_bit_timing = &can_renesas_rx_data##index.bit_timing,            \
 				.p_callback = can_renesas_rx_fsp_cb,                               \
 				.p_context = (void *)DEVICE_DT_INST_GET(index),                    \
-				.p_extend = &can_renesas_rx_data##index.fsp_canfd_extend,          \
+				.p_extend = &can_renesas_rx_data##index.fsp_canfdg_extend,          \
 				.ipl = 1,                                                          \
 				.error_irq =                                                       \
 					(IRQn_Type)(DT_INST_IRQ_BY_NAME(index, chei, irq) << 8 |   \
-						    CANFD_GROUP_IRQ),                              \
+						    CANFDG_GROUP_IRQ),                              \
 				.rx_irq = (IRQn_Type)(DT_INST_IRQ_BY_NAME(index, chri, irq) << 8 | \
-						      CANFD_GROUP_IRQ),                            \
+						      CANFDG_GROUP_IRQ),                            \
 				.tx_irq = (IRQn_Type)(DT_INST_IRQ_BY_NAME(index, chti, irq) << 8 | \
-						      CANFD_GROUP_IRQ),                            \
+						      CANFDG_GROUP_IRQ),                            \
 			},                                                                         \
-		.fsp_canfd_extend =                                                                \
+		.fsp_canfdg_extend =                                                                \
 			{                                                                          \
-				.p_afl = canfd_afl##index,                                         \
-				.txmb_txi_enable = CANFD_CFG_TXMB_TXI_ENABLE,                      \
+				.p_afl = canfdg_afl##index,                                         \
+				.txmb_txi_enable = CANFDG_CFG_TXMB_TXI_ENABLE,                      \
 				.error_interrupts = 0U,                                            \
 				.p_data_timing = &can_renesas_rx_data##index.data_timing,          \
 			},                                                                         \
