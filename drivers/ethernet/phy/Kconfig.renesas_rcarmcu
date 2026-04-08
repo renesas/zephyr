@@ -1,0 +1,11 @@
+# Renesas CT25205-RTL 10BASE-T1S PHY driver configuration options
+
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PHY_RENESAS_CT25205
+	bool "Renesas CT25205-RTL PHY Driver"
+	default y
+	depends on DT_HAS_RENESAS_CT25205_PHY_ENABLED
+	help
+	  Enable Renesas CT25205-RTL Ethernet PHY Driver
