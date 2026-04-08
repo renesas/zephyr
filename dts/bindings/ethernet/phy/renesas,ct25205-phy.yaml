@@ -1,0 +1,36 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas CT25205 Ethernet PHY device
+
+compatible: "renesas,ct25205-phy"
+
+# No "on mdio bus" suffix — this PHY is a child of the MAC node,
+# not of an MDIO bus controller (following NXP PR #105033 pattern).
+# PLCA properties included from shared binding.
+include:
+  - name: ethernet-phy-plca.yaml
+
+properties:
+  phy-lsi-addr:
+    type: int
+    required: true
+    description: PHY LSI address (0-31) for MDIO access.
+
+  no-reset:
+    type: boolean
+    description: Skip software reset (Control register bit 15) during initialization.
+
+  reset-gpios:
+    type: phandle-array
+    description: GPIO connected to active-low hardware reset pin.
+
+  reset-assert-us:
+    type: int
+    default: 0
+    description: Delay in microseconds after asserting hardware reset.
+
+  reset-deassert-us:
+    type: int
+    default: 0
+    description: Delay in microseconds after deasserting hardware reset.

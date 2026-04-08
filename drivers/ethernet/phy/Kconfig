@@ -19,6 +19,7 @@ source "drivers/ethernet/phy/Kconfig.tja1103"
 source "drivers/ethernet/phy/Kconfig.dm8806"
 source "drivers/ethernet/phy/Kconfig.microchip_t1s"
 source "drivers/ethernet/phy/Kconfig.nxp_t1s"
+source "drivers/ethernet/phy/Kconfig.renesas_rh850"
 
 config ETH_PHY_API_PLCA
 	bool
