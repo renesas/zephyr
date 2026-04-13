@@ -17,6 +17,10 @@ properties:
   interrupts:
     required: true
 
+  channel:
+    type: int
+    description: The Port number of gpio, when use R-Car Gen5, this must be set
+
   "#gpio-cells":
     const: 2
 
