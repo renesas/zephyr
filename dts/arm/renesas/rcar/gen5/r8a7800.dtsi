@@ -25,6 +25,16 @@
 			#clock-cells = <2>;
 		};
 
+		gpio0: gpio@c1080100{
+			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_PFC_PERE_GPIODM0>;
+		};
+
+		gpio9: gpio@c9b00100 {
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_PFC_PERE_GPIODM0>;
+		};
+
 		scif1: serial@c0704000 {
 			interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_SCIF1>,

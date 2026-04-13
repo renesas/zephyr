@@ -57,6 +57,24 @@
 				     <GIC_PPI 10 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 		};
 
+		gpio0: gpio@c1080100 {
+			compatible = "renesas,rcar-gpio";
+			reg = <0xc1080100 0xd0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		gpio9: gpio@c9b00100 {
+			compatible = "renesas,rcar-gpio";
+			reg = <0xc9b00100 0xd0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			channel = <9>;
+			status = "disabled";
+		};
+
 		scif1: serial@c0704000 {
 			compatible = "renesas,rcar-scif";
 			reg = <0xc0704000 0x64>;
