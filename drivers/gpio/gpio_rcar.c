@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020-2023 IoT.bzh
+ * Copyright (c) 2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -12,6 +13,7 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/irq.h>
@@ -31,6 +33,9 @@ struct gpio_rcar_cfg {
 	init_func_t init_func;
 	const struct device *clock_dev;
 	struct rcar_cpg_clk mod_clk;
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	int channel;
+#endif
 };
 
 struct gpio_rcar_data {
@@ -39,6 +44,7 @@ struct gpio_rcar_data {
 	sys_slist_t cb;
 };
 
+#ifndef CONFIG_SOC_SERIES_RCAR_GEN5
 #define IOINTSEL 0x00   /* General IO/Interrupt Switching Register */
 #define INOUTSEL 0x04   /* General Input/Output Switching Register */
 #define OUTDT    0x08   /* General Output Register */
@@ -53,6 +59,22 @@ struct gpio_rcar_data {
 #define OUTDTSEL 0x40   /* Output Data Select Register */
 #define BOTHEDGE 0x4c   /* One Edge/Both Edge Select Register */
 #define INEN     0x50	/* General Input Enable Register */
+#else
+#define IOINTSEL 0x10   /* General IO/Interrupt Switching Register */
+#define INOUTSEL 0x14   /* General Input/Output Switching Register */
+#define OUTDT    0x18   /* General Output Register */
+#define INDT     0x2c   /* General Input Register */
+#define INTDT    0x90   /* Interrupt Display Register */
+#define INTCLR   0x94   /* Interrupt Clear Register */
+#define INTMSK   0x98   /* Interrupt Mask Register */
+#define MSKCLR   0x9c   /* Interrupt Mask Clear Register */
+#define POSNEG   0xa0   /* Positive/Negative Logic Select Register */
+#define EDGLEVEL 0xa4   /* Edge/level Select Register */
+#define FILONOFF 0xa8   /* Chattering Prevention On/Off Register */
+#define OUTDTSEL 0x1c   /* Output Data Select Register */
+#define BOTHEDGE 0xcc   /* One Edge/Both Edge Select Register */
+#define INEN     0x28	/* General Input Enable Register */
+#endif
 
 static inline uint32_t gpio_rcar_read(const struct device *dev, uint32_t offs)
 {
@@ -107,8 +129,8 @@ static void gpio_rcar_config_general_input_output_mode(
 	/* Configure positive logic in POSNEG */
 	gpio_rcar_modify_bit(dev, POSNEG, gpio, false);
 
-	/* Select "Input Enable/Disable" in INEN for Gen4 SoCs */
-#ifdef CONFIG_SOC_SERIES_RCAR_GEN4
+	/* Select "Input Enable/Disable" in INEN for Gen4 & Gen5 SoCs */
+#if defined(CONFIG_SOC_SERIES_RCAR_GEN4) || defined(CONFIG_SOC_SERIES_RCAR_GEN5)
 	gpio_rcar_modify_bit(dev, INEN, gpio, !output);
 #endif
 
@@ -127,6 +149,13 @@ static void gpio_rcar_config_general_input_output_mode(
 static int gpio_rcar_configure(const struct device *dev,
 			       gpio_pin_t pin, gpio_flags_t flags)
 {
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	pinctrl_soc_pin_t pincfg = {0};
+
+	pincfg.pin = DEV_CFG(dev)->channel * 32 + pin;
+	pincfg.flags = 0;
+#endif
+
 	if ((flags & GPIO_OUTPUT) && (flags & GPIO_INPUT)) {
 		/* Pin cannot be configured as input and output */
 		return -ENOTSUP;
@@ -146,6 +175,9 @@ static int gpio_rcar_configure(const struct device *dev,
 		gpio_rcar_config_general_input_output_mode(dev, pin, false);
 	}
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	return pinctrl_configure_pins(&pincfg, 1, PINCTRL_REG_NONE);
+#endif
 	return 0;
 }
 
@@ -229,8 +261,8 @@ static int gpio_rcar_pin_interrupt_configure(const struct device *dev,
 		gpio_rcar_modify_bit(dev, BOTHEDGE, pin, true);
 	}
 
-	/* Select "Input Enable" in INEN for Gen4 SoCs */
-#ifdef CONFIG_SOC_SERIES_RCAR_GEN4
+	/* Select "Input Enable/Disable" in INEN for Gen4 & Gen5 SoCs */
+#if defined(CONFIG_SOC_SERIES_RCAR_GEN4) || defined(CONFIG_SOC_SERIES_RCAR_GEN5)
 	gpio_rcar_modify_bit(dev, INEN, pin, true);
 #endif
 
@@ -287,6 +319,13 @@ static DEVICE_API(gpio, gpio_rcar_driver_api) = {
 	.manage_callback = gpio_rcar_manage_callback,
 };
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+#define RCAR_GPIO_CHANNEL_GET(n) \
+	.channel = DT_INST_PROP(n, channel),
+#else
+#define RCAR_GPIO_CHANNEL_GET(n)
+#endif
+
 /* Device Instantiation */
 #define GPIO_RCAR_INIT(n)					      \
 	static void gpio_rcar_##n##_init(const struct device *dev);   \
@@ -302,6 +341,7 @@ static DEVICE_API(gpio, gpio_rcar_driver_api) = {
 			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, module),     \
 		.mod_clk.domain =				      \
 			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, domain),     \
+		RCAR_GPIO_CHANNEL_GET(n)			      \
 	};							      \
 	static struct gpio_rcar_data gpio_rcar_data_##n;	      \
 								      \
