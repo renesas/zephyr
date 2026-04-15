@@ -595,4 +595,9 @@ config HAS_RENESAS_RX_RSIP_E50D
 
 endif # USE_RX_FSP_SCE
 
+config USE_RX_FSP_GPT
+	bool
+	help
+	  Enable RX FSP GPT driver
+
 endif # HAS_RENESAS_RX_FSP
