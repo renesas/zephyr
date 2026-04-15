@@ -131,8 +131,8 @@ static void rx_spi_b_spri_isr(const struct device *dev)
 		/* Re-enable the TXI IRQ and clear the pending IRQ. */
 		R_BSP_IrqEnable(data->fsp_config.txi_irq);
 
-		spi_context_cs_control(&data->ctx, false);
-		spi_context_complete(&data->ctx, dev, 0);
+		spi_context_cs_control(&data->context, false);
+		spi_context_complete(&data->context, dev, 0);
 	}
 #endif
 }
