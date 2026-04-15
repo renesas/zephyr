@@ -186,5 +186,17 @@
 			drive-strength = "DRV4";
 		};
 	};
+
+	gtioc2a_default: gtioc2a_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_GPT2, 5, 0)>; /* GTIOC2A */
+		};
+	};
+
+	gtioc4a_default: gtioc4a_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_GPT2, 5, 4)>; /* GTIOC4A */
+		};
+	};
 };
 
