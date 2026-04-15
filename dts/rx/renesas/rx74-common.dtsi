@@ -960,6 +960,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci1: sci1@87458100 {
@@ -983,6 +991,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci2: sci2@87458200 {
@@ -1001,6 +1017,14 @@
 				compatible = "renesas,rx-i2c-sci-b";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -1023,6 +1047,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci4: sci4@87458400 {
@@ -1043,10 +1075,21 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci5: sci5@87458500 {
 			compatible = "renesas,rx-sci-b";
+			interrupts-extended = <&icu 147 1>, <&icu 148 1>,
+					      <&group_irq_al0 15 1>, <&group_irq_al0 16 1>;
+			interrupt-names = "rxi", "txi", "tei", "eri";
 			reg = <0x87458500 0x100>;
 			clocks = <&sciclk MSTPB 26>;
 			status = "disabled";
@@ -1063,10 +1106,21 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci6: sci6@87458600 {
 			compatible = "renesas,rx-sci-b";
+			interrupts-extended = <&icu 149 1>, <&icu 150 1>,
+					      <&group_irq_al0 18 1>, <&group_irq_al0 19 1>;
+			interrupt-names = "rxi", "txi", "tei", "eri";
 			reg = <0x87458600 0x100>;
 			clocks = <&sciclk MSTPB 25>;
 			status = "disabled";
@@ -1081,6 +1135,14 @@
 				compatible = "renesas,rx-i2c-sci-b";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -1103,6 +1165,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci8: sci8@87458800 {
@@ -1121,6 +1191,14 @@
 				compatible = "renesas,rx-i2c-sci-b";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -1143,6 +1221,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci10: sci10@87458a00 {
@@ -1163,6 +1249,14 @@
 				#size-cells = <0>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci11: sci11@87458b00 {
@@ -1181,6 +1275,14 @@
 				compatible = "renesas,rx-i2c-sci-b";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -1204,6 +1306,14 @@
 				compatible = "renesas,rx-i2c-sci-b";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,rx-spi-sci-b";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
