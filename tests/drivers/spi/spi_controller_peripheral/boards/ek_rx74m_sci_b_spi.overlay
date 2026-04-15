@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&pinctrl {
+	sci6_default: sci6_default {
+		group1 {
+			/* MISO MOSI SCK */
+			psels = <RX_PSEL(RX_PSEL_SCI_6, 9, 5)>,
+				<RX_PSEL(RX_PSEL_SCI_6, 9, 4)>,
+				<RX_PSEL(RX_PSEL_SCI_6, 9, 6)>;
+			drive-strength = "DRV4";
+		};
+	};
+
+	sci5_default: sci5_default {
+		group1 {
+			/* MISO MOSI SCK */
+			psels = <RX_PSEL(RX_PSEL_SCI_5, 2, 13)>,
+				<RX_PSEL(RX_PSEL_SCI_5, 2, 14)>,
+				<RX_PSEL(RX_PSEL_SCI_5, 2, 12)>;
+			drive-strength = "DRV4";
+		};
+	};
+};
+
+&ioport9 {
+	status = "okay";
+};
+
+&sci6 {
+	pinctrl-0 = <&sci6_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+    spi {
+		cs-gpios = <&ioport9 7 GPIO_ACTIVE_LOW>;
+        status = "okay";
+
+		dut_spi_dt: test-spi-dev@0 {
+			compatible = "vnd,spi-device";
+			reg = <0>;
+			spi-max-frequency = <1000000>;
+		};
+	};
+
+	uart {
+		status = "disabled";
+	};
+
+	i2c {
+		status = "disabled";
+	};
+};
+
+&sci5 {
+	pinctrl-0 = <&sci5_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	dut_spis: spi {
+		status = "okay";
+	};
+
+	uart {
+		status = "disabled";
+	};
+
+	i2c {
+		status = "disabled";
+	};
+};
