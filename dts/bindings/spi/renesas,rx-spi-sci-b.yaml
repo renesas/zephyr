@@ -1,0 +1,8 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX SCI SPI controller
+
+compatible: "renesas,rx-spi-sci-b"
+
+include: [spi-controller.yaml, pinctrl-device.yaml]

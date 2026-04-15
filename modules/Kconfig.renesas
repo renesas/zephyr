@@ -559,6 +559,11 @@ config USE_RX_FSP_SPI_B
 	help
 	  Enable RX FSP SPI-B driver
 
+config USE_RX_FSP_SCI_B_SPI
+	bool
+	help
+	  Enable RX FSP SCI B SPI driver
+
 config USE_RX_FSP_CANFDG
 	bool
 	help

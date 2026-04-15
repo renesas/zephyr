@@ -17,6 +17,14 @@ config SPI_B_RENESAS_RX
 	help
 	  Enable Renesas RX series SPI driver.
 
+config SPI_RENESAS_RX_SCI_B
+	bool "Renesas RX Series SPI SCI B Driver"
+	default y
+	depends on DT_HAS_RENESAS_RX_SPI_SCI_B_ENABLED
+	select USE_RX_FSP_SCI_B_SPI
+	help
+	  Enable Renesas RX series SPI SCI B driver.
+
 if SPI_RENESAS_RX
 
 config SPI_RENESAS_RX_INTERRUPT
@@ -58,4 +66,15 @@ config SPI_B_RENESAS_RX_INTERRUPT
 	help
 	  Enable Interrupt Support for the RSPI-B Driver of RX family.
 
-endif # SPI_RENESAS_RX
+endif # SPI_B_RENESAS_RX
+
+if SPI_RENESAS_RX_SCI_B
+
+config SPI_RENESAS_RX_SCI_B_INTERRUPT
+	bool "RENESAS RX SCI SPI Interrupt Support"
+	default y
+	depends on SPI_ASYNC
+	help
+	  Enable Interrupt support for the SCI SPI Driver of RX family.
+
+endif # SPI_RENESAS_RX_SCI_B
