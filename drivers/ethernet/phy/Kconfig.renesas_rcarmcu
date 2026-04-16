@@ -9,3 +9,11 @@ config PHY_RENESAS_CT25205
 	depends on DT_HAS_RENESAS_CT25205_PHY_ENABLED
 	help
 	  Enable Renesas CT25205-RTL Ethernet PHY Driver
+
+if PHY_RENESAS_CT25205
+
+config PHY_RENESAS_CT25205_INIT_PRIORITY
+	int "Renesas CT25205-RTL PHY Driver init priority"
+	default 82
+
+endif # PHY_RENESAS_CT25205
