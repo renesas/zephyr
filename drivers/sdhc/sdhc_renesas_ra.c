@@ -14,6 +14,8 @@
 #include <soc.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/sdhc.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 
 /* Renesas include */
 #include "sdhc_renesas_ra.h"
@@ -73,6 +75,20 @@ struct sdhc_ra_priv {
 void sdhimmc_accs_isr(void);
 void sdhimmc_card_isr(void);
 void sdhimmc_dma_req_isr(void);
+
+static inline void sdhc_ra_pm_policy_state_lock_get(const struct device *dev)
+{
+	pm_device_busy_set(dev);
+	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
+
+static inline void sdhc_ra_pm_policy_state_lock_put(const struct device *dev)
+{
+	pm_device_busy_clear(dev);
+	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
 
 static void ra_sdmmc_accs_isr(const void *parameter)
 {
@@ -190,6 +206,7 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 		ra_cmd.timeout_ms = timeout_cfg;
 	}
 
+	sdhc_ra_pm_policy_state_lock_get(dev);
 	/* Reset semaphore */
 	k_sem_reset(&priv->sdmmc_event.transfer_sem);
 	k_sem_take(&priv->thread_lock, K_FOREVER);
@@ -419,6 +436,9 @@ end:
 	}
 
 	k_sem_give(&priv->thread_lock);
+#ifdef CONFIG_PM
+	sdhc_ra_pm_policy_state_lock_put(dev);
+#endif
 
 	return ret;
 }
@@ -428,6 +448,7 @@ static int sdhc_ra_reset(const struct device *dev)
 	struct sdhc_ra_priv *priv = dev->data;
 	const struct sdhc_ra_config *cfg = dev->config;
 
+	sdhc_ra_pm_policy_state_lock_get(dev);
 	k_sem_take(&priv->thread_lock, K_USEC(50));
 
 	/* Reset SDHI. */
@@ -435,6 +456,9 @@ static int sdhc_ra_reset(const struct device *dev)
 	((R_SDHI0_Type *)cfg->regs)->SOFT_RST = 0x1U;
 
 	k_sem_give(&priv->thread_lock);
+#ifdef CONFIG_PM
+	sdhc_ra_pm_policy_state_lock_put(dev);
+#endif
 
 	return 0;
 }
@@ -538,6 +562,7 @@ static int sdhc_ra_init(const struct device *dev)
 
 	priv->sdmmc_event.transfer_completed = false;
 	k_sem_init(&priv->sdmmc_event.transfer_sem, 1, 1);
+	sdhc_ra_pm_policy_state_lock_get(dev);
 
 	/* Configure dt provided device signals when available */
 	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
@@ -578,8 +603,50 @@ static int sdhc_ra_init(const struct device *dev)
 
 end:
 	k_sem_give(&priv->thread_lock);
+#ifdef CONFIG_PM
+	sdhc_ra_pm_policy_state_lock_put(dev);
+#endif
 	return ret;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int sdhc_ra_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	struct sdhc_ra_priv *priv = dev->data;
+	fsp_err_t fsp_err;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		ret = k_sem_take(&priv->thread_lock, K_NO_WAIT);
+		if (ret != 0) {
+			return -EBUSY;
+		}
+
+		fsp_err = R_SDHI_Close(&priv->sdmmc_ctrl);
+		R_BSP_MODULE_STOP(FSP_IP_SDHIMMC, priv->channel);
+		ret = err_fsp2zep(fsp_err);
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		fsp_err = R_SDHI_Open(&priv->sdmmc_ctrl, &priv->fsp_config);
+		ret = err_fsp2zep(fsp_err);
+		if (ret < 0) {
+			return ret;
+		}
+		fsp_err = r_sdhi_hw_cfg(&priv->sdmmc_ctrl);
+		ret = err_fsp2zep(fsp_err);
+
+		if (k_sem_count_get(&priv->thread_lock) == 0U) {
+			k_sem_give(&priv->thread_lock);
+		}
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
 
 static DEVICE_API(sdhc, sdhc_api) = {
 	.reset = sdhc_ra_reset,
@@ -735,7 +802,8 @@ static DEVICE_API(sdhc, sdhc_api) = {
 		return 0;                                                                          \
 	}                                                                                          \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(index, sdhc_ra_init##index, NULL, &sdhc_ra_priv_##index,             \
+	PM_DEVICE_DT_INST_DEFINE(index, sdhc_ra_pm_action);					   \
+	DEVICE_DT_INST_DEFINE(index, sdhc_ra_init##index, PM_DEVICE_DT_INST_GET(index), &sdhc_ra_priv_##index,             \
 			      &sdhc_ra_config_##index, POST_KERNEL, CONFIG_SDHC_INIT_PRIORITY,     \
 			      &sdhc_api);
 
