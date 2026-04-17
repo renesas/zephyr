@@ -10,3 +10,9 @@ config RTC_RENESAS_RA
 	select USE_RA_FSP_RTC
 	help
 	  Enable Renesas RA RTC Driver.
+
+config RTC_RENESAS_RA_ALWAYS_SET_CLOCK_SOURCE
+	bool "Force RTC clock source setup during init"
+	depends on RTC_RENESAS_RA
+	help
+	  Always configure the RTC clock source during initialization.
