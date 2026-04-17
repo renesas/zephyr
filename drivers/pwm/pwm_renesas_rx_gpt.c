@@ -499,19 +499,17 @@ static int pwm_renesas_rx_init(const struct device *dev)
 static void pwm_rx_gpt_ovf_isr(const struct device *dev)
 {
 	struct pwm_renesas_rx_data *data = dev->data;
-	uint32_t prev = g_current_isr_number;
-	g_current_isr_number = data->fsp_cfg.cycle_end_irq;
-	gpt_counter_overflow_isr();
-	g_current_isr_number = prev;
+	uint32_t irq = data->fsp_cfg.cycle_end_irq;
+
+	BSP_ICU_IRQ_HANDLER(irq, gpt_counter_overflow_isr);
 }
 
 static void pwm_rx_gpt_ccmpa_isr(const struct device *dev)
 {
 	struct pwm_renesas_rx_data *data = dev->data;
-	uint32_t prev = g_current_isr_number;
-	g_current_isr_number = data->extend_cfg.capture_a_irq;
-	gpt_capture_compare_a_isr();
-	g_current_isr_number = prev;
+	uint32_t irq = data->extend_cfg.capture_a_irq;
+
+	BSP_ICU_IRQ_HANDLER(irq, gpt_capture_compare_a_isr);
 }
 #endif
 
