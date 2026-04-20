@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ETH_RENESAS_RCARMCU_ETNF
+	bool "Renesas R-Car MCU Ethernet T1S (10BASE-T1S) MAC Driver"
+	default y
+	depends on DT_HAS_RENESAS_RCARMCU_ETHERNET_ETNF_ENABLED
+	select USE_RCARMCU_FSP_ETHER_ETNF
+	select PINCTRL
+	help
+	  Enable Ethernet T1S (10BASE-T1S, IEEE 802.3cg) MAC driver for the
+	  Renesas R-Car MCU family (U5L, RH850-U2C) based on the ETNF0
+	  controller. Uses the Renesas FSP r_ether_t1s HAL module.
+
+if ETH_RENESAS_RCARMCU_ETNF
+
+config ETH_RENESAS_RCARMCU_ETNF_RX_THREAD_STACK_SIZE
+	int "RX processing thread stack size (bytes)"
+	default 1500
+	help
+	  Stack size in bytes for the dedicated RX packet processing thread.
+	  Increase this value if net_pkt allocation or L3 processing causes
+	  stack overflows.
+
+config ETH_RENESAS_RCARMCU_ETNF_RX_THREAD_PRIORITY
+	int "RX thread cooperative priority"
+	default 2
+
+config ETH_RENESAS_RCARMCU_ETNF_CFG_QOS_SUPPORT
+	bool "Renesas R-Car MCU Ethernet T1S Config QOS support"
+	help
+	  Config QOS support
+
+config ETH_RENESAS_RCARMCU_ETNF_USE_ZEROCOPY
+	bool "R-Car MCU Ethernet T1S zero-copy TX/RX mode"
+	help
+	  When enabled, the driver uses zero-copy mode: RX buffer pointers are
+	  passed directly to the network stack without memcpy, and TX buffers
+	  are provided by the caller. Reduces CPU overhead and memory usage.
+	  Maps to ETHER_ZEROCOPY_ENABLE in the FSP ether_cfg_t.
+
+config ETH_RENESAS_RCARMCU_ETNF_USE_HW_WRITEBACK
+	bool "Use hardware descriptor write-back"
+	help
+	  Enable ETNF0 hardware descriptor write-back mode. When active, the
+	  DMA engine writes status information back into the descriptor after
+	  frame processing completes, reducing software polling overhead.
+
+config ETH_RENESAS_RCARMCU_ETNF_MAX_BROADCAST_PKTS
+	int "Maximum continuous broadcast frames before filtering"
+	default 0
+	range 0 65535
+	help
+	  Maximum number of consecutive broadcast frames the driver will
+	  accept before activating broadcast filtering. Set to 0 to disable
+	  broadcast rate limiting (default). Maps to broadcast_filter in
+	  ether_cfg_t.
+
+endif # ETH_RENESAS_RCARMCU_ETNF
