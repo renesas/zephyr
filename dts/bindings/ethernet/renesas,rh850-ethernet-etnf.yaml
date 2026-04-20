@@ -1,0 +1,77 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 Ethernet T1S (10BASE-T1S)
+
+compatible: "renesas,rh850-ethernet-etnf"
+
+include: [ethernet-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  mdio-interface:
+    type: string
+    required: true
+    enum:
+      - "dedicated"   # ETS0_MDC + ETS0_MDIO
+      - "shared"      # ETS0_RX_MDC + ETS0_ED_MDIO
+    description: |
+      Selects which MDIO pin pair to use for bit-bang PHY access.
+      Maps to ether_t1s_mdio_interface_type_t in the FSP.
+
+  loopback:
+    type: boolean
+    description: Enable internal loopback mode (for testing only).
+
+  pma-filtered:
+    type: boolean
+    description: |
+      Configure PMA to handle a filtered T1S energy detection.
+      If absent, unfiltered mode is used (ETHER_T1S_PMA_UNFILTERED).
+
+  txq-num:
+    type: int
+    default: 1
+    description: |
+      Number of active TX queues. For basic T1S, only queue 0 (Best Effort)
+      is required. Queues 1-3 (NC/Stream) require AVB/CBS support.
+
+  rxq-num:
+    type: int
+    default: 1
+    description: Number of active RX queues (Best Effort + Network Control minimum).
+
+  txq-len:
+    type: int
+    default: 4
+    description: Number of TX descriptors per queue.
+
+  rxq-len:
+    type: int
+    default: 4
+    description: Number of RX descriptors per queue.
+
+  txb-num:
+    type: int
+    default: 8
+    description: |
+      Total TX buffer count.
+
+  rxb-num:
+    type: int
+    default: 8
+    description: |
+      Total RX buffer count.
+
+  ram-size:
+    type: int
+    default: 25500
+    description: |
+      Size in bytes of the internal ETNF0 RAM region used for descriptors
+      and buffer pool management.
+
