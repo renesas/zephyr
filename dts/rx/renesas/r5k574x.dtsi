@@ -38,7 +38,7 @@
 		};
 
 		subclk: clock-subclk {
-			compatible = "renesas,ra-cgc-subclk";
+			compatible = "renesas,rx-cgc-subclk";
 			clock-frequency = <32768>;
 			#clock-cells = <0>;
 			status = "disabled";
