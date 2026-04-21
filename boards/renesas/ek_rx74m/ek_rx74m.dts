@@ -73,6 +73,7 @@
 		sw1 = &sw2;
 		sdhc0 = &sdhc0;
 		pwm-0 = &pwm4;
+		rtc = &rtc;
 	};
 
 	zephyr,user {
@@ -525,5 +526,9 @@
 };
 
 &group_irq_al5 {
+	status = "okay";
+};
+
+&rtc {
 	status = "okay";
 };
