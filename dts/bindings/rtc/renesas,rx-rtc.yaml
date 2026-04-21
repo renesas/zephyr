@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX RTC
+
+compatible: "renesas,rx-rtc"
+
+include: rtc-device.yaml
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  interrupt-names:
+    required: true
+    enum:
+      - "cup"
+      - "prd"
+      - "alm"
+    description: |
+      - "cup": carry interrupt
+      - "prd": periodic interrupt
+      - "alm": alarm interrupt

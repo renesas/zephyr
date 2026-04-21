@@ -1,0 +1,12 @@
+# Renesas RX Family
+
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config RTC_RENESAS_RX
+	bool "Renesas RX RTC"
+	default y
+	depends on DT_HAS_RENESAS_RX_RTC_ENABLED
+	select USE_RX_FSP_RTC
+	help
+	  Enable Renesas RX RTC Driver.

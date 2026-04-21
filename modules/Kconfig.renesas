@@ -599,6 +599,11 @@ config USE_RX_FSP_TMR
 	help
 	  Enable RX FSP TMR driver
 
+config USE_RX_FSP_RTC
+	bool
+	help
+	  Enable RX FSP RTC driver
+
 if USE_RX_FSP_SCE
 
 config HAS_RENESAS_RX_RSIP_E50D
