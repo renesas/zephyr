@@ -41,4 +41,11 @@ config CLOCK_CONTROL_RENESAS_RX_PCLK
 	help
 	  Enable Renesas RX PCLK clock source.
 
+config CLOCK_CONTROL_RENESAS_RX_SUBCLK
+	bool "Renesas RX sub clock source"
+	default y
+	depends on DT_HAS_RENESAS_RX_CGC_SUBCLK_ENABLED
+	help
+	  Enable Renesas RX sub clock driver
+
 endif
