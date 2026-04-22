@@ -1867,7 +1867,7 @@
 		gpt0: gpt0@8742c000 {
 			compatible = "renesas,rx-gpt";
 			reg = <0x8742c000 0x100>;
-			channel = <1>;
+			channel = <0>;
 			divider = "DIV_1";
 			interrupts = <147 4>, <148 4>;
 			interrupt-names = "gtioca", "overflow";
