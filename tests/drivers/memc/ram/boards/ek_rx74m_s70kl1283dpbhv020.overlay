@@ -14,10 +14,10 @@
 		reg = <0>;
 		size = <DT_SIZE_M(16)>; /* 16 Megabytes = 128 Mbit */
 		ospi-max-frequency = <DT_FREQ_M(200)>;
-		command-bytes = <1>;
+		command-bytes = <2>;
 		address-bytes = <4>;
-		read-command = <0xee>;
-		write-command = <0xde>;
+		read-command = <0xeeee>;
+		write-command = <0xdede>;
 		write-enable-command = <0x06>;
 		read-dummy-cycles = <14>;
 		write-dummy-cycles = <14>;
