@@ -5,6 +5,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/input/input-event-codes.h>
 #include <rh850/renesas/rh850u2c/r7f702600afabb-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -40,4 +41,16 @@
 		current-speed = <115200>;
 		status = "okay";
 	};
+};
+
+&ioport2 {
+	irqs = <&irq35 4>;
+	status = "okay";
+};
+
+&irq35 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq35_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
 };
