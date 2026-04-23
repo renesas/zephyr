@@ -549,4 +549,9 @@ config USE_RH850_FSP_DTSC
 	help
 	  Enable RH850 FSP DTSC driver
 
+config USE_RH850_FSP_EXT_IRQ
+	bool
+	help
+	  Enable RH850 FSP External IRQ driver
+
 endif # HAS_RENESAS_RH850_FSP
