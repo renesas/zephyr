@@ -114,27 +114,25 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 		.sdr_sampling_edge = XSPI_CONTROLLER_CK_EDGE_FALLING,                              \
 		.sdr_sampling_delay = XSPI_CONTROLLER_SDR_SAMPLING_DELAY_NONE,                     \
 		.ddr_sampling_extension = DT_INST_PROP(idx, ddr_sampling_extension),               \
-		.output_assert_delay = XSPI_CONTROLLER_ASSERTION_DELAY_ENABLED,                     \
+		.output_assert_delay = XSPI_CONTROLLER_ASSERTION_DELAY_ENABLED,                    \
 		.write_data_mask_enable = DT_INST_PROP(idx, write_data_mask_enable),               \
 	};                                                                                         \
                                                                                                    \
-	static xspi_controller_command_set_t psram_xspi_controller_command_set_##idx = {      \
+	static xspi_controller_command_set_t psram_xspi_controller_command_set_##idx = {           \
 		.protocol = GET_SPI_PROTOCOL(idx),                                                 \
 		.frame_format = GET_FRAME_FORMAT(idx),                                             \
-		.latency_mode = DT_INST_PROP(idx, variable_latency) ? OSPI_B_LATENCY_MODE_VARIABLE \
-								    : OSPI_B_LATENCY_MODE_FIXED,   \
+		.latency_mode = DT_INST_PROP(idx, variable_latency)                                \
+					? XSPI_CONTROLLER_LATENCY_MODE_VARIABLE                    \
+					: XSPI_CONTROLLER_LATENCY_MODE_FIXED,                      \
 		.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,                             \
 		.address_msb_mask = 0xF0,                                                          \
 		.address_mode = GET_ADDRESS_MODE(idx),                                             \
-                                                                                                   \
 		.command_bytes = DT_INST_PROP(idx, command_bytes),                                 \
 		.read_command = DT_INST_PROP(idx, read_command),                                   \
 		.read_dummy_cycles = DT_INST_PROP(idx, read_dummy_cycles),                         \
 		.program_command = DT_INST_PROP(idx, write_command),                               \
 		.program_dummy_cycles = DT_INST_PROP(idx, write_dummy_cycles),                     \
 		.write_enable_command = DT_INST_PROP_OR(idx, write_enable_command, UNUSED_VALUE),  \
-                                                                                                   \
-		/** Unused fields */                                                               \
 		.status_command = UNUSED_VALUE,                                                    \
 		.row_load_command = UNUSED_VALUE,                                                  \
 		.row_store_command = UNUSED_VALUE,                                                 \
@@ -147,7 +145,7 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 		.p_erase_commands = NULL,                                                          \
 	};                                                                                         \
                                                                                                    \
-	static xspi_controller_table_t psram_xspi_controller_command_table_##idx = {          \
+	static xspi_controller_table_t psram_xspi_controller_command_table_##idx = {               \
 		.p_table = &psram_xspi_controller_command_set_##idx,                               \
 		.length = 1,                                                                       \
 	};                                                                                         \
