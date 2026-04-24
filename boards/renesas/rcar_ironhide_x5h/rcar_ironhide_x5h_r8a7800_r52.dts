@@ -93,3 +93,15 @@
 	pinctrl-names = "default";
 	status = "okay";
 };
+
+&i2c5 {
+	pinctrl-0 = <&i2c5_sda_default &i2c5_scl_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&i2c6 {
+	pinctrl-0 = <&i2c6_sda_default &i2c6_scl_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

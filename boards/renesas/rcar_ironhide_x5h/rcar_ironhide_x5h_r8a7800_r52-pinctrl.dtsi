@@ -14,4 +14,21 @@
 	scif1_data_rx_default: scif1_data_rx_default {
 		pin = <PIN_HRX1 FUNC_RX1>;
 	};
+
+	/* I2C */
+	i2c5_sda_default: i2c5_sda_default {
+		pin = <PIN_SDA5 FUNC_SDA5>;
+	};
+
+	i2c5_scl_default: i2c5_scl_default {
+		pin = <PIN_SCL5 FUNC_SCL5>;
+	};
+
+	i2c6_sda_default: i2c6_sda_default {
+		pin = <PIN_SDA6 FUNC_SDA6>;
+	};
+
+	i2c6_scl_default: i2c6_scl_default {
+		pin = <PIN_SCL6 FUNC_SCL6>;
+	};
 };
