@@ -7,6 +7,7 @@
 #include <arm/armv8-r.dtsi>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
 #include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
 #include <mem.h>
 
 / {
@@ -72,6 +73,32 @@
 			#gpio-cells = <2>;
 			gpio-controller;
 			channel = <9>;
+			status = "disabled";
+		};
+
+		i2c5: i2c@c06e0000 {
+			compatible = "renesas,rcar-i2c";
+			clock-frequency = <I2C_BITRATE_STANDARD>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xc06e0000 0x40>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 577 IRQ_TYPE_LEVEL
+				      IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_I2C5>;
+			status = "disabled";
+		};
+
+		i2c6: i2c@c06e8000 {
+			compatible = "renesas,rcar-i2c";
+			clock-frequency = <I2C_BITRATE_STANDARD>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xc06e8000 0x40>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 578 IRQ_TYPE_LEVEL
+				      IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_I2C6>;
 			status = "disabled";
 		};
 
