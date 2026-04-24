@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config COUNTER_RENESAS_RX_TMR
+	bool "Renesas RX 8-Bit Timer (TMR) Counter driver"
+	default y
+	depends on DT_HAS_RENESAS_RX_TMR_COUNTER_ENABLED
+	select USE_RX_FSP_TMR
+	help
+	  Enable the counter driver for the Renesas RX 8-Bit Timer (TMR).
