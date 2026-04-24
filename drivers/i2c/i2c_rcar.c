@@ -10,12 +10,13 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 
 #include <zephyr/logging/log.h>
 #include <zephyr/irq.h>
-LOG_MODULE_REGISTER(i2c_rcar);
+LOG_MODULE_REGISTER(i2c_rcar, CONFIG_I2C_LOG_LEVEL);
 
 #include "i2c-priv.h"
 
@@ -27,6 +28,9 @@ struct i2c_rcar_cfg {
 	const struct device *clock_dev;
 	struct rcar_cpg_clk mod_clk;
 	uint32_t bitrate;
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	const struct pinctrl_dev_config *pcfg;
+#endif
 };
 
 struct i2c_rcar_data {
@@ -228,16 +232,38 @@ static int i2c_rcar_transfer(const struct device *dev,
 		return -EIO;
 	}
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	if (num_msgs) {
+		if (i2c_rcar_set_addr(dev, addr, !!(msgs->flags & I2C_MSG_READ))) {
+			LOG_ERR("No ACK for Slave Addr");
+			return -EIO; /* No ACK received */
+		}
+	}
+#endif
+
 	do {
 		/* We are not supporting 10-bit addressing */
 		if ((msgs->flags & I2C_MSG_ADDR_10_BITS) == I2C_MSG_ADDR_10_BITS) {
 			return -ENOTSUP;
 		}
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+		/**
+		 * Only resend slave addr if there restart flag
+		 * This will support better for burst write/read
+		 */
+		if (!!(msgs->flags & I2C_MSG_RESTART)) {
+			/* Send slave address */
+			if (i2c_rcar_set_addr(dev, addr, !!(msgs->flags & I2C_MSG_READ))) {
+				return -EIO; /* No ACK received */
+			}
+		}
+#else
 		/* Send slave address */
 		if (i2c_rcar_set_addr(dev, addr, !!(msgs->flags & I2C_MSG_READ))) {
 			return -EIO; /* No ACK received */
 		}
+#endif
 
 		/* Transfer data */
 		if (msgs->len) {
@@ -297,6 +323,11 @@ static int i2c_rcar_configure(const struct device *dev, uint32_t dev_config)
 	/* Setting ICCCR to recommended value */
 	i2c_rcar_write(config, RCAR_I2C_ICCCR, (scgd << 3) | cdf);
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	/* Set First Bit Setup Cycle register */
+	i2c_rcar_write(config, RCAR_I2C_ICFBSCR, RCAR_I2C_ICFBSCR_TCYC17);
+#endif
+
 	/* Reset slave mode */
 	i2c_rcar_write(config, RCAR_I2C_ICSIER, 0);
 	i2c_rcar_write(config, RCAR_I2C_ICSAR, 0);
@@ -318,6 +349,15 @@ static int i2c_rcar_init(const struct device *dev)
 	struct i2c_rcar_data *data = dev->data;
 	uint32_t bitrate_cfg;
 	int ret;
+
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+	/* Setup pin control */
+	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+	if (ret != 0) {
+		LOG_ERR("Pin control config failed.");
+		return ret;
+	}
+#endif
 
 	k_sem_init(&data->int_sem, 0, 1);
 
@@ -352,8 +392,17 @@ static DEVICE_API(i2c, i2c_rcar_driver_api) = {
 #endif
 };
 
+#ifdef CONFIG_SOC_SERIES_RCAR_GEN5
+#define I2C_RCAR_PINCTRL_DEFINE(n) PINCTRL_DT_INST_DEFINE(n)
+#define I2C_RCAR_PINCFG_GET(n) .pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),
+#else
+#define I2C_RCAR_PINCTRL_DEFINE(n)
+#define I2C_RCAR_PINCFG_GET(n)
+#endif
+
 /* Device Instantiation */
 #define I2C_RCAR_INIT(n)						       \
+	I2C_RCAR_PINCTRL_DEFINE(n);					       \
 	static void i2c_rcar_##n##_init(const struct device *dev);	       \
 	static const struct i2c_rcar_cfg i2c_rcar_cfg_##n = {		       \
 		.reg_addr = DT_INST_REG_ADDR(n),			       \
@@ -364,6 +413,7 @@ static DEVICE_API(i2c, i2c_rcar_driver_api) = {
 			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, module),	       \
 		.mod_clk.domain =					       \
 			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, domain),	       \
+		I2C_RCAR_PINCFG_GET(n)					       \
 	};								       \
 									       \
 	static struct i2c_rcar_data i2c_rcar_data_##n;			       \
