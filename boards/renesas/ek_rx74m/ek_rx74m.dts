@@ -330,7 +330,7 @@
 	phy-clock-type = "internal";
 	phy-handle = <&phy1>;
 	phy-connection-type = "gmii";
-	status = "disabled";
+	status = "okay";
 };
 
 &mdio0 {
@@ -353,7 +353,7 @@
 	phy1: ethernet-phy@1 {
 		compatible = "microchip,vsc8541";
 		reg = <0x1>;
-		status = "disabled";
+		status = "okay";
 
 		microchip,interface-type = "gmii";
 		microchip,rgmii-tx-clk-delay = <0x4>;
