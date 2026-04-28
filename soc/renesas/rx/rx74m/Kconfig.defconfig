@@ -6,7 +6,7 @@ if SOC_SERIES_RX74M
 DT_CMT_PATH := $(dt_nodelabel_path,cmt)
 
 config SYS_CLOCK_HW_CYCLES_PER_SEC
-	default $(dt_node_int_prop_int,$(DT_CMT_PATH),clock-frequency)
+	default $(dt_node_int_prop_int,$(DT_CMT_PATH),clock-frequency) if RENESAS_RX_TIMER_CMT
 
 config SYS_CLOCK_TICKS_PER_SEC
 	default 1000
