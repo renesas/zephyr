@@ -2066,6 +2066,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt1: gpt1@8742c100 {
@@ -2081,6 +2086,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2100,6 +2110,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt3: gpt3@8742c300 {
@@ -2115,6 +2130,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2134,6 +2154,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt5: gpt5@8742c500 {
@@ -2149,6 +2174,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2168,6 +2198,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt7: gpt7@8742c700 {
@@ -2183,6 +2218,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2202,6 +2242,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt9: gpt9@8742c900 {
@@ -2217,6 +2262,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2236,6 +2286,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt11: gpt11@8742cb00 {
@@ -2251,6 +2306,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2270,6 +2330,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt13: gpt13@8742cd00 {
@@ -2285,6 +2350,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
@@ -2304,6 +2374,11 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
+				status = "disabled";
+			};
 		};
 
 		gpt15: gpt15@8742cf00 {
@@ -2319,6 +2394,11 @@
 			pwm {
 				compatible = "renesas,rx-gpt-pwm";
 				#pwm-cells = <3>;
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rx-gpt-timer";
 				status = "disabled";
 			};
 		};
