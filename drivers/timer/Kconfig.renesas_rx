@@ -11,3 +11,15 @@ config RENESAS_RX_TIMER_CMT
 	  This module implements a kernel device driver for the Renesas RX
 	  platform provides the standard "system clock driver" interfaces.
 	  If unchecked, no timer will be used.
+
+config RENESAS_RX_TIMER_GPT
+	bool "Renesas RX timer GPT"
+	default y
+	depends on DT_HAS_RENESAS_RX_GPT_TIMER_ENABLED
+	select TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
+	select TIMER_HAS_64BIT_CYCLE_COUNTER
+	select TICKLESS_CAPABLE
+	help
+	  This module implements a kernel device driver for the Renesas RX
+	  platform provides the standard "system clock driver" interfaces.
+	  If unchecked, no timer will be used.
