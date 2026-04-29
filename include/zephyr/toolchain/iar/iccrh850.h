@@ -104,6 +104,8 @@ do {                                                                    \
 	__p->__v = (v);                                               \
 } while (false)
 
+#define UNALIGNED_MEMBER_ADDR(_p, _member) ((__typeof__(_p->_member) *) \
+	(((intptr_t)(_p)) + offsetof(__typeof__(*_p), _member)))
 
 /* Double indirection to ensure section names are expanded before
  * stringification
