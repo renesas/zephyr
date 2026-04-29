@@ -5,7 +5,7 @@ config ETH_RENESAS_RCARMCU_ETNF
 	bool "Renesas R-Car MCU Ethernet T1S (10BASE-T1S) MAC Driver"
 	default y
 	depends on DT_HAS_RENESAS_RCARMCU_ETHERNET_ETNF_ENABLED
-	select USE_RCARMCU_FSP_ETHER_ETNF
+	select USE_RH850_FSP_ETHER_ETNF if RH850
 	select PINCTRL
 	help
 	  Enable Ethernet T1S (10BASE-T1S, IEEE 802.3cg) MAC driver for the
@@ -32,7 +32,7 @@ config ETH_RENESAS_RCARMCU_ETNF_CFG_QOS_SUPPORT
 	  Config QOS support
 
 config ETH_RENESAS_RCARMCU_ETNF_USE_ZEROCOPY
-	bool "R-Car MCU Ethernet T1S zero-copy TX/RX mode"
+	bool "Renesas R-Car MCU Ethernet T1S zero-copy TX/RX mode"
 	help
 	  When enabled, the driver uses zero-copy mode: RX buffer pointers are
 	  passed directly to the network stack without memcpy, and TX buffers

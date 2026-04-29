@@ -8,4 +8,5 @@ toolchain:
   - iar
 supported:
   - gpio
+  - ethernet
 vendor: renesas

@@ -43,6 +43,30 @@
 			};
 		};
 
+		/* ETNF0 MAC node */
+		etnf0: ethernet@ff1d0000 {
+			compatible = "renesas,rcarmcu-ethernet-etnf";
+			reg = <0xff1d0000 0x77c>;
+			interrupts = <536 0>;
+			interrupt-parent = <&intc2>;
+			phy-connection-type = "internal";
+			mdio-interface = "shared";
+			pma-filtered;
+			status = "disabled";
+
+			ct25205: phy {
+				compatible = "renesas,ct25205-phy";
+				phy-lsi-addr = <31>;
+				plca-enable;
+				plca-node-id = <0>;
+				plca-node-count = <8>;
+				plca-burst-count = <0>;
+				plca-burst-timer = <128>;
+				plca-to-timer = <32>;
+				status = "okay";
+			};
+		};
+
 		ioport0: gpio@ffd90000 {
 			compatible = "renesas,rh850-gpio";
 			reg = <0xffd90000 0x40>;

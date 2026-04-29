@@ -554,4 +554,9 @@ config USE_RH850_FSP_EXT_IRQ
 	help
 	  Enable RH850 FSP External IRQ driver
 
+config USE_RH850_FSP_ETHER_ETNF
+	bool
+	help
+	  Enable RH850 FSP Ethernet T1S driver
+
 endif # HAS_RENESAS_RH850_FSP
