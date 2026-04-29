@@ -11,6 +11,8 @@
 #include <zephyr/drivers/clock_control/renesas_ra_cgc.h>
 #include <zephyr/drivers/usb/udc.h>
 #include "r_usb_device.h"
+#include <zephyr/pm/policy.h>
+#include <zephyr/pm/device.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(udc_renesas_ra, CONFIG_UDC_DRIVER_LOG_LEVEL);
@@ -31,6 +33,9 @@ struct udc_renesas_ra_data {
 	struct st_usbd_instance_ctrl udc;
 	struct st_usbd_cfg udc_cfg;
 	bool ignore_status_in;
+#if defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE)
+	bool pm_policy_locked;
+#endif /* defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE) */
 };
 
 enum udc_renesas_ra_event_type {
@@ -53,6 +58,36 @@ K_MSGQ_DEFINE(drv_msgq, sizeof(struct udc_renesas_ra_evt), CONFIG_UDC_RENESAS_RA
 
 extern void usb_device_isr(void);
 
+static inline void udc_renesas_ra_pm_policy_state_lock_get(const struct device *dev)
+{
+#if defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE)
+	struct udc_renesas_ra_data *data = udc_get_private(dev);
+
+	if (data->pm_policy_locked) {
+		return;
+	}
+	data->pm_policy_locked = true;
+	pm_device_busy_set(dev);
+	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif /* defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE) */
+}
+
+static inline void udc_renesas_ra_pm_policy_state_lock_put(const struct device *dev)
+{
+#if defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE)
+	struct udc_renesas_ra_data *data = udc_get_private(dev);
+
+	if (!data->pm_policy_locked) {
+		return;
+	}
+	data->pm_policy_locked = false;
+	pm_device_busy_clear(dev);
+	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif /* defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE) */
+}
+
 static void udc_renesas_ra_event_handler(usbd_callback_arg_t *p_args)
 {
 	const struct device *dev = p_args->p_context;
@@ -60,22 +95,27 @@ static void udc_renesas_ra_event_handler(usbd_callback_arg_t *p_args)
 
 	switch (p_args->event.event_id) {
 	case USBD_EVENT_BUS_RESET:
+		udc_renesas_ra_pm_policy_state_lock_get(dev);
 		udc_submit_event(dev, UDC_EVT_RESET, 0);
 		break;
 
 	case USBD_EVENT_VBUS_RDY:
+		udc_renesas_ra_pm_policy_state_lock_get(dev);
 		udc_submit_event(dev, UDC_EVT_VBUS_READY, 0);
 		break;
 
 	case USBD_EVENT_VBUS_REMOVED:
+		udc_renesas_ra_pm_policy_state_lock_put(dev);
 		udc_submit_event(dev, UDC_EVT_VBUS_REMOVED, 0);
 		break;
 
 	case USBD_EVENT_SUSPEND:
+		udc_renesas_ra_pm_policy_state_lock_put(dev);
 		udc_submit_event(dev, UDC_EVT_SUSPEND, 0);
 		break;
 
 	case USBD_EVENT_RESUME:
+		udc_renesas_ra_pm_policy_state_lock_get(dev);
 		udc_submit_event(dev, UDC_EVT_RESUME, 0);
 		break;
 
@@ -685,6 +725,27 @@ static void udc_renesas_ra_unlock(const struct device *dev)
 	udc_unlock_internal(dev);
 }
 
+#ifdef CONFIG_PM_DEVICE
+static int udc_renesas_ra_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	struct udc_renesas_ra_data *priv = udc_get_private(dev);
+	fsp_err_t fsp_err = FSP_SUCCESS;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		fsp_err = R_USBD_Close(&priv->udc);
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		fsp_err = R_USBD_Open(&priv->udc, &priv->udc_cfg);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return (fsp_err == FSP_SUCCESS) ? 0 : -EIO;
+}
+#endif /* CONFIG_PM_DEVICE */
+
 static const struct udc_api udc_renesas_ra_api = {
 	.lock = udc_renesas_ra_lock,
 	.unlock = udc_renesas_ra_unlock,
@@ -796,8 +857,9 @@ static const struct udc_api udc_renesas_ra_api = {
 		return udc_renesas_ra_driver_preinit(dev);                                         \
 	}                                                                                          \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_driver_preinit##n, NULL, &udc_data_##n,            \
-			      &udc_renesas_ra_config_##n, POST_KERNEL,                             \
+	PM_DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_pm_action);					   \
+	DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_driver_preinit##n, PM_DEVICE_DT_INST_GET(n),	   \
+			      &udc_data_##n, &udc_renesas_ra_config_##n, POST_KERNEL,		   \
 			      CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &udc_renesas_ra_api);
 
 DT_INST_FOREACH_STATUS_OKAY(UDC_RENESAS_RA_DEVICE_DEFINE)
