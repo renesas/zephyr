@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(net_ieee802154, CONFIG_NET_L2_IEEE802154_LOG_LEVEL);
 
 #include <errno.h>
 
-#include <zephyr/toolchain/gcc.h>
+#include <zephyr/toolchain.h>
 #include <zephyr/net/capture.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_core.h>

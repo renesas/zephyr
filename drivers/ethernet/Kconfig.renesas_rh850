@@ -5,7 +5,7 @@ config ETH_RENESAS_RH850_ETNF
 	bool "Renesas RH850 Ethernet T1S (10BASE-T1S) MAC Driver"
 	default y
 	depends on DT_HAS_RENESAS_RH850_ETHERNET_ETNF_ENABLED
-	select USE_RH850_FSP_ETHER_ETNF
+	select USE_RH850_FSP_ETHER_ETNF if RH850
 	select PINCTRL
 	help
 	  Enable Ethernet T1S (10BASE-T1S, IEEE 802.3cg) MAC driver for the
