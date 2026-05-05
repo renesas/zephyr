@@ -1,0 +1,69 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: RENESAS RH850 SPI
+
+compatible: "renesas,rh850-spi"
+
+include: [spi-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  channel:
+    type: int
+    required: true
+    description: |
+      The channel of MSPI unit
+
+  tx-dtc:
+    type: boolean
+
+  rx-dtc:
+    type: boolean
+
+  spi-sck-cs-delay:
+    type: int
+    description: |
+      A delay between the stop of clock signal and
+      deactivating Chip Select at the stop of transfer.
+      If not set, the default value is used.
+      This value will be used to configurate the MSPInHOLDm register.
+      Delay time = MSPInHOLDm * MSPInCLK
+      This value will affect to all inner CS signals of SPI module when active.
+      This value will not be applied for CS lines controlled by GPIO.
+
+  spi-cs-sck-delay:
+    type: int
+    description: |
+      A delay between activating Chip Select and the start
+      of clock signal at the start of transfer.
+      If not set, the default value is used.
+      This value will be used to configurate the MSPInSEUPm register.
+      Delay time = MSPInSEUPm * MSPInCLK
+      This value will affect to all inner CS signals of SPI module when active.
+      This value will not be applied for CS lines controlled by GPIO.
+
+  spi-cs-cs-delay:
+    type: int
+    description: |
+      A delay between deactivating Chip Select at the stop
+      of previous transfer and activating Chip Select at the start of
+      next transfer.
+      If not set, the default value is used.
+      This value will be used to configurate the MSPInIDLEm register.
+      Delay time = MSPInIDLEm * MSPInCLK
+      This value will affect to all inner CS signals of SPI module when active.
+      This value will not be applied for CS lines controlled by GPIO.
+
+  spi-sck-sck-delay:
+    type: int
+    description: |
+      A delay between clock operation stop and clock
+      operation start between two frames with same configuration.
+      If not set, the default value is used.
+      This value will be used to configurate the MSPInINDAm register.
+      Delay time = MSPInINDAm * MSPInCLK
+      This value will affect to all inner CS signals of SPI module when active.
+      This value will not be applied for CS lines controlled by GPIO.

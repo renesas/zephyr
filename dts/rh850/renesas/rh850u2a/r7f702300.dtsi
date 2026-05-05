@@ -627,6 +627,30 @@
 			status = "disabled";
 		};
 
+		mspi0: spi@ffc76000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <250 1>, <251 1>, <252 1>, <253 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffc76000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi1: spi@ffc7e000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <260 1>, <261 1>, <262 1>, <263 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffc7e000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
 		ioport0: gpio@ffd90000 {
 			compatible = "renesas,rh850-gpio";
 			reg = <0xffd90000 0x40>;

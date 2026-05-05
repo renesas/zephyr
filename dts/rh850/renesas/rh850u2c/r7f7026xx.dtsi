@@ -355,6 +355,30 @@
 			};
 		};
 
+		mspi0: spi@ffc76000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <76 1>, <79 1>, <90 1>, <91 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffc76000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi1: spi@ffd5e000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <82 1>, <85 1>, <90 1>, <91 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffd5e000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
 		/* ETNF0 MAC node */
 		etnf0: ethernet@ff1d0000 {
 			compatible = "renesas,rh850-ethernet-etnf";
