@@ -16,6 +16,7 @@
 #include <zephyr/net/phy.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
+#include "r_ether_api.h"
 #include "r_rmac.h"
 #include "r_layer3_switch.h"
 #include "eth.h"
@@ -162,6 +163,9 @@ static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *sta
 	rmac_init_buffers(&data->fsp_ctrl);
 	rmac_init_descriptors(&data->fsp_ctrl);
 	rmac_configure_reception_filter(&data->fsp_ctrl);
+#if defined(CONFIG_NET_VLAN)
+	data->fsp_ctrl->p_reg_etha->EAVCC_b.VEM = 3;
+#endif
 
 	fsp_err = rmac_do_link(&data->fsp_ctrl, LAYER3_SWITCH_MAGIC_PACKET_DETECTION_DISABLE);
 	if (fsp_err != FSP_SUCCESS) {
@@ -243,7 +247,38 @@ static enum ethernet_hw_caps eth_renesas_ra_get_capabilities(const struct device
 {
 	ARG_UNUSED(dev);
 
-	return ETHERNET_LINK_10BASE | ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE;
+	return
+#if defined(CONFIG_NET_PROMISCUOUS_MODE)
+		ETHERNET_PROMISC_MODE |
+#endif
+#if defined(CONFIG_NET_VLAN)
+		ETHERNET_HW_VLAN |
+#endif
+		ETHERNET_LINK_10BASE | ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE;
+}
+
+static int eth_renesas_ra_set_config(const struct device *dev, enum ethernet_config_type type,
+				     const struct ethernet_config *config)
+{
+	struct eth_renesas_ra_data *data = dev->data;
+	int ret = 0;
+
+	switch (type) {
+	case ETHERNET_CONFIG_TYPE_PROMISC_MODE:
+		/* Promiscuous mode is enable at intialization and cannot be changed in runtime */
+		ether_promiscuous_t mode =
+			config->promisc_mode ? ETHER_PROMISCUOUS_ENABLE : ETHER_PROMISCUOUS_DISABLE;
+
+		if (data->fsp_cfg.promiscuous != mode) {
+			ret = -ENOTSUP;
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
 }
 
 static bool renesas_ra_eth_rx(const struct device *dev)
@@ -535,6 +570,7 @@ static const struct ethernet_api eth_renesas_ra_api = {
 	.get_stats = eth_renesas_ra_get_stats,
 #endif /* CONFIG_NET_STATISTICS_ETHERNET */
 	.get_capabilities = eth_renesas_ra_get_capabilities,
+	.set_config = eth_renesas_ra_set_config,
 	.get_phy = eth_renesas_ra_get_phy,
 	.send = eth_renesas_ra_tx,
 };
@@ -672,14 +708,14 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 	}
 #define ETH_RENESAS_RA_DATA_BUF_DECLARE(n)                                                         \
 	struct eth_renesas_ra_buf_header eth##n##_tx_buf_header[] = {                              \
-		LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_HEADER_DECLARE, (,), n),                     \
+		LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_HEADER_DECLARE, (,), n),                        \
 	}
 #define ETH_RENESAS_RA_DATA_BUF_PROP_DECLARE(n)                                                    \
 	.tx_buf_header = eth##n##_tx_buf_header, .tx_buf_idx = 0, .tx_buf_num = ETH_TX_BUF_NUM(n)
 #else /* CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY */
 #define ETH_RENESAS_RA_DATA_BUF_MODE ETHER_ZEROCOPY_DISABLE
 #define ETH_RENESAS_RA_DATA_BUF_DECLARE(n)                                                         \
-	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE] __eth_renesas_buf;			   \
+	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE] __eth_renesas_buf;                          \
 	static uint8_t eth##n##_tx_frame[ETH_BUF_SIZE] __eth_renesas_buf;
 #define ETH_RENESAS_RA_DATA_BUF_PROP_DECLARE(n)                                                    \
 	.rx_frame = eth##n##_rx_frame, .tx_frame = eth##n##_tx_frame
@@ -735,7 +771,9 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 				.padding = ETHER_PADDING_DISABLE,                                  \
 				.zerocopy = ETH_RENESAS_RA_DATA_BUF_MODE,                          \
 				.multicast = ETHER_MULTICAST_ENABLE,                               \
-				.promiscuous = ETHER_PROMISCUOUS_DISABLE,                          \
+				.promiscuous = IS_ENABLED(CONFIG_NET_PROMISCUOUS_MODE)             \
+						       ? ETHER_PROMISCUOUS_ENABLE                  \
+						       : ETHER_PROMISCUOUS_DISABLE,                \
 				.flow_control = ETHER_FLOW_CONTROL_DISABLE,                        \
 				.p_callback = &eth_rmac_cb,                                        \
 				.p_context = (void *)DEVICE_DT_INST_GET(n),                        \
