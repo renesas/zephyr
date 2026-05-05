@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config SPI_RENESAS_RH850
+	bool "Renesas RH850 SPI"
+	default y
+	depends on DT_HAS_RENESAS_RH850_SPI_ENABLED
+	select USE_RH850_FSP_MSPI
+	select PINCTRL
+	help
+	Enable Renesas RH850 SPI Driver.
+
+if SPI_RENESAS_RH850
+
+config SPI_RENESAS_RH850_INTERRUPT
+	bool "RH850 SPI Interrupt Support"
+	default y
+	help
+		Enable Interrupt support for the SPI Driver of RH850 family.
+
+endif # SPI_RENESAS_RH850
+
+if SPI_RENESAS_RH850
+
+config SPI_RH850_SYNC_TRANSFER_TIMEOUT_VALUE
+	hex "Maximum time to wait for the transceiver operation in Polling mode."
+	default 0xFFFFFFFF
+	help
+		Maximum amount of time that SPI (master/slave) should wait for the transceiver
+		operation. Used only in Polling mode.
+
+endif # SPI_RENESAS_RH850
