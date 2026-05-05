@@ -1,4 +1,4 @@
-identifier: rcar_ironhide_x5h_r8a7800_r52
+identifier: rcar_ironhide_x5h/r8a7800/r52
 name: Cortex R52 for Renesas Ironhide X5H
 type: mcu
 arch: arm
