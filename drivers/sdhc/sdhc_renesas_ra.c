@@ -209,12 +209,52 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 	case SD_ERASE_BLOCK_OPERATION:
 	case SD_APP_CMD:
 	case SD_SEND_STATUS:
-		/* Send command with argument */
+	case SDIO_RW_DIRECT:
 		ret = sdhc_ra_send_cmd(priv, &ra_cmd, retries);
 		if (ret < 0) {
+			LOG_ERR("<< CMD%d FAILED: %d", cmd->opcode, ret);
 			goto end;
 		}
 		break;
+
+	case SDIO_SEND_OP_COND:
+		/* CMD5: SDIO voltage/function query.
+		 * Response is R4:
+		 *   bit 31    - card power up status (1 = ready)
+		 *   bits 30:28 - number of I/O functions
+		 *   bit 27    - memory present
+		 *   bits 23:0 - supported OCR voltage window
+		 *
+		 * First call: arg=0, returns supported OCR.
+		 * Second call: arg=OCR, card powers up and sets bit 31.
+		 * Zephyr's sdio_card_init() handles the two-pass loop;
+		 * we just need to send the command and return R4 correctly.
+		 */
+		ret = sdhc_ra_send_cmd(priv, &ra_cmd, retries);
+		if (ret < 0) {
+			LOG_ERR("CMD5 (SDIO_SEND_OP_COND) failed: %d", ret);
+			goto end;
+		}
+
+		{
+			uint32_t r4 = priv->sdmmc_ctrl.p_reg->SD_RSP10;
+
+			bool card_ready   = (r4 >> 31) & 0x1U;
+			uint8_t num_funcs = (r4 >> 28) & 0x7U;
+			bool mem_present  = (r4 >> 27) & 0x1U;
+			uint32_t ocr      =  r4 & 0x00FFFFFFU;
+
+			LOG_INF("CMD5 R4: ready=%d io_funcs=%d mem=%d ocr=0x%06X",
+				card_ready, num_funcs, mem_present, ocr);
+
+			/* Place raw R4 into response[0] for Zephyr SD stack */
+			cmd->response[0] = r4;
+		}
+
+		/* Skip the generic response copy at the bottom */
+		k_sem_give(&priv->thread_lock);
+		return 0;
+
 	case SD_SEND_CSD:
 		/* Read card specific data register */
 		ret = sdhc_ra_send_cmd(priv, &ra_cmd, retries);
@@ -316,7 +356,6 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 			}
 			memcpy(ra_cmd.data, priv->sdmmc_ctrl.aligned_buff, 8);
 			priv->sdmmc_event.transfer_completed = false;
-			break;
 		}
 		break;
 
@@ -389,6 +428,53 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 		priv->sdmmc_event.transfer_completed = false;
 		break;
 
+	case SDIO_RW_EXTENDED: {
+		if (data == NULL || data->data == NULL) {
+			ret = -EINVAL;
+			goto end;
+		}
+
+		bool is_write = ((cmd->arg >> SDIO_CMD_ARG_RW_SHIFT) & 0x1U);
+
+		if (!is_write) {
+			fsp_err = r_sdhi_transfer_read(&priv->sdmmc_ctrl,
+						       ra_cmd.sector_count,
+						       ra_cmd.sector_size,
+						       ra_cmd.data);
+			ret = err_fsp2zep(fsp_err);
+			if (ret < 0) {
+				goto end;
+			}
+		} else {
+			fsp_err = r_sdhi_transfer_write(&priv->sdmmc_ctrl,
+							ra_cmd.sector_count,
+							ra_cmd.sector_size,
+							ra_cmd.data);
+			ret = err_fsp2zep(fsp_err);
+			if (ret < 0) {
+				goto end;
+			}
+		}
+
+		r_sdhi_read_write_common(&priv->sdmmc_ctrl,
+					 ra_cmd.sector_count,
+					 ra_cmd.sector_size,
+					 ra_cmd.opcode,
+					 ra_cmd.arg);
+
+		ret = k_sem_take(&priv->sdmmc_event.transfer_sem, K_MSEC(ra_cmd.timeout_ms));
+		if (ret < 0) {
+			LOG_ERR("Can not take sem!");
+			goto end;
+		}
+		if (!priv->sdmmc_event.transfer_completed) {
+			ret = -EIO;
+			goto end;
+		}
+		priv->sdmmc_event.transfer_completed = false;
+		break;
+	}
+
 	default:
 		LOG_INF("SDHC driver: command %u not supported", cmd->opcode);
 		ret = -ENOTSUP;
@@ -401,7 +487,7 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 		p_csd_reg.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP54 << 8;
 		p_csd_reg.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP76 << 8;
 
-		memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
+	memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
 	} else {
 		/* Fill response buffer */
 		p_csd_reg.reg.sdrsp10 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP10;
@@ -409,7 +495,7 @@ static int sdhc_ra_request(const struct device *dev, struct sdhc_command *cmd,
 		p_csd_reg.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP54;
 		p_csd_reg.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP76;
 
-		memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
+	memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
 	}
 end:
 	if (cmd->opcode == SD_APP_CMD) {
