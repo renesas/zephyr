@@ -25,6 +25,36 @@
 		};
 	};
 
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_06, 6, ALT_IN2)>,
+				<RH850_PSEL(PORT_06, 7, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_06, 5, ALT_IN1)>,
+				<RH850_PSEL(PORT_06, 9, ALT_OUT1)>;
+			drive-strength = "medium";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 3, ALT_IN1)>,
+				<RH850_PSEL(PORT_02, 5, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT1)>,
+				<RH850_PSEL(PORT_02, 4, ALT_IN1)>;
+			drive-strength = "medium";
+		};
+	};
+
 	etnf0_default: etnf0_default {
 		group1 {
 			psels = <RH850_PSEL(PORT_20, 4, ALT_OUT3)>,
@@ -32,6 +62,7 @@
 				<RH850_PSEL(PORT_22, 2, ALT_OUT2)>;
 			drive-strength = "high";
 		};
+
 		group2 {
 			psels = <RH850_PSEL(PORT_20, 3, ALT_OUT3)>,
 				<RH850_PSEL(PORT_20, 13, ALT_OUT4)>,

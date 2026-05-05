@@ -12,4 +12,32 @@
 				<RH850_PSEL(PORT_10, 5, ALT_IN7)>;
 		};
 	};
+
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 5, ALT_OUT2)>,
+				<RH850_PSEL(PORT_02, 3, ALT_OUT3)>,
+				<RH850_PSEL(PORT_04, 6, ALT_OUT2)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_04, 7, ALT_IN2)>;
+			drive-strength = "very low";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_IN3)>,
+				<RH850_PSEL(PORT_02, 0, ALT_OUT2)>,
+				<RH850_PSEL(PORT_05, 2, ALT_OUT3)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_IN3)>;
+			drive-strength = "very low";
+		};
+	};
 };

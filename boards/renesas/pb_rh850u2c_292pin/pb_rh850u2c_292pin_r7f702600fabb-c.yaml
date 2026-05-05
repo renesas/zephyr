@@ -15,4 +15,5 @@ supported:
   - timer
   - uart
   - watchdog
+  - spi
 vendor: renesas

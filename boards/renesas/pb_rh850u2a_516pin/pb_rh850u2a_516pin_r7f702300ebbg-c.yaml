@@ -12,6 +12,7 @@ supported:
   - pinctrl
   - interrupt_controller
   - timer
+  - spi
   - uart
   - watchdog
 vendor: renesas

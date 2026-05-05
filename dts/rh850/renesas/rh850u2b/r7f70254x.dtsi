@@ -90,6 +90,30 @@
 			};
 		};
 
+		mspi0: spi@ffc76000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <576 1>, <577 1>, <578 1>, <579 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffc76000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi1: spi@ffd5e000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <580 1>, <581 1>, <582 1>, <583 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffd5e000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
 		rlin30: rlin30@ffc7c000 {
 			compatible = "renesas,rh850-rlin3";
 			interrupts = <620 1>, <621 1>, <622 1>, <623 1>;

@@ -8,6 +8,7 @@ toolchain:
   - iar
 supported:
   - counter
+  - spi
   - ethernet
   - gpio
   - interrupt_controller
