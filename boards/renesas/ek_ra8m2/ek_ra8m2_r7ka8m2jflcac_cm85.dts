@@ -28,6 +28,7 @@
 		led0 = &led1;
 		sw0 = &button0;
 		watchdog0 = &wdt0;
+		sdhc0 = &sdhc1;
 	};
 };
 
@@ -213,6 +214,20 @@ mikrobus_spi: &spi1 {};
 		reg = <0>;
 		int-gpios = <&ioportc 13 GPIO_ACTIVE_LOW>;
 		reset-gpios = <&ioport5 14 GPIO_ACTIVE_LOW>;
+		status = "okay";
+	};
+};
+
+&sdhc1 {
+	pinctrl-0 = <&sdhc1_default>;
+	pinctrl-names = "default";
+	interrupt-names = "accs", "card", "dma-req";
+	interrupts = <84 12>, <85 12>, <86 12>;
+	status = "okay";
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
 		status = "okay";
 	};
 };

@@ -1363,7 +1363,6 @@
 			channel = <0>;
 			bus-width = <4>;
 			sd-support;
-			card-detect;
 			max-bus-freq = <DT_FREQ_M(52)>;
 			clocks = <&pclkb MSTPC 12>;
 			reg = <0x40252000 0x0400>;
