@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	test_device: test_device@0 {
+		compatible = "vnd,pinctrl-device";
+		reg = <0x0 0x1>;
+		pinctrl-0 = <&group1a &group1b &group2 &group3 &group4 &group5>;
+		pinctrl-names = "default";
+	};
+};
+
+&pfc {
+	group1a: group1a {
+		pin = <PIN_HTX1 FUNC_HTX1>;
+	};
+
+	group1b: group1b {
+		pin = <PIN_HRX1 FUNC_HRX1>;
+	};
+
+	group2: group2 {
+		pin = <PIN_CAN0TX FUNC_CAN0TX>;
+		bias-pull-up;
+	};
+
+	group3: group3 {
+		pin = <PIN_CAN0RX_INTP0 FUNC_CAN0RX_INTP0>;
+		bias-pull-down;
+		drive-strength = <12>;
+	};
+
+	group4: group4 {
+		pin = <PIN_HTX1 FUNC_TX1>;
+		bias-disable;
+		drive-strength = <24>;
+	};
+
+	group5: group5 {
+		pin = <PIN_SCL1 FUNC_SCL1>;
+		drive-strength = <6>;
+	};
+};

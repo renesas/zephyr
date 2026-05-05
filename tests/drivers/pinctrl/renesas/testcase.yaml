@@ -1,0 +1,6 @@
+tests:
+  drivers.pinctrl.renesas:
+    tags:
+      - drivers
+      - pinctrl
+    platform_allow: rcar_ironhide_x5h/r8a7800/r52
