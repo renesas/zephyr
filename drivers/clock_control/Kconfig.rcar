@@ -1,9 +1,17 @@
 # Copyright (c) 2021-2023 IoT.bzh
+# Copyright (c) 2026 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 config CLOCK_CONTROL_RCAR_CPG_MSSR
 	bool "RCar CPG MSSR driver"
 	default y
-	depends on SOC_FAMILY_RENESAS_RCAR
+	depends on SOC_FAMILY_RENESAS_RCAR && !SOC_SERIES_RCAR_GEN5
 	help
 	  Enable support for Renesas RCar CPG MSSR driver.
+
+config CLOCK_CONTROL_RCAR_CLKC_MDLC
+	bool "Renesas R-Car CLKC MDLC driver"
+	default y
+	depends on DT_HAS_RENESAS_R8A7800_CLKC_MDLC_ENABLED
+	help
+	  Enable the Renesas R-Car Clock controller (CLKC) and Module controller (MDLC) driver.
