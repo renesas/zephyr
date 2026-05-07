@@ -5,7 +5,7 @@
  */
 
 #include <renesas/rcar/gen5/rcar_gen5_cr52.dtsi>
-#include <zephyr/dt-bindings/clock/r8a7800_cpg_mssr.h>
+#include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
 
 / {
 	soc {
@@ -19,16 +19,16 @@
 			      <0xc9b00800 0x16c>;
 		};
 
-		cpg: clock-controller@c3060000 {
-			compatible = "renesas,r8a7800-cpg-mssr";
-			reg = <0xc3060000 0x4000>;
+		clkc: clock-controller@c08f0000 {
+			compatible = "renesas,r8a7800-clkc-mdlc";
+			reg = <0xc08f0000 0x4000>;
 			#clock-cells = <2>;
 		};
 
 		scif1: serial@c0704000 {
 			interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&cpg CPG_MOD 130>,
-				 <&cpg CPG_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SCIF1>,
+				 <&clkc CLKC_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
 		};
 	};
 };

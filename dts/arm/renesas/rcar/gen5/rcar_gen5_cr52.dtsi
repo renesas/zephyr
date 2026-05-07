@@ -6,7 +6,7 @@
 
 #include <arm/armv8-r.dtsi>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/clock/renesas_cpg_mssr.h>
+#include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
 #include <mem.h>
 
 / {
