@@ -57,6 +57,14 @@ tests:
       - xg24_rb4187c
       - xg27_rb4194a
       - xg29_rb4412a
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+      - pb_rh850u2b_292pin_r7f70254xafabb-c
+      - pb_rh850u2b_468pin_r7f70254xafabg-c
+      - pb_rh850u2b_468pin_r7f70254xfabg-c
+      - pb_rh850u2c_292pin_r7f702600afabb-c
+      - pb_rh850u2c_292pin_r7f702600fabb-c
     integration_platforms:
       - nucleo_f746zg
   sample.drivers.counter.alarm.stm32_rtc:

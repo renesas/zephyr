@@ -94,6 +94,8 @@ struct counter_alarm_cfg alarm_cfg;
 #define SAMPLE_TIMER DT_ALIAS(counter)
 #elif defined(CONFIG_COUNTER_ITE_IT51XXX)
 #define SAMPLE_TIMER DT_NODELABEL(counter0)
+#elif defined(CONFIG_COUNTER_RENESAS_RH850_OSTM)
+#define SAMPLE_TIMER DT_INST(0, renesas_rh850_ostm_counter)
 #else
 #error Unable to find a counter device node in devicetree
 #endif
