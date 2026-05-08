@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config COUNTER_RENESAS_RH850_OSTM
+	bool "Renesas RH850 OS Timer (OSTM) Counter driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_OSTM_COUNTER_ENABLED
+	select USE_RH850_FSP_OSTM
+	help
+	  Enable the counter driver for the Renesas RH850 OS Timer (OSTM).
