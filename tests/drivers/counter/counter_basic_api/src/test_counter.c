@@ -208,6 +208,9 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_BEE_RTC
 	DEVS_FOR_DT_COMPAT(realtek_bee_counter_rtc)
 #endif
+#ifdef CONFIG_COUNTER_RENESAS_RH850_OSTM
+	DEVS_FOR_DT_COMPAT(renesas_rh850_ostm_counter)
+#endif
 };
 
 static const struct device *const period_devs[] = {
@@ -1258,6 +1261,11 @@ static bool reliable_cancel_capable(const struct device *dev)
 	}
 #endif
 #ifdef CONFIG_COUNTER_RENESAS_RZ_GTM
+	if (single_channel_alarm_capable(dev)) {
+		return true;
+	}
+#endif
+#ifdef CONFIG_COUNTER_RENESAS_RH850_OSTM
 	if (single_channel_alarm_capable(dev)) {
 		return true;
 	}
