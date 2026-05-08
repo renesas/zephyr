@@ -27,6 +27,186 @@
 			};
 		};
 
+		ostm1: ostm1@ffbf0100 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0100 0x20>;
+			channel = <1>;
+			interrupts = <200 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm2: ostm2@ffbf0200 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0200 0x20>;
+			channel = <2>;
+			interrupts = <201 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm3: ostm3@ffbf0300 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0300 0x20>;
+			channel = <3>;
+			interrupts = <202 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm4: ostm4@ffbf0400 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0400 0x20>;
+			channel = <4>;
+			interrupts = <203 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm5: ostm5@ffbf0500 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0500 0x20>;
+			channel = <5>;
+			interrupts = <204 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm6: ostm6@ffbf0600 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0600 0x20>;
+			channel = <6>;
+			interrupts = <205 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm7: ostm7@ffbf0700 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0700 0x20>;
+			channel = <7>;
+			interrupts = <206 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm8: ostm8@ffbf0800 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0800 0x20>;
+			channel = <8>;
+			interrupts = <207 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		ostm9: ostm9@ffbf0900 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0900 0x20>;
+			channel = <9>;
+			interrupts = <208 1>;
+			interrupt-names = "overflow";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
 		rlin30: rlin30@ffd28000 {
 			compatible = "renesas,rh850-rlin3";
 			interrupts = <416 1>, <417 1>, <418 1>, <419 1>;

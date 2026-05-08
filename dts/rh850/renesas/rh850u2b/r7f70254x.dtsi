@@ -18,7 +18,8 @@
 			compatible = "renesas,rh850-ostm";
 			reg = <0xffbf0000 0x20>;
 			channel = <0>;
-			interrupts = <360 0>;
+			interrupt-names = "overflow";
+			interrupts = <360 1>;
 			interrupt-parent = <&intc2>;
 			status = "disabled";
 
@@ -32,9 +33,15 @@
 			compatible = "renesas,rh850-ostm";
 			reg = <0xff89a100 0x20>;
 			channel = <1>;
-			interrupts = <361 0>;
+			interrupt-names = "overflow";
+			interrupts = <361 1>;
 			interrupt-parent = <&intc2>;
 			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
 
 			timer {
 				compatible = "renesas,rh850-ostm-timer";
@@ -46,9 +53,15 @@
 			compatible = "renesas,rh850-ostm";
 			reg = <0xffbf0200 0x20>;
 			channel = <2>;
-			interrupts = <841 0>;
+			interrupt-names = "overflow";
+			interrupts = <841 1>;
 			interrupt-parent = <&intc2>;
 			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
 
 			timer {
 				compatible = "renesas,rh850-ostm-timer";
@@ -60,9 +73,15 @@
 			compatible = "renesas,rh850-ostm";
 			reg = <0xff89a300 0x20>;
 			channel = <3>;
-			interrupts = <842 0>;
+			interrupt-names = "overflow";
+			interrupts = <842 1>;
 			interrupt-parent = <&intc2>;
 			status = "disabled";
+
+			counter {
+				compatible = "renesas,rh850-ostm-counter";
+				status = "disabled";
+			};
 
 			timer {
 				compatible = "renesas,rh850-ostm-timer";

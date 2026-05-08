@@ -70,8 +70,8 @@
 			#interrupt-cells = <2>;
 			compatible = "renesas,rh850-intc";
 			interrupt-controller;
-			reg = <0xfff80000 0x40>,
-			      <0xfff82000 0x80>;
+			reg = <0xfff80000 0x7c0>,
+			      <0xfff82000 0xf80>;
 			reg-names = "EIC", "EIBD";
 			num-lines = <992>;
 
