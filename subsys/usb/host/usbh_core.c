@@ -72,6 +72,7 @@ static void dev_removed_handler(struct usbh_context *const ctx)
 	udev = usbh_device_get_root(ctx);
 	if (udev != NULL) {
 		usbh_device_disconnect(ctx, udev);
+		ctx->root = NULL;
 	} else {
 		LOG_DBG("Spurious device removed event");
 	}
