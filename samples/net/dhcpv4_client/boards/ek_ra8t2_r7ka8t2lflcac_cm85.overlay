@@ -1,0 +1,4 @@
+&eswm {
+	port0-fwd = <0x6>; /* Forward to PORT1 and CPU */
+	port1-fwd = <0x5>; /* Forward to PORT0 and CPU */
+};
