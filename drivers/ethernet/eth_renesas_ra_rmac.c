@@ -581,6 +581,15 @@ static const struct ethernet_api eth_renesas_ra_api = {
 	UTIL_AND(DT_NODE_HAS_COMPAT(id, renesas_ra_ethernet_rmac),                                 \
 		 DT_ENUM_HAS_VALUE(id, phy_clock_type, internal))
 
+#define PORT0_FWD_MASK(inst) ((layer3_switch_port_bitmask_t)DT_INST_PROP(inst, port0_fwd))
+#define PORT1_FWD_MASK(inst) ((layer3_switch_port_bitmask_t)DT_INST_PROP(inst, port1_fwd))
+
+#define ESWM_ASSERT_FWD_MASKS(inst)                                         \
+    BUILD_ASSERT((PORT0_FWD_MASK(inst) & ~LAYER3_SWITCH_PORT_BITMASK_ALL) == 0, \
+                 "inst" #inst ": port0-fwd contains invalid port bits");    \
+    BUILD_ASSERT((PORT1_FWD_MASK(inst) & ~LAYER3_SWITCH_PORT_BITMASK_ALL) == 0, \
+                 "inst" #inst ": port1-fwd contains invalid port bits");
+
 PINCTRL_DT_INST_DEFINE(0);
 
 static void renesas_ra_eswm_init_irq(void)
@@ -594,8 +603,7 @@ static void renesas_ra_eswm_init_irq(void)
 
 static layer3_switch_extended_cfg_t eswm_ext_cfg = {
 	.p_ether_phy_instances = {NULL, NULL},
-	.fowarding_target_port_masks = {LAYER3_SWITCH_PORT_BITMASK_PORT2,
-					LAYER3_SWITCH_PORT_BITMASK_PORT2},
+	.fowarding_target_port_masks = {PORT0_FWD_MASK(0), PORT1_FWD_MASK(0)},
 };
 static layer3_switch_instance_ctrl_t eswm_ctrl = {0};
 static ether_switch_cfg_t eswm_cfg = {
@@ -731,20 +739,20 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 	BUILD_ASSERT(ETH_DESC_NUM(n) <= ETH_BUF_NUM(n), "invalid buffer settings");                \
                                                                                                    \
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
-	LISTIFY(ETH_RX_BUF_NUM(n), ETH_RX_BUF_DECLARE, (), n);                                     \
-	LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_DECLARE, (), n);                                     \
+	LISTIFY(ETH_RX_BUF_NUM(n), ETH_RX_BUF_DECLARE, (), n);                                        \
+	LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_DECLARE, (), n);                                        \
 	static uint8_t *eth##n##_pp_buffers[] = {                                                  \
-		LISTIFY(ETH_RX_BUF_NUM(n), ETH_RX_BUF_PTR_DECLARE, (,), n),                        \
-				       LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_PTR_DECLARE, (,), n), \
+		LISTIFY(ETH_RX_BUF_NUM(n), ETH_RX_BUF_PTR_DECLARE, (,), n),                           \
+				       LISTIFY(ETH_TX_BUF_NUM(n), ETH_TX_BUF_PTR_DECLARE, (,), n),    \
 	};                                                                                         \
                                                                                                    \
-	LISTIFY(ETH_RX_QUEUE_NUM(n), ETH_RX_DESC_DECLARE, (), n);                                  \
-	LISTIFY(ETH_TX_QUEUE_NUM(n), ETH_TX_DESC_DECLARE, (), n);                                  \
+	LISTIFY(ETH_RX_QUEUE_NUM(n), ETH_RX_DESC_DECLARE, (), n);                                     \
+	LISTIFY(ETH_TX_QUEUE_NUM(n), ETH_TX_DESC_DECLARE, (), n);                                     \
 	static rmac_queue_info_t eth##n##_rx_queue_list[ETH_RX_QUEUE_NUM(n)] = {                   \
-		LISTIFY(ETH_RX_QUEUE_NUM(n), ETH_RX_QUEUE_DECLARE, (,), n),                        \
+		LISTIFY(ETH_RX_QUEUE_NUM(n), ETH_RX_QUEUE_DECLARE, (,), n),                           \
 	};                                                                                         \
 	static rmac_queue_info_t eth##n##_tx_queue_list[ETH_TX_QUEUE_NUM(n)] = {                   \
-		LISTIFY(ETH_TX_QUEUE_NUM(n), ETH_TX_QUEUE_DECLARE, (,), n),                        \
+		LISTIFY(ETH_TX_QUEUE_NUM(n), ETH_TX_QUEUE_DECLARE, (,), n),                           \
 	};                                                                                         \
 	static rmac_buffer_node_t eth##n##_buffer_node_list[ETH_BUF_NUM(n)];                       \
 	ETH_RENESAS_RA_DATA_BUF_DECLARE(n);                                                        \

@@ -30,3 +30,27 @@ properties:
       "eswphyclk": operating clock for xMII interface
       "ethphyclk": operating clock for ETHPHYLCK pin output. Enable this clock if any PHY
       device use ETHPHYCLK pin output as clock source.
+
+  port0-fwd:
+    type: int
+    required: false
+    default: 0x4
+    description: |
+      Bitmask of destination ports for forwarding packets received on port 0.
+      Values can be OR-combined:
+        - 0x1: PORT0 (1 << 0)
+        - 0x2: PORT1 (1 << 1)
+        - 0x4: PORT2/CPU (1 << 2)
+      Example: 0x7 forwards to all ports.
+
+  port1-fwd:
+    type: int
+    required: false
+    default: 0x4
+    description: |
+      Bitmask of destination ports for forwarding packets received on port 1.
+      Values can be OR-combined:
+        - 0x1: PORT0 (1 << 0)
+        - 0x2: PORT1 (1 << 1)
+        - 0x4: PORT2/CPU (1 << 2)
+      Example: 0x7 forwards to all ports.
