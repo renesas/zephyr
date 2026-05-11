@@ -141,6 +141,16 @@ static ALWAYS_INLINE _cpu_t *arch_curr_cpu(void)
 #endif
 }
 
+/** Implementation of @ref arch_cpu_irqs_are_enabled. */
+static ALWAYS_INLINE bool arch_cpu_irqs_are_enabled(void)
+{
+	uint32_t psw;
+
+	__asm__ volatile("stsr 5, %0, 0\n" : "=r"(psw) : : "memory");
+
+	return (psw & BIT(5)) == 0; /* bits [5] is ID */
+}
+
 #ifdef __cplusplus
 }
 #endif
