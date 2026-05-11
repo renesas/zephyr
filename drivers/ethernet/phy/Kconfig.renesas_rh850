@@ -7,6 +7,7 @@ config PHY_RENESAS_CT25205
 	bool "Renesas CT25205-RTL PHY Driver"
 	default y
 	depends on DT_HAS_RENESAS_CT25205_PHY_ENABLED
+	select ETH_PHY_API_PLCA
 	help
 	  Enable Renesas CT25205-RTL Ethernet PHY Driver
 
