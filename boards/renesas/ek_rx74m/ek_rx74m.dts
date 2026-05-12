@@ -520,3 +520,7 @@
 		status = "okay";
 	};
 };
+
+&group_irq_al5 {
+	status = "okay";
+};

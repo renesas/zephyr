@@ -7,6 +7,7 @@
 #include <mem.h>
 #include <zephyr/dt-bindings/clock/rx_clock.h>
 #include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-rx-pfs.h>
+#include <zephyr/dt-bindings/adc/renesas-adc-b.h>
 
 / {
 	#address-cells = <1>;
@@ -788,6 +789,7 @@
 			interrupts = <128 12>;
 			channel = <16>;
 			renesas,sample-clock-div = <64>;
+			#io-channel-cells = <0>;
 			#port-irq-cells = <0>;
 			status = "disabled";
 		};
@@ -1380,6 +1382,53 @@
 			clocks = <&octaspiclk MSTPB 17>;
 
 			status = "disabled";
+		};
+
+		adc: adc@87438000 {
+			compatible = "renesas,rx-adc-b-controller";
+			reg = <0x87438000 0x2230>;
+			clocks = <&pclka MSTPD 21>;
+			clock-div = <3>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			adc0: adc-unit@0 {
+				reg = <0>;
+				compatible = "renesas,rx-adc-b";
+				unit-id = <0>;
+				channel-available-mask = <0xff>; /* AN000–AN007 */
+				interrupts-extended = <&icu 128 12>, <&group_irq_al5 7 12>, <&group_irq_al5 4 12>;
+				interrupt-names = "scanend", "calend", "convserr";
+				renesas,adc-method = "oversample";
+				vref-mv = <3300>;
+				#io-channel-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				sampling-time-ns = <10000>;
+				status = "okay";
+			};
+
+			adc1: adc-unit@1 {
+				reg = <1>;
+				compatible = "renesas,rx-adc-b";
+				unit-id = <1>;
+				interrupts-extended = <&icu 129 12>, <&group_irq_al5 13 12>, <&group_irq_al5 10 12>; /* Scan end, Calibration end*/
+				interrupt-names = "scanend", "calend", "convserr";
+				channel-available-mask = <0x0ffffff00>; /* AN008–AN035 */
+				status = "disabled";
+			};
+
+			adc2: adc-unit@2 {
+				reg = <2>;
+				compatible = "renesas,rx-adc-b";
+				unit-id = <2>;
+				interrupts-extended = <&icu 130 12>, <&group_irq_al5 19 12>, <&group_irq_al5 16 12>; /* Scan end, Calibration end*/
+				interrupt-names = "scanend", "calend", "convserr";
+				channel-available-mask = <0x0ffffff00>; /* AN008–AN035 */
+				status = "disabled";
+			};
 		};
 
 		cmt: timer@87826000 {
