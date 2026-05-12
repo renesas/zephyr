@@ -47,6 +47,10 @@ static struct clkc_clk_info_table core_props[] = {
 				CLK_PLL5, RCAR_CLKC_NONE),
 	RCAR_CORE_CLK_INFO_ITEM(R8A78000_CLK_SGD8_MP_BUS, RCAR_CLKC_NONE, RCAR_CLKC_NONE,
 				RCAR_CLKC_NONE, 133333333),
+	RCAR_CORE_CLK_INFO_ITEM(R8A78000_CLK_ADGHD1CK_MP_BUS, 0x1024, CLKC_REGION_SYSSS_TOP,
+				RCAR_CLKC_NONE, RCAR_CLKC_MHZ(800)),
+	RCAR_CORE_CLK_INFO_ITEM(R8A78000_CLK_ADGHD4CK_MP_BUS, 0x1024, CLKC_REGION_SYSSS_TOP,
+				RCAR_CLKC_NONE, RCAR_CLKC_MHZ(200)),
 	RCAR_CORE_CLK_INFO_ITEM(R8A78000_CLK_S0D24_PERE_MAIN, RCAR_CLKC_NONE, RCAR_CLKC_NONE,
 				RCAR_CLKC_NONE, 33333333),
 	RCAR_CORE_CLK_INFO_ITEM(CLK_PLL5, RCAR_CLKC_NONE, RCAR_CLKC_NONE, RCAR_CLKC_NONE,
@@ -160,6 +164,8 @@ r8a7800_clkc_core_clock_get_status(const struct device *dev, struct clkc_clk_inf
 
 	switch (clk_info->module) {
 	case R8A78000_CLK_MSOCK_PERW_BUS:
+	case R8A78000_CLK_ADGHD1CK_MP_BUS:
+	case R8A78000_CLK_ADGHD4CK_MP_BUS:
 		reg = sys_read32(clkc_base[clk_info->region_id] + clk_info->offset);
 		return (reg & BIT(R8A78000_CLKC_COMMON_CLKSTP_BIT)) ? CLOCK_CONTROL_STATUS_OFF
 								    : CLOCK_CONTROL_STATUS_ON;
@@ -202,6 +208,8 @@ static int r8a7800_clkc_core_clock_enabled(const struct device *dev,
 	key = k_spin_lock(&data->cmn.lock);
 	switch (clk_info->module) {
 	case R8A78000_CLK_MSOCK_PERW_BUS:
+	case R8A78000_CLK_ADGHD1CK_MP_BUS:
+	case R8A78000_CLK_ADGHD4CK_MP_BUS:
 		reg = sys_read32(reg_base + reg_addr);
 		reg &= ~(1 << R8A78000_CLKC_COMMON_CLKSTP_BIT);
 		reg |= (!enable << R8A78000_CLKC_COMMON_CLKSTP_BIT);
@@ -315,6 +323,9 @@ static enum clock_control_status r8a7800_clkc_mdlc_get_status(const struct devic
 static uint32_t r8a7800_get_div_helper(uint32_t reg_val, uint32_t module)
 {
 	switch (module) {
+	case R8A78000_CLK_ADGHD1CK_MP_BUS:
+	case R8A78000_CLK_ADGHD4CK_MP_BUS:
+		return 1;
 	case R8A78000_CLK_MSOCK_PERW_BUS:
 		reg_val = FIELD_GET(R8A78000_CLKC_COMMON_DIV_MASK, reg_val);
 		/* Setting other than 5 to 63 is prohibited */
