@@ -1,0 +1,27 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RX ADC-B controller node.
+
+compatible: "renesas,rx-adc-b-controller"
+
+include: [adc-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  "#io-channel-cells":
+    const: 1
+
+  clock-div:
+    type: int
+    required: true
+    enum: [1, 2, 3, 4, 5, 6, 7, 8]
+    description: |
+      Clock divider value for the ADC_B controller clock. The driver uses this
+      value along with the clock frequency to calculate timing parameters for
+      ADC conversions.
+
+io-channel-cells:
+  - input

@@ -589,6 +589,11 @@ config USE_RX_FSP_SDHI
 	help
 	  Enable RX FSP SDHI driver
 
+config USE_RX_FSP_ADC_B
+	bool
+	help
+	  Enable RX FSP ADC-B driver
+
 if USE_RX_FSP_SCE
 
 config HAS_RENESAS_RX_RSIP_E50D

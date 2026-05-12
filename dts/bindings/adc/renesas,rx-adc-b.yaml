@@ -1,0 +1,103 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RX ADC_B unit node.
+
+  This node represents a single ADC_B converter/unit instance and is the
+  actual ADC controller node referenced by application io-channels.
+
+  Example:
+    zephyr,user {
+        io-channels = <&adc0 4>, <&adc0 7>;
+    };
+
+  Channel child nodes under this unit use the standard Zephyr ADC channel
+  properties provided by adc-controller.yaml, including:
+    - reg
+    - zephyr,gain
+    - zephyr,reference
+    - zephyr,acquisition-time
+    - zephyr,resolution
+    - zephyr,input-positive
+
+compatible: "renesas,rx-adc-b"
+
+include: [adc-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  unit-id:
+    type: int
+    required: true
+    description: |
+      ADC_B converter/unit identifier used by the driver to map this node
+      to the corresponding hardware converter selection.
+      This value is also being used to configure the scan-group-id.
+      For example, unit-id 0 uses scan-group-id 0, unit-id 1 uses scan-group-id 1, etc.
+
+  channel-available-mask:
+    type: int
+    required: false
+    description: |
+      Bitmask of physical analog channels available for this ADC_B unit.
+      Used by the driver to validate zephyr,input-positive values.
+
+  interrupts:
+    required: false
+    description: |
+      Interrupt specifier for this ADC_B unit.
+
+  interrupt-names:
+    required: false
+    description: |
+      Interrupt names for this ADC_B unit. Example: "scanend".
+
+  vref-mv:
+    type: int
+    required: false
+    description: |
+      ADC reference voltage in millivolts for this unit.
+
+  pinctrl-0:
+    required: false
+
+  pinctrl-names:
+    required: false
+
+  "#io-channel-cells":
+    const: 1
+
+  "#address-cells":
+    type: int
+    required: true
+    const: 1
+
+  "#size-cells":
+    type: int
+    required: true
+    const: 0
+
+  sampling-time-ns:
+    type: int
+    description: |
+      Sampling time in nanoseconds, i.e. the duration the ADC input
+      signal is sampled before conversion starts.
+
+  renesas,adc-method:
+    type: string
+    required: true
+    default: "oversample"
+    enum: ["sar", "oversample"]
+    description: |
+      ADC conversion method.
+      - SAR: Successive Approximation Register method, which performs a single conversion per trigger.
+      This method requires Digital Filter Selection to be disabled and supports resolutions up to 12 bits.
+      - Oversampling: ADC performs multiple conversions per trigger and averages the results,
+      improving resolution and noise. This method requires Digital Filter Selection to be enabled and
+      supports resolutions up to 16 bits.
+
+io-channel-cells:
+  - input
