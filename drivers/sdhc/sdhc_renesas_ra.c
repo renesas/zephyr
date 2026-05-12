@@ -104,17 +104,20 @@ void ra_sdio_int_isr(const void *parameter)
 	const struct device *dev = (const struct device *)parameter;
 	struct sdhc_ra_priv *priv = dev->data;
 	const struct sdhc_ra_config *cfg = dev->config;
+	uint32_t info1 = priv->sdmmc_ctrl.p_reg->SDIO_INFO1;
 
-	if (priv->cb) {
-		priv->cb(dev, SDHC_INT_SDIO, priv->user_cb_data);
+	if (info1 & SDHC_RA_SDIO_INFO1_TRANSFER_COMPLETE_MASK) {
+		priv->sdmmc_event.transfer_completed = true;
+		k_sem_give(&priv->sdmmc_event.transfer_sem);
+	} else {
+		if (priv->cb) {
+			priv->cb(dev, SDHC_INT_SDIO, priv->user_cb_data);
+		}
 	}
 
 	/* Clear interrupt flags */
 	priv->sdmmc_ctrl.p_reg->SDIO_INFO1 = SDHC_RA_SDIO_INFO1_IRQ_CLEAR;
 
-	/* Clear the IR flag in the ICU */
-	/* Clearing the IR bit must be done after clearing the interrupt source in the the
-	 * peripheral */
 	R_BSP_IrqStatusClear(cfg->sdio_irq_n);
 }
 
@@ -837,6 +840,14 @@ static DEVICE_API(sdhc, sdhc_api) = {
 		} else if (p_args->event == SDMMC_EVENT_TRANSFER_ERROR) {                          \
 			priv->sdmmc_event.transfer_completed = false;                              \
 			k_sem_give(&priv->sdmmc_event.transfer_sem);                               \
+		} else if (p_args->event == SDMMC_EVENT_CARD_INSERTED) {                           \
+			if (priv->cb && (priv->cb_sources & SDHC_INT_INSERTED)) {                  \
+				priv->cb(dev, SDHC_INT_INSERTED, priv->user_cb_data);              \
+			}                                                                          \
+		} else if (p_args->event == SDMMC_EVENT_CARD_REMOVED) {                            \
+			if (priv->cb && (priv->cb_sources & SDHC_INT_REMOVED)) {                   \
+				priv->cb(dev, SDHC_INT_REMOVED, priv->user_cb_data);               \
+			}                                                                          \
 		}                                                                                  \
 	}                                                                                          \
                                                                                                    \
