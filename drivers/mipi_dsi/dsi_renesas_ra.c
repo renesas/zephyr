@@ -11,6 +11,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/clock_control/renesas_ra_cgc.h>
 #include <zephyr/drivers/mipi_dsi.h>
+#include <zephyr/pm/policy.h>
+#include <zephyr/pm/device.h>
 #include "r_mipi_dsi.h"
 
 LOG_MODULE_REGISTER(dsi_renesas_ra, CONFIG_MIPI_DSI_LOG_LEVEL);
@@ -26,6 +28,9 @@ struct mipi_dsi_renesas_ra_data {
 	mipi_dsi_cfg_t mipi_dsi_cfg;
 	struct k_sem in_transmission;
 	atomic_t status;
+#ifdef CONFIG_PM_DEVICE
+	bool is_attached;
+#endif
 };
 
 void mipi_dsi_seq0_isr(void);
@@ -39,6 +44,32 @@ void mipi_dsi_callback(mipi_dsi_callback_args_t *p_args)
 		atomic_set(&data->status, p_args->tx_status);
 		k_sem_give(&data->in_transmission);
 	}
+}
+
+static inline void mipi_dsi_renesas_ra_pm_policy_state_lock_get(const struct device *dev)
+{
+#ifdef CONFIG_PM_DEVICE
+	struct mipi_dsi_renesas_ra_data *data = dev->data;
+
+	if(!data->is_attached) {
+		pm_device_busy_set(dev);
+	}
+#endif
+	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
+
+static inline void mipi_dsi_renesas_ra_pm_policy_state_lock_put(const struct device *dev)
+{
+#ifdef CONFIG_PM_DEVICE
+	struct mipi_dsi_renesas_ra_data *data = dev->data;
+
+	if(!data->is_attached) {
+		pm_device_busy_clear(dev);
+	}
+#endif
+	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
 }
 
 static int mipi_dsi_renesas_ra_attach(const struct device *dev, uint8_t channel,
@@ -90,7 +121,10 @@ static int mipi_dsi_renesas_ra_attach(const struct device *dev, uint8_t channel,
 		LOG_ERR("Start DSI host failed! (%d)", err);
 		return -EIO;
 	}
-
+#ifdef CONFIG_PM_DEVICE
+	data->is_attached = true;
+	pm_device_busy_set(dev);
+#endif
 	return 0;
 }
 
@@ -125,8 +159,10 @@ static ssize_t mipi_dsi_renesas_ra_dcs_write(const struct device *dev, uint8_t c
 		LOG_ERR("DSI write fail");
 		return -EIO;
 	}
-
+	/* Lock the PM policy state to wait for the transmission to complete */
+	mipi_dsi_renesas_ra_pm_policy_state_lock_get(dev);
 	k_sem_take(&data->in_transmission, K_FOREVER);
+	mipi_dsi_renesas_ra_pm_policy_state_lock_put(dev);
 
 	if ((data->status & MIPI_DSI_SEQUENCE_STATUS_ERROR) != MIPI_DSI_SEQUENCE_STATUS_NONE) {
 		return -EIO;
@@ -155,7 +191,10 @@ static ssize_t mipi_dsi_renesas_ra_generic_write(const struct device *dev, uint8
 		return -EIO;
 	}
 
+	/* Lock the PM policy state to wait for the transmission to complete */
+	mipi_dsi_renesas_ra_pm_policy_state_lock_get(dev);
 	k_sem_take(&data->in_transmission, K_FOREVER);
+	mipi_dsi_renesas_ra_pm_policy_state_lock_put(dev);
 
 	if ((data->status & MIPI_DSI_SEQUENCE_STATUS_ERROR) != MIPI_DSI_SEQUENCE_STATUS_NONE) {
 		return -EIO;
@@ -223,6 +262,31 @@ static int mipi_dsi_renesas_ra_init(const struct device *dev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_DEVICE
+
+static int mipi_dsi_renesas_ra_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct mipi_dsi_renesas_ra_config *config = dev->config;
+	int ret;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		ret = clock_control_on(config->clock_dev,
+				(clock_control_subsys_t)&config->clock_dsi_subsys);
+		break;
+	case PM_DEVICE_ACTION_SUSPEND:
+		ret = clock_control_off(config->clock_dev,
+				(clock_control_subsys_t)&config->clock_dsi_subsys);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return ret;
+}
+
+#endif /* CONFIG_PM_DEVICE */
 
 #if defined(CONFIG_SOC_SERIES_RA8D1)
 #define RENESAS_RA_PHY_PLL_MUL_INT_MIN 20
@@ -404,7 +468,9 @@ static int mipi_dsi_renesas_ra_init(const struct device *dev)
 			},                                                                         \
 	};                                                                                         \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(id, &mipi_dsi_renesas_ra_init, NULL, &ra_data_##id, &ra_config_##id, \
-			      POST_KERNEL, CONFIG_MIPI_DSI_INIT_PRIORITY, &mipi_dsi_api);
+	PM_DEVICE_DT_INST_DEFINE(id, mipi_dsi_renesas_ra_pm_action);                               \
+	DEVICE_DT_INST_DEFINE(id, &mipi_dsi_renesas_ra_init, PM_DEVICE_DT_INST_GET(id),            \
+			      &ra_data_##id, &ra_config_##id, POST_KERNEL,                         \
+			      CONFIG_MIPI_DSI_INIT_PRIORITY, &mipi_dsi_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RENESAS_MIPI_DSI_DEVICE)
