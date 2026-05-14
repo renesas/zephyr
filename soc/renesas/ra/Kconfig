@@ -76,6 +76,21 @@ endchoice # CPU_RA_DCACHE_WRITE_POLICY
 
 endif # CPU_HAS_DCACHE
 
+DT_CHOSEN_IDLE_TIMER := zephyr,cortex-m-idle-timer
+
+config SOC_RA_PM
+	bool "Renesas RA Power Management"
+	default y
+	depends on PM && DT_HAS_RENESAS_RA_LPM_ENABLED
+	depends on $(dt_chosen_enabled,$(DT_CHOSEN_IDLE_TIMER))
+	select COUNTER
+	help
+	  Enable support for Renesas RA Low Power Mode (LPM) controller.
+	  This allows the system to enter low-power states such as Sleep
+	  and Software Standby using the LPM hardware block. An idle
+	  counter from the zephyr,cortex-m-idle-timer chosen node is
+	  required to wake the system from idle.
+
 # Promptless (non-user) config options
 
 config SOC_RA_DYNAMIC_INTERRUPT_NUMBER
