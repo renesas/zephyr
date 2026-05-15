@@ -111,6 +111,8 @@ class HardwareMap:
         'NXP',
         'NXP Semiconductors',
         'Microchip Technology Inc.',
+        'Renesas',
+        'Renesas Electronics',
         'FTDI',
         'Digilent',
         'Microsoft',
@@ -135,8 +137,16 @@ class HardwareMap:
         'dediprog': [
             'TTL232R-3V3',
             'MCP2200 USB Serial Port Emulator'
+        ],
+        'rfp': [
+            '^RFP',
+            'RFP',
+            '^Renesas.*RFP',
+            'Renesas Flash Programmer'
         ]
     }
+
+    serial_not_required_runners = {'rfp'}
 
     def __init__(self, env=None):
         self.duts: list[DUT] = []
@@ -266,7 +276,10 @@ class HardwareMap:
             serial_baud = dut.get('serial_baud', None) or dut.get('baud', None)
             product = dut.get('product')
             fixtures = dut.get('fixtures', [])
-            connected = dut.get('connected') and ((serial or serial_pty) is not None)
+            connected = dut.get('connected') and (
+                (serial or serial_pty) is not None
+                or runner in self.serial_not_required_runners
+            )
             west_flash_cmd = dut.get('west_flash_cmd', "")
             if not connected:
                 continue
@@ -492,7 +505,9 @@ class HardwareMap:
         for d in self.duts:
             if fixture and fixture not in (f.split(sep=':')[0] for f in d.fixtures):
                 continue
-            if d.platform != device or (d.serial is None and d.serial_pty is None):
+            if d.platform != device:
+                continue
+            if d.serial is None and d.serial_pty is None and d.runner not in self.serial_not_required_runners:
                 continue
             duts_found.append(d)
 
