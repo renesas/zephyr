@@ -14,6 +14,7 @@
 #include <zephyr/logging/log.h>
 
 #include "r_icu.h"
+#include "r_ioport.h"
 #include <zephyr/drivers/interrupt_controller/intc_rh850_ext_irq.h>
 
 LOG_MODULE_REGISTER(rh850_ext_irq, CONFIG_INTC_LOG_LEVEL);
@@ -182,16 +183,33 @@ static void intc_rh850_ext_irq_callback(external_irq_callback_args_t *args)
  * ************************* DRIVER REGISTER SECTION ***************************
  */
 
+/* Stub IOPORT instance used to invoke API 'noiseFilterCfg' of IOPORT
+ * in API 'intc_rh850_ext_irq_init'
+ */
+static ioport_instance_ctrl_t g_ioport_stub_ctrl = {
+	.open = IOPORT_OPEN,
+};
+
+static const ioport_instance_t g_ioport_stub_instance = {
+	.p_api = &g_ioport_on_ioport,
+	.p_ctrl = &g_ioport_stub_ctrl,
+	.p_cfg = NULL,
+};
+
 #define EXT_IRQ_RH850_IRQ_CONNECT(index, isr)                                              \
 	IRQ_CONNECT(DT_INST_IRQ_BY_IDX(index, 0, irq), DT_INST_IRQ_BY_IDX(index, 0, priority), \
 		    isr, DEVICE_DT_INST_GET(index), 0)
 
 #define INTC_RH850_EXT_IRQ_INIT(index)                                                \
+	static icu_extended_cfg_t g_icu##index##_extend = {                               \
+		.p_ioport_instance = &g_ioport_stub_instance,                                 \
+	};                                                                                \
+                                                                                      \
 	static external_irq_cfg_t g_external_irq##index##_cfg = {                         \
 		.trigger = DT_INST_ENUM_IDX_OR(index, trigger_type, 0),                       \
 		.p_callback = intc_rh850_ext_irq_callback,                                    \
 		.p_context = (void *)DEVICE_DT_INST_GET(index),                               \
-		.p_extend = NULL,                                                             \
+		.p_extend = &g_icu##index##_extend,                                           \
 		.ipl = DT_INST_IRQ(index, priority),                                          \
 		.irq = DT_INST_IRQ(index, irq),                                               \
 		.channel = DT_INST_REG_ADDR(index),                                           \
