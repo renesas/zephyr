@@ -1363,9 +1363,9 @@
 
 		xspi0: xspi@87868000 {
 			compatible = "renesas,rx-xspi";
-			reg = <0x87868000 0x19c>;
+			reg = <0x87868000 0x19c>, <0x20000000 DT_SIZE_M(512)>;
 			#address-cells = <1>;
-			#size-cells = <0>;
+			#size-cells = <1>;
 			unit = <0>;
 			clocks = <&octaspiclk MSTPB 16>;
 			status = "disabled";
@@ -1373,9 +1373,9 @@
 
 		xspi1: xspi@87868400 {
 			compatible = "renesas,rx-xspi";
-			reg = <0x87868400 0x19c>;
+			reg = <0x87868400 0x19c>, <0x40000000 DT_SIZE_M(512)>;
 			#address-cells = <1>;
-			#size-cells = <0>;
+			#size-cells = <1>;
 			unit = <1>;
 			clocks = <&octaspiclk MSTPB 17>;
 

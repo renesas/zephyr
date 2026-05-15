@@ -132,3 +132,8 @@ properties:
     description: |
       Assertion timing of the output buffer control signal. Setting this  will delays the start
       of output from the IO pins and the DS pin by one cycle.
+
+  cs:
+    type: int
+    default: 0
+    description: Chip Select channel on OSPI

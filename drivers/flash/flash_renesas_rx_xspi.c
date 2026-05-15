@@ -27,11 +27,25 @@ LOG_MODULE_REGISTER(flash_renesas_rx_xspi, CONFIG_FLASH_LOG_LEVEL);
 
 #define SECTOR_OFFSET(sector) (sector * SPI_NOR_SECTOR_SIZE)
 
-#define _GET_SECTOR_ADDRESS(channel, sector)                                                       \
-	(uint8_t *)(CONCAT(BSP_FEATURE_XSPI_CONTROLLER_DEVICE_, channel, _START_ADDRESS) +         \
-		    SECTOR_OFFSET(sector))
+#define XSPI_FLASH_BASE_ADDR(index) DT_INST_REG_ADDR(index)
 
-#define GET_SECTOR_ADDRESS(channel, sector) _GET_SECTOR_ADDRESS(channel, sector)
+#define XSPI_FLASH_ADDR_WITH_CALIB(index)                                                          \
+	(uint8_t *)((XSPI_FLASH_BASE_ADDR(index) +                                                 \
+		     SECTOR_OFFSET(DT_INST_PROP(index, auto_calib_pattern_address_sector))))
+
+#define _GET_BSP_XSPI_BASE_ADDRESS(unit, channel)                                                  \
+	BSP_FEATURE_XSPI_CONTROLLER_UNIT_##unit##_DEVICE_##channel##_START_ADDRESS
+
+#define GET_BSP_XSPI_BASE_ADDRESS(unit, channel) _GET_BSP_XSPI_BASE_ADDRESS(unit, channel)
+
+#define XSPI_BSP_FLASH_BASE_ADDR(index)                                                            \
+	GET_BSP_XSPI_BASE_ADDRESS(DT_PROP(DT_INST_PARENT(index), unit), DT_INST_PROP(index, cs))
+
+#define XSPI_FLASH_BASE_ADDR(index) DT_INST_REG_ADDR(index)
+
+#define XSPI_FLASH_BASE_ADDR_ASSERT(index)                                                         \
+	BUILD_ASSERT(XSPI_FLASH_BASE_ADDR(index) == XSPI_BSP_FLASH_BASE_ADDR(index),               \
+		     "XSPI flash base address does not match BSP feature address")
 
 #define STATUS_BYTE_TO_LENGTH(status_byte) (status_byte + 1)
 
@@ -116,6 +130,7 @@ struct flash_renesas_rx_xspi_controller_config {
 	xspi_controller_extended_cfg_t xspi_controller_extended_config;
 	spi_flash_cfg_t spi_flash_config;
 	struct flash_parameters xspi_controller_param;
+	uint32_t flash_base_address;
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
 	struct flash_pages_layout pages_layout;
 #endif
@@ -467,7 +482,7 @@ static int flash_renesas_rx_xspi_controller_setup_calibrate_data(
 			(uint8_t *)(p_cfg_extend->p_autocalibration_preamble_pattern_addr),
 			SPI_NOR_SECTOR_SIZE);
 		if (err != FSP_SUCCESS) {
-			LOG_DBG("Erase flash sector failed");
+			LOG_ERR("Erase flash sector failed");
 			return -EIO;
 		}
 
@@ -475,7 +490,7 @@ static int flash_renesas_rx_xspi_controller_setup_calibrate_data(
 		err = flash_renesas_rx_xspi_controller_wait_operation(p_instance_ctrl,
 								      SECTOR_ERASE_MAX_TIMEOUT_MS);
 		if (err != 0) {
-			LOG_DBG("Erase operation timeout");
+			LOG_ERR("Erase operation timeout");
 			return -ETIMEDOUT;
 		}
 
@@ -485,7 +500,7 @@ static int flash_renesas_rx_xspi_controller_setup_calibrate_data(
 			(uint8_t *)(p_cfg_extend->p_autocalibration_preamble_pattern_addr),
 			sizeof(autocalibration_data));
 		if (err != FSP_SUCCESS) {
-			LOG_DBG("Write auto-calibration data failed");
+			LOG_ERR("Write auto-calibration data failed");
 			return -EIO;
 		}
 
@@ -493,7 +508,7 @@ static int flash_renesas_rx_xspi_controller_setup_calibrate_data(
 		err = flash_renesas_rx_xspi_controller_wait_operation(p_instance_ctrl,
 								      PAGE_PROGRAM_MAX_TIMEOUT_MS);
 		if (err != 0) {
-			LOG_DBG("Write operation timeout");
+			LOG_ERR("Write operation timeout");
 			return -ETIMEDOUT;
 		}
 	}
@@ -526,6 +541,7 @@ static int flash_renesas_rx_xspi_controller_erase(const struct device *dev, off_
 	fsp_err_t err;
 	uint32_t flash_base_address;
 	struct flash_pages_info page_info_start, page_info_end;
+	off_t erase_end = offset + len;
 	int ret;
 
 	if (!len) {
@@ -549,33 +565,35 @@ static int flash_renesas_rx_xspi_controller_erase(const struct device *dev, off_
 		return -EINVAL;
 	}
 
-	ret = flash_get_page_info_by_offs(dev, (offset + len), &page_info_end);
-	if ((ret != 0) || ((offset + len) != page_info_end.start_offset)) {
-		LOG_ERR("The size %zu is not aligned with the ending sector", len);
-		return -EINVAL;
+	if (erase_end != config->flash_size) {
+		ret = flash_get_page_info_by_offs(dev, erase_end, &page_info_end);
+		if ((ret != 0) || (erase_end != page_info_end.start_offset)) {
+			LOG_ERR("The size %zu is not aligned with the ending sector", len);
+			return -EINVAL;
+		}
 	}
 
-	if (xspi_controller_data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_0_START_ADDRESS;
-	} else {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_1_START_ADDRESS;
-	}
+	flash_base_address = config->flash_base_address;
 
 	acquire_device(dev);
 
 	while (len > 0) {
+		size_t erased_len;
+
 		if (offset == 0 && len == config->flash_size) {
-			/* Chip erase */
 			LOG_INF("Chip Erase");
 
 			erase_size = SPI_FLASH_ERASE_SIZE_CHIP_ERASE;
 			erase_timeout = CHIP_ERASE_MAX_TIMEOUT_MS;
+			erased_len = len;
 		} else if (len >= SPI_NOR_BLOCK_SIZE) {
 			erase_size = SPI_NOR_BLOCK_SIZE;
 			erase_timeout = BLOCK_ERASE_MAX_TIMEOUT_MS;
+			erased_len = SPI_NOR_BLOCK_SIZE;
 		} else {
 			erase_size = SPI_NOR_SECTOR_SIZE;
 			erase_timeout = SECTOR_ERASE_MAX_TIMEOUT_MS;
+			erased_len = SPI_NOR_SECTOR_SIZE;
 		}
 
 		err = R_XSPI_CONTROLLER_Erase(&xspi_controller_data->xspi_controller_ctrl,
@@ -595,8 +613,8 @@ static int flash_renesas_rx_xspi_controller_erase(const struct device *dev, off_
 			break;
 		}
 
-		offset += erase_size;
-		len -= MIN(len, erase_size);
+		offset += erased_len;
+		len -= erased_len;
 	}
 
 	release_device(dev);
@@ -633,11 +651,7 @@ static int flash_renesas_rx_xspi_controller_write(const struct device *dev, off_
 		return -EINVAL;
 	}
 
-	if (xspi_controller_data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_0_START_ADDRESS;
-	} else {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_1_START_ADDRESS;
-	}
+	flash_base_address = config->flash_base_address;
 
 	acquire_device(dev);
 
@@ -673,7 +687,7 @@ static int flash_renesas_rx_xspi_controller_write(const struct device *dev, off_
 static int flash_renesas_rx_xspi_controller_read(const struct device *dev, off_t offset, void *data,
 						 size_t len)
 {
-	struct flash_renesas_rx_xspi_controller_data *xspi_controller_data = dev->data;
+	const struct flash_renesas_rx_xspi_controller_config *config = dev->config;
 	uint32_t flash_base_address;
 
 	if (!len) {
@@ -689,11 +703,7 @@ static int flash_renesas_rx_xspi_controller_read(const struct device *dev, off_t
 
 	acquire_device(dev);
 
-	if (xspi_controller_data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_0_START_ADDRESS;
-	} else {
-		flash_base_address = BSP_FEATURE_XSPI_CONTROLLER_DEVICE_1_START_ADDRESS;
-	}
+	flash_base_address = config->flash_base_address;
 
 	memcpy(data, (uint8_t *)(flash_base_address) + offset, len);
 
@@ -1022,16 +1032,23 @@ static int flash_renesas_rx_xspi_controller_init(const struct device *dev)
 	}
 
 	/* Reset flash device by driving OM_RESET pin */
-	config->ospi_pregs->LIOCTL_b.RSTCS0 = 0;
-	k_usleep(RESET_LOW_PULSE_WIDTH_US);
-	config->ospi_pregs->LIOCTL_b.RSTCS0 = 1;
+	if (xspi_controller_data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
+		config->ospi_pregs->LIOCTL_b.RSTCS0 = 0;
+		k_usleep(RESET_LOW_PULSE_WIDTH_US);
+		config->ospi_pregs->LIOCTL_b.RSTCS0 = 1;
+	} else {
+		config->ospi_pregs->LIOCTL_b.RSTCS1 = 0;
+		k_usleep(RESET_LOW_PULSE_WIDTH_US);
+		config->ospi_pregs->LIOCTL_b.RSTCS1 = 1;
+	}
+
 	k_usleep(RESET_HIGH_BEFORE_CS_LOW_US);
 
 	/* Setup calibrate data */
 	err = flash_renesas_rx_xspi_controller_setup_calibrate_data(
 		&xspi_controller_data->xspi_controller_ctrl);
 	if (err != 0) {
-		LOG_ERR("Setup calibrate data Failed");
+		LOG_ERR("Setup calibrate data Failed %d", err);
 		return -EIO;
 	}
 
@@ -1055,88 +1072,96 @@ static int flash_renesas_rx_xspi_controller_init(const struct device *dev)
 #define FLASH_RENESAS_RX_XSPI_CONTROLLER_PAGES_LAYOUT(index)
 #endif
 
-#define RENESAS_RX_XSPI_CONTROLLER_INIT(index)                                                      \
-                                                                                                    \
-	PINCTRL_DT_DEFINE(DT_INST_PARENT(index));                                                   \
-                                                                                                    \
-	static struct flash_renesas_rx_xspi_controller_data xspi_controller_data##index;            \
-                                                                                                    \
-	static const struct flash_renesas_rx_xspi_controller_config xspi_controller_config##index = \
-		{.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(index))),                 \
-		 .clock_config =                                                                    \
-			 {                                                                          \
-				 .mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(index), mstp),     \
-				 .stop_bit = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(index),        \
-								      stop_bit),                    \
-			 },                                                                         \
-		 .pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(index)),                          \
-		 .ospi_pregs = (R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(index)),                  \
-		 .flash_size = DT_INST_PROP(index, size),                                           \
-		 .max_frequency = DT_INST_PROP(index, ospi_max_frequency),                          \
-		 .data_mode = DT_INST_PROP(index, protocol_mode),                                   \
-		 .data_rate = DT_INST_PROP(index, data_rate),                                       \
-		 .xspi_controller_timing_setting =                                                  \
-			 {                                                                          \
-				 .command_to_command_interval =                                     \
-					 DT_INST_PROP(index, command_interval),                     \
-				 .cs_pullup_lag = DT_INST_PROP(index, pull_up_delay),               \
-				 .cs_pulldown_lead = DT_INST_PROP(index, pull_down_lead),           \
-				 .sdr_drive_timing = DT_INST_PROP(index, sdr_drive_timing),         \
-				 .sdr_sampling_edge = DT_INST_PROP(index, sdr_sampling_edge),       \
-				 .sdr_sampling_delay = DT_INST_PROP(index, sdr_sampling_delay),     \
-				 .ddr_sampling_extension =                                          \
-					 DT_INST_PROP(index, ddr_sampling_extension),               \
-				 .output_assert_delay = _CONCAT(                                    \
-					 XSPI_CONTROLLER_,                                          \
-					 DT_INST_STRING_TOKEN(index, output_assert_delay)),         \
-			 },                                                                         \
-		 .xspi_controller_extended_config =                                                 \
-			 {                                                                          \
-				 .xspi_controller_unit = DT_PROP(DT_INST_PARENT(index), unit),      \
-				 .channel = DT_INST_REG_ADDR(index),                                \
-				 .p_timing_settings = &xspi_controller_config##index                \
-							       .xspi_controller_timing_setting,     \
-				 .p_xspi_command_set = &xspi_command_table,                         \
-				 .data_latch_delay_clocks = XSPI_CONTROLLER_DS_TIMING_DELAY_NONE,   \
-				 .p_autocalibration_preamble_pattern_addr = GET_SECTOR_ADDRESS(     \
-					 DT_INST_PROP_BY_IDX(index, reg, 0),                        \
-					 DT_INST_PROP(index, auto_calib_pattern_address_sector)),   \
-			 },                                                                         \
-		 .spi_flash_config =                                                                \
-			 {                                                                          \
-				 .spi_protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,                       \
-				 .read_mode = UNUSED_COMMAND,                                       \
-				 .address_bytes = SPI_FLASH_ADDRESS_BYTES_4,                        \
-				 .dummy_clocks = 0,                                                 \
-				 .page_program_address_lines = 0,                                   \
-				 .write_status_bit = DT_INST_PROP(index, write_status_bit),         \
-				 .write_enable_bit = DT_INST_PROP(index, write_enable_bit),         \
-				 .page_size_bytes = DT_INST_PROP(index, max_write_size),            \
-				 .page_program_command = UNUSED_COMMAND,                            \
-				 .write_enable_command = UNUSED_COMMAND,                            \
-				 .status_command = UNUSED_COMMAND,                                  \
-				 .read_command = UNUSED_COMMAND,                                    \
-				 .xip_enter_command = UNSUPPORTED_COMMAND,                          \
-				 .xip_exit_command = UNSUPPORTED_COMMAND,                           \
-				 .erase_command_list_length = 0,                                    \
-				 .p_erase_command_list = NULL,                                      \
-				 .p_extend = &xspi_controller_config##index                         \
-						      .xspi_controller_extended_config,             \
-			 },                                                                         \
-		 .xspi_controller_param =                                                           \
-			 {                                                                          \
-				 .write_block_size = DT_INST_PROP(index, write_block_size),         \
-				 .erase_value = ERASE_VALUE,                                        \
-				 .caps =                                                            \
-					 {                                                          \
-						 .no_explicit_erase = false,                        \
-					 },                                                         \
-			 },                                                                         \
-		 FLASH_RENESAS_RX_XSPI_CONTROLLER_PAGES_LAYOUT(index)};                             \
-                                                                                                    \
-	DEVICE_DT_INST_DEFINE(index, flash_renesas_rx_xspi_controller_init, NULL,                   \
-			      &xspi_controller_data##index, &xspi_controller_config##index,         \
-			      POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY,                              \
+#define RENESAS_RX_XSPI_CONTROLLER_INIT(index)                                                     \
+                                                                                                   \
+	PINCTRL_DT_DEFINE(DT_INST_PARENT(index));                                                  \
+	XSPI_FLASH_BASE_ADDR_ASSERT(index);                                                        \
+                                                                                                   \
+	static struct flash_renesas_rx_xspi_controller_data xspi_controller_data##index;           \
+                                                                                                   \
+	static const struct flash_renesas_rx_xspi_controller_config                                \
+		xspi_controller_config##index = {                                                  \
+			.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(index))),         \
+			.clock_config =                                                            \
+				{                                                                  \
+					.mstp = (uint32_t)DT_CLOCKS_CELL(DT_INST_PARENT(index),    \
+									 mstp),                    \
+					.stop_bit = (uint32_t)DT_CLOCKS_CELL(                      \
+						DT_INST_PARENT(index), stop_bit),                  \
+				},                                                                 \
+			.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(index)),                  \
+			.ospi_pregs = (R_XSPI0_Type *)DT_REG_ADDR(DT_INST_PARENT(index)),          \
+			.flash_size = DT_INST_PROP(index, size),                                   \
+			.max_frequency = DT_INST_PROP(index, ospi_max_frequency),                  \
+			.data_mode = DT_INST_PROP(index, protocol_mode),                           \
+			.data_rate = DT_INST_PROP(index, data_rate),                               \
+			.flash_base_address = XSPI_FLASH_BASE_ADDR(index),                         \
+			.xspi_controller_timing_setting =                                          \
+				{                                                                  \
+					.command_to_command_interval =                             \
+						DT_INST_PROP(index, command_interval),             \
+					.cs_pullup_lag = DT_INST_PROP(index, pull_up_delay),       \
+					.cs_pulldown_lead = DT_INST_PROP(index, pull_down_lead),   \
+					.sdr_drive_timing = DT_INST_PROP(index, sdr_drive_timing), \
+					.sdr_sampling_edge =                                       \
+						DT_INST_PROP(index, sdr_sampling_edge),            \
+					.sdr_sampling_delay =                                      \
+						DT_INST_PROP(index, sdr_sampling_delay),           \
+					.ddr_sampling_extension =                                  \
+						DT_INST_PROP(index, ddr_sampling_extension),       \
+					.output_assert_delay = _CONCAT(                            \
+						XSPI_CONTROLLER_,                                  \
+						DT_INST_STRING_TOKEN(index, output_assert_delay)), \
+				},                                                                 \
+			.xspi_controller_extended_config =                                         \
+				{                                                                  \
+					.xspi_controller_unit =                                    \
+						DT_PROP(DT_INST_PARENT(index), unit),              \
+					.channel = DT_INST_PROP(index, cs),                        \
+					.p_timing_settings =                                       \
+						&xspi_controller_config##index                     \
+							 .xspi_controller_timing_setting,          \
+					.p_xspi_command_set = &xspi_command_table,                 \
+					.data_latch_delay_clocks =                                 \
+						XSPI_CONTROLLER_DS_TIMING_DELAY_NONE,              \
+					.p_autocalibration_preamble_pattern_addr =                 \
+						XSPI_FLASH_ADDR_WITH_CALIB(index),                 \
+				},                                                                 \
+			.spi_flash_config =                                                        \
+				{                                                                  \
+					.spi_protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,               \
+					.read_mode = UNUSED_COMMAND,                               \
+					.address_bytes = SPI_FLASH_ADDRESS_BYTES_4,                \
+					.dummy_clocks = 0,                                         \
+					.page_program_address_lines = 0,                           \
+					.write_status_bit = DT_INST_PROP(index, write_status_bit), \
+					.write_enable_bit = DT_INST_PROP(index, write_enable_bit), \
+					.page_size_bytes = DT_INST_PROP(index, max_write_size),    \
+					.page_program_command = UNUSED_COMMAND,                    \
+					.write_enable_command = UNUSED_COMMAND,                    \
+					.status_command = UNUSED_COMMAND,                          \
+					.read_command = UNUSED_COMMAND,                            \
+					.xip_enter_command = UNSUPPORTED_COMMAND,                  \
+					.xip_exit_command = UNSUPPORTED_COMMAND,                   \
+					.erase_command_list_length = 0,                            \
+					.p_erase_command_list = NULL,                              \
+					.p_extend = &xspi_controller_config##index                 \
+							     .xspi_controller_extended_config,     \
+				},                                                                 \
+			.xspi_controller_param =                                                   \
+				{                                                                  \
+					.write_block_size = DT_INST_PROP(index, write_block_size), \
+					.erase_value = ERASE_VALUE,                                \
+					.caps =                                                    \
+						{                                                  \
+							.no_explicit_erase = false,                \
+						},                                                 \
+				},                                                                 \
+			FLASH_RENESAS_RX_XSPI_CONTROLLER_PAGES_LAYOUT(index)};                     \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(index, flash_renesas_rx_xspi_controller_init, NULL,                  \
+			      &xspi_controller_data##index, &xspi_controller_config##index,        \
+			      POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY,                             \
 			      &flash_renesas_rx_xspi_controller_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RENESAS_RX_XSPI_CONTROLLER_INIT)
