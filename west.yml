@@ -378,6 +378,12 @@ manifest:
       groups:
         - testing
         - tee
+    - name: rh850_core
+      url: https://rcar-env.dgn.renesas.com/gitlab/mcu_fsp/mcu-fsp-develop/rh850-core.git
+      revision: rh850_core_zephyr_v4.4.0
+      path: modules/hal/rh850_core
+      groups:
+        - hal
     - name: segger
       revision: 50892fdbcf2f570e67baa72b8894a66b16946f72
       path: modules/debug/segger
