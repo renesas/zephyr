@@ -199,6 +199,9 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_BEE_TIMER
 	DEVS_FOR_DT_COMPAT(realtek_bee_counter_timer)
 #endif
+#ifdef CONFIG_COUNTER_RENESAS_RX_TMR
+	DEVS_FOR_DT_COMPAT(renesas_rx_tmr_counter)
+#endif
 };
 
 static const struct device *const period_devs[] = {
@@ -235,6 +238,9 @@ static inline uint32_t get_counter_period_us(const struct device *dev)
 		}
 	}
 
+#ifdef CONFIG_COUNTER_RENESAS_RX_TMR
+	return 5000;
+#endif
 	/* if more counter drivers exist other than RTC,
 	 * the test value set to 20000 by default
 	 */
@@ -949,6 +955,12 @@ static void test_late_alarm_instance(const struct device *dev)
 
 	alarm_cfg.ticks = counter_is_counting_up(dev) ? 0 : counter_get_top_value(dev);
 	err = counter_set_channel_alarm(dev, 0, &alarm_cfg);
+	if (err == -ENOTSUP) {
+		TC_PRINT("Counter immediate expiration when detect counter late is not supported\n");
+		counter_cancel_channel_alarm(dev, 0);
+		counter_tear_down_instance(dev);
+		ztest_test_skip();
+	}
 	zassert_equal(-ETIME, err, "%s: Unexpected error (%d)", dev->name, err);
 
 	/* wait couple of ticks */
