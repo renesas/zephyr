@@ -1335,6 +1335,34 @@
 			status = "disabled";
 		};
 
+		tmr01: tmr01@87825008 {
+			compatible = "renesas,rx-tmr";
+			interrupts-extended = <&icu 147 1>, <&icu 148 1>;
+			interrupt-names = "cmia", "cmib";
+			reg = <0x87825008 0x10>;
+			status = "disabled";
+			channel = <0>;
+
+			counter {
+				compatible = "renesas,rx-tmr-counter";
+				status = "disabled";
+			};
+		};
+
+		tmr23: tmr23@87825018 {
+			compatible = "renesas,rx-tmr";
+			interrupts-extended = <&icu 149 1>, <&icu 150 1>;
+			interrupt-names = "cmia", "cmib";
+			reg = <0x87825018 0x10>;
+			status = "disabled";
+			channel = <2>;
+
+			counter {
+				compatible = "renesas,rx-tmr-counter";
+				status = "disabled";
+			};
+		};
+
 		spi0: spi@8745c000 {
 			compatible = "renesas,rx-spi-b";
 			#address-cells = <1>;
