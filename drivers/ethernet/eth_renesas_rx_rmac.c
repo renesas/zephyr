@@ -230,6 +230,9 @@ static void phy_type_setting(const struct device *dev)
 	switch (config->phy_conn_type) {
 	case 1: /* RMII */
 		*p_miicr_register = 2;
+		/* Enable TXC generation.  */
+		R_ESWM->MIIRR =
+			R_ESWM->MIIRR | (1 << (R_ESWM_MIIRR_RMRST0_Pos + data->fsp_cfg->channel));
 		break;
 
 	case 3: /* RGMII */
