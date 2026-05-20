@@ -460,10 +460,11 @@
 		compatible = "renesas,rx-xspi-psram";
 		variable-latency;
 		reg = <0x10000000 DT_SIZE_M(32)>;
+		cs = <0>;
 		size = <DT_SIZE_M(32)>; /* 32 Megabytes */
 		ospi-max-frequency = <DT_FREQ_M(200)>;
 		spi-protocol = "8D_8D_8D";
-		address-mode = "ARRAY_ADDRESS_MODE";
+		address-mode = "ARRAY";
 		frame-format = "XSPI_PROFILE_1";
 		write-size-bytes = <32>;
 		ds-latch-delay = <22>;

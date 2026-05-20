@@ -118,10 +118,10 @@ properties:
 
   address-mode:
     type: string
-    default: "NORMAL_ADDRESS_MODE"
+    default: "NORMAL"
     enum:
-      - "NORMAL_ADDRESS_MODE"
-      - "ARRAY_ADDRESS_MODE"
+      - "NORMAL"
+      - "ARRAY"
 
   write-data-mask-enable:
     type: boolean
@@ -130,3 +130,8 @@ properties:
   write-enable-command:
     type: int
     description: Write enable command opcode
+
+  cs:
+    type: int
+    default: 0
+    description: Chip Select channel on OSPI

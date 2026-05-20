@@ -100,7 +100,7 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 	CONCAT(XSPI_CONTROLLER_FRAME_FORMAT_, DT_INST_STRING_UPPER_TOKEN(idx, frame_format))
 
 #define GET_ADDRESS_MODE(idx)                                                                      \
-	CONCAT(XSPI_CONTROLLER_, DT_INST_STRING_UPPER_TOKEN(idx, address_mode))
+	CONCAT(XSPI_CONTROLLER_ADDRESS_MODE_, DT_INST_STRING_UPPER_TOKEN(idx, address_mode))
 
 #define RENESAS_RX_XSPI_CONTROLLER_PSRAM_INIT(idx)                                                 \
                                                                                                    \
@@ -115,7 +115,6 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 		.sdr_sampling_delay = XSPI_CONTROLLER_SDR_SAMPLING_DELAY_NONE,                     \
 		.ddr_sampling_extension = DT_INST_PROP(idx, ddr_sampling_extension),               \
 		.output_assert_delay = XSPI_CONTROLLER_ASSERTION_DELAY_ENABLED,                    \
-		.write_data_mask_enable = DT_INST_PROP(idx, write_data_mask_enable),               \
 	};                                                                                         \
                                                                                                    \
 	static xspi_controller_command_set_t psram_xspi_controller_command_set_##idx = {           \
@@ -126,6 +125,7 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 					: XSPI_CONTROLLER_LATENCY_MODE_FIXED,                      \
 		.address_bytes = DT_INST_PROP(idx, address_bytes) - 1,                             \
 		.address_msb_mask = 0xF0,                                                          \
+		.write_data_mask = DT_INST_PROP(idx, write_data_mask_enable),                      \
 		.address_mode = GET_ADDRESS_MODE(idx),                                             \
 		.command_bytes = DT_INST_PROP(idx, command_bytes),                                 \
 		.read_command = DT_INST_PROP(idx, read_command),                                   \
@@ -178,7 +178,8 @@ static int memc_renesas_rx_xspi_controller_psram_init(const struct device *dev)
 				{                                                                  \
 					.xspi_controller_unit =                                    \
 						DT_PROP(DT_INST_PARENT(idx), unit),                \
-					.channel = DT_INST_REG_ADDR(idx),                          \
+					.channel = DT_INST_PROP(idx, cs),                        \
+					.memory_type = XSPI_CONTROLLER_DEVICE_TYPE_RAM,            \
 					.p_timing_settings =                                       \
 						&xspi_controller_timing_setting_##idx,             \
 					.p_xspi_command_set =                                      \
