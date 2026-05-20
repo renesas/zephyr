@@ -185,8 +185,6 @@ static void eth_rmac_cb(ether_callback_args_t *args)
 		break;
 #endif
 	case ETHER_EVENT_RX_MESSAGE_LOST:
-		/* rx queue is full to append new frame */
-		__fallthrough;
 	case ETHER_EVENT_RX_COMPLETE:
 		/* new rx frame is ready to read */
 		k_sem_give(&data->rx_sem);
@@ -250,6 +248,7 @@ static bool renesas_ra_eth_rx(const struct device *dev)
 	fsp_err_t fsp_err = FSP_SUCCESS;
 	int ret = 0;
 	uint8_t *rx_buf;
+	bool rx_buf_held = false;
 
 #if defined(CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY)
 	fsp_err = R_RMAC_Read(&data->fsp_ctrl, &rx_buf, (uint32_t *)&len);
@@ -257,10 +256,12 @@ static bool renesas_ra_eth_rx(const struct device *dev)
 	rx_buf = data->rx_frame;
 	fsp_err = R_RMAC_Read(&data->fsp_ctrl, rx_buf, (uint32_t *)&len);
 #endif
+	if (fsp_err == FSP_SUCCESS) {
+		rx_buf_held = true;
+	}
 
 	if (fsp_err == FSP_ERR_ETHER_ERROR_NO_DATA) {
 		/* Nothing to receive, all desc in queue was read */
-		k_sem_reset(&data->rx_sem);
 		return false;
 	} else if (fsp_err != FSP_SUCCESS) {
 		LOG_DBG("Failed to read from FIFO");
@@ -271,12 +272,22 @@ static bool renesas_ra_eth_rx(const struct device *dev)
 	pkt = net_pkt_rx_alloc_with_buffer(data->iface, (size_t)len, NET_AF_UNSPEC, 0,
 					   NET_BUF_TIMEOUT);
 	if (pkt == NULL) {
+#if defined(CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY)
+		if (rx_buf_held) {
+			R_RMAC_RxBufferUpdate(&data->fsp_ctrl, rx_buf);
+		}
+#endif
 		LOG_DBG("Failed to obtain RX buffer");
 		goto rx_end;
 	}
 
 	ret = net_pkt_write(pkt, rx_buf, len);
 	if (ret < 0) {
+#if defined(CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY)
+		if (rx_buf_held) {
+			R_RMAC_RxBufferUpdate(&data->fsp_ctrl, rx_buf);
+		}
+#endif
 		LOG_DBG("Failed to append RX buffer to packet");
 		net_pkt_unref(pkt);
 		goto rx_end;
@@ -351,7 +362,7 @@ static void eth_renesas_ra_init_iface(struct net_if *iface)
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 static struct net_stats_eth *eth_renesas_ra_get_stats(const struct device *dev,
-						     struct net_if *iface __unused)
+						      struct net_if *iface __unused)
 {
 	struct eth_renesas_ra_data *data = dev->data;
 
@@ -360,8 +371,7 @@ static struct net_stats_eth *eth_renesas_ra_get_stats(const struct device *dev,
 
 #endif /* CONFIG_NET_STATISTICS_ETHERNET */
 
-const struct device *eth_renesas_ra_get_phy(const struct device *dev,
-					    struct net_if *iface __unused)
+const struct device *eth_renesas_ra_get_phy(const struct device *dev, struct net_if *iface __unused)
 {
 	const struct eth_renesas_ra_config *config = dev->config;
 
@@ -413,8 +423,10 @@ tx_end:
 		ret = k_sem_take(&data->tx_sem, RMAC_TX_TIMEOUT);
 
 #if defined(CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY)
-		fsp_err = R_RMAC_TxStatusGet(&data->fsp_ctrl, tx_buf);
-		if (fsp_err != FSP_SUCCESS) {
+		uint8_t *sent_buf = NULL;
+
+		fsp_err = R_RMAC_TxStatusGet(&data->fsp_ctrl, &sent_buf);
+		if (fsp_err != FSP_SUCCESS || sent_buf != tx_buf) {
 			ret = -EIO;
 		}
 #endif
@@ -672,7 +684,7 @@ DEVICE_DT_INST_DEFINE(0, renesas_ra_eswm_init, NULL, &eswm_data, &eswm_config, P
 #else /* CONFIG_ETH_RENESAS_RA_USE_ZERO_COPY */
 #define ETH_RENESAS_RA_DATA_BUF_MODE ETHER_ZEROCOPY_DISABLE
 #define ETH_RENESAS_RA_DATA_BUF_DECLARE(n)                                                         \
-	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE] __eth_renesas_buf;			   \
+	static uint8_t eth##n##_rx_frame[ETH_BUF_SIZE] __eth_renesas_buf;                          \
 	static uint8_t eth##n##_tx_frame[ETH_BUF_SIZE] __eth_renesas_buf;
 #define ETH_RENESAS_RA_DATA_BUF_PROP_DECLARE(n)                                                    \
 	.rx_frame = eth##n##_rx_frame, .tx_frame = eth##n##_tx_frame
