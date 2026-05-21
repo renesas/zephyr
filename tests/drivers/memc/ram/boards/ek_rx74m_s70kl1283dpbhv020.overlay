@@ -8,11 +8,13 @@
 
 &xspi1 {
 	status = "okay";
+	ranges = <0x00000000 0x40000000 DT_SIZE_M(512)>;
 
-	memc: s70kl1283dpbhv020: memory@0 {
+	memc: s70kl1283dpbhv020: memory@10000000 {
 		compatible = "renesas,rx-xspi-psram";
-		reg = <0>;
+		reg = <0x10000000 DT_SIZE_M(16)>;
 		size = <DT_SIZE_M(16)>; /* 16 Megabytes = 128 Mbit */
+		cs = <0>;
 		ospi-max-frequency = <DT_FREQ_M(200)>;
 		command-bytes = <2>;
 		address-bytes = <4>;
