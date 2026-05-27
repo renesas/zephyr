@@ -23,7 +23,6 @@ LOG_MODULE_REGISTER(rx_spi_b);
 #define ICU_EVENT_RSPI_SPRI(channel)       CONCAT(ICU_EVENT_RSPI, channel, _SPRI)
 #define ICU_EVENT_RSPI_SPTI(channel)       CONCAT(ICU_EVENT_RSPI, channel, _SPTI)
 #define ICU_EVENT_RSPI_SPCI(channel)       CONCAT(ICU_EVENT_RSPI, channel, _SPCI)
-#define ICU_EVENT_GROUP_RSPI_SPEI(channel) CONCAT(ICU_EVENT_GROUP_RSPI, channel, _ERI)
 
 #define SPI_CMD_FULL_DUPLEX (0x0)
 #define SPI_CMD_TX_ONLY     (0x1)
@@ -55,10 +54,18 @@ struct rx_spi_b_data {
 #endif
 };
 
+#ifdef CONFIG_SPI_B_RENESAS_RX_INTERRUPT
 void spi_b_rxi_isr(void);
 void spi_b_txi_isr(void);
 void spi_b_tei_isr(void);
 void spi_b_eri_isr(void);
+#endif
+
+#define SPI_B_RENESAS_RX_IRQ_GET(id, name, cell)                                               \
+	COND_CODE_1(DT_IRQ_HAS_NAME(id, name), (DT_IRQ_BY_NAME(id, name, cell)),                   \
+		    ((IRQn_Type) FSP_INVALID_VECTOR))
+
+#define SPI_B_GROUP_IRQ(id, name) DT_IRQ(DT_IRQ_INTC_BY_NAME(id, name), irq)
 
 static bool rx_spi_b_transfer_ongoing(struct rx_spi_b_data *data)
 {
@@ -73,6 +80,7 @@ static bool rx_spi_b_transfer_ongoing(struct rx_spi_b_data *data)
 #endif
 }
 
+#ifdef CONFIG_SPI_B_RENESAS_RX_INTERRUPT
 static void rx_spi_b_retransmit(struct rx_spi_b_data *data)
 {
 	spi_bit_width_t spi_width =
@@ -190,6 +198,7 @@ static void rx_spi_b_callback(spi_callback_args_t *p_args)
 		break;
 	}
 }
+#endif
 
 #ifndef CONFIG_SPI_B_RENESAS_RX_INTERRUPT
 static int rx_spi_b_transceive_slave(struct rx_spi_b_data *data)
@@ -456,13 +465,13 @@ static int rx_spi_b_transceive_common(const struct device *dev, const struct spi
 	ret = spi_context_wait_for_completion(&data->context);
 
 #else
-	p_spi_reg->SPCR_b.CMMD = SPI_CMMD_FULL_DUPLEX; /* tx - rx*/
+	p_spi_reg->SPCR_b.CMMD = SPI_CMD_FULL_DUPLEX; /* tx - rx*/
 	if (!spi_context_tx_on(&data->context)) {
-		p_spi_reg->SPCR_b.CMMD = SPI_CMMD_RX_ONLY; /* rx only */
+		p_spi_reg->SPCR_b.CMMD = SPI_CMD_RX_ONLY; /* rx only */
 		p_spi_reg->SPRMCR_b.START = 1;
 	}
 	if (!spi_context_rx_on(&data->context)) {
-		p_spi_reg->SPCR_b.CMMD = SPI_CMMD_TX_ONLY; /* tx only */
+		p_spi_reg->SPCR_b.CMMD = SPI_CMD_TX_ONLY; /* tx only */
 	}
 
 	/* Clear FIFOs */
@@ -482,7 +491,7 @@ static int rx_spi_b_transceive_common(const struct device *dev, const struct spi
 	/* Disable the SPI Transfer. */
 	p_spi_reg->SPCR_b.SPE = 0;
 
-	if (p_spi_reg->SPCR_b.CMMD == SPI_CMMD_RX_ONLY) { /* rx only */
+	if (p_spi_reg->SPCR_b.CMMD == SPI_CMD_RX_ONLY) { /* rx only */
 
 		p_spi_reg->SPRMCR_b.START = 1;
 	}
@@ -503,6 +512,16 @@ static int rx_spi_b_transceive(const struct device *dev, const struct spi_config
 {
 	return rx_spi_b_transceive_common(dev, config, tx_bufs, rx_bufs, false, NULL, NULL);
 }
+
+#ifdef CONFIG_SPI_ASYNC
+static int rx_spi_b_transceive_async(const struct device *dev, const struct spi_config *config,
+				    const struct spi_buf_set *tx_bufs,
+				    const struct spi_buf_set *rx_bufs, spi_callback_t cb,
+				    void *userdata)
+{
+	return rx_spi_b_transceive_common(dev, config, tx_bufs, rx_bufs, true, cb, userdata);
+}
+#endif
 
 static int rx_spi_b_release(const struct device *dev, const struct spi_config *config)
 {
@@ -546,6 +565,9 @@ static int rx_spi_b_init(const struct device *dev)
 
 static DEVICE_API(spi, rx_spi_b_driver_api) = {
 	.transceive = rx_spi_b_transceive,
+#ifdef CONFIG_SPI_ASYNC
+	.transceive_async = rx_spi_b_transceive_async,
+#endif
 	.release = rx_spi_b_release,
 };
 
@@ -658,14 +680,14 @@ static DEVICE_API(spi, rx_spi_b_driver_api) = {
 
 #if defined(CONFIG_SPI_B_RENESAS_RX_INTERRUPT)
 #define RX_SPI_B_FSP_CONFIG_IRQ(index)                                                             \
-	.rxi_irq = DT_INST_IRQ_BY_NAME(index, spri, irq),                                          \
-	.txi_irq = DT_INST_IRQ_BY_NAME(index, spti, irq),                                          \
-	.tei_irq = DT_INST_IRQ_BY_NAME(index, spci, irq),                                          \
-	.eri_irq = ICU_EVENT_GROUP_RSPI_SPEI(DT_INST_PROP(index, channel)),                        \
-	.rxi_ipl = DT_INST_IRQ_BY_NAME(index, spri, priority),                                     \
-	.txi_ipl = DT_INST_IRQ_BY_NAME(index, spti, priority),                                     \
-	.tei_ipl = DT_INST_IRQ_BY_NAME(index, spci, priority),                                     \
-	.eri_ipl = DT_INST_IRQ_BY_NAME(index, spei, priority),                                     \
+	.rxi_irq = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spri, irq),                                          \
+	.txi_irq = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spti, irq),                                          \
+	.tei_irq = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spci, irq),                                          \
+	.eri_irq = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spei, irq) << 8 | SPI_B_GROUP_IRQ(DT_DRV_INST(index), spei),                        \
+	.rxi_ipl = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spri, priority),                                     \
+	.txi_ipl = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spti, priority),                                     \
+	.tei_ipl = SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spci, priority),                                     \
+	.eri_ipl = (uint8_t)(SPI_B_RENESAS_RX_IRQ_GET(DT_DRV_INST(index), spei, priority) << 8 | SPI_B_GROUP_IRQ(DT_DRV_INST(index), spei)),                                     \
 	.p_context = (void *)DEVICE_DT_GET(DT_DRV_INST(index)), .p_callback = rx_spi_b_callback,
 #else
 #define RX_SPI_B_FSP_CONFIG_IRQ(index)
