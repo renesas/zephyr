@@ -466,10 +466,6 @@ static int rx_spi_b_transceive_common(const struct device *dev, const struct spi
 
 #else
 	p_spi_reg->SPCR_b.CMMD = SPI_CMD_FULL_DUPLEX; /* tx - rx*/
-	if (!spi_context_tx_on(&data->context)) {
-		p_spi_reg->SPCR_b.CMMD = SPI_CMD_RX_ONLY; /* rx only */
-		p_spi_reg->SPRMCR_b.START = 1;
-	}
 	if (!spi_context_rx_on(&data->context)) {
 		p_spi_reg->SPCR_b.CMMD = SPI_CMD_TX_ONLY; /* tx only */
 	}
@@ -490,11 +486,6 @@ static int rx_spi_b_transceive_common(const struct device *dev, const struct spi
 
 	/* Disable the SPI Transfer. */
 	p_spi_reg->SPCR_b.SPE = 0;
-
-	if (p_spi_reg->SPCR_b.CMMD == SPI_CMD_RX_ONLY) { /* rx only */
-
-		p_spi_reg->SPRMCR_b.START = 1;
-	}
 #endif
 #ifdef CONFIG_SPI_SLAVE
 	if (spi_context_is_slave(&data->context) && !ret) {
