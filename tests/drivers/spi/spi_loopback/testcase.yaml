@@ -416,7 +416,7 @@ tests:
       - frdm_mcxn947/mcxn947/cpu0
       - mimxrt1050_evk/mimxrt1052/hyperflash
   drivers.spi.loopback.renesas_sci_b_spi:
-    filter: dt_compat_enabled("renesas,ra-spi-sci-b")
+    filter: dt_compat_enabled("renesas,ra-spi-sci-b") or dt_compat_enabled("renesas,rx-spi-sci-b")
     extra_args:
       - DTC_OVERLAY_FILE="boards/${BOARD}_sci_b_spi.overlay"
       - CONF_FILE="prj.conf" # to exclude "boards/${BOARD}.overlay"
@@ -427,8 +427,9 @@ tests:
       - ek_ra8d1
       - mck_ra8t1
       - fpb_ra8e1
+      - ek_rx74m
   drivers.spi.loopback.renesas_sci_b_spi.no_async:
-    filter: dt_compat_enabled("renesas,ra-spi-sci-b")
+    filter: dt_compat_enabled("renesas,ra-spi-sci-b") or dt_compat_enabled("renesas,rx-spi-sci-b")
     extra_configs:
       - CONFIG_SPI_ASYNC=n
     extra_args:
@@ -441,6 +442,7 @@ tests:
       - ek_ra8d1
       - mck_ra8t1
       - fpb_ra8e1
+      - ek_rx74m
   drivers.spi.loopback.renesas_sci_b_spi_ra8x2:
     filter: dt_compat_enabled("renesas,ra-spi-sci-b")
     integration_platforms:
