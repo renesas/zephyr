@@ -1,0 +1,88 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include "ek_ra8m2_r7ka8m2jflcac_cm85_common.dtsi"
+
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &storage_partition;
+
+
+/ {
+	model = "Renesas EK-RA8M2 OSPI flash variant";
+	compatible = "renesas,ra8m2", "renesas,ra8";
+
+	chosen {
+		zephyr,console = &uart8;
+		zephyr,shell-uart = &uart8;
+		zephyr,flash = &ext_flash;
+		zephyr,flash-controller = &ext_flash_ctrl;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,uart-mcumgr = &uart8;
+	};
+};
+
+&ospi0 {
+	pinctrl-0 = <&ospi0_default>;
+	pinctrl-names = "default";
+	ddr-sampling-extension = <7>;
+	status = "okay";
+
+	ext_flash_ctrl: flash-controller@1 {
+		compatible = "renesas,ra-ospi-b-nor";
+		ranges = <0x0 0x90000000 DT_SIZE_M(256)>;
+		reg = <1>;
+		protocol-mode = <OSPI_OPI_MODE>;
+		ospi-max-frequency = <DT_FREQ_M(133)>;
+		jedec-id = [ c2 86 3a  ];
+		default-8d-dummy-cycles = <20>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+
+		ext_flash: mx25lw51245g: nor-flash@0 {
+			compatible = "soc-nv-flash";
+			reg = <0x0 DT_SIZE_M(64)>;
+			ranges = <0x0 0x0 DT_SIZE_M(64)>;
+			write-block-size = <16>;
+			erase-block-size = <DT_SIZE_K(4)>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+
+			partitions {
+				ranges;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				slot0_partition: partition@0 {
+					compatible = "zephyr,mapped-partition";
+					label = "image-0";
+					reg = <0x0 DT_SIZE_M(16)>;
+				};
+
+				slot1_partition: partition@1000000 {
+					compatible = "zephyr,mapped-partition";
+					label = "image-1";
+					reg = <DT_SIZE_M(16) DT_SIZE_M(16)>;
+				};
+
+				storage_partition: partition@2000000 {
+					compatible = "zephyr,mapped-partition";
+					label = "storage";
+					reg = <DT_SIZE_M(32) DT_SIZE_K(64)>;
+				};
+
+				auto_calib_partition: partition@3fff000 {
+					compatible = "zephyr,mapped-partition";
+					label = "auto-calib-pattern";
+					reg = <0x3fff000 DT_SIZE_K(4)>;
+				};
+			};
+		};
+	};
+};
