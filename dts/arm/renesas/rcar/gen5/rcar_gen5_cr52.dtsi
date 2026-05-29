@@ -102,6 +102,216 @@
 			status = "disabled";
 		};
 
+		audio_dmac0: dma@ec700000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xec700000 0x10000>,
+			      <0xec720000 0x1000>,
+			      <0x18a08328 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <0>;
+			dma-channels = <16>;
+			dma-type = "Audio-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		audio_dmac1: dma@ec710000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xec710000 0x10000>,
+			      <0xec721000 0x1000>,
+			      <0x18a08348 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <1>;
+			dma-channels = <16>;
+			dma-type = "Audio-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		audio_dmac2: dma@ed700000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xed700000 0x10000>,
+			      <0xed720000 0x1000>,
+			      <0x18a08368 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <2>;
+			dma-channels = <16>;
+			dma-type = "Audio-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		audio_dmac3: dma@ed710000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xed710000 0x10000>,
+			      <0xed721000 0x1000>,
+			      <0x18a08388 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <3>;
+			dma-channels = <16>;
+			dma-type = "Audio-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rt_dmac0: dma@18900000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x18900000 0x10000>,
+			      <0x19438000 0x1000>,
+			      <0x18a083c8 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <0>;
+			dma-channels = <16>;
+			dma-type = "RT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rt_dmac1: dma@18910000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x18910000 0x10000>,
+			      <0x19439000 0x1000>,
+			      <0x18a083e8 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <1>;
+			dma-channels = <16>;
+			dma-type = "RT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rt_dmac2: dma@18920000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x18920000 0x10000>,
+			      <0x1943a000 0x1000>,
+			      <0x18a08408 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <2>;
+			dma-channels = <16>;
+			dma-type = "RT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rt_dmac3: dma@18930000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x18930000 0x10000>,
+			      <0x1943b000 0x1000>,
+			      <0x18a08428 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <3>;
+			dma-channels = <16>;
+			dma-type = "RT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		/* SYS-DMAC type 0, unit 0 */
+		sys_dmac00: dma@c0900000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc0900000 0x10000>,
+			      <0xc0940000 0x1000>,
+			      <0x18a08468 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <0>;
+			dma-channels = <16>;
+			dma-type = "SYS-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		/* SYS-DMAC type 1, unit 0 */
+		sys_dmac10: dma@c0480000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc0480000 0x10000>,
+			      <0xc05c4000 0x1000>,
+			      <0x18a08488 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <1>;
+			dma-channels = <16>;
+			dma-type = "SYS-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		/* SYS-DMAC type 1, unit 1 */
+		sys_dmac11: dma@c0490000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc0490000 0x10000>,
+			      <0xc05c5000 0x1000>,
+			      <0x18a084a8 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <2>;
+			dma-channels = <16>;
+			dma-type = "SYS-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		/* SYS-DMAC type 1, unit 2 */
+		sys_dmac12: dma@c04a0000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc04a0000 0x10000>,
+			      <0xc05c6000 0x1000>,
+			      <0x18a084c8 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <3>;
+			dma-channels = <16>;
+			dma-type = "SYS-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		scp_dmac0: dma@c11a0000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc11a0000 0x10000>,
+			      <0xc11e8000 0x1000>,
+			      <0x18a08c64 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <0>;
+			dma-channels = <16>;
+			dma-type = "SCP-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		scp_dmac1: dma@c11b0000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0xc11b0000 0x10000>,
+			      <0xc11e9000 0x1000>,
+			      <0x18a08c8c 0x20>;
+			reg-names = "channel", "public", "intsta";
+			channel = <1>;
+			dma-channels = <16>;
+			dma-type = "SCP-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rtt_dmac0: dma@189c0000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x189c0000 0x10000>,
+			      <0x1943c000 0x1000>;
+			reg-names = "channel", "public";
+			channel = <0>;
+			dma-channels = <16>;
+			dma-type = "RTT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
+		rtt_dmac1: dma@189d0000 {
+			compatible = "renesas,rcar-dma";
+			reg = <0x189d0000 0x10000>,
+			      <0x1943d000 0x1000>;
+			reg-names = "channel", "public";
+			channel = <1>;
+			dma-channels = <16>;
+			dma-type = "RTT-DMAC";
+			#dma-cells = <2>;
+			status = "disabled";
+		};
+
 		scif1: serial@c0704000 {
 			compatible = "renesas,rcar-scif";
 			reg = <0xc0704000 0x64>;
