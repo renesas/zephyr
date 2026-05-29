@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config DMA_RENESAS_RCAR
+	bool "Renesas RCAR DMAC"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_DMA_ENABLED
+	select USE_RCARSOC_DRV_DMAC
+	help
+	  Enable Renesas RCAR DMA Driver.
+
+if DMA_RENESAS_RCAR
+
+config DMA_RENESAS_RCAR_NUM_DESCRIPTOR
+	int "Maximum number of descriptor"
+	default 128
+	range 1 256
+	help
+	  Maximum number of descriptors for each channel in dma unit
+
+endif

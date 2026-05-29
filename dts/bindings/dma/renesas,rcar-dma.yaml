@@ -1,0 +1,90 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RCAR DMA Controller
+
+  The following example displays the minimum DMA node layout:
+
+    dma0: dma@ec700000 {
+        compatible = "renesas,rcar-dma";
+        reg = <0x0xec700000 0x10000>;
+        clocks = <&iclk MSTPA 22>;
+        dma-channels = <16>;
+        #dma-cells = <2>;
+        status = "disabled";
+    };
+
+  By default, the DMA controller node appears with `status = "disabled"`.
+  To enable and use the DMA controller, add an overlay that sets `status = "okay"`
+  and provides the required `interrupts` and `interrupt-names` properties.
+
+  Example overlay to enable the DMA controller for specific channels:
+
+    &dma0 {
+        status = "okay";
+        interrupts = <95 1>, <94 1>;
+        interrupt-names = "ch0", "ch1";
+    };
+
+  Note:
+  - The `interrupts` property specifies only the channels intended for use.
+    It is not necessary to declare interrupts for all available DMA channels;
+    just include entries for the channels intended for use.
+  - The `interrupt-names` property provides human-readable names corresponding
+    to each interrupt, typically matching the channel number.
+
+compatible: "renesas,rcar-dma"
+
+include: [dma-controller.yaml, base.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    description: |
+      The `interrupt-names` property is required and must be specified as an array,
+      with one entry for each DMA channel in use.
+      Each entry must strictly follow the format "chX", where X is the DMA channel number.
+      The order of entries must correspond to the channels defined in the `interrupts` property.
+
+      Example:
+        interrupt-names = "ch0", "ch1";
+
+      In this example, "ch0" and "ch1" are the interrupt names assigned to DMA Channel 0 and
+      DMA Channel 1, each corresponding to its respective entry in the `interrupts` property.
+
+  dma-channels:
+    required: true
+
+  dma-type:
+    type: string
+    description: |
+      Type DMAC, each DMAC support for each different kind of Peripheral trigger event.
+    enum:
+      - RT-DMAC
+      - SYS-DMAC
+      - Audio-DMAC
+      - SCP-DMAC
+      - RTT-DMAC
+
+  channel:
+    type: int
+    description: |
+      DMAC channel index
+      e.g.:
+        - audio-dmac2 => type: Audio-DMAC, channel: 2
+        - sys-dmac12 => type: SYS-DMAC, channel: 3
+        - sys-dmac10 => type: SYS-DMAC, channel: 1
+
+  "#dma-cells":
+    const: 2
+
+dma-cells:
+  - channel
+  - slot

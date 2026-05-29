@@ -516,3 +516,17 @@ config USE_RX_RDP_LPC
 	  Enable RX RDP LPC driver
 
 endif # HAS_RENESAS_RX_RDP
+
+config HAS_RENESAS_RCARSOC_DRV
+	bool
+	help
+	  Enable Renesas RCar Hal Driver support
+
+if HAS_RENESAS_RCARSOC_DRV
+
+config USE_RCARSOC_DRV_DMAC
+	bool
+	help
+	  Enable RCAR hal DMAC driver
+
+endif # HAS_RENESAS_RCARSOC_DRV
