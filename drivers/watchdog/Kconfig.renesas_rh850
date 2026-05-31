@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config WDT_RENESAS_RH850
+	bool "Watchdog Driver for Renesas RH850"
+	default y
+	depends on DT_HAS_RENESAS_RH850_WDTB_ENABLED
+	select HAS_WDT_DISABLE_AT_BOOT
+	select USE_RH850_FSP_WDT
+	help
+	  Enable watchdog driver for Renesas RH850
