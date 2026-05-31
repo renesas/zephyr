@@ -13,4 +13,5 @@ supported:
   - interrupt_controller
   - timer
   - uart
+  - watchdog
 vendor: renesas

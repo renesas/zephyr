@@ -6,6 +6,7 @@
 
 #include <rh850/renesas/rh850u2b/u2b-g4mh-common.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <freq.h>
 
 / {
 	soc {
@@ -192,6 +193,54 @@
 				channel = <23>;
 				status = "disabled";
 			};
+		};
+
+		wdtb0: watchdog@ffbf1000 {
+			unit = <1>;
+			compatible = "renesas,rh850-wdtb";
+			interrupts = <22 0>;
+			window-open-mode = "select-by-window-start";
+			error-mode = "nmi-mode";
+			clock-freq = <312500>;
+			reg = <0xffbf1000 0x14>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		wdtb1: watchdog@ff899000 {
+			unit = <2>;
+			compatible = "renesas,rh850-wdtb";
+			interrupts = <22 0>;
+			window-open-mode = "select-by-window-start";
+			error-mode = "nmi-mode";
+			clock-freq = <312500>;
+			reg = <0xff899000 0x14>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		wdtb2: watchdog@ffbf1200 {
+			unit = <3>;
+			compatible = "renesas,rh850-wdtb";
+			interrupts = <22 0>;
+			window-open-mode = "select-by-window-start";
+			error-mode = "nmi-mode";
+			clock-freq = <312500>;
+			reg = <0xffbf1200 0x14>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		wdtb3: watchdog@ff899200 {
+			unit = <4>;
+			compatible = "renesas,rh850-wdtb";
+			interrupts = <22 0>;
+			window-open-mode = "select-by-window-start";
+			error-mode = "nmi-mode";
+			clock-freq = <312500>;
+			reg = <0xff899200 0x14>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
 		};
 
 		ioport0: gpio@ffd90000 {

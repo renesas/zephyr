@@ -25,6 +25,7 @@
 
 	aliases {
 		led0 = &led10;
+		watchdog0 = &wdtb0;
 	};
 
 	leds {
@@ -83,5 +84,9 @@
 };
 
 &ioaport4 {
+	status = "okay";
+};
+
+&wdtb0 {
 	status = "okay";
 };
