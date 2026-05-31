@@ -1,0 +1,37 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 Watchdog Timer (wdtb)
+
+compatible: "renesas,rh850-wdtb"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: true
+
+  unit:
+    required: true
+    type: int
+
+  window-open-mode:
+    type: string
+    description: Window open function mode selection
+    required: true
+    enum:
+      - "select-by-window-start"
+      - "set-by-worst"
+
+  error-mode:
+    type: string
+    description: Error mode setting
+    required: true
+    enum:
+      - "nmi-mode"
+      - "reset-mode"
+
+  clock-freq:
+    type: int
+    description: watchdog WDTBTCKI clock frequency (Hz)
+    required: true
