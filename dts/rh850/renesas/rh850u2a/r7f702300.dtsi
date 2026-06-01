@@ -6,8 +6,49 @@
 
 #include <rh850/renesas/rh850u2a/u2a-g4mh-common.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/clock/renesas_rh850u2a_clock.h>
+#include <freq.h>
 
 / {
+	clocks {
+		mosc: main-osc {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(20)>;
+			#clock-cells = <0>;
+			status = "okay";
+		};
+
+		hsiosc: hs-int-osc {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(200)>;
+			#clock-cells = <0>;
+			status = "okay";
+		};
+
+		lsiosc: ls-int-osc {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_K(240)>;
+			#clock-cells = <0>;
+			status = "okay";
+		};
+
+		iosc: int-osc {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(200)>;
+			clocks = <&hsiosc>;
+			#clock-cells = <0>;
+			status = "okay";
+		};
+
+		pll: pll {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(800)>;
+			clocks = <&mosc>;
+			#clock-cells = <0>;
+			status = "okay";
+		};
+	};
+
 	soc {
 		sram0: memory@fe000000 {
 			compatible = "mmio-sram";
@@ -51,12 +92,106 @@
 			status = "disabled";
 		};
 
+		cgc: clock-controller {
+			compatible = "renesas,rh850-cgc";
+			#clock-cells = <1>;
+			status = "okay";
+
+			clk_sys: clk-sys {
+				compatible = "renesas,rh850-cgc-sysclk";
+				clk-source = <0>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clk_mspi: clk-mspi {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clk_rlin3: clk-rlin3 {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clk_wdt: clk-wdt {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clka_wdt: clka-wdt {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clka_tauj: clka-tauj {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clka_rtca: clka-rtca {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clka_adc: clka-adc {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				div = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clk_adc: clk-adc {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clk_rcanosc: clk-rcanosc {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			extclk0: extclk0 {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				div = <0>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			extclk1: extclk1 {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				div = <0>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+		};
+
 		ostm0: ostm0@ffbf0000 {
 			compatible = "renesas,rh850-ostm";
 			reg = <0xffbf0000 0x21>;
 			channel = <0>;
 			interrupts = <199 0>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 0, PCLK)>;
 			status = "disabled";
 
 			timer {
@@ -251,6 +386,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28000 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 0, RLIN3)>;
 			status = "disabled";
 
 			uart0: uart {
@@ -266,6 +402,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c000 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 1, RLIN3)>;
 			status = "disabled";
 
 			uart1: uart {
@@ -281,6 +418,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28200 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 2, RLIN3)>;
 			status = "disabled";
 
 			uart2: uart {
@@ -296,6 +434,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c080 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 3, RLIN3)>;
 			status = "disabled";
 
 			uart3: uart {
@@ -311,6 +450,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28400 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 4, RLIN3)>;
 			status = "disabled";
 
 			uart4: uart {
@@ -326,6 +466,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c100 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 5, RLIN3)>;
 			status = "disabled";
 
 			uart5: uart {
@@ -341,6 +482,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28600 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 6, RLIN3)>;
 			status = "disabled";
 
 			uart6: uart {
@@ -356,6 +498,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c180 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 7, RLIN3)>;
 			status = "disabled";
 
 			uart7: uart {
@@ -371,6 +514,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28800 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 8, RLIN3)>;
 			status = "disabled";
 
 			uart8: uart {
@@ -386,6 +530,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c200 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 9, RLIN3)>;
 			status = "disabled";
 
 			uart9: uart {
@@ -401,6 +546,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28a00 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 10, RLIN3)>;
 			status = "disabled";
 
 			uart10: uart {
@@ -416,6 +562,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c280 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 11, RLIN3)>;
 			status = "disabled";
 
 			uart11: uart {
@@ -431,6 +578,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28c00 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 12, RLIN3)>;
 			status = "disabled";
 
 			uart12: uart {
@@ -446,6 +594,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c300 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 13, RLIN3)>;
 			status = "disabled";
 
 			uart13: uart {
@@ -461,6 +610,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd28e00 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 14, RLIN3)>;
 			status = "disabled";
 
 			uart14: uart {
@@ -476,6 +626,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c380 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 15, RLIN3)>;
 			status = "disabled";
 
 			uart15: uart {
@@ -491,6 +642,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd29000 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 16, RLIN3)>;
 			status = "disabled";
 
 			uart16: uart {
@@ -500,12 +652,13 @@
 			};
 		};
 
-		rlin317: rlin316@ffc7c400 {
+		rlin317: rlin317@ffc7c400 {
 			compatible = "renesas,rh850-rlin3";
 			interrupts = <484 1>, <485 1>, <486 1>, <487 1>;
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c400 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 17, RLIN3)>;
 			status = "disabled";
 
 			uart17: uart {
@@ -521,6 +674,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd29200 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 18, RLIN3)>;
 			status = "disabled";
 
 			uart18: uart {
@@ -536,6 +690,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c480 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 19, RLIN3)>;
 			status = "disabled";
 
 			uart19: uart {
@@ -551,6 +706,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd29400 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 20, RLIN3)>;
 			status = "disabled";
 
 			uart20: uart {
@@ -566,6 +722,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c500 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 21, RLIN3)>;
 			status = "disabled";
 
 			uart21: uart {
@@ -581,6 +738,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffd29600 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 22, RLIN3)>;
 			status = "disabled";
 
 			uart22: uart {
@@ -596,6 +754,7 @@
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
 			reg = <0xffc7c580 0x35>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 23, RLIN3)>;
 			status = "disabled";
 
 			uart23: uart {
@@ -685,7 +844,7 @@
 			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			channel = <0>;
+			channel = <1>;
 			status = "disabled";
 		};
 
