@@ -23,6 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: renesas
+      url-base: https://github.com/renesas
 
   group-filter: [-babblesim, -optional, -testing]
 
@@ -329,7 +331,8 @@ manifest:
       groups:
         - crypto
     - name: mcuboot
-      revision: 511dc9e28f223d6b158740b66a702209531361ff
+      remote: renesas
+      revision: v2.4.0-zephyr-pqc-port
       path: bootloader/mcuboot
       groups:
         - bootloader
@@ -389,7 +392,8 @@ manifest:
         - testing
         - tee
     - name: tf-psa-crypto
-      revision: efdf9e209cc3b2c7be93ac81c7c96cd2550bbe27
+      remote: renesas
+      revision: v1.1.0-zephyr-pqc-port
       path: modules/crypto/tf-psa-crypto
       groups:
         - crypto
