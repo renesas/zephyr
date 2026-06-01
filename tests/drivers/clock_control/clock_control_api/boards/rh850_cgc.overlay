@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Test-only overlay for tests/drivers/clock_control/clock_control_api.
+ * The child clock nodes intentionally exercise the pclk/sysclk/osc bindings.
+ */
+
+/ {
+	soc {
+		cgc: clock-controller {
+			compatible = "renesas,rh850-cgc";
+			#clock-cells = <1>;
+			status = "okay";
+
+			cpu_clk: cpu-clk {
+				compatible = "renesas,rh850-cgc-sysclk";
+				clock = <RH850_CLOCK_CPU>;
+				clock-source = <&pll>;
+				clock-frequency = <400000000>;
+				divider = <2>;
+				#clock-cells = <0>;
+			};
+
+			rh850_test_pclk: rscfd0-pclk {
+				compatible = "renesas,rh850-cgc-pclk";
+				module = <RH850_MODULE_RSCFD>;
+				channel = <0>;
+				clock = <RH850_CLOCK_CANFD_C>;
+				clock-source = <&cpu_clk>;
+				clock-frequency = <80000000>;
+				divider = <5>;
+				#clock-cells = <0>;
+			};
+
+			clk_rlin3: clk-rlin3 {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+
+			clka_adc: clka-adc {
+				compatible = "renesas,rh850-cgc-pclk";
+				clk-source = <1>;
+				div = <1>;
+				#clock-cells = <0>;
+				status = "okay";
+			};
+		};
+	};
+};

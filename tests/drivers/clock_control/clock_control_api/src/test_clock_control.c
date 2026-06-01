@@ -19,6 +19,8 @@ LOG_MODULE_REGISTER(test);
 #elif DT_HAS_COMPAT_STATUS_OKAY(microchip_sam_d5x_e5x_clock) || \
 	DT_HAS_COMPAT_STATUS_OKAY(microchip_pic32cm_jh_clock)
 #include "mchp_device_subsys.h"
+#elif DT_HAS_COMPAT_STATUS_OKAY(renesas_rh850_cgc)
+#include "rh850_device_subsys.h"
 #else
 #error "Unsupported board"
 #endif
