@@ -1,0 +1,54 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RH850 system clock configuration.
+
+compatible: "renesas,rh850-cgc-sysclk"
+
+include: [base.yaml, clock-controller.yaml]
+
+properties:
+  clk-source:
+    type: int
+    default: 1
+    enum:
+      - 0
+      - 1
+    description: |
+      Select the hardware source supplied to the system clock.
+      The numeric encoding is device-specific and must match the selected
+      RH850 U2x hardware user's manual and FSP BSP clock configuration.
+      The default corresponds to the reset value of the CLK_IOSC
+      register field.
+
+  modulation-enable:
+    type: boolean
+    description: Enable SSCG modulation.
+
+  modulation-value:
+    type: int
+    default: 30
+    description: |
+      Raw hardware encoding for SSCG modulation frequency selection.
+      Valid values depend on the selected SSCG input clock.
+      The default corresponds to the reset value of the SELMFREQ
+      register field.
+
+  modulation-dithered-range:
+    type: int
+    default: 0
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    description: |
+      Raw SSCG dithered-range encoding:
+      0 = -1%, 1 = -2%, 2 = -3%, 3 = -4%, 4 = -5%.
+      The default corresponds to the reset value of the SELMPERCENT
+      register field.
+
+  "#clock-cells":
+    const: 0
