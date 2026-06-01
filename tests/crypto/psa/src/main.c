@@ -12,6 +12,11 @@
 #include <zephyr/ztest.h>
 
 #include <psa/crypto.h>
+#include <tf-psa-crypto/build_info.h>
+
+/* ML-DSA-87 sizes from mldsa_native.h (mldsa-native library) */
+#define MLDSA87_PUBLICKEY_BYTES 2592
+#define MLDSA87_SIGNATURE_BYTES 4627
 
 ZTEST_USER(psa_crypto_test_suite, test_generate_random)
 {
@@ -187,3 +192,78 @@ ZTEST_USER(psa_crypto_test_suite, test_aes_ecb)
 }
 
 ZTEST_SUITE(psa_crypto_test_suite, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST_USER(test_mbedtls_psa, test_mldsa87_sign_verify)
+{
+	/* 32-byte seed as private key (ML-DSA-87) */
+	uint8_t key[] = {
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+	};
+	psa_key_attributes_t key_attr = PSA_KEY_ATTRIBUTES_INIT;
+	psa_key_id_t sign_key_id = PSA_KEY_ID_NULL;
+	psa_key_id_t verify_key_id = PSA_KEY_ID_NULL;
+	uint8_t msg[] = { 'a' };
+	size_t msg_len = sizeof(msg);
+	static uint8_t sig[MLDSA87_SIGNATURE_BYTES];
+	size_t sig_len;
+	static uint8_t pub_key[MLDSA87_PUBLICKEY_BYTES];
+	size_t pub_key_len;
+	psa_status_t status;
+
+	/* --- Sign --- */
+	psa_set_key_type(&key_attr, PSA_KEY_TYPE_ML_DSA_KEY_PAIR);
+	psa_set_key_bits(&key_attr, 87);
+	psa_set_key_algorithm(&key_attr, PSA_ALG_DETERMINISTIC_ML_DSA);
+	psa_set_key_usage_flags(&key_attr, PSA_KEY_USAGE_SIGN_MESSAGE);
+
+	status = psa_import_key(&key_attr, key, sizeof(key), &sign_key_id);
+	zassert_equal(status, PSA_SUCCESS);
+
+	/* Export public key from key pair */
+	status = psa_export_public_key(sign_key_id, pub_key, sizeof(pub_key),
+				       &pub_key_len);
+	zassert_equal(status, PSA_SUCCESS);
+	zassert_equal(pub_key_len, MLDSA87_PUBLICKEY_BYTES);
+
+	/* Sign message */
+	status = psa_sign_message(sign_key_id, PSA_ALG_DETERMINISTIC_ML_DSA,
+				  msg, msg_len,
+				  sig, sizeof(sig), &sig_len);
+	zassert_equal(status, PSA_SUCCESS);
+	zassert_equal(sig_len, MLDSA87_SIGNATURE_BYTES);
+
+	/* Destroy sign key */
+	status = psa_destroy_key(sign_key_id);
+	zassert_equal(status, PSA_SUCCESS);
+
+	/* --- Verify --- */
+	key_attr = psa_key_attributes_init();
+	psa_set_key_type(&key_attr, PSA_KEY_TYPE_ML_DSA_PUBLIC_KEY);
+	psa_set_key_bits(&key_attr, 87);
+	psa_set_key_algorithm(&key_attr, PSA_ALG_DETERMINISTIC_ML_DSA);
+	psa_set_key_usage_flags(&key_attr, PSA_KEY_USAGE_VERIFY_MESSAGE);
+
+	status = psa_import_key(&key_attr, pub_key, pub_key_len, &verify_key_id);
+	zassert_equal(status, PSA_SUCCESS);
+
+	/* Verify valid signature */
+	status = psa_verify_message(verify_key_id, PSA_ALG_DETERMINISTIC_ML_DSA,
+				    msg, msg_len,
+				    sig, sig_len);
+	zassert_equal(status, PSA_SUCCESS);
+
+	/* Verify corrupted signature fails */
+	sig[0] ^= 0x01;
+	status = psa_verify_message(verify_key_id, PSA_ALG_DETERMINISTIC_ML_DSA,
+				    msg, msg_len,
+				    sig, sig_len);
+	zassert_equal(status, PSA_ERROR_INVALID_SIGNATURE);
+
+	status = psa_destroy_key(verify_key_id);
+	zassert_equal(status, PSA_SUCCESS);
+}
+
+ZTEST_SUITE(test_mbedtls_psa, NULL, NULL, NULL, NULL, NULL);
