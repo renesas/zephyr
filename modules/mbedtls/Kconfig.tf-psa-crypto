@@ -436,4 +436,8 @@ config TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED
 	bool "mldsa-native from the PQCP (post-quantum code package) driver for the security level 87 [EXPERIMENTAL]"
 	select EXPERIMENTAL
 
+config TF_PSA_CRYPTO_PQCP_REDUCE_RAM
+	bool "Reduce RAM usage for mldsa-native at the cost of performance [EXPERIMENTAL]"
+	select EXPERIMENTAL
+
 endif # TF_PSA_CRYPTO_PQCP_MLDSA_ENABLED
