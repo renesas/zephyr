@@ -175,6 +175,7 @@ config SIGNATURE_TYPE
 	default "RSA" if BOOT_SIGNATURE_TYPE_RSA
 	default "ECDSA_P256" if BOOT_SIGNATURE_TYPE_ECDSA_P256
 	default "ED25519" if BOOT_SIGNATURE_TYPE_ED25519
+	default "MLDSA87" if BOOT_SIGNATURE_TYPE_ML_DSA
 
 choice BOOT_SIGNATURE_TYPE
 	prompt "Signature type"
@@ -192,6 +193,9 @@ config BOOT_SIGNATURE_TYPE_ECDSA_P256
 config BOOT_SIGNATURE_TYPE_ED25519
 	bool "Edwards curve digital signatures using ed25519"
 
+config BOOT_SIGNATURE_TYPE_ML_DSA
+	bool "ML-DSA-87 (FIPS 204) post-quantum signatures"
+
 endchoice
 
 config BOOT_SIGNATURE_KEY_FILE
@@ -199,6 +203,7 @@ config BOOT_SIGNATURE_KEY_FILE
 	default "$(ZEPHYR_MCUBOOT_MODULE_DIR)/root-ec-p256.pem" if BOOT_SIGNATURE_TYPE_ECDSA_P256
 	default "$(ZEPHYR_MCUBOOT_MODULE_DIR)/root-ed25519.pem" if BOOT_SIGNATURE_TYPE_ED25519
 	default "$(ZEPHYR_MCUBOOT_MODULE_DIR)/root-rsa-2048.pem" if BOOT_SIGNATURE_TYPE_RSA
+	default "$(ZEPHYR_MCUBOOT_MODULE_DIR)/root-mldsa-87.pem" if BOOT_SIGNATURE_TYPE_ML_DSA
 	default ""
 	help
 	  Absolute path to signing key file to use with MCUBoot.
