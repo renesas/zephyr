@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig CLOCK_CONTROL_RENESAS_RH850_CGC
+	bool "Renesas RH850 CGC clock-control driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_CGC_ENABLED
+	select USE_RH850_FSP_CGC
+	help
+	  Enable the Renesas RH850 Clock Generation Circuit (CGC) driver.
+	  The driver uses Renesas FSP CGC/BSP APIs for module standby,
+	  oscillator status, and clock-rate lookup.
+
+if CLOCK_CONTROL_RENESAS_RH850_CGC
+
+config RH850_CLOCK_MOSC_CONTINUE_IN_STANDBY
+	bool "Continue MainOSC in chip standby mode"
+	default n
+	help
+	  Keep the Main Oscillator running in chip standby mode.
+
+config RH850_CLOCK_PLL_CONTINUE_IN_STANDBY
+	bool "Continue PLL in chip standby mode"
+	default n
+	help
+	  Keep the PLL running in chip standby mode.
+
+config RH850_CLOCK_HSOSC_CONTINUE_IN_STANDBY
+	bool "Continue HSOSC in chip standby mode"
+	default n
+	help
+	  Keep the high-speed internal oscillator running in chip standby mode.
+
+endif # CLOCK_CONTROL_RENESAS_RH850_CGC
