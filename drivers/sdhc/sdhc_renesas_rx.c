@@ -790,13 +790,13 @@ static DEVICE_API(sdhc, sdhc_api) = {
 						.sdr104_support = false,                           \
 						.sdr50_support = false,                            \
 						.bus_8_bit_support = false,                        \
-						.bus_4_bit_support =                               \
-							(DT_INST_PROP(index, bus_width) == 4)      \
-								? true                             \
-								: false,                           \
-						.hs200_support = false,                            \
-						.hs400_support = false,                            \
 					},                                                         \
+				.bus_4_bit_support =                               \
+					(DT_INST_PROP(index, bus_width) == 4)      \
+						? true                             \
+						: false,                           \
+				.hs200_support = false,                            \
+				.hs400_support = false,                            \
 			},                                                                         \
                                                                                                    \
 	};                                                                                         \
