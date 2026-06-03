@@ -1,0 +1,7 @@
+/ {
+	chosen {
+		zephyr,flash = &code_mram_cm85;
+		zephyr,flash-controller = &mram_ctrl;
+		zephyr,code-partition = &slot0_partition;
+	};
+};
