@@ -99,4 +99,11 @@ config SOC_RA_DYNAMIC_INTERRUPT_NUMBER
 	  Indicates that the interrupt numbers are not fixed and can be assigned dynamically
 	  when the SoC selects this configuration
 
+config SOC_RA_SKIP_OSPI_CLOCK_INIT
+	bool
+	default y if BOOTLOADER_MCUBOOT && FLASH_RENESAS_RA_OSPI_B_XIP
+	help
+	  Skip the OSPI clock initialization in the flash driver. This is needed when the OSPI flash
+	  is already initialized by the bootloader and the clock is left running.
+
 endif # SOC_FAMILY_RENESAS_RA
