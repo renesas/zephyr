@@ -25,4 +25,14 @@ config RENESAS_RA_OSPI_B_HEAP_SIZE
 	  Set the size of the runtime heap for OSPI_B driver.
 	  This heap is used for dynamic memory allocation during runtime.
 
-endif
+config FLASH_RENESAS_RA_OSPI_B_XIP
+	bool "Enable XIP mode for OSPI-B flash"
+	depends on FLASH_RENESAS_RA_OSPI_B
+	default y
+	help
+	  Enable this to execute code directly from OSPI-B flash. This requires
+	  the flash to be configured in 8D XIP mode and the application to be linked
+	  to run from the flash. This is the recommended configuration for OSPI-B flash
+	  on RA MCUs.
+
+endif # FLASH_RENESAS_RA_OSPI_B
