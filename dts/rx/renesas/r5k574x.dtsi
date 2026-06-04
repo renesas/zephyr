@@ -375,6 +375,14 @@
 			};
 		};
 
+		sdram: sdram-controller@8701dc00 {
+			compatible = "renesas,rx-sdram";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x8701dc00 0x54>;
+			status = "disabled";
+		};
+
 		usbhs: usbhs@87451000 {
 			compatible = "renesas,rx-usbhs";
 			reg = <0x87451000 0x200>;
