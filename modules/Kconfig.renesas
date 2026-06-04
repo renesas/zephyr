@@ -620,4 +620,9 @@ config USE_RX_FSP_GPT
 	help
 	  Enable RX FSP GPT driver
 
+config USE_RX_FSP_SDRAM
+	bool
+	help
+	  Enable RX FSP SDRAM support
+
 endif # HAS_RENESAS_RX_FSP
