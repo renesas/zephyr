@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RCARSOC Ethernet TSNES
+
+compatible: "renesas,rcarsoc-eth-tsnes"
+
+include: [ethernet-controller.yaml]
+
+properties:
+  reg:
+    required: true
+
+  reg-names:
+    required: true
+
+  interrupts:
+    description: |
+      IRQ configuration
+    required: true
+
+  interrupt-names:
+    description: Interrupt names for debugging
+
+  rx-queues:
+    description: Number of RX queues (1-32)
+    type: int
+    default: 1
+
+  tx-queues:
+    description: Number of TX queues (1-8)
+    type: int
+    default: 1
+
+  rx-queue-size:
+    description: RX descriptor ring size per queue (must be a power of 2)
+    type: int
+    default: 128
+
+  tx-queue-size:
+    description: TX descriptor ring size per queue (must be a power of 2)
+    type: int
+    default: 128

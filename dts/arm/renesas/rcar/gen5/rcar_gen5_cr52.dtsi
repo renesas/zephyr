@@ -359,5 +359,21 @@
 				phy-mode = "sgmii";
 			};
 		};
+
+		tsnes0: ethernet@c9c60000 {
+			compatible = "renesas,rcarsoc-eth-tsnes";
+			reg = <0xc9c60000 0x4000>;
+			reg-names = "tsnes";
+			interrupt-parent = <&gic>;
+
+			interrupts = <GIC_PPI 494 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				<GIC_PPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "tdis", "tes_int_n";
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
+				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
+				 <&clkc CLKC_CORE R8A78000_CLK_S0D4_HSCN_RSW3_MAIN>,
+				 <&clkc CLKC_CORE R8A78000_CLK_RSWSUBD1CK_HSCN_RSW3_MAIN>;
+			status = "disabled";
+		};
 	};
 };
