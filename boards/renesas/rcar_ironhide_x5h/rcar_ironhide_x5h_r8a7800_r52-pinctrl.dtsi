@@ -59,4 +59,28 @@
 	rsw3_etha4_mdio_default: rsw3_etha4_mdio_default {
 		pin = <PIN_ETH25G0_MDIO FUNC_ETH25G2_MDIO>;
 	};
+
+	tsnes4_match_default: tsnes4_match_default {
+		pin = <PIN_ETHES4_MATCH FUNC_ETHES4_MATCH>;
+	};
+
+	tsnes4_pps_default: tsnes4_pps_default {
+		pin = <PIN_ETHES4_PPS FUNC_ETHES4_PPS>;
+	};
+
+	tsnes4_capture_default: tsnes4_capture_default {
+		pin = <PIN_ETHES4_CAPTURE FUNC_ETHES4_CAPTURE>;
+	};
+
+	tsnes0_match_default: tsnes0_match_default {
+		pin = <PIN_ETHES0_MATCH FUNC_ETHES0_MATCH>;
+	};
+
+	tsnes0_pps_default: tsnes0_pps_default {
+		pin = <PIN_ETHES0_PPS FUNC_ETHES0_PPS>;
+	};
+
+	tsnes0_capture_default: tsnes0_capture_default {
+		pin = <PIN_ETHES0_CAPTURE FUNC_ETHES0_CAPTURE>;
+	};
 };
