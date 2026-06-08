@@ -1,6 +1,11 @@
 family:
   - name: renesas_rh850
     series:
+      - name: rh850u2a
+        socs:
+          - name: r7f702300aebbc-c
+          - name: r7f702300bebbc-c
+          - name: r7f702300ebbg-c
       - name: rh850u2b
         socs:
           - name: r7f70254xfabg-c
