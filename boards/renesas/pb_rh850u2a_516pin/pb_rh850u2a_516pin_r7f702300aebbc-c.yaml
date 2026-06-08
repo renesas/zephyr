@@ -1,0 +1,16 @@
+identifier: pb_rh850u2a_516pin/r7f702300aebbc-c
+name: Renesas RH850 U2A 516pin
+type: mcu
+arch: rh850
+ram: 512
+flash: 16384
+toolchain:
+  - iar
+supported:
+  - counter
+  - gpio
+  - pinctrl
+  - interrupt_controller
+  - timer
+  - uart
+vendor: renesas

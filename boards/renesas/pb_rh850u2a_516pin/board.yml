@@ -1,0 +1,8 @@
+board:
+  name: pb_rh850u2a_516pin
+  full_name: RH850/U2A 516pin PiggyBack Board
+  vendor: renesas
+  socs:
+  - name: r7f702300aebbc-c
+  - name: r7f702300bebbc-c
+  - name: r7f702300ebbg-c
