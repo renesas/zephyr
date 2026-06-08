@@ -1,0 +1,434 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2a/u2a-g4mh-common.dtsi>
+
+/ {
+	soc {
+		sram0: memory@fe000000 {
+			compatible = "mmio-sram";
+			reg = <0xfe000000 DT_SIZE_K(512)>;
+		};
+
+		ostm0: ostm0@ffbf0000 {
+			compatible = "renesas,rh850-ostm";
+			reg = <0xffbf0000 0x21>;
+			channel = <0>;
+			interrupts = <199 0>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			timer {
+				compatible = "renesas,rh850-ostm-timer";
+				status = "disabled";
+			};
+		};
+
+		rlin30: rlin30@ffd28000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <416 1>, <417 1>, <418 1>, <419 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28000 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart0: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <0>;
+				status = "disabled";
+			};
+		};
+
+		rlin31: rlin31@ffc7c000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <420 1>, <421 1>, <422 1>, <423 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c000 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart1: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <1>;
+				status = "disabled";
+			};
+		};
+
+		rlin32: rlin32@ffd28200 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <424 1>, <425 1>, <426 1>, <427 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28200 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart2: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <2>;
+				status = "disabled";
+			};
+		};
+
+		rlin33: rlin32@ffc7c080 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <428 1>, <429 1>, <430 1>, <431 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c080 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart3: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <3>;
+				status = "disabled";
+			};
+		};
+
+		rlin34: rlin34@ffd28400 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <432 1>, <433 1>, <434 1>, <435 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28400 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart4: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <4>;
+				status = "disabled";
+			};
+		};
+
+		rlin35: rlin35@ffc7c100 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <436 1>, <437 1>, <438 1>, <439 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c100 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart5: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <5>;
+				status = "disabled";
+			};
+		};
+
+		rlin36: rlin36@ffd28600 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <440 1>, <441 1>, <442 1>, <443 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28600 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart6: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <6>;
+				status = "disabled";
+			};
+		};
+
+		rlin37: rlin37@ffc7c180 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <444 1>, <445 1>, <446 1>, <447 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c180 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart7: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <7>;
+				status = "disabled";
+			};
+		};
+
+		rlin38: rlin38@ffd28800 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <448 1>, <449 1>, <450 1>, <451 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28800 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart8: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <8>;
+				status = "disabled";
+			};
+		};
+
+		rlin39: rlin39@ffc7c200 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <452 1>, <453 1>, <454 1>, <455 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c200 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart9: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <9>;
+				status = "disabled";
+			};
+		};
+
+		rlin310: rlin310@ffd28a00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <456 1>, <457 1>, <458 1>, <459 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28a00 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart10: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <10>;
+				status = "disabled";
+			};
+		};
+
+		rlin311: rlin311@ffc7c280 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <460 1>, <461 1>, <462 1>, <463 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c280 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart11: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <11>;
+				status = "disabled";
+			};
+		};
+
+		rlin312: rlin312@ffd28c00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <464 1>, <465 1>, <466 1>, <467 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28c00 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart12: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <12>;
+				status = "disabled";
+			};
+		};
+
+		rlin313: rlin313@ffc7c300 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <468 1>, <469 1>, <470 1>, <471 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c300 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart13: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <13>;
+				status = "disabled";
+			};
+		};
+
+		rlin314: rlin314@ffd28e00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <472 1>, <473 1>, <474 1>, <475 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd28e00 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart14: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <14>;
+				status = "disabled";
+			};
+		};
+
+		rlin315: rlin315@ffc7c380 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <476 1>, <477 1>, <478 1>, <479 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c380 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart15: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <15>;
+				status = "disabled";
+			};
+		};
+
+		rlin316: rlin316@ffd29000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <480 1>, <481 1>, <482 1>, <483 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd29000 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart16: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <16>;
+				status = "disabled";
+			};
+		};
+
+		rlin317: rlin316@ffc7c400 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <484 1>, <485 1>, <486 1>, <487 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c400 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart17: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <17>;
+				status = "disabled";
+			};
+		};
+
+		rlin318: rlin318@ffd29200 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <488 1>, <489 1>, <490 1>, <491 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd29200 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart18: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <18>;
+				status = "disabled";
+			};
+		};
+
+		rlin319: rlin319@ffc7c480 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <492 1>, <493 1>, <494 1>, <495 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c480 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart19: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <19>;
+				status = "disabled";
+			};
+		};
+
+		rlin320: rlin320@ffd29400 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <496 1>, <497 1>, <498 1>, <499 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd29400 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart20: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <20>;
+				status = "disabled";
+			};
+		};
+
+		rlin321: rlin321@ffc7c500 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <500 1>, <501 1>, <502 1>, <503 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c500 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart21: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <21>;
+				status = "disabled";
+			};
+		};
+
+		rlin322: rlin322@ffd29600 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <504 1>, <505 1>, <506 1>, <507 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffd29600 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart22: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <22>;
+				status = "disabled";
+			};
+		};
+
+		rlin323: rlin323@ffc7c580 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <508 1>, <509 1>, <510 1>, <511 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7c580 0x35>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			uart23: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <23>;
+				status = "disabled";
+			};
+		};
+
+		ioport0: gpio@ffd90000 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90000 0x40>;
+			port = <0>;
+			protected-write-mask = <0>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport3: gpio@ffd900c0 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd900c0 0x40>;
+			port = <3>;
+			protected-write-mask = <4>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport10: gpio@ffd90280 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90280 0x40>;
+			port = <10>;
+			protected-write-mask = <10>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport11: gpio@ffd902c0 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd902c0 0x40>;
+			port = <11>;
+			protected-write-mask = <11>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+	};
+};

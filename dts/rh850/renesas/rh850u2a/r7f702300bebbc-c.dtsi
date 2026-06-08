@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2a/r7f702300.dtsi>
+
+/ {
+	flash0: flash@0 {
+		compatible = "renesas,rh850-code-flash";
+		reg = <0x0 DT_SIZE_M(16)>;
+		renesas,programming-enable;
+	};
+};
