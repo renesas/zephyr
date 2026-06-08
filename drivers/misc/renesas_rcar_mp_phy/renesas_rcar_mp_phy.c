@@ -297,7 +297,6 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 	uint32_t sramcnt[CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS];
 	uint32_t cmncnt1 = 0;
 	uint32_t cmncnt2 = MP_PHY_CMNCNT2_RES_DEFAULT_SETTING;
-	uint32_t val;
 
 	if (!device_is_ready(config->clock_dev)) {
 		return -ENODEV;

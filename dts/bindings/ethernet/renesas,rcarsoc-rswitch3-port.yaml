@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas R-Car X5H R-Switch 3 physical port. This is a plain descriptive
+  node (no driver claims this compatible) read directly by the parent
+  rswitch3 driver via DT_FOREACH_CHILD_STATUS_OKAY(); it exists purely so
+  gen_defines can type its custom properties (phy-mode, xpcs).
+
+compatible: "renesas,rcarsoc-rswitch3-port"
+
+include: [ethernet-controller.yaml]
+
+properties:
+  reg:
+    required: true
+    description: ETHA agent index for this physical port.
+
+  xpcs:
+    type: phandle
+    description: PCS channel driving the SERDES lane for this port.
+
+  phy-mode:
+    type: string
+    required: true
+    enum:
+      - "rgmii"
+      - "sgmii"
+      - "usxgmii"
+    description: MAC-to-PCS interface mode for this port's ETHA agent.
+
+  speed:
+    type: int
+    description: Fixed link speed in Mbps, if the port is not auto-negotiated.

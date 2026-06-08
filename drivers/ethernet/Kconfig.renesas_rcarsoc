@@ -1,0 +1,97 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ETH_RENESAS_RCARSOC_TSNES
+	bool "Renesas TSN Endpoint Station (TSN-ES)"
+	default y
+	depends on DT_HAS_RENESAS_RCARSOC_ETH_TSNES_ENABLED
+	help
+		Enable TSN-ES Ethernet controller
+		- 10 Gbps TSN-aware switching
+		- Multiple RX/TX queues
+		- DMA buffer management
+		- Per-queue statistics
+
+if ETH_RENESAS_RCARSOC_TSNES
+
+config ETH_RENESAS_RCARSOC_TSNES_BUFFER_POOL_SIZE
+	int "Total DMA buffer pool size (bytes)"
+	default 3145728
+	range 65536 4194304
+	help
+		Total memory allocated for TX/RX buffers.
+		Must be aligned to cache line size (64 bytes).
+		Larger pools support more concurrent frames.
+
+config ETH_RENESAS_RCARSOC_TSNES_MAX_FRAME_SIZE
+	int "Maximum frame size (bytes)"
+	default 1522
+	range 64 9000
+	help
+		Maximum Ethernet frame size including VLAN tag.
+		1522: Standard (1500 payload + 14 MAC + 4 VLAN + 4 FCS)
+		9000: Jumbo frames support
+
+config ETH_RENESAS_RCARSOC_TSNES_RX_THREAD_PRIORITY
+	int "Priority of RX processing thread"
+	default 2
+	help
+		Cooperative thread priority (0-255).
+		Lower values = higher priority.
+		Typical: 0-2 for real-time, 3-7 for normal.
+
+config ETH_RENESAS_RCARSOC_TSNES_RX_THREAD_STACK
+	int "Stack size for RX thread (bytes)"
+	default 2048
+	range 1024 8192
+	help
+		Stack size for RX descriptor processing thread.
+
+config ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN
+	int "Descriptor cache alignment (bytes)"
+	default 64
+	help
+		Cache line size for descriptor alignment.
+		Improves DMA performance.
+
+config ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
+	bool "Explicit DMA cache operations"
+	help
+		Use explicit cache invalidate/flush operations for DMA.
+		Required for DMA coherency on systems without hardware coherency.
+
+config ETH_RENESAS_RCARSOC_TSNES_CONFIG_LOOPBACK
+	bool "Configuration loopback mode for testing"
+
+endif # ETH_RENESAS_RCARSOC_TSNES
+
+config ETH_RENESAS_RCARSOC_RSWITCH3
+	bool "Renesas R-Switch 3 Ethernet Switch Driver"
+	default y
+	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_ENABLED
+	select PHY_RENESAS_PCS
+	help
+	  Enable the driver for the Renesas R-Switch 3. This driver
+	  manages the switch fabric and provides an API for endpoints
+	  like TSN-ES to connect and forward traffic.
+
+if ETH_RENESAS_RCARSOC_RSWITCH3
+
+config ETH_RENESAS_RSWITCH3_TIMEOUT
+	int "Register access timeout (us)"
+	default 100000
+	help
+	  Timeout in microseconds for waiting on register bit changes.
+	  Must comfortably exceed the 10ms link-verification window the
+	  driver programs into MLVC.LVT.
+
+config ETH_RENESAS_RSWITCH3_INIT_PRIORITY
+	int "R-Switch 3 driver init priority"
+	default 75
+	help
+	  Physical port bring-up wires each port's external PHY and PCS
+	  channel device, so this must run after CONFIG_MDIO_INIT_PRIORITY
+	  and CONFIG_PHY_INIT_PRIORITY, and before CONFIG_ETH_INIT_PRIORITY
+	  (TSN-ES attaches to this driver at that priority).
+
+endif # ETH_RENESAS_RCARSOC_RSWITCH3

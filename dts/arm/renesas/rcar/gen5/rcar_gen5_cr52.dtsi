@@ -5,6 +5,7 @@
  */
 
 #include <arm/armv8-r.dtsi>
+#include <zephyr/dt-bindings/dt-util.h>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
 #include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
@@ -367,6 +368,35 @@
 			};
 		};
 
+		rswitch3: ethernet@c9bc0000 {
+			compatible = "renesas,rcarsoc-rswitch3";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0xc9bc0000 0x0040000>,
+			      <0xc9b80000 0x00040000>,
+			      <0xc9c88000 0x800>,
+			      <0xc9c89000 0x800>;
+			reg-names = "base", "secure_base", "gptp_base", "secure_ptp";
+			status = "okay";
+
+			port4: port@4 {
+				compatible = "renesas,rcarsoc-rswitch3-port";
+				reg = <4>;
+				xpcs = <&pcs_ch4>;
+				phy-mode = "usxgmii";
+				status = "disabled";
+			};
+
+			port5: port@5 {
+				compatible = "renesas,rcarsoc-rswitch3-port";
+				reg = <5>;
+				xpcs = <&pcs_ch5>;
+				phy-handle = <&phy2>;
+				phy-mode = "sgmii";
+				status = "disabled";
+			};
+		};
+
 		tsnes0: ethernet@c9c60000 {
 			compatible = "renesas,rcarsoc-eth-tsnes";
 			reg = <0xc9c60000 0x4000>;
@@ -374,12 +404,32 @@
 			interrupt-parent = <&gic>;
 
 			interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
-				<GIC_SPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+				     <GIC_SPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "tdis", "tes_int_n";
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
 				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
 				 <&clkc CLKC_CORE R8A78000_CLK_S0D4_HSCN_RSW3_MAIN>,
 				 <&clkc CLKC_CORE R8A78000_CLK_RSWSUBD1CK_HSCN_RSW3_MAIN>;
+			status = "disabled";
+		};
+
+		tsnes4: ethernet@c9c70000 {
+			compatible = "renesas,rcarsoc-eth-tsnes";
+			channel = <4>;
+			reg = <0xc9c70000 0x4000>;
+			reg-names = "tsnes";
+			interrupt-parent = <&gic>;
+
+			interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				     <GIC_SPI 506 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "tdis", "tes_int_n";
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
+				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
+				 <&clkc CLKC_CORE R8A78000_CLK_S0D4_HSCN_RSW3_MAIN>,
+				 <&clkc CLKC_CORE R8A78000_CLK_RSWSUBD1CK_HSCN_RSW3_MAIN>;
+			renesas,rswitch = <&rswitch3>;
+			renesas,rswitch-if = <9>;
+			renesas,rswitch-forward-ports = <BIT(5)>;
 			status = "disabled";
 		};
 	};

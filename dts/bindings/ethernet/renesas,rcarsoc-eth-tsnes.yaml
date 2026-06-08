@@ -5,13 +5,17 @@ description: Renesas RCARSOC Ethernet TSNES
 
 compatible: "renesas,rcarsoc-eth-tsnes"
 
-include: [ethernet-controller.yaml]
+include: [ethernet-controller.yaml, pinctrl-device.yaml]
 
 properties:
   reg:
     required: true
 
   reg-names:
+    required: true
+
+  channel:
+    type: int
     required: true
 
   interrupts:
@@ -35,9 +39,22 @@ properties:
   rx-queue-size:
     description: RX descriptor ring size per queue (must be a power of 2)
     type: int
-    default: 128
+    default: 1024
 
   tx-queue-size:
     description: TX descriptor ring size per queue (must be a power of 2)
     type: int
-    default: 128
+    default: 1024
+
+  renesas,rswitch:
+    description: Phandle to the main rswitch3 device
+    type: phandle
+    required: true
+
+  renesas,rswitch-if:
+    description: Internal MAC port number on the switch
+    type: int
+
+  renesas,rswitch-forward-ports:
+    description: Bitmask of physical ports for hardware forwarding
+    type: int
