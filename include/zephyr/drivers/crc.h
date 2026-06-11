@@ -115,18 +115,30 @@ enum crc_state {
 /**
  * @brief Provides a type to hold CRC initial seed value
  */
+#if defined(CONFIG_CRC_DRIVER_SUPPORT_TYPE_64_BIT)
+typedef uint64_t crc_init_val_t;
+#else
 typedef uint32_t crc_init_val_t;
+#endif
 
 /**
  * @brief Provides a type to hold CRC polynomial value.
  * See @a CRC_POLYNOMIAL for predefined polynomial values.
  */
+#if defined(CONFIG_CRC_DRIVER_SUPPORT_TYPE_64_BIT)
+typedef uint64_t crc_poly_t;
+#else
 typedef uint32_t crc_poly_t;
+#endif
 
 /**
  * @brief Provides a type to hold CRC result value
  */
+#if defined(CONFIG_CRC_DRIVER_SUPPORT_TYPE_64_BIT)
+typedef uint64_t crc_result_t;
+#else
 typedef uint32_t crc_result_t;
+#endif
 
 /**
  * @brief CRC context structure

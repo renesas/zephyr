@@ -24,6 +24,7 @@ config CRC_DRIVER_INIT_PRIORITY
 source "drivers/crc/Kconfig.ambiq"
 source "drivers/crc/Kconfig.nxp"
 source "drivers/crc/Kconfig.renesas_ra"
+source "drivers/crc/Kconfig.renesas_rh850"
 source "drivers/crc/Kconfig.sf32lb"
 source "drivers/crc/Kconfig.silabs"
 source "drivers/crc/Kconfig.stm32"
@@ -109,5 +110,15 @@ config CRC_DRIVER_HAS_CRC32_MPEG2
 	bool
 	help
 	  CRC driver has CRC32 MPEG-2 computation
+
+
+config CRC_DRIVER_SUPPORT_TYPE_64_BIT
+	bool "Support 64-bit CRC"
+	help
+	  Enable support for 64-bit CRC computation.
+	  This option should only be enabled if the target device
+	  supports 64-bit CRC hardware. Do not enable this option
+	  on devices that only support 32-bit CRC.
+
 
 endif # CRC_DEVICE

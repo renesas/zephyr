@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config CRC_DRIVER_RENESAS_RH850
+	bool
+	depends on DT_HAS_RENESAS_RH850_CRC_ENABLED
+	default y
+	select CRC_DRIVER_HAS_CRC8
+	select CRC_DRIVER_HAS_CRC8_ROHC
+	select CRC_DRIVER_HAS_CRC8_CCITT
+	select CRC_DRIVER_HAS_CRC16
+	select CRC_DRIVER_HAS_CRC16_CCITT
+	select CRC_DRIVER_HAS_CRC16_ANSI
+	select CRC_DRIVER_HAS_CRC16_ITU_T
+	select CRC_DRIVER_HAS_CRC16_REFLECT
+	select CRC_DRIVER_HAS_CRC32_C
+	select CRC_DRIVER_HAS_CRC32_IEEE
+	select CRC_DRIVER_SUPPORT_TYPE_64_BIT
+	select USE_RH850_FSP_CRC
+	help
+	  Enable the driver implementation for Renesas RH850
