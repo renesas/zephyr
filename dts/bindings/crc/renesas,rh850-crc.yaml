@@ -1,0 +1,17 @@
+# Copyright (c) 2025 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+title: Renesas RH850 CRC (Cyclic Redundancy Check) device
+
+description: Renesas RH850 CRC (Cyclic Redundancy Check) driver
+
+compatible: "renesas,rh850-crc"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
+  channel:
+    type: int
+    required: true
