@@ -16,6 +16,7 @@ supported:
   - spi
   - timer
   - uart
+  - crc
   - watchdog
   - dma
 vendor: renesas

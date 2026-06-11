@@ -14,6 +14,7 @@ supported:
   - rtc
   - iic
   - spi
+  - crc
   - uart
   - timer
   - watchdog

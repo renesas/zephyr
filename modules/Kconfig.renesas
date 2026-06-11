@@ -629,4 +629,8 @@ config USE_RH850_FSP_WDT
 	help
 	  Enable RH850 FSP WDT driver
 
+config USE_RH850_FSP_CRC
+	bool
+	help
+	  Enable RH850 FSP CRC driver
 endif # HAS_RENESAS_RH850_FSP
