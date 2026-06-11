@@ -111,8 +111,6 @@
 		mram: mram-controller@8709c000 {
 			compatible = "renesas,rx-mram-controller";
 			reg = <0x8709c000 0x4000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
 			status = "okay";
 		};
 
