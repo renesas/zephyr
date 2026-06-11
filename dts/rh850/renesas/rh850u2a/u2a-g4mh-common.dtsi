@@ -644,4 +644,60 @@
 			status = "disabled";
 		};
 	};
+
+	crc0: crc0@ffd34000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd34000 0xb8>;
+		channel = <0>;
+		status = "disabled";
+	};
+
+	crc1: crc0@ffbff400 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffbff400 0xb8>;
+		channel = <1>;
+		status = "disabled";
+	};
+
+	crc2: crc0@ffd35000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd35000 0xb8>;
+		channel = <2>;
+		status = "disabled";
+	};
+
+	crc3: crc0@ffbff700 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffbff700 0xb8>;
+		channel = <3>;
+		status = "disabled";
+	};
+
+	crc4: crc0@ffd36000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd36000 0xb8>;
+		channel = <4>;
+		status = "disabled";
+	};
+
+	crc5: crc0@ffbffa00 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffbffa00 0xb8>;
+		channel = <5>;
+		status = "disabled";
+	};
+
+	crc6: crc0@ffd37000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd37000 0xb8>;
+		channel = <6>;
+		status = "disabled";
+	};
+
+	crc7: crc0@ffbffd00 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffbffd00 0xb8>;
+		channel = <7>;
+		status = "disabled";
+	};
 };

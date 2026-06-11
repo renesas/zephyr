@@ -12,4 +12,32 @@
 		reg = <0x0 DT_SIZE_M(4)>;
 		renesas,programming-enable;
 	};
+
+	crc0: crc0@ffd40000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd40000 0xb8>;
+		channel = <0>;
+		status = "disabled";
+	};
+
+	crc1: crc1@ffd8e000 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd8e000 0xb8>;
+		channel = <1>;
+		status = "disabled";
+	};
+
+	crc2: crc2@ffd40200 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd40200 0xb8>;
+		channel = <2>;
+		status = "disabled";
+	};
+
+	crc3: crc3@ffd8e200 {
+		compatible = "renesas,rh850-crc";
+		reg = <0xffd8e200 0xb8>;
+		channel = <3>;
+		status = "disabled";
+	};
 };
