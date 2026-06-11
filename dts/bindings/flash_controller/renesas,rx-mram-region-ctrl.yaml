@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RX MRAM region controller.
+
+  Represents a single programmable MRAM region (code or data) of the RX MRAM
+  controller. This node is the flash device that owns the soc-nv-flash node
+  describing the region and any zephyr,mapped-partition nodes beneath it. It is
+  a child of the renesas,rx-mram-controller node
+
+compatible: "renesas,rx-mram-region-ctrl"
+
+include: base.yaml

@@ -218,37 +218,41 @@ static DEVICE_API(flash, mram_renesas_rx_api) = {
 };
 
 #ifdef CONFIG_FLASH_PAGE_LAYOUT
-#define MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(index)                                             \
+#define MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(nv_node)                                            \
 	.device_page_layout = {                                                                    \
-		.pages_count = (DT_REG_SIZE(index) / DT_PROP(index, erase_block_size)),            \
-		.pages_size = DT_PROP(index, erase_block_size),                                    \
+		.pages_count = (DT_RANGES_LENGTH_BY_IDX(nv_node, 0) /                               \
+				DT_PROP(nv_node, erase_block_size)),                               \
+		.pages_size = DT_PROP(nv_node, erase_block_size),                                  \
 	}
 #else
-#define MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(index)
+#define MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(nv_node)
 #endif
 
-#define MRAM_RENESAS_RX_INIT(index)                                                                \
-	static struct mram_renesas_rx_data mram_renesas_rx_data_##index = {                        \
-		.area_address = DT_REG_ADDR(index),                                                \
-		.area_size = DT_REG_SIZE(index),                                                   \
+#define MRAM_RENESAS_RX_NV_INIT(nv_node, ctrl_node)                                                \
+	static struct mram_renesas_rx_data mram_renesas_rx_data_##ctrl_node = {                    \
+		.area_address = DT_RANGES_PARENT_BUS_ADDRESS_BY_IDX(nv_node, 0),                    \
+		.area_size = DT_RANGES_LENGTH_BY_IDX(nv_node, 0),                                   \
 	};                                                                                         \
-	static const struct mram_renesas_rx_config mram_renesas_rx_config_##index = {              \
+	static const struct mram_renesas_rx_config mram_renesas_rx_config_##ctrl_node = {          \
 		.mram_parameters =                                                                 \
 			{                                                                          \
-				.write_block_size = DT_PROP(index, write_block_size),              \
+				.write_block_size = DT_PROP(nv_node, write_block_size),            \
 				.erase_value = 0xff,                                               \
 				.caps =                                                            \
 					{                                                          \
 						.no_explicit_erase = true,                         \
 					},                                                         \
 			},                                                                         \
-		.erase_block_size = DT_PROP(index, erase_block_size),                              \
-		MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(index),                                    \
+		.erase_block_size = DT_PROP(nv_node, erase_block_size),                            \
+		MRAM_RENESAS_RX_INIT_DEVICE_PAGE_LAYOUT(nv_node),                                  \
 	};                                                                                         \
                                                                                                    \
-	DEVICE_DT_DEFINE(index, mram_renesas_rx_init, NULL, &mram_renesas_rx_data_##index,         \
-			 &mram_renesas_rx_config_##index, POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, \
-			 &mram_renesas_rx_api);
+	DEVICE_DT_DEFINE(ctrl_node, mram_renesas_rx_init, NULL,                                     \
+			 &mram_renesas_rx_data_##ctrl_node, &mram_renesas_rx_config_##ctrl_node,    \
+			 POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, &mram_renesas_rx_api);
+
+#define MRAM_RENESAS_RX_INIT(index)                                                                \
+	DT_FOREACH_CHILD_STATUS_OKAY_VARGS(index, MRAM_RENESAS_RX_NV_INIT, index)
 
 DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), MRAM_RENESAS_RX_INIT);
 
