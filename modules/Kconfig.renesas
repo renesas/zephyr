@@ -529,34 +529,99 @@ endif # HAS_RENESAS_RX_RDP
 
 if HAS_RENESAS_RH850_FSP
 
-config USE_RH850_FSP_IOPORT
+config USE_RH850_FSP_ADCJ
 	bool
 	help
-	  Enable RH850 FSP IOPORT driver
+	  Enable RH850 FSP ADCJ driver
 
-config USE_RH850_FSP_OSTM
+config USE_RH850_FSP_ADCK
 	bool
 	help
-	  Enable RH850 FSP OSTM driver
+	  Enable RH850 FSP ADCK driver
 
-config USE_RH850_FSP_RLIN3_UART
+config USE_RH850_FSP_CANFD
 	bool
 	help
-	  Enable RH850 FSP RLIN3 UART driver
+	  Enable RH850 FSP CANFD driver
+
+config USE_RH850_FSP_CGC
+	bool
+	help
+	  Enable RH850 FSP CGC driver
+
+config USE_RH850_FSP_CRC
+	bool
+	help
+	  Enable RH850 FSP CRC driver
+
+config USE_RH850_FSP_DMAC
+	bool
+	help
+	  Enable RH850 FSP DMAC driver
 
 config USE_RH850_FSP_DTSC
 	bool
 	help
 	  Enable RH850 FSP DTSC driver
 
+config USE_RH850_FSP_ETHER_ETNF
+	bool
+	help
+	  Enable RH850 FSP Ethernet T1S driver
+
 config USE_RH850_FSP_EXT_IRQ
 	bool
 	help
 	  Enable RH850 FSP External IRQ driver
 
-config USE_RH850_FSP_ETHER_ETNF
+config USE_RH850_FSP_IIC_B
 	bool
 	help
-	  Enable RH850 FSP Ethernet T1S driver
+	  Enable RH850 FSP IIC B driver
+
+config USE_RH850_FSP_IIC
+	bool
+	help
+	  Enable RH850 FSP IIC driver
+
+config USE_RH850_FSP_IOPORT
+	bool
+	help
+	  Enable RH850 FSP IOPORT driver
+
+config USE_RH850_FSP_MSPI
+	bool
+	help
+	  Enable RH850 FSP MSPI driver
+
+config USE_RH850_FSP_OSPI
+	bool
+	help
+	  Enable RH850 FSP OSPI driver
+
+config USE_RH850_FSP_OSTM
+	bool
+	help
+	  Enable RH850 FSP OSTM driver
+
+config USE_RH850_FSP_PIC
+	bool
+	help
+	  Enable RH850 FSP PIC driver
+
+config USE_RH850_FSP_RLIN3_UART
+	bool
+	help
+	  Enable RH850 FSP RLIN3 UART driver
+
+config USE_RH850_FSP_TAUD
+	bool
+	help
+	  Enable RH850 FSP TAUD driver
+
+config USE_RH850_FSP_WDT
+	bool
+	help
+	  Enable RH850 FSP WDT driver
 
 endif # HAS_RENESAS_RH850_FSP
