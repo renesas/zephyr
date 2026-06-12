@@ -133,4 +133,37 @@ config INITIALIZATION_STACK_SIZE
 	help
 	  Stack size for initialization process of kernel (in bytes)
 
+config RH850_RAM_INIT
+	bool "Enable RAM initialization"
+	help
+	  Enable RAM initialization at system startup.
+
+config RH850_RAM_INIT_CHECK_RESET
+	bool "Check reset cause before RAM initialization"
+	depends on RH850_RAM_INIT
+	help
+	  Enable checking the reset cause before performing RAM initialization.
+
+	  When enabled, the system may check the reset cause to decide whether
+	  RAM should be initialized.
+
+config RH850_RESET_CAUSE_REG_ADDR
+	hex "Reset Cause register address"
+	depends on RH850_RAM_INIT_CHECK_RESET
+	help
+	  Address of the hardware reset cause register.
+
+	  This register is read to determine the cause of the hard reset, is used
+	  in checking reset cause before processing RAM initialization.
+
+config RH850_RESET_CAUSE_MASK
+	hex "Reset Cause mask"
+	depends on RH850_RAM_INIT_CHECK_RESET
+	help
+	  Bit mask value to evaluate the reset cause register specified by
+	  RH850_RESET_CAUSE_REG_ADDR.
+
+	  Ram initialization is performed if any bit selected by this mask
+	  is set in the reset cause register.
+
 endmenu

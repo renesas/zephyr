@@ -161,10 +161,22 @@ _cram_loop_exit:
 /* PE0 Specific Startup Routine */
   public _RESET_PE0
 _RESET_PE0:
+#ifdef CONFIG_RH850_RAM_INIT
+#ifdef CONFIG_RH850_RAM_INIT_CHECK_RESET
+/* Check system reset cause before process Memory initialization */
+  mov     CONFIG_RH850_RESET_CAUSE_REG_ADDR, r10
+  ld.w    0[r10], r11
+  mov     CONFIG_RH850_RESET_CAUSE_MASK, r12
+  and     r12, r11
+  bne     skip_init_sram
+#endif /* CONFIG_RH850_RAM_INIT_CHECK_RESET */
+
 /* Memory Initialization */
 /* Initialize SRAM */
   jarl _Init_SRAM, lp
+#endif /* CONFIG_RH850_RAM_INIT */
 
+skip_init_sram:
 /* PE0 Initialization */
 /* Initialization of the global pointer */
   mov 0x00, gp
