@@ -6,39 +6,39 @@ config SOC_SERIES_RH850U2B
 	help
 	  Renesas RH850U2B series
 
-config SOC_R7F70254xFABG_C
+config SOC_R7F70254XFABG_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xFABA_C
+config SOC_R7F70254XFABA_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xFABB_C
+config SOC_R7F70254XFABB_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xAFABG_C
+config SOC_R7F70254XAFABG_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xAFABA_C
+config SOC_R7F70254XAFABA_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70254xAFABB_C
+config SOC_R7F70254XAFABB_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70255xFABB_C
+config SOC_R7F70255XFABB_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70255xAFABB_C
+config SOC_R7F70255XAFABB_C
 	bool
 	select SOC_SERIES_RH850U2B
 
-config SOC_R7F70255xBFABB_C
+config SOC_R7F70255XBFABB_C
 	bool
 	select SOC_SERIES_RH850U2B
 
@@ -46,12 +46,12 @@ config SOC_SERIES
 	default "rh850u2b" if SOC_SERIES_RH850U2B
 
 config SOC
-	default "r7f70254xfabg-c"   if SOC_R7F70254xFABG_C
-	default "r7f70254xfaba-c"   if SOC_R7F70254xFABA_C
-	default "r7f70254xfabb-c"   if SOC_R7F70254xFABB_C
-	default "r7f70254xafabg-c"  if SOC_R7F70254xAFABG_C
-	default "r7f70254xafaba-c"  if SOC_R7F70254xAFABA_C
-	default "r7f70254xafabb-c"  if SOC_R7F70254xAFABB_C
-	default "r7f70255xfabb-c"   if SOC_R7F70255xFABB_C
-	default "r7f70255xafabb-c"  if SOC_R7F70255xAFABB_C
-	default "r7f70255xbfabb-c"  if SOC_R7F70255xBFABB_C
+	default "r7f70254xfabg-c"   if SOC_R7F70254XFABG_C
+	default "r7f70254xfaba-c"   if SOC_R7F70254XFABA_C
+	default "r7f70254xfabb-c"   if SOC_R7F70254XFABB_C
+	default "r7f70254xafabg-c"  if SOC_R7F70254XAFABG_C
+	default "r7f70254xafaba-c"  if SOC_R7F70254XAFABA_C
+	default "r7f70254xafabb-c"  if SOC_R7F70254XAFABB_C
+	default "r7f70255xfabb-c"   if SOC_R7F70255XFABB_C
+	default "r7f70255xafabb-c"  if SOC_R7F70255XAFABB_C
+	default "r7f70255xbfabb-c"  if SOC_R7F70255XBFABB_C

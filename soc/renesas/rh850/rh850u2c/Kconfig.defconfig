@@ -31,6 +31,14 @@ config DYNAMIC_INTERRUPTS
 config MULTITHREADING
 	default y
 
+# Address of the reset cause register used to determine memory initialization.
+config RH850_RESET_CAUSE_REG_ADDR
+	default 0xFF988500
+
+# Mask used to evaluate reset cause for memory initialization.
+config RH850_RESET_CAUSE_MASK
+	default 0x301D0
+
 # Set to the minimal size of data which can be written.
 config FLASH_FILL_BUFFER_SIZE
 	default 128
