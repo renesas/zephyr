@@ -7,5 +7,12 @@ flash: 4096
 toolchain:
   - iar
 supported:
+  - counter
+  - ethernet
   - gpio
+  - interrupt_controller
+  - pinctrl
+  - timer
+  - uart
+  - watchdog
 vendor: renesas
