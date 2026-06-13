@@ -46,6 +46,9 @@ tests:
       - nucleo_h753zi
       - nucleo_l152re
       - stm32n6570_dk/stm32n657xx/sb
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
       - pb_rh850u2b_292pin/r7f70254xafabb-c
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
