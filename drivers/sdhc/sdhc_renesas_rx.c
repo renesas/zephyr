@@ -88,8 +88,10 @@ struct sdhc_rx_data {
 
 static void rx_sdmmc_dma_req_isr(const struct device *dev)
 {
-	ARG_UNUSED(dev);
-	sdhimmc_dma_req_isr();
+	struct sdhc_rx_data *data = dev->data;
+	uint32_t irq = data->fsp_config.dma_req_irq;
+
+	BSP_ICU_IRQ_HANDLER(irq, sdhimmc_dma_req_isr);
 }
 
 static int sdhc_rx_get_card_present(const struct device *dev)
