@@ -141,10 +141,10 @@ static void renesas_rx_sci_b_i2c_calc_clock_setting(const struct device *dev,
 				continue;
 			}
 
-			calculated_bitrate =
-				(uint32_t)(peripheral_clock /
-					   (divisor_bitrate_multiple * (MDDR_SCALE_FACTOR / ((double)temp_mddr)) *
-					    (temp_brr + 1)));
+			calculated_bitrate = (uint32_t)(peripheral_clock /
+							(divisor_bitrate_multiple *
+							 (MDDR_SCALE_FACTOR / ((double)temp_mddr)) *
+							 (temp_brr + 1)));
 
 			/** If the bit rate error is less than the previous lowest bit rate error,
 			 * then store these settings as the best value.
@@ -592,6 +592,14 @@ static DEVICE_API(i2c, renesas_rx_sci_b_i2c_driver_api) = {
 #endif /* CONFIG_I2C_RENESAS_RX_CALLBACK */
 };
 
+static void sci_b_i2c_txi_handler(const struct device *dev)
+{
+	struct sci_b_i2c_data *data = dev->data;
+	uint32_t irq = data->i2c_config.txi_irq;
+
+	BSP_ICU_IRQ_HANDLER(irq, sci_b_i2c_txi_isr);
+}
+
 #ifdef CONFIG_RENESAS_RX_GRP_INTC_FSP
 #define SCI_B_I2C_RX_TEI_CALLBACK_SETUP(cfg, data)                                                 \
 	int err = 0;                                                                               \
@@ -631,7 +639,7 @@ static DEVICE_API(i2c, renesas_rx_sci_b_i2c_driver_api) = {
                                                                                                    \
 		IRQ_CONNECT(DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, irq),                       \
 			    DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, priority),                  \
-			    sci_b_i2c_txi_isr, DEVICE_DT_INST_GET(index), 0);                      \
+			    sci_b_i2c_txi_handler, DEVICE_DT_INST_GET(index), 0);                  \
                                                                                                    \
 		irq_enable(DT_IRQ_BY_NAME(DT_INST_PARENT(index), txi, irq));                       \
 		SCI_B_I2C_RX_TEI_CALLBACK_SETUP(cfg, data);                                        \
