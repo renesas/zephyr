@@ -738,7 +738,14 @@ static void adc_rx_group_irq_configure(const struct device *dev)
 	}
 }
 
-/* Use 1 scan group for scan end */
+#define SCANEND_ISR_WRAPPER(idx)                                                                   \
+	static void adc_rx_scanend_isr_##idx(const struct device *dev)                             \
+	{                                                                                          \
+		uint32_t irq = DT_INST_IRQ_BY_NAME(idx, scanend, irq);                             \
+		ARG_UNUSED(dev);                                                                   \
+		BSP_ICU_IRQ_HANDLER(irq, ADC_B_SCAN_END_ISR(DT_INST_PROP(idx, unit_id)));          \
+	}
+
 #define IRQ_CONFIGURE_FUNC(idx)                                                                    \
 	static void adc_rx_configure_func_##idx(const struct device *dev)                          \
 	{                                                                                          \
@@ -755,8 +762,7 @@ static void adc_rx_group_irq_configure(const struct device *dev)
 		}                                                                                  \
                                                                                                    \
 		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(idx, scanend, irq),                                \
-			    DT_INST_IRQ_BY_NAME(idx, scanend, priority),                           \
-			    ADC_B_SCAN_END_ISR(DT_INST_PROP(idx, unit_id)),                        \
+			    DT_INST_IRQ_BY_NAME(idx, scanend, priority), adc_rx_scanend_isr_##idx, \
 			    DEVICE_DT_INST_GET(idx), 0);                                           \
 		irq_enable(scanend_irq);                                                           \
                                                                                                    \
@@ -787,6 +793,7 @@ static void adc_rx_group_irq_configure(const struct device *dev)
 	},
 
 #define ADC_RX_ADC_B_INIT(idx)                                                                     \
+	SCANEND_ISR_WRAPPER(idx)                                                                   \
 	IRQ_CONFIGURE_FUNC(idx)                                                                    \
 	PINCTRL_DT_INST_DEFINE(idx);                                                               \
 	static const struct adc_rx_adc_b_channel_cfg adc_rx_adc_b_channels_##idx[] = {             \
