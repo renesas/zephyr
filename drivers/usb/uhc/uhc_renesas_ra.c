@@ -53,6 +53,7 @@ struct uhc_renesas_ra_endpoint {
 };
 
 struct uhc_renesas_ra_data {
+	enum usb_device_speed speed;
 	struct k_thread thread_data;
 	struct k_msgq msgq;
 	struct st_usbh_instance_ctrl uhc_ctrl;
@@ -516,22 +517,24 @@ static int uhc_renesas_ra_poll_port_speed(const struct device *dev)
 		}
 	}
 
-	switch (speed) {
-	case USB_SPEED_LS:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_LS, 0);
-		break;
-	case USB_SPEED_FS:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_FS, 0);
-		break;
-	case USB_SPEED_HS:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_HS, 0);
-		break;
-	default:
-		return -EINVAL;
-	}
+		switch (speed) {
+		case USB_SPEED_LS:
+			priv->speed = USB_SPEED_SPEED_LS;
+			break;
+		case USB_SPEED_FS:
+			priv->speed = USB_SPEED_SPEED_FS;
+			break;
+		case USB_SPEED_HS:
+			priv->speed = USB_SPEED_SPEED_HS;
+			break;
+		default:
+			return -EINVAL;
+		}
 
-	return 0;
-}
+		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED, 0);
+
+		return 0;
+	}
 
 static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renesas_ra_evt *evt)
 {
@@ -687,6 +690,10 @@ static void uhc_renesas_ra_device_attach(const struct device *dev, usbh_event_t 
 
 static void uhc_renesas_ra_device_detach(const struct device *dev, usbh_event_t *hal_evt)
 {
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+
+	ARG_UNUSED(hal_evt);
+
 	if (uhc_renesas_ra_release_devices(dev) != 0) {
 		return;
 	}
@@ -901,6 +908,13 @@ static int uhc_renesas_ra_shutdown(const struct device *dev)
 	return 0;
 }
 
+static enum usb_device_speed uhc_renesas_ra_get_speed(const struct device *dev)
+{
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+
+	return priv->speed;
+}
+
 static DEVICE_API(uhc, uhc_renesas_ra_api) = {
 	.lock = uhc_renesas_ra_lock,
 	.unlock = uhc_renesas_ra_unlock,
@@ -914,6 +928,8 @@ static DEVICE_API(uhc, uhc_renesas_ra_api) = {
 	.bus_resume = uhc_renesas_ra_bus_resume,
 	.ep_enqueue = uhc_renesas_ra_ep_enqueue,
 	.ep_dequeue = uhc_renesas_ra_ep_dequeue,
+
+	.get_speed = uhc_renesas_ra_get_speed,
 };
 
 static void uhc_renesas_ra_event_xfer_complete(const struct device *dev, usbh_event_t *hal_evt)
