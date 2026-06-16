@@ -1677,26 +1677,27 @@ static void port_start_periodic(const struct device *dev)
 static inline void submit_new_device(const struct device *dev)
 {
 	struct uhc_dwc2_data *const priv = uhc_get_private(dev);
+
+	uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED, 0);
+	priv->has_device = true;
+}
+
+static enum usb_device_speed uhc_dwc2_get_speed(const struct device *dev)
+{
 	struct usb_dwc2_reg *const base = uhc_dwc2_get_base(dev);
 	uint32_t hprt = sys_read32((mem_addr_t)&base->hprt);
 
 	switch (usb_dwc2_get_hprt_prtspd(hprt)) {
 	case USB_DWC2_HPRT_PRTSPD_HIGH:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_HS, 0);
-		break;
-	case USB_DWC2_HPRT_PRTSPD_FULL:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_FS, 0);
-		break;
+		return USB_SPEED_SPEED_HS;
 	case USB_DWC2_HPRT_PRTSPD_LOW:
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_LS, 0);
-		break;
+		return USB_SPEED_SPEED_LS;
+	case USB_DWC2_HPRT_PRTSPD_FULL:
+		return USB_SPEED_SPEED_FS;
 	default:
-		LOG_WRN("Port has unexpected speed, submit as full speed");
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED_FS, 0);
-		break;
+		LOG_WRN("Port has unexpected speed, report full speed");
+		return USB_SPEED_SPEED_FS;
 	}
-
-	priv->has_device = true;
 }
 
 /*
@@ -2625,6 +2626,8 @@ static DEVICE_API(uhc, uhc_dwc2_api) = {
 	/* EP related */
 	.ep_enqueue = uhc_dwc2_enqueue,
 	.ep_dequeue = uhc_dwc2_dequeue,
+
+	.get_speed = uhc_dwc2_get_speed,
 };
 
 #define UHC_DWC2_DT_INST_REG_ADDR(n)						\
