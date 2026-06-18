@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&tsnes4 {
+	status = "okay";
+};
+
+&port5 {
+	status = "okay";
+};
+
+&mdio4 {
+	status = "okay";
+};
+
+&phy2 {
+	status = "okay";
+};

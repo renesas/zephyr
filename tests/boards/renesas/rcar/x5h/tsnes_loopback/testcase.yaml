@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+common:
+  tags:
+    - drivers
+    - ethernet
+    - net
+tests:
+  boards.renesas.rcar.x5h.tsnes_loopback:
+    platform_allow:
+      - rcar_ironhide_x5h/r8a7800/r52
+    harness: ztest
