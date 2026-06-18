@@ -40,6 +40,13 @@
 			reg = <0x40000000 DT_SIZE_M(10)>;
 		};
 
+		ethuram: memory@42a00000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x42a00000 0x740000>;
+			zephyr,memory-region = "ETHURAM";
+			status = "okay";
+		};
+
 		gic: interrupt-controller@f0000000 {
 			compatible = "arm,gic", "arm,gic-v3";
 			reg = <0xf0000000 0x100000>,
@@ -366,8 +373,8 @@
 			reg-names = "tsnes";
 			interrupt-parent = <&gic>;
 
-			interrupts = <GIC_PPI 494 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
-				<GIC_PPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
+				<GIC_SPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "tdis", "tes_int_n";
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
 				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
