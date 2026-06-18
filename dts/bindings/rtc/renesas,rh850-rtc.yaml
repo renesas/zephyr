@@ -1,0 +1,33 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 RTC
+
+compatible: "renesas,rh850-rtc"
+
+include:
+  - rtc.yaml
+  - rtc-device.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    enum:
+      - "one_second"
+      - "periodic"
+      - "alarm"
+    description: |
+      - "one_second": one-second interrupt
+      - "periodic": periodic interrupt
+      - "alarm": alarm interrupt
+
+  clock-frequency:
+    type: int
+    required: true
+    description: clock frequency for RTC counter
