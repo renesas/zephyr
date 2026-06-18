@@ -5,6 +5,7 @@
  */
 
 #include <mem.h>
+#include <freq.h>
 
 / {
 	#address-cells = <1>;
@@ -523,6 +524,17 @@
 					      <&intc1_pe1 14 14>;
 			interrupt-names = "swint_pe0", "swint_pe1";
 			status = "okay";
+		};
+
+		rtc0: rtc@ff997000 {
+			compatible = "renesas,rh850-rtc";
+			reg = <0xff997000 0x4b>;
+			interrupt-parent = <&intc2>;
+			interrupts = <233 1>, <234 1>, <235 1>;
+			interrupt-names = "one_second", "alarm", "periodic";
+			clock-frequency = <32768>;
+			alarms-count = <1>;
+			status = "disabled";
 		};
 	};
 };
