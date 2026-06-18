@@ -19,6 +19,11 @@ tests:
       - mimxrt700_evk/mimxrt798s/cm33_cpu1
       - sama7d65_curiosity
       - sama7g54_ek
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2c_292pin/r7f702600fabb-c
     integration_platforms:
       - stm32f3_disco
     depends_on:
