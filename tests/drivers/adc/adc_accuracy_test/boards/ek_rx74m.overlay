@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Renesas Electronics Corporation
+ * Copyright (c) 2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -22,9 +22,21 @@
 	};
 };
 
+&adc {
+	status = "okay";
+};
+
+&scan_group0 {
+	interrupts-extended = <&icu 128 12>;
+	interrupt-names = "scanend";
+	renesas,converter-unit-id = <0>;
+	status = "okay";
+};
+
 &adc0 {
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
+	renesas,adc-method = "oversample";
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -36,5 +48,7 @@
 		zephyr,reference = "ADC_REF_INTERNAL";
 		zephyr,resolution = <16>;
 		zephyr,acquisition-time = <0>;
+		zephyr,oversampling = <2>;
+		renesas,scan-group = <&scan_group0>;
 	};
 };

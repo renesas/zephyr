@@ -21,9 +21,21 @@
 	};
 };
 
+&adc {
+	status = "okay";
+};
+
+&scan_group0 {
+	interrupts-extended = <&icu 128 12>;
+	interrupt-names = "scanend";
+	renesas,converter-unit-id = <0>;
+	status = "okay";
+};
+
 &adc0 {
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
+	renesas,adc-method = "oversample";
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -36,6 +48,7 @@
 		zephyr,resolution = <16>;
 		zephyr,acquisition-time = <0>;
 		zephyr,vref-mv = <3300>;
+		renesas,scan-group = <&scan_group0>;
 	};
 
 	channel@1 {
@@ -46,5 +59,6 @@
 		zephyr,resolution = <16>;
 		zephyr,acquisition-time = <0>;
 		zephyr,vref-mv = <3300>;
+		renesas,scan-group = <&scan_group0>;
 	};
 };
