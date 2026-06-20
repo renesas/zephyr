@@ -20,4 +20,5 @@ supported:
   - watchdog
   - dma
   - pwm
+  - adc
 vendor: renesas

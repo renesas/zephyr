@@ -20,4 +20,5 @@ supported:
   - spi
   - dma
   - pwm
+  - adc
 vendor: renesas
