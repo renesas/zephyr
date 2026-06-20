@@ -1,0 +1,7 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "pb_rh850u2a_516pin_r7f702300bebbc-c.overlay"
