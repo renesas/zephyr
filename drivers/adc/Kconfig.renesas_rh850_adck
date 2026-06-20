@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ADC_RENESAS_RH850_ADCK
+	bool "Renesas RH850 ADCK ADC driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_ADCK_ENABLED
+	depends on ADC
+	select USE_RH850_FSP_ADCK
+	help
+	  Enable the ADC driver for the Renesas RH850 ADCK peripheral.
+	  The driver uses the Renesas RH850 FSP ADCK implementation as its
+	  hardware access layer.
