@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ADC_RENESAS_RH850_ADCJ
+	bool "Renesas RH850 ADCJ ADC driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_ADCJ_ENABLED
+	depends on ADC
+	select USE_RH850_FSP_ADCJ
+	help
+	  Enable the Renesas RH850 ADCJ driver.
+	  This driver uses the Renesas RH850 FSP ADCJ implementation as the
+	  hardware access layer.
