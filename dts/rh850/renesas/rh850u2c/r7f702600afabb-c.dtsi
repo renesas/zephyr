@@ -12,4 +12,45 @@
 		reg = <0x0 DT_SIZE_M(4)>;
 		renesas,programming-enable;
 	};
+
+	soc {
+		adcka: adc@ff9a2000 {
+			compatible = "renesas,rh850-adck";
+			reg = <0xff9a2000 0x1000>;
+			interrupts = <69 1>, <70 1>, <71 1>, <72 1>, <73 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupt-parent = <&intc2>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000003>;
+			status = "disabled";
+		};
+
+		adck1: adc@fff20000 {
+			compatible = "renesas,rh850-adck";
+			reg = <0xfff20000 0x1000>;
+			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupt-parent = <&intc2>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000003>;
+			status = "disabled";
+		};
+
+		adck2: adc@fff21000 {
+			compatible = "renesas,rh850-adck";
+			reg = <0xfff21000 0x1000>;
+			interrupts = <559 1>, <560 1>, <561 1>, <562 1>, <563 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupt-parent = <&intc2>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			renesas,physical-channel-mask = <0x000fffff 0x00000000>;
+			status = "disabled";
+		};
+	};
 };

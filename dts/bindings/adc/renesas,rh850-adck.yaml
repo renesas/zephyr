@@ -1,0 +1,134 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 ADCK ADC controller
+
+compatible: "renesas,rh850-adck"
+
+include:
+  - base.yaml
+  - adc-controller.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    description: Must contain sg0, sg1, sg2, sg3, and sg4 scan-group end interrupts.
+
+  clocks:
+    description: Optional clock controller reference used to enable the ADCK peripheral clock.
+
+  vref-mv:
+    type: int
+    description: ADC reference voltage in millivolts for raw-to-millivolt conversion.
+
+  channel-available-mask:
+    type: int
+    required: true
+    description: Bit mask of Zephyr ADC channel IDs available on this controller.
+
+  renesas,physical-channel-mask:
+    type: array
+    required: true
+    description: |
+      Two 32-bit cells describing the physical input selector values supported
+      by this ADCK instance. Cell 0 covers selectors 0 through 31 and cell 1
+      covers selectors 32 through 63. This mask documents the selector values
+      available on the target SoC instance.
+
+  renesas,unit:
+    type: int
+    required: true
+    description: Hardware ADCK unit index.
+
+  renesas,scan-group:
+    type: int
+    required: true
+    enum: [0, 1, 2, 3, 4]
+    description: Scan group used for software-triggered conversion.
+
+  renesas,start-virtual-channel:
+    type: int
+    default: 0
+    description: |
+      First virtual channel included in the selected scan group.
+      If omitted, the scan group starts at virtual channel 0.
+
+  renesas,end-virtual-channel:
+    type: int
+    default: 0
+    description: |
+      Last virtual channel included in the selected scan group.
+      If omitted, the scan group ends at virtual channel 0.
+
+  renesas,data-format:
+    type: string
+    default: "12-bit"
+    enum:
+      - "10-bit"
+      - "12-bit"
+    description: |
+      Unsigned right-aligned ADC result format.
+      If omitted, the controller is configured to produce 12-bit conversion
+      results.
+
+io-channel-cells:
+  - input
+
+child-binding:
+  description: ADCK ADC channel configuration
+
+  properties:
+    reg:
+      required: true
+      description: Zephyr ADC channel ID used in adc_sequence.channels.
+
+    zephyr,gain:
+      required: true
+
+    zephyr,reference:
+      required: true
+
+    zephyr,acquisition-time:
+      required: true
+
+    zephyr,resolution:
+      type: int
+      enum: [10, 12]
+      description: Channel resolution used by Zephyr devicetree helpers.
+
+    renesas,virtual-channel:
+      type: int
+      description: Hardware virtual channel associated with this Zephyr channel.
+
+    renesas,conversion-type:
+      type: string
+      default: "normal"
+      enum:
+        - "normal"
+        - "hold"
+      description: |
+        ADCK virtual channel conversion type.
+        If omitted, the virtual channel is configured for normal A/D
+        conversion. Use "hold" for T&H hold-value conversion channels such as
+        T&H00, T&H01, and T&H02.
+
+    renesas,physical-channel:
+      type: int
+      description: |
+        SoC-specific hardware analog input selector associated with this
+        Zephyr ADC channel.
+        For renesas,conversion-type = "normal", this value selects the normal
+        A/D conversion input selector defined by the ADCK channel mapping of
+        the target SoC.
+        For renesas,conversion-type = "hold", this value selects the T&H hold
+        input index:
+        0 = T&H00
+        1 = T&H01
+        2 = T&H02
+        If renesas,conversion-type is omitted, "normal" is used.
