@@ -1,0 +1,133 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 ADCJ ADC controller
+
+compatible: "renesas,rh850-adcj"
+
+include:
+  - base.yaml
+  - adc-controller.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    description: ADCJ scan-group completion interrupt names.
+
+  vref-mv:
+    type: int
+    description: ADC reference voltage in millivolts.
+
+  channel-available-mask:
+    type: int
+    required: true
+    description: Bit mask of Zephyr ADC channel IDs exposed by this controller.
+
+  renesas,track-hold-mask:
+    type: int
+    default: 0
+    description: |
+      Bit mask of ADCJ track-and-hold units enabled for this controller.
+      If omitted, all T&H units are disabled and channels use normal A/D
+      conversion unless a child explicitly requests a conversion type that
+      requires T&H.
+      Bit 0 enables T&H0, bit 1 enables T&H1, bit 2 enables T&H2, and bit 3
+      enables T&H3. The RH850/U2A ADCJ hardware supports concurrent T&H for
+      up to four channels; common U2A examples use T&H0, T&H1, and T&H2.
+
+  renesas,unit:
+    type: int
+    required: true
+    description: ADCJ hardware unit index.
+
+  renesas,scan-group:
+    type: int
+    required: true
+    enum: [0, 1, 2, 3, 4]
+    description: ADCJ scan group used for software-triggered conversion.
+
+  renesas,start-virtual-channel:
+    type: int
+    default: 0
+    description: First ADCJ virtual channel used by the selected scan group.
+
+  renesas,end-virtual-channel:
+    type: int
+    default: 0
+    description: Last ADCJ virtual channel used by the selected scan group.
+
+  renesas,data-format:
+    type: string
+    default: "12-bit"
+    enum:
+      - "10-bit"
+      - "12-bit"
+    description: Unsigned right-aligned ADC result format.
+
+io-channel-cells:
+  - input
+
+child-binding:
+  description: ADCJ channel mapping
+
+  properties:
+    reg:
+      required: true
+      description: Zephyr ADC channel ID.
+
+    zephyr,gain:
+      type: string
+      required: true
+
+    zephyr,reference:
+      type: string
+      required: true
+
+    zephyr,acquisition-time:
+      type: int
+      required: true
+
+    zephyr,resolution:
+      type: int
+      required: true
+      enum: [10, 12]
+
+    zephyr,vref-mv:
+      type: int
+
+    renesas,virtual-channel:
+      type: int
+      required: true
+      description: ADCJ virtual channel mapped to this Zephyr ADC channel.
+
+    renesas,conversion-type:
+      type: string
+      default: "normal"
+      enum:
+        - "normal"
+        - "track-hold"
+      description: |
+        ADCJ virtual channel conversion type.
+        If omitted, the virtual channel is configured for normal A/D
+        conversion.
+        Use "track-hold" for hold-value A/D conversion using ADCJ T&H units.
+        In this mode renesas,physical-channel selects the T&H input index:
+        0 = T&H0, 1 = T&H1, 2 = T&H2, and 3 = T&H3. The selected T&H unit
+        must also be enabled in the parent renesas,track-hold-mask property.
+
+    renesas,physical-channel:
+      type: int
+      required: true
+      description: |
+        Hardware analog input selector for this ADCJ unit.
+        For renesas,conversion-type = "normal", this value selects the normal
+        ADCJ physical input selector defined by the target SoC.
+        For renesas,conversion-type = "track-hold", this value selects the
+        T&H input index: 0 = T&H0, 1 = T&H1, 2 = T&H2, and 3 = T&H3.
+        If renesas,conversion-type is omitted, "normal" is used.
