@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+
+/ {
+	zephyr,user {
+		io-channels = <&adck0 0>;
+
+		/*
+		 * Board is powered by 5V and ADC input AN10_0 is connected to 5V.
+		 * adc_accuracy_test uses this value as the expected reference/input
+		 * voltage for the reference-voltage scenario.
+		 */
+		reference-mv = <5000>;
+
+		expected-accuracy = <150>;
+	};
+};
+
+&adck0 {
+	status = "okay";
+	vref-mv = <5000>;
+	channel-available-mask = <0x1>;
+
+	renesas,unit = <0>;
+	renesas,scan-group = <0>;
+	renesas,start-virtual-channel = <0>;
+	renesas,end-virtual-channel = <0>;
+	renesas,data-format = "12-bit";
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <0>;
+		renesas,physical-channel = <4>; /* AN10_0 */
+	};
+};
