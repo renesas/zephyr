@@ -9,8 +9,8 @@
 };
 
 &memc {
-	reg = <0x50000000>;
-	ranges;
+	reg = <0x10000000 DT_SIZE_M(32)>;
+	cs = <0>;
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
