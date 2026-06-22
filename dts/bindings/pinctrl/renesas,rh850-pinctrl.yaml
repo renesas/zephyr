@@ -52,12 +52,19 @@ description: |
 
     - bias-pull-up: Enable pull-up resistor.
     - bias-pull-down: Enable pull-down resistor.
-    - drive-open-drain: Enable open-drain output buffer function (default is push-pull)
+
+    - drive-push-pull: Specify push-pull output buffer function (default is push-pull)
+    - drive-open-drain: Specify open-drain output buffer function
+    - drive-open-source: Specify open-source output buffer function
+    Only one of the above drive mode properties shall be specified, as they are mutually
+    exclusive. If none is provided, push-pull mode is used by default.
+
     - input-enable: Enable input from the pin.
     - output-high: Set the initial output to high.
     - drive-strength: Set the drive strength of the pin. Possible
       values are: very low, low, medium, high.
     - renesas,direct-control: Enable direct I/O control.
+    - renesas,bidirect-control: Enable bi-direction mode.
 
     To link pin configurations with a device, use a pinctrl-N property for some
     number N, like this example you could place in your board's DTS file:
@@ -84,7 +91,9 @@ child-binding:
         property-allowlist:
           - bias-pull-up
           - bias-pull-down
+          - drive-push-pull
           - drive-open-drain
+          - drive-open-source
           - input-enable
           - output-high
     properties:
@@ -113,3 +122,22 @@ child-binding:
         description: |
           Set in alternative functions that require direct control
           of the I/O direction.
+
+      renesas,bidirect-control:
+        type: boolean
+        description: |
+          Enable/Disable the Bi-direction mode that enable input buffer
+          when a pin is used in output mode.
+
+      renesas,input-buffer-selection:
+        type: string
+        enum:
+          - "disable"
+          - "schmitt1"
+          - "schmitt4"
+          - "ttl"
+          - "schmittmsc"
+        default: "disable"
+        description: |
+          Set the input buffer charecteristics that require input buffer pin.
+          Default value "disable" reflects the hardware reset state.
