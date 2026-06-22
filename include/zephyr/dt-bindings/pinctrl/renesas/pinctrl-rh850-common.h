@@ -191,6 +191,33 @@
 #define RH850_DRIVE_STRENGTH_MEDIUM   2U /* Medium drive strength */
 #define RH850_DRIVE_STRENGTH_HIGH     3U /* High drive strength */
 
+/* Input buffer characteristic type selection */
+#define DISABLE_INPUT_BUFFER  (0U << RH850_PORT_PCRn_m_PCR_PIBC_POS)
+#define SHMT1_INPUT_BUFFER    ((1U << RH850_PORT_PCRn_m_PCR_PIBC_POS) | \
+							(0U << RH850_PORT_PCRn_m_PCR_PIS_POS))
+#define SHMT4_INPUT_BUFFER  ((1U << RH850_PORT_PCRn_m_PCR_PIBC_POS) | \
+							(1U << RH850_PORT_PCRn_m_PCR_PIS_POS))
+#define TTL_INPUT_BUFFER    ((1U << RH850_PORT_PCRn_m_PCR_PIBC_POS) | \
+							(4U << RH850_PORT_PCRn_m_PCR_PIS_POS))
+#define SHMTMSC_INPUT_BUFFER  ((1U << RH850_PORT_PCRn_m_PCR_PIBC_POS) | \
+							(5U << RH850_PORT_PCRn_m_PCR_PIS_POS))
+
+/**
+ * @brief Maps DT enum index to RH850 input buffer configuration value.
+ */
+#define RH850_INPUT_BUFFER_CFG(node_id) \
+	rh850_input_buffer_tbl[DT_ENUM_IDX(node_id, renesas_input_buffer_selection)]
+
+
+/**
+ * @brief Maps DT drive-* properties to RH850 output drive mode.
+ */
+#define RH850_OUTPUT_DRIVE_MODE(node_id)       \
+	(DT_PROP(node_id, drive_push_pull) ? 1U :  \
+	DT_PROP(node_id, drive_open_drain)  ? 2U : \
+	DT_PROP(node_id, drive_open_source) ? 3U : \
+	0U)
+
 /**
  * @brief Create a pin selection value for RH850 pinctrl configuration.
  *
