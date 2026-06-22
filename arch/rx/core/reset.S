@@ -7,7 +7,7 @@
 #include <zephyr/toolchain.h>
 
 .list
-.section .text
+.section .startup_entry
 GTEXT(__start)
 __start :
 

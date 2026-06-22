@@ -110,6 +110,9 @@ PRINT_TEMPLATE_NOKEEP = """
 
 SECTION_LOAD_MEMORY_SEQ = """
         __{mem}_{kind}_rom_start = LOADADDR(.{mem}_{kind}_reloc);
+#if defined(CONFIG_RX)
+        ___{mem}_{kind}_rom_start = __{mem}_{kind}_rom_start;
+#endif
 """
 
 LOAD_ADDRESS_LOCATION_FLASH = """
@@ -154,6 +157,10 @@ LINKER_SECTION_SEQ = """
         __{mem}_{kind}_reloc_end = .;
         __{mem}_{kind}_reloc_start = ADDR(.{mem}_{kind}_reloc);
         __{mem}_{kind}_reloc_size = __{mem}_{kind}_reloc_end - __{mem}_{kind}_reloc_start;
+#if defined(CONFIG_RX)
+        ___{mem}_{kind}_reloc_start = __{mem}_{kind}_reloc_start;
+        ___{mem}_{kind}_reloc_size = __{mem}_{kind}_reloc_size;
+#endif
 """
 
 LINKER_SECTION_SEQ_MPU = """
@@ -172,6 +179,10 @@ LINKER_SECTION_SEQ_MPU = """
                 __{mem}_{kind}_reloc_end = .;
 	}} {load_address}
         __{mem}_{kind}_reloc_size = __{mem}_{kind}_reloc_end - __{mem}_{kind}_reloc_start;
+#if defined(CONFIG_RX)
+        ___{mem}_{kind}_reloc_start = __{mem}_{kind}_reloc_start;
+        ___{mem}_{kind}_reloc_size = __{mem}_{kind}_reloc_size;
+#endif
 """
 
 SOURCE_CODE_INCLUDES = """
@@ -286,9 +297,11 @@ def assign_to_correct_mem_region(
     """
     use_section_kinds, memory_region = section_kinds_from_memory_region(memory_region)
 
-    memory_region, _, align_size = memory_region.partition('_')
-    if align_size:
+    memory_region, _, align_size = memory_region.rpartition('_')
+    if align_size.isdigit():
         mpu_align[memory_region] = int(align_size)
+    else:
+        memory_region = (memory_region + _ + align_size) if memory_region else align_size
 
     keep_sections = '|NOKEEP' not in memory_region
     memory_region = memory_region.replace('|NOKEEP', '')

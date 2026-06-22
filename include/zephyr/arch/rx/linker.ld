@@ -117,12 +117,21 @@ SECTIONS
 		PLACE_SYMBOL_HERE(__exvectors_end);
 	} GROUP_LINK_IN(ROMABLE_REGION)
 #endif
+	PLACE_SYMBOL_HERE(__image_text_start);
+
+	SECTION_PROLOGUE(.startup_entry,,SUBALIGN(4))
+	{
+		*(.startup_entry)
+		. = ALIGN(4);
+		PLACE_SYMBOL_HERE(__startup_entry_end);
+	} GROUP_LINK_IN(ROMABLE_REGION)
+
+#ifdef CONFIG_CODE_DATA_RELOCATION
+#include <linker_relocate.ld>
+#endif /* CONFIG_CODE_DATA_RELOCATION */
 
 	SECTION_PROLOGUE(_TEXT_SECTION_NAME,,SUBALIGN(4))
 	{
-		. = ALIGN(4);
-		PLACE_SYMBOL_HERE(__image_text_start);
-		KEEP(*(.text._start))
 		*(.text)
 		*(.text.*)
 		*(P)
@@ -279,6 +288,10 @@ SECTIONS
 		*(.gnu.linkonce.*)
 
 #include <snippets-rwdata.ld>
+
+#ifdef CONFIG_CODE_DATA_RELOCATION
+#include <linker_sram_data_relocate.ld>
+#endif
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 
 	___data_region_load_start = LOADADDR(_DATA_SECTION_NAME);
@@ -322,6 +335,11 @@ SECTIONS
 		*(B)
 		*(B_1)
 		*(B_2)
+
+#ifdef CONFIG_CODE_DATA_RELOCATION
+#include <linker_sram_bss_relocate.ld>
+#endif
+
 		PLACE_SYMBOL_HERE(_ebss);
 		PLACE_SYMBOL_HERE(__bss_end);
 		. = ALIGN(128);

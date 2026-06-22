@@ -178,6 +178,7 @@ config RX
 	select ATOMIC_OPERATIONS_C
 	select USE_SWITCH
 	select USE_SWITCH_SUPPORTED
+	select ARCH_HAS_CODE_DATA_RELOCATION
 	help
 	  Renesas RX architecture
 

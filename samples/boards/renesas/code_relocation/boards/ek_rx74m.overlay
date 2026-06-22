@@ -1,0 +1,24 @@
+/delete-node/ &psram;
+
+/ {
+	psram_slot0_region: memory@50000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x50000000 DT_SIZE_M(32)>;
+		zephyr,memory-region = "PSRAM_SLOT0";
+	};
+};
+
+&memc {
+	reg = <0x10000000 DT_SIZE_M(32)>;
+	cs = <0>;
+	status = "okay";
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		psram_slot0: partition@0 {
+			reg = <0x0 DT_SIZE_M(32)>;
+		};
+	};
+};

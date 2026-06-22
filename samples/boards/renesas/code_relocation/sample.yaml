@@ -1,0 +1,15 @@
+sample:
+  description: Code data relocation nocopy Sample
+  name: code relocation nocopy
+tests:
+  sample.app_dev.code_relocation_nocopy:
+    platform_allow:
+      - ek_rx74m
+    integration_platforms:
+      - ek_rx74m
+    tags: linker
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "Hello World! (.*)"
