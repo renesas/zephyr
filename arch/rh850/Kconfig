@@ -134,7 +134,7 @@ config INITIALIZATION_STACK_SIZE
 	  Stack size for initialization process of kernel (in bytes)
 
 config RH850_RAM_INIT
-	bool "Enable RAM initialization"
+	bool "RAM initialization"
 	help
 	  Enable RAM initialization at system startup.
 
