@@ -20,7 +20,7 @@
 #include <zephyr/cache.h>
 LOG_MODULE_REGISTER(soc, CONFIG_SOC_LOG_LEVEL);
 
-#include "soc.h"
+#include "bsp_api.h"
 
 #define CCR_CACHE_ENABLE (SCB_CCR_IC_Msk | SCB_CCR_BP_Msk | SCB_CCR_LOB_Msk)
 
@@ -91,3 +91,12 @@ void soc_early_init_hook(void)
 #endif
 #endif /*CONFIG_CPU_CORTEX_M33*/
 }
+
+#ifdef CONFIG_SOC_LATE_INIT_HOOK
+void soc_late_init_hook(void)
+{
+#ifdef CONFIG_SOC_RA_ENABLE_START_SECOND_CORE
+	R_BSP_SecondaryCoreStart();
+#endif /* CONFIG_SOC_RA_ENABLE_START_SECOND_CORE */
+}
+#endif /* CONFIG_SOC_LATE_INIT_HOOK */
