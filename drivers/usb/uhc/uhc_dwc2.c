@@ -1682,21 +1682,21 @@ static inline void submit_new_device(const struct device *dev)
 	priv->has_device = true;
 }
 
-static enum usb_device_speed uhc_dwc2_get_speed(const struct device *dev)
+static enum usb_port_speed uhc_dwc2_get_speed(const struct device *dev)
 {
 	struct usb_dwc2_reg *const base = uhc_dwc2_get_base(dev);
 	uint32_t hprt = sys_read32((mem_addr_t)&base->hprt);
 
 	switch (usb_dwc2_get_hprt_prtspd(hprt)) {
 	case USB_DWC2_HPRT_PRTSPD_HIGH:
-		return USB_SPEED_SPEED_HS;
+		return USB_PORT_SPEED_HS;
 	case USB_DWC2_HPRT_PRTSPD_LOW:
-		return USB_SPEED_SPEED_LS;
+		return USB_PORT_SPEED_LS;
 	case USB_DWC2_HPRT_PRTSPD_FULL:
-		return USB_SPEED_SPEED_FS;
+		return USB_PORT_SPEED_FS;
 	default:
 		LOG_WRN("Port has unexpected speed, report full speed");
-		return USB_SPEED_SPEED_FS;
+		return USB_PORT_SPEED_FS;
 	}
 }
 
