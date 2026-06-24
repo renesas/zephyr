@@ -53,7 +53,7 @@ struct uhc_renesas_ra_endpoint {
 };
 
 struct uhc_renesas_ra_data {
-	enum usb_device_speed speed;
+	enum usb_port_speed speed;
 	struct k_thread thread_data;
 	struct k_msgq msgq;
 	struct st_usbh_instance_ctrl uhc_ctrl;
@@ -325,7 +325,7 @@ static void get_hs_hub_addr_port(struct usb_device *udev, uint8_t *hub_addr, uin
 	*hub_port = 0;
 
 	while (node->hub != NULL) {
-		if (node->hub->speed == USB_SPEED_SPEED_HS) {
+		if (node->hub->speed == USB_PORT_SPEED_HS) {
 			*hub_addr = node->hub->addr;
 			*hub_port = node->hub_port;
 			return;
@@ -345,13 +345,13 @@ static int uhc_renesas_ra_configure_udev(const struct device *dev, struct usb_de
 	int ret = 0;
 
 	switch (udev->speed) {
-	case USB_SPEED_SPEED_LS:
+	case USB_PORT_SPEED_LS:
 		speed = USB_SPEED_LS;
 		break;
-	case USB_SPEED_SPEED_FS:
+	case USB_PORT_SPEED_FS:
 		speed = USB_SPEED_FS;
 		break;
-	case USB_SPEED_SPEED_HS:
+	case USB_PORT_SPEED_HS:
 		speed = USB_SPEED_HS;
 		break;
 	default:
@@ -405,13 +405,13 @@ static int uhc_renesas_ra_open_dcp(const struct device *dev, struct uhc_transfer
 	fsp_err_t err;
 
 	switch (xfer->udev->speed) {
-	case USB_SPEED_SPEED_LS:
+	case USB_PORT_SPEED_LS:
 		speed = USB_SPEED_LS;
 		break;
-	case USB_SPEED_SPEED_FS:
+	case USB_PORT_SPEED_FS:
 		speed = USB_SPEED_FS;
 		break;
-	case USB_SPEED_SPEED_HS:
+	case USB_PORT_SPEED_HS:
 		speed = USB_SPEED_HS;
 		break;
 	default:
@@ -519,13 +519,13 @@ static int uhc_renesas_ra_poll_port_speed(const struct device *dev)
 
 		switch (speed) {
 		case USB_SPEED_LS:
-			priv->speed = USB_SPEED_SPEED_LS;
+			priv->speed = USB_PORT_SPEED_LS;
 			break;
 		case USB_SPEED_FS:
-			priv->speed = USB_SPEED_SPEED_FS;
+			priv->speed = USB_PORT_SPEED_FS;
 			break;
 		case USB_SPEED_HS:
-			priv->speed = USB_SPEED_SPEED_HS;
+			priv->speed = USB_PORT_SPEED_HS;
 			break;
 		default:
 			return -EINVAL;
@@ -908,7 +908,7 @@ static int uhc_renesas_ra_shutdown(const struct device *dev)
 	return 0;
 }
 
-static enum usb_device_speed uhc_renesas_ra_get_speed(const struct device *dev)
+static enum usb_port_speed uhc_renesas_ra_get_speed(const struct device *dev)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
 
