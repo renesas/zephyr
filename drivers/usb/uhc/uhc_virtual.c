@@ -49,7 +49,7 @@ struct uhc_vrt_data {
 	struct uhc_transfer *last_xfer;
 	struct uhc_vrt_frame frame;
 	struct k_timer sof_timer;
-	enum usb_device_speed speed;
+	enum usb_port_speed speed;
 	k_timeout_t sof_period;
 	uint16_t frame_number;
 	uint8_t req;
@@ -474,13 +474,13 @@ static void vrt_device_act(const struct device *dev,
 		break;
 	case UVB_DEVICE_ACT_FS:
 		type = UHC_EVT_DEV_CONNECTED;
-		priv->speed = USB_SPEED_FULL;
+		priv->speed = USB_PORT_SPEED_FS;
 		priv->sof_period = K_MSEC(1);
 		k_timer_start(&priv->sof_timer, priv->sof_period, priv->sof_period);
 		break;
 	case UVB_DEVICE_ACT_HS:
 		type = UHC_EVT_DEV_CONNECTED;
-		priv->speed = USB_SPEED_HIGH;
+		priv->speed = USB_PORT_SPEED_HS;
 		priv->sof_period = K_USEC(125);
 		k_timer_start(&priv->sof_timer, priv->sof_period, priv->sof_period);
 		break;
@@ -528,7 +528,7 @@ static int uhc_vrt_bus_suspend(const struct device *dev)
 	return uvb_advert(priv->host_node, UVB_EVT_SUSPEND, NULL);
 }
 
-static enum usb_device_speed uhc_vrt_get_speed(const struct device *dev)
+static enum usb_port_speed uhc_vrt_get_speed(const struct device *dev)
 {
 	struct uhc_vrt_data *priv = uhc_get_private(dev);
 
