@@ -19,4 +19,5 @@ supported:
   - watchdog
   - spi
   - dma
+  - pwm
 vendor: renesas

@@ -19,4 +19,5 @@ supported:
   - timer
   - watchdog
   - dma
+  - pwm
 vendor: renesas

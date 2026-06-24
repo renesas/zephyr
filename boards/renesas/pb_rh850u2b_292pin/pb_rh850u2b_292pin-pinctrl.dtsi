@@ -19,6 +19,18 @@
 		};
 	};
 
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 1, ALT_OUT6)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 2, ALT_OUT6)>;
+		};
+	};
+
 	irq36_ioport: irq36_ioport {
 		group1 {
 			psels = <RH850_PSEL(PORT_34, 1, ALT_IN11)>;

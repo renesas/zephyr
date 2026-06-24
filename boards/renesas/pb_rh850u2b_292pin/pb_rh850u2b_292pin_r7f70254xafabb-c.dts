@@ -7,6 +7,7 @@
 
 #include <rh850/renesas/rh850u2b/r7f70254xafabb-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
 
 #include "pb_rh850u2b_292pin-pinctrl.dtsi"
 
@@ -26,6 +27,8 @@
 	aliases {
 		led0 = &led2;
 		watchdog0 = &wdtb0;
+		pwm-led0 = &pwm_led_0;
+		pwm-led1 = &pwm_led_1;
 	};
 
 	leds {
@@ -36,6 +39,36 @@
 			label = "LED2";
 		};
 	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+
+		pwm_led_0: pwm_led_0 {
+			pwms = <&pwm0_slave 0 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+			label = "PWM LED 0";
+		};
+
+		pwm_led_1: pwm_led_1 {
+			pwms = <&pwm1_slave 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+			label = "PWM LED 1";
+		};
+	};
+};
+
+&pwm0_master {
+	status = "okay";
+};
+
+&pwm0_slave {
+	pinctrl-0 = <&pwm0_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&pwm1_slave {
+	pinctrl-0 = <&pwm1_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
 };
 
 &ostm0 {

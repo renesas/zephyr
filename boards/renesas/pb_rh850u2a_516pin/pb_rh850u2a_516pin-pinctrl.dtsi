@@ -62,4 +62,16 @@
 			drive-strength = "very low";
 		};
 	};
+
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT6)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT6)>;
+		};
+	};
 };

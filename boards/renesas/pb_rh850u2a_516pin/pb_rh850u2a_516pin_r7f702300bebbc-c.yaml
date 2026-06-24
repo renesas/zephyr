@@ -19,4 +19,5 @@ supported:
   - crc
   - watchdog
   - dma
+  - pwm
 vendor: renesas
