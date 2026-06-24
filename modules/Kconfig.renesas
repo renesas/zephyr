@@ -614,6 +614,11 @@ config USE_RH850_FSP_RLIN3_UART
 	help
 	  Enable RH850 FSP RLIN3 UART driver
 
+config USE_RH850_FSP_RTCA
+	bool
+	help
+	  Enable RH850 FSP RTCA driver
+
 config USE_RH850_FSP_TAUD
 	bool
 	help

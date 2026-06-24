@@ -114,9 +114,6 @@ comment "LVGL module not available."
 comment "cmsis module not available."
 	depends on !ZEPHYR_CMSIS_MODULE
 
-comment "rh850_core module not available."
-	depends on !ZEPHYR_RH850_CORE_MODULE
-
 comment "cmsis-dsp module not available."
 	depends on !ZEPHYR_CMSIS_DSP_MODULE
 

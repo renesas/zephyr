@@ -7159,19 +7159,6 @@ West:
   labels:
     - "area: TF-M"
 
-"West project: rh850_core":
-  status: maintained
-  maintainers:
-    - TuanDo
-  collaborators:
-    - vinhdaowr
-    - phuclera
-    - minhquochoang
-  files:
-    - modules/rh850_core/
-  labels:
-    - "area: rh850_core"
-
 "West project: segger":
   status: odd fixes
   collaborators:
