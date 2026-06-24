@@ -1,0 +1,23 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PWM_RENESAS_RH850
+	bool "Renesas RH850 TAUD PWM driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_TAUD_PWM_ENABLED
+	select PINCTRL
+	select USE_RH850_FSP_TAUD
+	help
+	  Enable the Renesas RH850 TAUD PWM driver.
+
+if PWM_RENESAS_RH850
+
+config PWM_RH850_MASTER_INIT_PRIORITY
+	int "Master PWM init priority"
+	default 60
+	range 51 99
+	help
+	  Master init must run AFTER slaves so slaves can register
+	  themselves with master before master opens hardware.
+
+endif # PWM_RENESAS_RH850
