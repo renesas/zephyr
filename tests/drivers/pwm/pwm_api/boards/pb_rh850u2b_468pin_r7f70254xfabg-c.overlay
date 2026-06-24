@@ -1,0 +1,49 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2b.h>
+
+/ {
+	aliases {
+		pwm-test = &pwm0_slave;
+	};
+};
+
+&pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 6, ALT_OUT8)>,
+				<RH850_PSEL(PORT_02, 5, ALT_IN11)>;
+		};
+	};
+
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 1, ALT_OUT6)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 2, ALT_OUT6)>;
+		};
+	};
+};
+
+&pwm0_master {
+	status = "okay";
+};
+
+&pwm0_slave {
+	pinctrl-0 = <&pwm0_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&pwm1_slave {
+	pinctrl-0 = <&pwm1_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

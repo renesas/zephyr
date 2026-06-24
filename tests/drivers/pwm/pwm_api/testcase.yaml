@@ -184,3 +184,54 @@ tests:
       - frdm_imxrt1186/mimxrt1186/cm7
     filter: dt_nodelabel_enabled("pwm_test_center") and CONFIG_DT_HAS_NXP_KINETIS_TPM_ENABLED
     depends_on: pwm
+  drivers.pwm.pb_rh850u2a_516pin:
+    tags:
+      - drivers
+      - pwm
+      - userspace
+    extra_args:
+      - platform:pb_rh850u2a_516pin/r7f702300aebbc-c:DTC_OVERLAY_FILE="boards/pb_rh850u2a_516pin_r7f702300aebbc-c.overlay"
+      - platform:pb_rh850u2a_516pin/r7f702300bebbc-c:DTC_OVERLAY_FILE="boards/pb_rh850u2a_516pin_r7f702300bebbc-c.overlay"
+      - platform:pb_rh850u2a_516pin/r7f702300ebbg-c:DTC_OVERLAY_FILE="boards/pb_rh850u2a_516pin_r7f702300ebbg-c.overlay"
+    platform_allow:
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+    filter: dt_alias_exists("pwm-test")
+    depends_on: pwm
+  drivers.pwm.pb_rh850u2b_292pin:
+    tags:
+      - drivers
+      - pwm
+      - userspace
+    extra_args: DTC_OVERLAY_FILE="boards/pb_rh850u2b_292pin_r7f70254xafabb-c.overlay"
+    platform_allow:
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+    filter: dt_alias_exists("pwm-test")
+    depends_on: pwm
+  drivers.pwm.pb_rh850u2b_468pin:
+    tags:
+      - drivers
+      - pwm
+      - userspace
+    extra_args:
+      - platform:pb_rh850u2b_468pin/r7f70254xafabg-c:DTC_OVERLAY_FILE="boards/pb_rh850u2b_468pin_r7f70254xafabg-c.overlay"
+      - platform:pb_rh850u2b_468pin/r7f70254xfabg-c:DTC_OVERLAY_FILE="boards/pb_rh850u2b_468pin_r7f70254xfabg-c.overlay"
+    platform_allow:
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
+    filter: dt_alias_exists("pwm-test")
+    depends_on: pwm
+  drivers.pwm.pb_rh850u2c_292pin:
+    tags:
+      - drivers
+      - pwm
+      - userspace
+    extra_args:
+      - platform:pb_rh850u2c_292pin/r7f702600afabb-c:DTC_OVERLAY_FILE="boards/pb_rh850u2c_292pin_r7f702600afabb-c.overlay"
+      - platform:pb_rh850u2c_292pin/r7f702600fabb-c:DTC_OVERLAY_FILE="boards/pb_rh850u2c_292pin_r7f702600fabb-c.overlay"
+    platform_allow:
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2c_292pin/r7f702600fabb-c
+    filter: dt_alias_exists("pwm-test")
+    depends_on: pwm
