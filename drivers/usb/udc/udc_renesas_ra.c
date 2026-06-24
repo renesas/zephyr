@@ -131,7 +131,7 @@ static void udc_renesas_ra_event_handler(usbd_callback_arg_t *p_args)
 	}
 }
 
-static void udc_renesas_ra_interrupt_handler(void *arg)
+static void udc_renesas_ra_interrupt_handler(const void *arg)
 {
 	ARG_UNUSED(arg);
 	usb_device_isr();
@@ -506,10 +506,13 @@ static int udc_renesas_ra_disable(const struct device *dev)
 
 static int udc_renesas_ra_init(const struct device *dev)
 {
+	const struct udc_renesas_ra_config *config = dev->config;
 	struct udc_renesas_ra_data *data = udc_get_private(dev);
+	int ret;
 
-	if (FSP_SUCCESS != R_USBD_Open(&data->udc, &data->udc_cfg)) {
-		return -EIO;
+	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+	if (ret < 0) {
+		return ret;
 	}
 
 	if (udc_ep_enable_internal(dev, USB_CONTROL_EP_OUT, USB_EP_TYPE_CONTROL, 64, 0)) {
@@ -524,16 +527,32 @@ static int udc_renesas_ra_init(const struct device *dev)
 
 #if DT_HAS_COMPAT_STATUS_OKAY(renesas_ra_usbhs)
 	if (data->udc_cfg.hs_irq != (IRQn_Type)BSP_IRQ_DISABLED) {
+		irq_connect_dynamic(data->udc_cfg.hs_irq, data->udc_cfg.hsipl,
+				    udc_renesas_ra_interrupt_handler, dev, 0);
+		R_ICU->IELSR[data->udc_cfg.hs_irq] = BSP_PRV_IELS_ENUM(EVENT_USBHS_USB_INT_RESUME);
+		BSP_ASSIGN_EVENT_TO_CURRENT_CORE(BSP_PRV_IELS_ENUM(EVENT_USBHS_USB_INT_RESUME));
 		irq_enable(data->udc_cfg.hs_irq);
 	}
 #endif
 
 	if (data->udc_cfg.irq != (IRQn_Type)BSP_IRQ_DISABLED) {
+		irq_connect_dynamic(data->udc_cfg.irq, data->udc_cfg.ipl,
+				    udc_renesas_ra_interrupt_handler, dev, 0);
+		R_ICU->IELSR[data->udc_cfg.irq] = BSP_PRV_IELS_ENUM(EVENT_USBFS_INT);
+		BSP_ASSIGN_EVENT_TO_CURRENT_CORE(BSP_PRV_IELS_ENUM(EVENT_USBFS_INT));
 		irq_enable(data->udc_cfg.irq);
 	}
 
 	if (data->udc_cfg.irq_r != (IRQn_Type)BSP_IRQ_DISABLED) {
+		irq_connect_dynamic(data->udc_cfg.irq_r, data->udc_cfg.ipl_r,
+				    udc_renesas_ra_interrupt_handler, dev, 0);
+		R_ICU->IELSR[data->udc_cfg.irq_r] = BSP_PRV_IELS_ENUM(EVENT_USBFS_RESUME);
+		BSP_ASSIGN_EVENT_TO_CURRENT_CORE(BSP_PRV_IELS_ENUM(EVENT_USBFS_RESUME));
 		irq_enable(data->udc_cfg.irq_r);
+	}
+
+	if (FSP_SUCCESS != R_USBD_Open(&data->udc, &data->udc_cfg)) {
+		return -EIO;
 	}
 
 	return 0;
@@ -555,6 +574,23 @@ static int udc_renesas_ra_shutdown(const struct device *dev)
 
 	if (FSP_SUCCESS != R_USBD_Close(&data->udc)) {
 		return -EIO;
+	}
+
+#if DT_HAS_COMPAT_STATUS_OKAY(renesas_ra_usbhs)
+	if (data->udc_cfg.hs_irq != (IRQn_Type)BSP_IRQ_DISABLED) {
+		R_ICU->IELSR[data->udc_cfg.hs_irq] = 0;
+		irq_disable(data->udc_cfg.hs_irq);
+	}
+#endif
+
+	if (data->udc_cfg.irq != (IRQn_Type)BSP_IRQ_DISABLED) {
+		R_ICU->IELSR[data->udc_cfg.irq] = 0;
+		irq_disable(data->udc_cfg.irq);
+	}
+
+	if (data->udc_cfg.irq_r != (IRQn_Type)BSP_IRQ_DISABLED) {
+		R_ICU->IELSR[data->udc_cfg.irq_r] = 0;
+		irq_disable(data->udc_cfg.irq_r);
 	}
 
 	return 0;
@@ -640,11 +676,6 @@ static int udc_renesas_ra_driver_preinit(const struct device *dev)
 		return err;
 	}
 
-	err = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
-	if (err < 0) {
-		return err;
-	}
-
 	k_mutex_init(&data->mutex);
 
 	data->caps.rwup = true;
@@ -693,20 +724,6 @@ static int udc_renesas_ra_driver_preinit(const struct device *dev)
 			LOG_ERR("Failed to register endpoint");
 			return err;
 		}
-	}
-
-#if DT_HAS_COMPAT_STATUS_OKAY(renesas_ra_usbhs)
-	if (priv->udc_cfg.hs_irq != (IRQn_Type)BSP_IRQ_DISABLED) {
-		R_ICU->IELSR[priv->udc_cfg.hs_irq] = BSP_PRV_IELS_ENUM(EVENT_USBHS_USB_INT_RESUME);
-	}
-#endif
-
-	if (priv->udc_cfg.irq != (IRQn_Type)BSP_IRQ_DISABLED) {
-		R_ICU->IELSR[priv->udc_cfg.irq] = BSP_PRV_IELS_ENUM(EVENT_USBFS_INT);
-	}
-
-	if (priv->udc_cfg.irq_r != (IRQn_Type)BSP_IRQ_DISABLED) {
-		R_ICU->IELSR[priv->udc_cfg.irq_r] = BSP_PRV_IELS_ENUM(EVENT_USBFS_RESUME);
 	}
 
 	config->make_thread(dev);
@@ -782,11 +799,6 @@ static const struct udc_api udc_renesas_ra_api = {
 			: DT_ENUM_IDX_OR(id, maximum_speed, UDC_BUS_SPEED_FS)),                    \
 		    (UDC_BUS_SPEED_FS))
 
-#define USB_RENESAS_RA_IRQ_CONNECT(idx, n)                                                         \
-	IRQ_CONNECT(DT_IRQ_BY_IDX(DT_INST_PARENT(n), idx, irq),                                    \
-		    DT_IRQ_BY_IDX(DT_INST_PARENT(n), idx, priority),                               \
-		    udc_renesas_ra_interrupt_handler, DEVICE_DT_INST_GET(n), 0)
-
 #define USB_RENESAS_RA_CLOCKS_GET(idx, id)                                                         \
 	DEVICE_DT_GET_OR_NULL(DT_PHANDLE_BY_IDX(id, phys_clock, idx))
 
@@ -796,8 +808,7 @@ static const struct udc_api udc_renesas_ra_api = {
                                                                                                    \
 	static const struct device *udc_renesas_ra_clock_dev_##n[] = {                             \
 		LISTIFY(DT_PROP_LEN_OR(DT_INST_PARENT(n), phys_clock, 0),                          \
-			USB_RENESAS_RA_CLOCKS_GET, (,), DT_INST_PARENT(n))                         \
-	};                                                                                         \
+			USB_RENESAS_RA_CLOCKS_GET, (,), DT_INST_PARENT(n)) };                                   \
                                                                                                    \
 	static void udc_renesas_ra_thread_##n(void *dev, void *arg1, void *arg2)                   \
 	{                                                                                          \
@@ -832,18 +843,23 @@ static const struct udc_api udc_renesas_ra_api = {
 	};                                                                                         \
                                                                                                    \
 	static struct udc_renesas_ra_data udc_priv_##n = {                                         \
-		.udc_cfg = {                                                                       \
-			.module_number = USB_RENESAS_RA_MODULE_NUMBER(DT_INST_PARENT(n)),          \
-			.usb_speed = USB_RENESAS_RA_SPEED_IDX(DT_INST_PARENT(n)),                  \
-			.irq = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_i, irq),            \
-			.irq_r = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_r, irq),          \
-			.hs_irq = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbhs_ir, irq),        \
-			.ipl = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_i, priority),       \
-			.ipl_r = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_r, priority),     \
-			.hsipl = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbhs_ir, priority),    \
-			.p_context = (void *)DEVICE_DT_INST_GET(n),                                \
-			.p_callback = udc_renesas_ra_event_handler,                                \
-		},                                                                                 \
+		.udc_cfg =                                                                         \
+			{                                                                          \
+				.module_number = USB_RENESAS_RA_MODULE_NUMBER(DT_INST_PARENT(n)),  \
+				.usb_speed = USB_RENESAS_RA_SPEED_IDX(DT_INST_PARENT(n)),          \
+				.irq = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_i, irq),    \
+				.irq_r = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_r, irq),  \
+				.hs_irq =                                                          \
+					USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbhs_ir, irq),  \
+				.ipl = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_i,          \
+							      priority),                           \
+				.ipl_r = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbfs_r,        \
+								priority),                         \
+				.hsipl = USB_RENESAS_RA_IRQ_GET(DT_INST_PARENT(n), usbhs_ir,       \
+								priority),                         \
+				.p_context = (void *)DEVICE_DT_INST_GET(n),                        \
+				.p_callback = udc_renesas_ra_event_handler,                        \
+			},                                                                         \
 	};                                                                                         \
                                                                                                    \
 	static struct udc_data udc_data_##n = {                                                    \
@@ -851,15 +867,8 @@ static const struct udc_api udc_renesas_ra_api = {
 		.priv = &udc_priv_##n,                                                             \
 	};                                                                                         \
                                                                                                    \
-	int udc_renesas_ra_driver_preinit##n(const struct device *dev)                             \
-	{                                                                                          \
-		LISTIFY(DT_NUM_IRQS(DT_INST_PARENT(n)), USB_RENESAS_RA_IRQ_CONNECT, (;), n);       \
-		return udc_renesas_ra_driver_preinit(dev);                                         \
-	}                                                                                          \
-                                                                                                   \
-	PM_DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_pm_action);					   \
-	DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_driver_preinit##n, PM_DEVICE_DT_INST_GET(n),	   \
-			      &udc_data_##n, &udc_renesas_ra_config_##n, POST_KERNEL,		   \
+	DEVICE_DT_INST_DEFINE(n, udc_renesas_ra_driver_preinit, PM_DEVICE_DT_INST_GET(n),          \
+			      &udc_data_##n, &udc_renesas_ra_config_##n, POST_KERNEL,              \
 			      CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &udc_renesas_ra_api);
 
 DT_INST_FOREACH_STATUS_OKAY(UDC_RENESAS_RA_DEVICE_DEFINE)
