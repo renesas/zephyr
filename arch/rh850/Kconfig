@@ -37,13 +37,11 @@ config CPU_G3MH
 
 config CPU_G4MH
 	bool
-	select HAS_RH850_CORE
 	help
 	  Set if the processor supports the Renesas G4MH instruction set.
 
 config CPU_G4KH
 	bool
-	select HAS_RH850_CORE
 	help
 	  Set if the processor supports the Renesas G4KH instruction set.
 
