@@ -5,12 +5,50 @@
  */
 
 #include <rh850/renesas/rh850u2a/u2a-g4mh-common.dtsi>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
 	soc {
 		sram0: memory@fe000000 {
 			compatible = "mmio-sram";
 			reg = <0xfe000000 DT_SIZE_K(512)>;
+		};
+
+		pwm0_master: pwm0_master@ffbf4000 {
+			compatible = "renesas,rh850-taud-pwm";
+			reg = <0xffbf4000 0x2000>;
+			unit = <0>;
+			channel = <0>;
+			channel-type = "master";
+			interrupts = <10 1>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		pwm0_slave: pwm0_slave@ffbf4004 {
+			compatible = "renesas,rh850-taud-pwm";
+			reg = <0xffbf4004 0x2000>;
+			unit = <0>;
+			channel = <1>;
+			channel-type = "slave";
+			master = <&pwm0_master>;
+			interrupts = <376 1>;
+			interrupt-parent = <&intc2>;
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
+		pwm1_slave: pwm1_slave@ffbf4008 {
+			compatible = "renesas,rh850-taud-pwm";
+			reg = <0xffbf4008 0x2000>;
+			unit = <0>;
+			channel = <2>;
+			channel-type = "slave";
+			master = <&pwm0_master>;
+			interrupts = <1 1>;
+			interrupt-parent = <&intc2>;
+			#pwm-cells = <3>;
+			status = "disabled";
 		};
 
 		ostm0: ostm0@ffbf0000 {

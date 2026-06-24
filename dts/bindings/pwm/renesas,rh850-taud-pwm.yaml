@@ -1,0 +1,62 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RH850 TAUD PWM driver (master/slave).
+
+  Used for both master and slave nodes:
+  - Master node: channel-type = "master" (timing source, no PWM output)
+  - Slave node:  channel-type = "slave"  (PWM output, requires a Master Channel phandle)
+
+compatible: "renesas,rh850-taud-pwm"
+
+include: [base.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  unit:
+    type: int
+    required: true
+    description: |
+      TAUD Unit number (e.g. 0 for TAUD0).
+      The valid range depends on the available hardware.
+
+  channel:
+    type: int
+    required: true
+    description: TAUD Channel number within the Unit (range from 0 to 15).
+
+  channel-type:
+    type: string
+    required: true
+    enum:
+      - "master"
+      - "slave"
+    description: |
+      Type of TAUD channel:
+
+      "master" - Timing source used to set the PWM period/frequency.
+                 It does not output the PWM signal directly.
+
+      "slave"  - PWM output channel used to set the duty cycle.
+                 It must reference a Master Channel by phandle.
+
+  master:
+    type: phandle
+    description: Phandle to the master TAUD channel node.
+      Required for slave nodes (channel-type = "slave").
+      Must not be present for master nodes.
+
+  interrupts:
+    required: true
+
+  "#pwm-cells":
+    type: int
+    const: 3
+
+pwm-cells:
+  - channel
+  - period
+  - flags
