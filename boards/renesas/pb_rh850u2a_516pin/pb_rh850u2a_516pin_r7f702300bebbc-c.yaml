@@ -21,4 +21,5 @@ supported:
   - watchdog
   - dma
   - pwm
+  - can
 vendor: renesas

@@ -21,4 +21,6 @@ supported:
   - dma
   - pwm
   - adc
+  - ethernet
+  - can
 vendor: renesas

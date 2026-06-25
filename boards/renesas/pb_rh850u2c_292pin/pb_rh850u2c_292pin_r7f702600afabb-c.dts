@@ -23,6 +23,7 @@
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
 		zephyr,crc = &crc0;
+		zephyr,canbus = &canfd0;
 	};
 
 	aliases {
@@ -53,6 +54,13 @@
 			pwms = <&pwm1_slave 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
 			label = "PWM LED 1";
 		};
+	};
+
+	can_phy0: can-phy0 {
+		compatible = "can-transceiver-gpio";
+		standby-gpios = <&ioport13 0 GPIO_ACTIVE_HIGH>;
+		max-bitrate = <8000000>;
+		#phy-cells = <0>;
 	};
 };
 
@@ -89,6 +97,25 @@
 		current-speed = <115200>;
 		status = "okay";
 	};
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
+};
+
+&etnf0 {
+	pinctrl-0 = <&etnf0_default>;
+	pinctrl-names = "default";
+	local-mac-address = [74 90 50 12 34 56];
+	status = "okay";
 };
 
 &irq17 {
