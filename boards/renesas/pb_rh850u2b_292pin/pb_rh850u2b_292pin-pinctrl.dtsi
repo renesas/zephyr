@@ -15,9 +15,9 @@
 
 	canfd0_default: canfd0_default {
 		group1 {
-		psels = <RH850_PSEL(PORT_02, 7, ALT_OUT3)>, /* TX */
-				<RH850_PSEL(PORT_02, 6, ALT_IN8)>; /* RX */
-		drive-strength = "medium";
+			psels = <RH850_PSEL(PORT_02, 0, ALT_OUT7)>, /* TX */
+			<RH850_PSEL(PORT_02, 2, ALT_IN7)>; /* RX */
+			drive-strength = "medium";
 		};
 	};
 

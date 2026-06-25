@@ -443,6 +443,25 @@
 			};
 		};
 
+		canfd_global: canfd-global@ff800000 {
+			compatible = "renesas,rh850-canfd-global";
+			reg = <0xff800000 DT_SIZE_K(128)>;
+			interrupts = <652 1>, <653 1>;
+			interrupt-names = "g_err", "g_recc";
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+
+			canfd0: canfd0 {
+				compatible = "renesas,rh850-canfd";
+				channel = <0>;
+				interrupts = <659 1>, <658 1>, <660 1>;
+				interrupt-names = "rxi", "eri", "txi";
+				interrupt-parent = <&intc2>;
+				clock-frequency = <80000000>;
+				status = "disabled";
+			};
+		};
+
 		wdtb0: watchdog@ffbf1000 {
 			unit = <1>;
 			compatible = "renesas,rh850-wdtb";
@@ -794,5 +813,12 @@
 			#dma-cells = <2>;
 			status = "disabled";
 		};
+	};
+
+	/* External CAN clock - to be overridden by boards that provide it */
+	can_clk: can-clk {
+		compatible = "fixed-clock";
+		clock-frequency = <0>;
+		#clock-cells = <0>;
 	};
 };
