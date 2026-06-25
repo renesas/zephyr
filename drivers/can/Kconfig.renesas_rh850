@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config CAN_RENESAS_RH850_CANFD
+	bool "Renesas RH850 CANFD"
+	default y
+	depends on DT_HAS_RENESAS_RH850_CANFD_ENABLED
+	select USE_RH850_FSP_CANFD
+	select PINCTRL
+	help
+	  Enable Renesas RH850 CANFD driver
