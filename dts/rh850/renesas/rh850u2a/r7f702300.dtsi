@@ -72,7 +72,7 @@
 			};
 		};
 
-		rlin33: rlin32@ffc7c080 {
+		rlin33: rlin33@ffc7c080 {
 			compatible = "renesas,rh850-rlin3";
 			interrupts = <428 1>, <429 1>, <430 1>, <431 1>;
 			interrupt-names = "rlin3i", "txi", "rxi", "eri";
