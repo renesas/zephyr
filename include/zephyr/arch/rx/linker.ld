@@ -117,11 +117,10 @@ SECTIONS
 		PLACE_SYMBOL_HERE(__exvectors_end);
 	} GROUP_LINK_IN(ROMABLE_REGION)
 #endif
-	PLACE_SYMBOL_HERE(__image_text_start);
 
 	SECTION_PROLOGUE(.startup_entry,,SUBALIGN(4))
 	{
-		*(.startup_entry)
+		KEEP(*(.startup_entry))
 		. = ALIGN(4);
 		PLACE_SYMBOL_HERE(__startup_entry_end);
 	} GROUP_LINK_IN(ROMABLE_REGION)
@@ -132,6 +131,8 @@ SECTIONS
 
 	SECTION_PROLOGUE(_TEXT_SECTION_NAME,,SUBALIGN(4))
 	{
+		. = ALIGN(4);
+		PLACE_SYMBOL_HERE(__image_text_start);
 		*(.text)
 		*(.text.*)
 		*(P)

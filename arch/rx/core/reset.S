@@ -7,7 +7,7 @@
 #include <zephyr/toolchain.h>
 
 .list
-.section .startup_entry
+.section .startup_entry, "ax", @progbits
 GTEXT(__start)
 __start :
 
