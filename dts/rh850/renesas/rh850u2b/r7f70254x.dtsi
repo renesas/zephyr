@@ -508,5 +508,29 @@
 			gpio-controller;
 			status = "disabled";
 		};
+
+		iic0: iic0@ff8e0000 {
+			compatible = "renesas,rh850-iic";
+			interrupts = <882 1>, <883 1>, <886 1>, <887 1>;
+			interrupt-names = "rxi", "txi", "eri", "tei";
+			reg = <0xff8e0000 0x2000>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		iic1: iic1@ff8e2000 {
+			compatible = "renesas,rh850-iic";
+			interrupts = <884 1>, <885 1>, <888 1>, <889 1>;
+			interrupt-names = "rxi", "txi", "eri", "tei";
+			reg = <0xff8e2000 0x2000>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <1>;
+			status = "disabled";
+		};
 	};
 };
