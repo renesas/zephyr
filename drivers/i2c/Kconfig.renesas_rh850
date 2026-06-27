@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config I2C_RENESAS_RH850_IIC
+	bool "Renesas RH850 IIC driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_IIC_ENABLED
+	select USE_RH850_FSP_IIC
+	select PINCTRL
+	help
+		Enable Renesas Rh850 I2C Driver.
+
+if I2C_RENESAS_RH850_IIC
+
+config IIC_RENESAS_RH850_INTERRUPT
+	bool "RH850 IIC Interrupt Support"
+	default y
+	help
+		Enable Interrupt support for the IIC Driver of RH850 family.
+
+endif #I2C_RENESAS_RH850_IIC
