@@ -25,6 +25,28 @@
 		};
 	};
 
+	iic0_default: iic0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 1, ALT_OUT4)>,
+				<RH850_PSEL(PORT_00, 2, ALT_OUT4)>;
+			drive-strength = "low";
+			drive-open-drain;
+			bias-pull-up;
+			renesas,bidirect-control;
+		};
+	};
+
+	iic1_default: iic1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 6, ALT_OUT4)>,
+				<RH850_PSEL(PORT_00, 7, ALT_OUT4)>;
+			drive-strength = "low";
+			drive-open-drain;
+			bias-pull-up;
+			renesas,bidirect-control;
+		};
+	};
+
 	mspi0_default: mspi0_default {
 		group1 {
 			psels = <RH850_PSEL(PORT_11, 5, ALT_IN1)>,
