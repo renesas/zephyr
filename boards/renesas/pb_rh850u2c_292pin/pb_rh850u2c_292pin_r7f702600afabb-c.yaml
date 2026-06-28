@@ -16,4 +16,5 @@ supported:
   - timer
   - uart
   - watchdog
+  - dma
 vendor: renesas

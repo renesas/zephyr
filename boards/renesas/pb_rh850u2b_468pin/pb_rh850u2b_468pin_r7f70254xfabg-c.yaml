@@ -16,4 +16,5 @@ supported:
   - iic
   - watchdog
   - spi
+  - dma
 vendor: renesas
