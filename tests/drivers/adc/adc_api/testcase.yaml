@@ -23,7 +23,12 @@ tests:
       - rpi_pico2/rp2350a/m33/w/mcuboot
       - raytac_an54lq_db_15/nrf54l15/cpuapp/ns
       - raytac_an54lv_db_15/nrf54l15/cpuapp/ns
-  drivers.adc.renesas_rh850_u2x:
+  drivers.adc.renesas_rh850_adcj:
+    platform_allow:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+  drivers.adc.renesas_rh850_adck:
     platform_allow:
       - pb_rh850u2b_292pin/r7f70254xafabb-c
       - pb_rh850u2b_468pin/r7f70254xafabg-c
