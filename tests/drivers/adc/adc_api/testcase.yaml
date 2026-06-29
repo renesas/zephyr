@@ -23,6 +23,13 @@ tests:
       - rpi_pico2/rp2350a/m33/w/mcuboot
       - raytac_an54lq_db_15/nrf54l15/cpuapp/ns
       - raytac_an54lv_db_15/nrf54l15/cpuapp/ns
+  drivers.adc.renesas_rh850_u2x:
+    platform_allow:
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2c_292pin/r7f702600fabb-c
   drivers.adc.b_u585i_iot02a_adc4:
     extra_args:
       - platform:b_u585i_iot02a/stm32u585xx:DTC_OVERLAY_FILE="boards/b_u585i_iot02a_adc4.overlay"

@@ -70,10 +70,10 @@ tests:
       - pic32cx_sg41_cult
       - sam_e54_xpro
       - pic32cm_jh01_cpro
-      - pb_rh850u2b_468pin/r7f70254xafabg-c
-      - pb_rh850u2c_292pin/r7f702600afabb-c
       - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
       - pb_rh850u2c_292pin/r7f702600fabb-c
     extra_args:
       - platform:sam_e54_xpro/atsame54p20a:"DTC_OVERLAY_FILE=boards/sam_e54_xpro_ref.overlay"
