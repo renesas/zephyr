@@ -13,8 +13,9 @@ supported:
   - gpio
   - interrupt_controller
   - pinctrl
-  - timer
+  - rtc
   - uart
+  - timer
   - watchdog
   - dma
 vendor: renesas

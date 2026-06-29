@@ -11,9 +11,10 @@ supported:
   - gpio
   - pinctrl
   - interrupt_controller
-  - timer
   - iic
+  - rtc
   - spi
+  - timer
   - uart
   - watchdog
   - dma
