@@ -2,6 +2,7 @@ common:
   tags:
     - drivers
     - clock_control
+
 tests:
   drivers.clock.clock_control_api_default:
     platform_allow:
@@ -18,6 +19,7 @@ tests:
       - pic32cm_jh01_cpro
     integration_platforms:
       - esp32_devkitc/esp32/procpu
+
   drivers.clock.clock_control_nrf5:
     platform_allow:
       - nrf51dk/nrf51822
@@ -35,6 +37,7 @@ tests:
       - ophelia4ev/nrf54l15/cpuapp
     integration_platforms:
       - nrf51dk/nrf51822
+
   drivers.clock.clock_control_nrf5_lfclk_rc:
     platform_allow:
       - nrf51dk/nrf51822
@@ -51,3 +54,19 @@ tests:
     integration_platforms:
       - nrf51dk/nrf51822
     extra_args: EXTRA_CONF_FILE="nrf_lfclk_rc.conf"
+
+  drivers.clock.clock_control_rh850:
+    platform_allow:
+      # RH850 U2B10
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
+      # RH850 U2C8
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+      # RH850 U2A16
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+    extra_args:
+      - CONFIG_CLOCK_CONTROL=y
+      - CONFIG_CLOCK_CONTROL_RENESAS_RH850_CGC=y
