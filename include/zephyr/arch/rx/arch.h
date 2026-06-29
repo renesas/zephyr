@@ -24,6 +24,10 @@
 #include <zephyr/arch/rx/misc.h>
 #include <zephyr/arch/rx/arch_inlines.h>
 #include <zephyr/arch/rx/error.h>
+#ifdef CONFIG_USERSPACE
+/* Provides struct arch_mem_domain and k_mem_partition_attr_t. */
+#include <zephyr/arch/rx/mpu.h>
+#endif
 #include <zephyr/arch/common/sys_bitops.h>
 #include <zephyr/arch/common/sys_io.h>
 #include <zephyr/arch/common/ffs.h>

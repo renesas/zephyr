@@ -4,6 +4,7 @@
 config MEM_ATTR
 	bool "Memory Attributes management library"
 	default y if ARM_MPU
+	default y if RX_MPU
 	help
 	  Enable a small library to manage the memory regions defined in the DT
 	  with a `zephyr,memory-attr` property. This library builds at build

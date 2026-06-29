@@ -4,9 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <errno.h>
 #include <zephyr/arch/cpu.h>
 #include <zephyr/cache.h>
+#include <zephyr/sys/util.h>
 #include <bsp_api.h>
+
+/* 32 KB cache / 32-byte lines = 1024 lines; 100 us >> 1024 cycles at 600 MHz max CPUCLK0 */
+#define CACHE_FLUSH_TIMEOUT_US 1000U
 
 void arch_dcache_enable(void)
 {
@@ -14,10 +19,7 @@ void arch_dcache_enable(void)
 	R_CACHE->OACAWTA_b.WT = 1;
 	R_CACHE->OACAFCT_b.FL = 1;
 
-	while (R_CACHE->OACAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
-	}
+	WAIT_FOR(R_CACHE->OACAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL);
 }
 
 void arch_dcache_disable(void)
@@ -29,51 +31,49 @@ void arch_dcache_disable(void)
 int arch_dcache_flush_all(void)
 {
 	R_CACHE->OACAFCT_b.FL = 1;
-	while (R_CACHE->OACAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
+
+	if (!WAIT_FOR(R_CACHE->OACAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL)) {
+		return -ETIMEDOUT;
 	}
+
 	return 0;
 }
 
 int arch_dcache_flush_and_invd_all(void)
 {
 	R_CACHE->OACAFCT_b.FL = 1;
-	while (R_CACHE->OACAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
+
+	if (!WAIT_FOR(R_CACHE->OACAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL)) {
+		return -ETIMEDOUT;
 	}
+
 	return 0;
 }
 
 int arch_dcache_invd_all(void)
 {
-	arch_dcache_flush_and_invd_all();
-	return 0;
+	return arch_dcache_flush_and_invd_all();
 }
 
 int arch_dcache_flush_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_dcache_flush_and_invd_all();
-	return 0;
+	return arch_dcache_flush_and_invd_all();
 }
 
 int arch_dcache_invd_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_dcache_flush_and_invd_all();
-	return 0;
+	return arch_dcache_flush_and_invd_all();
 }
 
 int arch_dcache_flush_and_invd_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_dcache_flush_and_invd_all();
-	return 0;
+	return arch_dcache_flush_and_invd_all();
 }
 
 void arch_icache_enable(void)
@@ -81,10 +81,7 @@ void arch_icache_enable(void)
 	R_CACHE->IFCACTL_b.EN = 1;
 	R_CACHE->IFCACTL_b.FL = 1;
 
-	while (R_CACHE->IFCAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
-	}
+	WAIT_FOR(R_CACHE->IFCAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL);
 }
 
 void arch_icache_disable(void)
@@ -95,30 +92,33 @@ void arch_icache_disable(void)
 int arch_icache_flush_all(void)
 {
 	R_CACHE->IFCAFCT_b.FL = 1;
-	while (R_CACHE->IFCAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
+
+	if (!WAIT_FOR(R_CACHE->IFCAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL)) {
+		return -ETIMEDOUT;
 	}
+
 	return 0;
 }
 
 int arch_icache_invd_all(void)
 {
 	R_CACHE->IFCAFCT_b.FL = 1;
-	while (R_CACHE->IFCAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
+
+	if (!WAIT_FOR(R_CACHE->IFCAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL)) {
+		return -ETIMEDOUT;
 	}
+
 	return 0;
 }
 
 int arch_icache_flush_and_invd_all(void)
 {
 	R_CACHE->IFCAFCT_b.FL = 1;
-	while (R_CACHE->IFCAFCT_b.FL != 0)
-	{
-		/* Wait until cache is enabled and ready */
+
+	if (!WAIT_FOR(R_CACHE->IFCAFCT_b.FL == 0, CACHE_FLUSH_TIMEOUT_US, NULL)) {
+		return -ETIMEDOUT;
 	}
+
 	return 0;
 }
 
@@ -126,25 +126,21 @@ int arch_icache_flush_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_icache_flush_and_invd_all();
-	return 0;
+	return arch_icache_flush_and_invd_all();
 }
 
 int arch_icache_invd_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_icache_flush_and_invd_all();
-	return 0;
+	return arch_icache_flush_and_invd_all();
 }
 
 int arch_icache_flush_and_invd_range(void *start_addr, size_t size)
 {
 	ARG_UNUSED(start_addr);
 	ARG_UNUSED(size);
-	arch_icache_flush_and_invd_all();
-
-	return 0;
+	return arch_icache_flush_and_invd_all();
 }
 
 void arch_cache_init(void)

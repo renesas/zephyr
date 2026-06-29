@@ -21,8 +21,16 @@ struct _callee_saved {
 
 typedef struct _callee_saved _callee_saved_t;
 
+/* Forward declaration; full definition in <zephyr/arch/rx/mpu.h>. */
+struct rx_mpu_map;
+
 struct _thread_arch {
+#ifdef CONFIG_USERSPACE
+	/* Active MPU map (points at the thread's memory-domain map). */
+	struct rx_mpu_map *mpu_map;
+#else
 	/* empty */
+#endif
 };
 
 typedef struct _thread_arch _thread_arch_t;

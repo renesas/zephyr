@@ -81,4 +81,47 @@ struct rx_mpu_map {
  */
 void rx_mpu_init(void);
 
+/**
+ * @brief Program a software MPU map into the hardware regions.
+ *
+ * Writes all RX_MPU_NUM_ENTRIES regions of @p map to the MPU. Used at boot for
+ * the foreground kernel map and (with CONFIG_USERSPACE) on every context switch
+ * for the active thread's memory-domain map.
+ *
+ * @param map Pointer to the software MPU map to flush to hardware.
+ */
+void rx_mpu_map_write(struct rx_mpu_map *map);
+
+#if defined(CONFIG_USERSPACE)
+/*
+ * Memory domain / partition support.
+ *
+ * The RX MPU only checks user mode, so a partition attribute encodes the
+ * user-mode access rights (UAC); the privileged side is always RWX. The
+ * K_MEM_PARTITION_* names follow the generic Zephyr convention even though the
+ * "P_" half is nominal on this hardware.
+ */
+typedef uint8_t k_mem_partition_attr_t;
+
+/** @brief Per-domain architecture data: one software MPU map. */
+struct arch_mem_domain {
+	struct rx_mpu_map mpu_map;
+};
+
+/** @brief Grant initial user-mode permissions to a thread's stack. */
+void rx_user_stack_perms(struct k_thread *thread);
+
+/* User write permission is UAC bit 1, execute is UAC bit 0. */
+#define K_MEM_PARTITION_IS_WRITABLE(attr)   (((attr) & BIT(1)) != 0)
+#define K_MEM_PARTITION_IS_EXECUTABLE(attr) (((attr) & BIT(0)) != 0)
+
+/* Common partition access-permission attributes (user-mode rights). */
+#define K_MEM_PARTITION_P_RW_U_RW   ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_RW)
+#define K_MEM_PARTITION_P_RW_U_NA   ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_NA)
+#define K_MEM_PARTITION_P_RO_U_RO   ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_R)
+#define K_MEM_PARTITION_P_RO_U_NA   ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_NA)
+#define K_MEM_PARTITION_P_RX_U_RX   ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_RX)
+#define K_MEM_PARTITION_P_RWX_U_RWX ((k_mem_partition_attr_t)RX_MPU_ACCESS_P_RWX_U_RWX)
+#endif /* CONFIG_USERSPACE */
+
 #endif /* ZEPHYR_INCLUDE_ARCH_RX_MPU_H */
