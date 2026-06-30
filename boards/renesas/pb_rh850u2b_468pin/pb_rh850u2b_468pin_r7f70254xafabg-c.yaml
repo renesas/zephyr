@@ -13,7 +13,7 @@ supported:
   - pinctrl
   - timer
   - uart
-  - iic
+  - i2c
   - crc
   - watchdog
   - spi

@@ -12,7 +12,7 @@ supported:
   - pinctrl
   - interrupt_controller
   - rtc
-  - iic
+  - i2c
   - spi
   - crc
   - uart

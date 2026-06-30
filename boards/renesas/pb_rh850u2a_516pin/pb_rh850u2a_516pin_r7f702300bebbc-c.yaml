@@ -11,7 +11,7 @@ supported:
   - gpio
   - pinctrl
   - interrupt_controller
-  - iic
+  - i2c
   - rtc
   - spi
   - uart
