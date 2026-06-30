@@ -26,6 +26,8 @@
 		zephyr,flash-controller = &mram;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,entropy = &trng;
+		zephyr,dtcm = &dtcm;
+		zephyr,itcm = &itcm;
 	};
 
 	leds {

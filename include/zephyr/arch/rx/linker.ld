@@ -350,9 +350,70 @@ SECTIONS
 
 #include <zephyr/linker/common-noinit.ld>
 
-	_image_ram_end = .;
-	_end = .;
-	PROVIDE(__end = _end);
+#if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
+GROUP_START(ITCM)
+
+	SECTION_PROLOGUE(_ITCM_SECTION_NAME,,SUBALIGN(8))
+	{
+		PLACE_SYMBOL_HERE(__itcm_start);
+		*(.itcm)
+		*(".itcm.*")
+
+/* Located in generated directory. This file is populated by the
+ * zephyr_linker_sources() Cmake function. */
+#include <snippets-itcm-section.ld>
+
+		PLACE_SYMBOL_HERE(__itcm_end);
+	} GROUP_LINK_IN(ITCM AT> ROMABLE_REGION)
+
+	___itcm_size = __itcm_end - __itcm_start;
+	___itcm_load_start = LOADADDR(_ITCM_SECTION_NAME);
+	PROVIDE(__itcm_size = ___itcm_size);
+	PROVIDE(__itcm_load_start = ___itcm_load_start);
+
+GROUP_END(ITCM)
+#endif
+
+#if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
+GROUP_START(DTCM)
+
+	SECTION_PROLOGUE(_DTCM_BSS_SECTION_NAME, (NOLOAD),SUBALIGN(8))
+	{
+		PLACE_SYMBOL_HERE(__dtcm_start);
+		PLACE_SYMBOL_HERE(__dtcm_bss_start);
+		*(.dtcm_bss)
+		*(".dtcm_bss.*")
+		PLACE_SYMBOL_HERE(__dtcm_bss_end);
+	} GROUP_LINK_IN(DTCM)
+
+	SECTION_PROLOGUE(_DTCM_NOINIT_SECTION_NAME, (NOLOAD),SUBALIGN(8))
+	{
+		PLACE_SYMBOL_HERE(__dtcm_noinit_start);
+		*(.dtcm_noinit)
+		*(".dtcm_noinit.*")
+		PLACE_SYMBOL_HERE(__dtcm_noinit_end);
+	} GROUP_LINK_IN(DTCM)
+
+	SECTION_PROLOGUE(_DTCM_DATA_SECTION_NAME,,SUBALIGN(8))
+	{
+		PLACE_SYMBOL_HERE(__dtcm_data_start);
+		*(.dtcm_data)
+		*(".dtcm_data.*")
+
+/* Located in generated directory. This file is populated by the
+ * zephyr_linker_sources() Cmake function. */
+#include <snippets-dtcm-section.ld>
+
+		PLACE_SYMBOL_HERE(__dtcm_data_end);
+	} GROUP_LINK_IN(DTCM AT> ROMABLE_REGION)
+
+	PLACE_SYMBOL_HERE(__dtcm_end);
+
+	___dtcm_data_load_start = LOADADDR(_DTCM_DATA_SECTION_NAME);
+	PROVIDE(__dtcm_data_load_start = ___dtcm_data_load_start);
+
+GROUP_END(DTCM)
+#endif
 
 /* Located in generated directory. This file is populated by the
  * zephyr_linker_sources() Cmake function.
