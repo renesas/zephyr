@@ -9,6 +9,7 @@
 #include <zephyr/ztest.h>
 
 #include "common.h"
+#include <stdlib.h>
 
 /**
  * @addtogroup t_can_driver
@@ -685,6 +686,7 @@ static void add_remove_max_filters(bool ide)
 		.mask = id_mask,
 	};
 	int filter_id;
+	int *filter_ids;
 	int max;
 	int i;
 
@@ -699,7 +701,7 @@ static void add_remove_max_filters(bool ide)
 
 	zassert_true(max > 0, "failed to get max filters (err %d)", max);
 
-	int filter_ids[max];
+	filter_ids = malloc(sizeof(*filter_ids) * max);
 
 	for (i = 0; i < max; i++) {
 		filter.id++;
