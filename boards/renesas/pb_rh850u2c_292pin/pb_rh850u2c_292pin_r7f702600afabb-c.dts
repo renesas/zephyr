@@ -91,13 +91,6 @@
 	};
 };
 
-&etnf0 {
-	pinctrl-0 = <&etnf0_default>;
-	pinctrl-names = "default";
-	local-mac-address = [74 90 50 12 34 56];
-	status = "okay";
-};
-
 &irq17 {
 	trigger-type = "falling";
 	pinctrl-0 = <&irq17_ioport>;
