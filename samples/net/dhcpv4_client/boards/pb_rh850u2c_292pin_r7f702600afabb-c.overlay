@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&etnf0 {
+	pinctrl-0 = <&etnf0_default>;
+	pinctrl-names = "default";
+	local-mac-address = [74 90 50 12 34 56];
+	status = "okay";
+};
