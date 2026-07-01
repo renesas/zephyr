@@ -58,7 +58,7 @@
 
 	can_phy0: can-phy0 {
 		compatible = "can-transceiver-gpio";
-		standby-gpios = <&ioport13 0 GPIO_ACTIVE_HIGH>;
+		standby-gpios = <&ioport24 4 GPIO_ACTIVE_HIGH>;
 		max-bitrate = <8000000>;
 		#phy-cells = <0>;
 	};
@@ -97,18 +97,6 @@
 		current-speed = <115200>;
 		status = "okay";
 	};
-};
-
-&canfd_global {
-	status = "okay";
-};
-
-&canfd0 {
-	pinctrl-0 = <&canfd0_default>;
-	pinctrl-names = "default";
-	status = "okay";
-	rx-max-filters = <128>;
-	phys = <&can_phy0>;
 };
 
 &etnf0 {
@@ -160,5 +148,21 @@
 };
 
 &crc0 {
+	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
+};
+
+&ioport24 {
 	status = "okay";
 };

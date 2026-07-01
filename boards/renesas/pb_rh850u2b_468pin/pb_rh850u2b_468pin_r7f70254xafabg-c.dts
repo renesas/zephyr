@@ -99,18 +99,6 @@
 	};
 };
 
-&canfd_global {
-	status = "okay";
-};
-
-&canfd0 {
-	pinctrl-0 = <&canfd0_default>;
-	pinctrl-names = "default";
-	status = "okay";
-	rx-max-filters = <128>;
-	phys = <&can_phy0>;
-};
-
 &irq35 {
 	trigger-type = "falling";
 	pinctrl-0 = <&irq35_ioport>;
@@ -163,6 +151,18 @@
 
 &crc0 {
 	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
 };
 
 &ioport13 {

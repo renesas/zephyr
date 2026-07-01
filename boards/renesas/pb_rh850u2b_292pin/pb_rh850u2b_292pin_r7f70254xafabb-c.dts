@@ -112,18 +112,6 @@
 	status = "okay";
 };
 
-&canfd_global {
-	status = "okay";
-};
-
-&canfd0 {
-	pinctrl-0 = <&canfd0_default>;
-	pinctrl-names = "default";
-	status = "okay";
-	rx-max-filters = <128>;
-	phys = <&can_phy0>;
-};
-
 &ioport11 {
 	status = "okay";
 };
@@ -163,6 +151,19 @@
 &crc0 {
 	status = "okay";
 };
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
+};
+
 &ioport13 {
 	status = "okay";
 };

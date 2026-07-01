@@ -5,8 +5,7 @@
 
 /dts-v1/;
 
-#include <dt-bindings/input/input-event-codes.h>
-#include <rh850/renesas/rh850u2a/r7f702300aebbc-c.dtsi>
+#include <rh850/renesas/rh850u2a/r7f702300bebbc-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
 
@@ -58,7 +57,7 @@
 
 	can_phy0: can-phy0 {
 		compatible = "can-transceiver-gpio";
-		standby-gpios = <&ioport13 0 GPIO_ACTIVE_HIGH>;
+		standby-gpios = <&ioport10 4 GPIO_ACTIVE_HIGH>;
 		max-bitrate = <8000000>;
 		#phy-cells = <0>;
 	};
@@ -111,16 +110,6 @@
 	pinctrl-names = "default";
 	channel = <0>;
 	status = "okay";
-&canfd_global {
-	status = "okay";
-};
-
-&canfd0 {
-	pinctrl-0 = <&canfd0_default>;
-	pinctrl-names = "default";
-	status = "okay";
-	rx-max-filters = <128>;
-	phys = <&can_phy0>;
 };
 
 &ioport11 {
@@ -149,6 +138,18 @@
 	status = "okay";
 };
 
-&ioport13 {
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
+};
+
+&ioport10 {
 	status = "okay";
 };

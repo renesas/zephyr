@@ -57,7 +57,7 @@
 
 	can_phy0: can-phy0 {
 		compatible = "can-transceiver-gpio";
-		standby-gpios = <&ioport24 4 GPIO_ACTIVE_HIGH>;
+		standby-gpios = <&ioport10 4 GPIO_ACTIVE_HIGH>;
 		max-bitrate = <8000000>;
 		#phy-cells = <0>;
 	};
@@ -123,6 +123,7 @@
 	rx-max-filters = <128>;
 	phys = <&can_phy0>;
 };
+
 &ioport11 {
 	status = "okay";
 };
@@ -148,6 +149,7 @@
 &crc0 {
 	status = "okay";
 };
-&ioport24 {
+
+&ioport10 {
 	status = "okay";
 };
