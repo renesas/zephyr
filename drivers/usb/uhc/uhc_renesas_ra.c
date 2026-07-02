@@ -20,8 +20,6 @@ LOG_MODULE_REGISTER(uhc_renesas_ra, CONFIG_UHC_DRIVER_LOG_LEVEL);
 enum uhc_renesas_ra_event_type {
 	/* Shim driver event to trigger next transfer */
 	UHC_RENESAS_RA_EVT_XFER,
-	/* Device speed check, typically performed after a RESET signal is issued */
-	UHC_RENESAS_RA_EVT_POLL_PORT_SPEED,
 	/* Submit a xfer after complete */
 	UHC_RENESAS_RA_EVT_XFER_SUBMIT,
 	/* Cancel a queued/in-flight xfer on the given endpoint */
@@ -53,7 +51,7 @@ struct uhc_renesas_ra_endpoint {
 };
 
 struct uhc_renesas_ra_data {
-	enum usb_port_speed speed;
+	usb_speed_t speed;
 	struct k_thread thread_data;
 	struct k_msgq msgq;
 	struct st_usbh_instance_ctrl uhc_ctrl;
@@ -92,16 +90,6 @@ static int uhc_renesas_ra_xfer_request(const struct device *dev, uint8_t dev_add
 	};
 
 	return k_msgq_put(&priv->msgq, &event, K_NO_WAIT);
-}
-
-static int uhc_renesas_ra_event_poll_port_speed(const struct device *dev)
-{
-	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-	struct uhc_renesas_ra_evt evt = {
-		.type = UHC_RENESAS_RA_EVT_POLL_PORT_SPEED,
-	};
-
-	return k_msgq_put(&priv->msgq, &evt, K_NO_WAIT);
 }
 
 static int uhc_renesas_ra_lock(const struct device *dev)
@@ -517,24 +505,12 @@ static int uhc_renesas_ra_poll_port_speed(const struct device *dev)
 		}
 	}
 
-		switch (speed) {
-		case USB_SPEED_LS:
-			priv->speed = USB_PORT_SPEED_LS;
-			break;
-		case USB_SPEED_FS:
-			priv->speed = USB_PORT_SPEED_FS;
-			break;
-		case USB_SPEED_HS:
-			priv->speed = USB_PORT_SPEED_HS;
-			break;
-		default:
-			return -EINVAL;
-		}
+	priv->speed = speed;
 
-		uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED, 0);
+	uhc_submit_event(dev, UHC_EVT_RESETED, 0);
 
-		return 0;
-	}
+	return 0;
+}
 
 static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renesas_ra_evt *evt)
 {
@@ -665,9 +641,6 @@ static int uhc_renesas_ra_release_devices(const struct device *dev)
 
 static void uhc_renesas_ra_device_attach(const struct device *dev, usbh_event_t *event)
 {
-	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-	fsp_err_t err;
-
 	if (event->attach.speed == USB_SPEED_INVALID) {
 		LOG_WRN("Spurious attach event");
 		return;
@@ -676,18 +649,9 @@ static void uhc_renesas_ra_device_attach(const struct device *dev, usbh_event_t 
 	/* Drop what was queued for the previous device after it went away */
 	(void)uhc_renesas_ra_release_devices(dev);
 
-	/*
-	 * A high-speed device only switches to high speed during the reset, so
-	 * report the device once the reset has settled its speed.
-	 */
-	err = R_USBH_PortReset(&priv->uhc_ctrl);
-	if (err != FSP_SUCCESS) {
-		return;
-	}
-
-	uhc_renesas_ra_event_poll_port_speed(dev);
+	/* The host stack resets the port and queries its negotiated speed. */
+	uhc_submit_event(dev, UHC_EVT_DEV_CONNECTED, 0);
 }
-
 static void uhc_renesas_ra_device_detach(const struct device *dev, usbh_event_t *hal_evt)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
@@ -698,6 +662,7 @@ static void uhc_renesas_ra_device_detach(const struct device *dev, usbh_event_t 
 		return;
 	}
 
+	priv->speed = USB_SPEED_INVALID;
 	uhc_submit_event(dev, UHC_EVT_DEV_REMOVED, 0);
 }
 
@@ -724,12 +689,6 @@ static void uhc_renesas_ra_thread(void *p1, void *p2, void *p3)
 			ret = uhc_renesas_ra_schedule_xfer(dev, event.dev_addr, event.ep);
 			if (unlikely(ret)) {
 				LOG_WRN("Failed to schedule xfer");
-			}
-			break;
-		case UHC_RENESAS_RA_EVT_POLL_PORT_SPEED:
-			ret = uhc_renesas_ra_poll_port_speed(dev);
-			if (unlikely(ret)) {
-				LOG_WRN("Poll device speed failed with error %d", ret);
 			}
 			break;
 		case UHC_RENESAS_RA_EVT_XFER_SUBMIT:
@@ -785,15 +744,21 @@ static int uhc_renesas_ra_bus_suspend(const struct device *dev)
 
 static int uhc_renesas_ra_bus_reset(const struct device *dev)
 {
-	/*
-	 * TODO: Move the reset performance from the USBH_EVENT_DEVICE_ATTACH event to this
-	 * function. Then, the reset signal will be issued by usbh_core.
-	 *
-	 * This can be done once the high-speed negotiation issue in usbh_core has been fixed.
-	 * See https://github.com/zephyrproject-rtos/zephyr/pull/110022
-	 */
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+	fsp_err_t err;
 
-	return 0;
+	err = R_USBH_PortReset(&priv->uhc_ctrl);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
+
+	/*
+	 * The host stack reads the negotiated speed synchronously via
+	 * get_speed() immediately after this call returns, so the speed must be
+	 * resolved here (reading RHST once SE0 has ended) rather than from an
+	 * asynchronous worker.
+	 */
+	return uhc_renesas_ra_poll_port_speed(dev);
 }
 
 static int uhc_renesas_ra_bus_resume(const struct device *dev)
@@ -809,6 +774,22 @@ static int uhc_renesas_ra_bus_resume(const struct device *dev)
 	uhc_submit_event(dev, UHC_EVT_RESUMED, 0);
 
 	return 0;
+}
+
+static enum usb_port_speed uhc_renesas_ra_get_speed(const struct device *dev)
+{
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+
+	switch (priv->speed) {
+	case USB_SPEED_LS:
+		return USB_PORT_SPEED_LS;
+	case USB_SPEED_FS:
+		return USB_PORT_SPEED_FS;
+	case USB_SPEED_HS:
+		return USB_PORT_SPEED_HS;
+	default:
+		return USB_PORT_SPEED_UNKNOWN;
+	}
 }
 
 static int uhc_renesas_ra_init(const struct device *dev)
@@ -908,13 +889,6 @@ static int uhc_renesas_ra_shutdown(const struct device *dev)
 	return 0;
 }
 
-static enum usb_port_speed uhc_renesas_ra_get_speed(const struct device *dev)
-{
-	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-
-	return priv->speed;
-}
-
 static DEVICE_API(uhc, uhc_renesas_ra_api) = {
 	.lock = uhc_renesas_ra_lock,
 	.unlock = uhc_renesas_ra_unlock,
@@ -926,10 +900,9 @@ static DEVICE_API(uhc, uhc_renesas_ra_api) = {
 	.sof_enable = uhc_renesas_ra_sof_enable,
 	.bus_suspend = uhc_renesas_ra_bus_suspend,
 	.bus_resume = uhc_renesas_ra_bus_resume,
+	.get_speed = uhc_renesas_ra_get_speed,
 	.ep_enqueue = uhc_renesas_ra_ep_enqueue,
 	.ep_dequeue = uhc_renesas_ra_ep_dequeue,
-
-	.get_speed = uhc_renesas_ra_get_speed,
 };
 
 static void uhc_renesas_ra_event_xfer_complete(const struct device *dev, usbh_event_t *hal_evt)
