@@ -20,7 +20,8 @@ _z_rx_irq_exit:
 
     ; Get the next thread to schedule
     mov #0,r1                         ; Use r1 to pass NULL since we haven't saved the context yet
-    bsr _z_get_next_switch_handle     ; Call the function
+    mov #_z_get_next_switch_handle, r3 ; Indirect call — works when target is in SRAM (out of BSR range)
+    jsr r3                             ; Call the function
 
     ; The return value of z_get_next_switch_handle will now be in r1
     ; Restore old_thread from the stack
