@@ -1,0 +1,62 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RCar Multi Protocol PHY (MP-PHY)
+
+compatible: "renesas,rcar-mp-phy"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  interface-names:
+    type: string-array
+    required: true
+    enum:
+      - "pci0"
+      - "pci1"
+      - "ethernet"
+      - "usb"
+    description: |
+        Names of the physical interface connected to each PHY channel.
+        Each entry corresponds to a channel index (entry 0 → channel 0, etc.).
+
+        Supported interface names:
+          - "pci0"     : PCIe controller channel 0
+          - "pci1"     : PCIe controller channel 1
+          - "ethernet" : Ethernet interface
+          - "usb"      : USB interface
+
+        The configuration is fixed by hardware design and must match the
+        actual board routing. It is used by the driver to configure internal
+        multiplexing and validate runtime PHY mode requests.
+
+  ref-use-pad:
+    type: int
+    required: true
+    description: |
+      Bitmask indicating which PHY channels use the external pad reference clock.
+      Each bit corresponds to a channel index (bit 0 → channel 0, ..., bit 3 → channel 3).
+      When a bit is set, the corresponding channel uses the pad (external) reference clock;
+      Otherwise, it uses the repeat reference clock source.
+
+  ref-repeat-clk-en:
+    type: int
+    required: true
+    description: |
+      Bitmask indicating which PHY channels enable the repeat clock.
+      Each bit corresponds to a channel index (bit 0 → channel 0, ..., bit 3 → channel 3).
+      When a bit is set, the repeat clock is enabled for the corresponding channel.
+
+  "#phy-cells":
+    type: int
+    const: 2
+
+phy-cells:
+  - channel
+  - lane

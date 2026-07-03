@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Renesas RCar Multi Protocol PHY Option
+
+config RENESAS_RCAR_MP_PHY
+	bool "Renesas RCar Multi Protocol PHY Driver"
+	depends on DT_HAS_RENESAS_RCAR_MP_PHY_ENABLED
+	help
+	  Enable config options for Renesas RCar Multi Protocol PHY
+
+if RENESAS_RCAR_MP_PHY
+
+config RENESAS_RCAR_MP_PHY_NUM_CHANNELS
+	int "Number of MP-PHY channels"
+	default 4
+	help
+	  Specifies the number of PHY channels supported by the
+	  Renesas R-Car Multi Protocol PHY.
+
+	  Each channel represents one PHY instance, which may be
+	  connected to a PCIe, Ethernet, or USB controller depending
+	  on the hardware configuration.
+
+	  This value should match the capabilities of the target SoC
+	  and the hardware design. In most R-Car Gen5 systems, this
+	  is fixed to 4 channels.
+
+endif
