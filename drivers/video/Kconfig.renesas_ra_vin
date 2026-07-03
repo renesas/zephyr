@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config VIDEO_RENESAS_RA_VIN
+	bool
+	default y
+	depends on DT_HAS_RENESAS_RA_VIN_ENABLED
+	select PINCTRL
+	select CLOCK_CONTROL
+	select USE_RA_FSP_VIN
+	select USE_RA_FSP_MIPI_CSI
+	help
+	  Enable Renesas RA VIN driver.

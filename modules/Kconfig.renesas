@@ -226,6 +226,11 @@ config USE_RA_FSP_MIPI_DSI
 	help
 	  Enable RA FSP MIPI DSI driver
 
+config USE_RA_FSP_MIPI_CSI
+	bool
+	help
+	  Enable RA FSP MIPI CSI driver
+
 config USE_RA_FSP_SDHI
 	bool
 	help
@@ -309,6 +314,11 @@ config USE_RA_FSP_CEU
 	bool
 	help
 	  Enable RA FSP CEU driver
+
+config USE_RA_FSP_VIN
+	bool
+	help
+	  Enable RA FSP VIN driver
 
 config USE_RA_FSP_IPC
 	bool
