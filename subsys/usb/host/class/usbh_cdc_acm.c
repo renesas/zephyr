@@ -31,14 +31,14 @@ LOG_MODULE_REGISTER(usbh_cdc_acm, CONFIG_USBH_CDC_ACM_LOG_LEVEL);
  * and the communication feature requests (D0) are not implemented.
  */
 
-#define CDC_ACM_DEFAULT_LINECODING	{sys_cpu_to_le32(115200), 0, 0, 8}
+#define CDC_ACM_DEFAULT_LINECODING {sys_cpu_to_le32(115200), 0, 0, 8}
 
 /*
  * Abstract Control Management bmCapabilities D1: device supports the request
  * combination of Set_Line_Coding, Set_Control_Line_State, Get_Line_Coding and
  * the notification Serial_State (PSTN120.pdf, 5.3.2, Table 4).
  */
-#define CDC_ACM_CAP_LINE_CODING		BIT(1)
+#define CDC_ACM_CAP_LINE_CODING BIT(1)
 
 /* Net buffer user data carrying the original (user) buffer pointer. */
 struct cdc_acm_buf_ud {
@@ -49,21 +49,19 @@ struct cdc_acm_buf_ud {
  * Each instance can have a TX, an active RX and a pending RX (ping-pong)
  * buffer allocated at the same time.
  */
-#define USBH_CDC_ACM_BUF_COUNT		(3 * CONFIG_USBH_CDC_ACM_INSTANCES_COUNT)
+#define USBH_CDC_ACM_BUF_COUNT (3 * CONFIG_USBH_CDC_ACM_INSTANCES_COUNT)
 
 /*
  * Pool for wrapping DMA-able user buffers without copying. The buffers carry no
  * data of their own.
  */
-NET_BUF_POOL_DEFINE(host_cdc_acm_pool_0,
-		    USBH_CDC_ACM_BUF_COUNT, 0, sizeof(struct cdc_acm_buf_ud), NULL);
+NET_BUF_POOL_DEFINE(host_cdc_acm_pool_0, USBH_CDC_ACM_BUF_COUNT, 0, sizeof(struct cdc_acm_buf_ud),
+		    NULL);
 
 #if defined(CONFIG_USBH_CDC_ACM_BOUNCE)
 /* Pool for bounce buffers, used when the submitted buffer is not DMA-able. */
-USB_BUF_POOL_VAR_DEFINE(host_cdc_acm_bounce_pool,
-			USBH_CDC_ACM_BUF_COUNT,
-			CONFIG_USBH_CDC_ACM_INSTANCES_COUNT *
-				CONFIG_USBH_CDC_ACM_BOUNCE_POOL_SIZE,
+USB_BUF_POOL_VAR_DEFINE(host_cdc_acm_bounce_pool, USBH_CDC_ACM_BUF_COUNT,
+			CONFIG_USBH_CDC_ACM_INSTANCES_COUNT *CONFIG_USBH_CDC_ACM_BOUNCE_POOL_SIZE,
 			sizeof(struct cdc_acm_buf_ud), NULL);
 #endif
 
@@ -103,6 +101,8 @@ struct cdc_acm_uart_data {
 	bool line_state_dtr;
 	/* Hardware (RTS/CTS) flow control enabled */
 	bool flow_ctrl;
+	/* ZLP needed flag: set when last TX was multiple of MPS */
+	bool zlp_needed;
 
 	/* Mutex protecting the TX and RX state */
 	struct k_mutex mutex;
@@ -137,20 +137,20 @@ struct cdc_acm_uart_data {
 	void *async_cb_data;
 };
 
-static int cdc_acm_tx_cb(struct usb_device *const udev,
-			 struct uhc_transfer *const xfer);
+static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *const xfer);
 
-static int cdc_acm_rx_cb(struct usb_device *const udev,
-			 struct uhc_transfer *const xfer);
+static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *const xfer);
 
-static int cdc_acm_notif_cb(struct usb_device *const udev,
-			    struct uhc_transfer *const xfer);
+static int cdc_acm_tx_zlp_locked(struct cdc_acm_uart_data *const data,
+				 struct usb_device *const udev);
 
-static void cdc_acm_poll_cb(const struct device *dev,
-			    struct uart_event *const evt, void *const user_data);
+static int cdc_acm_notif_cb(struct usb_device *const udev, struct uhc_transfer *const xfer);
 
-static int cdc_acm_callback_set(const struct device *dev,
-				const uart_callback_t callback, void *const user_data)
+static void cdc_acm_poll_cb(const struct device *dev, struct uart_event *const evt,
+			    void *const user_data);
+
+static int cdc_acm_callback_set(const struct device *dev, const uart_callback_t callback,
+				void *const user_data)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	int ret = 0;
@@ -170,8 +170,7 @@ static int cdc_acm_callback_set(const struct device *dev,
 	return ret;
 }
 
-static void cdc_acm_uart_evt(struct cdc_acm_uart_data *const data,
-			     struct uart_event *const evt)
+static void cdc_acm_uart_evt(struct cdc_acm_uart_data *const data, struct uart_event *const evt)
 {
 	if (data->async_cb != NULL) {
 		data->async_cb(data->dev, evt, data->async_cb_data);
@@ -232,8 +231,7 @@ static void cdc_acm_update_uart_cfg(struct cdc_acm_uart_data *const data)
 		break;
 	}
 
-	cfg->flow_ctrl = data->flow_ctrl ? UART_CFG_FLOW_CTRL_RTS_CTS :
-					   UART_CFG_FLOW_CTRL_NONE;
+	cfg->flow_ctrl = data->flow_ctrl ? UART_CFG_FLOW_CTRL_RTS_CTS : UART_CFG_FLOW_CTRL_NONE;
 }
 
 static int cdc_acm_set_line_coding(struct cdc_acm_uart_data *const data,
@@ -253,8 +251,8 @@ static int cdc_acm_set_line_coding(struct cdc_acm_uart_data *const data,
 
 	net_buf_add_mem(buf, line_coding, sizeof(*line_coding));
 
-	ret = usbh_req_setup(udev, bmRequestType, SET_LINE_CODING, 0,
-			     data->ctrl_iface, sizeof(*line_coding), buf);
+	ret = usbh_req_setup(udev, bmRequestType, SET_LINE_CODING, 0, data->ctrl_iface,
+			     sizeof(*line_coding), buf);
 	if (ret != 0) {
 		LOG_ERR("Failed to set line coding: %d", ret);
 	}
@@ -273,8 +271,8 @@ static int cdc_acm_set_control_line_state(struct cdc_acm_uart_data *const data,
 	struct usb_device *const udev = data->c_data->udev;
 	int ret;
 
-	ret = usbh_req_setup(udev, bmRequestType, SET_CONTROL_LINE_STATE,
-			     line_state, data->ctrl_iface, 0, NULL);
+	ret = usbh_req_setup(udev, bmRequestType, SET_CONTROL_LINE_STATE, line_state,
+			     data->ctrl_iface, 0, NULL);
 	if (ret != 0) {
 		LOG_ERR("Failed to set control line state: %d", ret);
 	}
@@ -385,15 +383,13 @@ static void cdc_acm_tx_timeout_work(struct k_work *const work)
  * data is copied into it here, for RX it is copied back on completion. The
  * original user buffer pointer is stored in the net_buf user data.
  */
-static struct net_buf *cdc_acm_buf_alloc(uint8_t *const user_buf,
-					 const size_t len, const bool tx)
+static struct net_buf *cdc_acm_buf_alloc(uint8_t *const user_buf, const size_t len, const bool tx)
 {
 	struct cdc_acm_buf_ud *ud;
 	struct net_buf *buf;
 
 	if (IS_USB_BUF_ALIGNED(user_buf)) {
-		buf = net_buf_alloc_with_data(&host_cdc_acm_pool_0,
-					      user_buf, len, K_NO_WAIT);
+		buf = net_buf_alloc_with_data(&host_cdc_acm_pool_0, user_buf, len, K_NO_WAIT);
 		if (buf == NULL) {
 			LOG_ERR("Failed to allocate buffer");
 			return NULL;
@@ -426,8 +422,8 @@ static struct net_buf *cdc_acm_buf_alloc(uint8_t *const user_buf,
 	return buf;
 }
 
-static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf,
-		      const size_t len, const int32_t timeout)
+static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf, const size_t len,
+		      const int32_t timeout)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	struct usbh_class_data *const c_data = data->c_data;
@@ -456,6 +452,14 @@ static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf,
 	if (data->tx_xfer != NULL) {
 		ret = -EBUSY;
 		goto unlock;
+	}
+
+	if (data->zlp_needed) {
+		ret = cdc_acm_tx_zlp_locked(data, udev);
+		if (ret != 0) {
+			LOG_WRN("Failed to send ZLP: %d", ret);
+			goto unlock;
+		}
 	}
 
 	buf = cdc_acm_buf_alloc((uint8_t *)tx_buf, len, true);
@@ -495,14 +499,72 @@ static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf,
 	 * transfer is allowed to wait for the device to accept the data.
 	 */
 	if (data->flow_ctrl && timeout != SYS_FOREVER_US) {
-		k_work_schedule_for_queue(&cdc_acm_work_q, &data->tx_timeout_work,
-					  K_USEC(timeout));
+		k_work_schedule_for_queue(&cdc_acm_work_q, &data->tx_timeout_work, K_USEC(timeout));
 	}
 
 unlock:
 	k_mutex_unlock(&data->mutex);
 
 	return ret;
+}
+
+/* Caller must hold data->mutex. */
+static int cdc_acm_tx_zlp_locked(struct cdc_acm_uart_data *const data,
+				 struct usb_device *const udev)
+{
+	struct uhc_transfer *xfer;
+	struct net_buf *buf;
+	struct cdc_acm_buf_ud *ud;
+	int ret;
+
+	if (!data->zlp_needed) {
+		return 0;
+	}
+
+	if (udev == NULL) {
+		return -ENODEV;
+	}
+
+	if (data->tx_xfer != NULL) {
+		return -EBUSY;
+	}
+
+	buf = net_buf_alloc_len(&host_cdc_acm_pool_0, 0, K_NO_WAIT);
+	if (buf == NULL) {
+		return -ENOBUFS;
+	}
+
+	ud = net_buf_user_data(buf);
+	ud->user_buf = NULL;
+
+	xfer = usbh_xfer_alloc(udev, data->out_ep, cdc_acm_tx_cb, data);
+	if (xfer == NULL) {
+		LOG_ERR("Failed to allocate transfer for ZLP");
+		net_buf_unref(buf);
+		return -ENOBUFS;
+	}
+
+	ret = usbh_xfer_buf_add(udev, xfer, buf);
+	if (ret != 0) {
+		LOG_ERR("Failed to setup ZLP transfer");
+		net_buf_unref(buf);
+		usbh_xfer_free(udev, xfer);
+		return ret;
+	}
+
+	data->tx_xfer = xfer;
+
+	ret = usbh_xfer_enqueue(udev, xfer);
+	if (ret != 0) {
+		LOG_ERR("Failed to enqueue ZLP transfer");
+		data->tx_xfer = NULL;
+		net_buf_unref(buf);
+		usbh_xfer_free(udev, xfer);
+		return ret;
+	}
+
+	data->zlp_needed = false;
+	return 0;
 }
 
 static int cdc_acm_tx_abort(const struct device *dev)
@@ -563,8 +625,8 @@ static struct uhc_transfer *cdc_acm_rx_xfer_alloc(struct cdc_acm_uart_data *cons
 	return xfer;
 }
 
-static int cdc_acm_rx_enable(const struct device *dev, uint8_t *const buf,
-			     const size_t len, const int32_t timeout)
+static int cdc_acm_rx_enable(const struct device *dev, uint8_t *const buf, const size_t len,
+			     const int32_t timeout)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	struct usb_device *const udev = data->c_data->udev;
@@ -625,8 +687,7 @@ unlock:
 	return ret;
 }
 
-static int cdc_acm_rx_buf_rsp(const struct device *dev, uint8_t *const buf,
-			      const size_t len)
+static int cdc_acm_rx_buf_rsp(const struct device *dev, uint8_t *const buf, const size_t len)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	struct uhc_transfer *xfer;
@@ -748,8 +809,7 @@ static int cdc_acm_poll_in(const struct device *dev, unsigned char *const c)
 
 	k_mutex_lock(&data->mutex, K_FOREVER);
 
-	if ((data->async_cb != NULL && data->async_cb != cdc_acm_poll_cb) ||
-	    data->poll_in_active) {
+	if ((data->async_cb != NULL && data->async_cb != cdc_acm_poll_cb) || data->poll_in_active) {
 		k_mutex_unlock(&data->mutex);
 		return -EBUSY;
 	}
@@ -845,8 +905,7 @@ static void cdc_acm_poll_out(const struct device *dev, const unsigned char c)
 }
 
 #ifdef CONFIG_UART_LINE_CTRL
-static int cdc_acm_set_baud_rate(struct cdc_acm_uart_data *const data,
-				 const uint32_t baudrate)
+static int cdc_acm_set_baud_rate(struct cdc_acm_uart_data *const data, const uint32_t baudrate)
 {
 	struct cdc_acm_line_coding line_coding;
 	int ret;
@@ -867,8 +926,8 @@ static int cdc_acm_set_baud_rate(struct cdc_acm_uart_data *const data,
 	return ret;
 }
 
-static int cdc_acm_set_line_state(struct cdc_acm_uart_data *const data,
-				  const uint16_t mask, const uint32_t val)
+static int cdc_acm_set_line_state(struct cdc_acm_uart_data *const data, const uint16_t mask,
+				  const uint32_t val)
 {
 	uint16_t line_state;
 	int ret;
@@ -896,8 +955,7 @@ static int cdc_acm_set_line_state(struct cdc_acm_uart_data *const data,
 	return ret;
 }
 
-static int cdc_acm_line_ctrl_set(const struct device *dev,
-				 const uint32_t ctrl, const uint32_t val)
+static int cdc_acm_line_ctrl_set(const struct device *dev, const uint32_t ctrl, const uint32_t val)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 
@@ -926,8 +984,7 @@ static int cdc_acm_line_ctrl_set(const struct device *dev,
 	return -ENOTSUP;
 }
 
-static int cdc_acm_line_ctrl_get(const struct device *dev,
-				 const uint32_t ctrl, uint32_t *const val)
+static int cdc_acm_line_ctrl_get(const struct device *dev, const uint32_t ctrl, uint32_t *const val)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	int ret = 0;
@@ -972,8 +1029,7 @@ static int cdc_acm_line_ctrl_get(const struct device *dev,
 #endif
 
 #ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
-static int cdc_acm_configure(const struct device *dev,
-			     const struct uart_config *const cfg)
+static int cdc_acm_configure(const struct device *dev, const struct uart_config *const cfg)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 	struct cdc_acm_line_coding line_coding;
@@ -1071,8 +1127,7 @@ static int cdc_acm_configure(const struct device *dev,
 	return 0;
 }
 
-static int cdc_acm_config_get(const struct device *dev,
-			      struct uart_config *const cfg)
+static int cdc_acm_config_get(const struct device *dev, struct uart_config *const cfg)
 {
 	struct cdc_acm_uart_data *const data = dev->data;
 
@@ -1103,25 +1158,31 @@ static DEVICE_API(uart, cdc_acm_uart_api) = {
 	.rx_disable = cdc_acm_rx_disable,
 };
 
-static int cdc_acm_tx_cb(struct usb_device *const udev,
-			 struct uhc_transfer *const xfer)
+static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
 	struct cdc_acm_uart_data *const data = xfer->priv;
 	struct net_buf *const buf = xfer->buf;
 	const struct cdc_acm_buf_ud *const ud = net_buf_user_data(buf);
 	struct uart_event evt;
+	size_t len;
+	bool is_zlp;
 
 	/*
 	 * The controller consumes the OUT buffer, so the number of bytes
 	 * transferred is the difference between the original buffer size and
 	 * the data left in it.
 	 */
-	evt.data.tx.len = buf->size - buf->len;
+	len = buf->size - buf->len;
+	is_zlp = (ud->user_buf == NULL);
+	evt.data.tx.len = len;
 	evt.data.tx.buf = ud->user_buf;
 
 	if (xfer->err == 0) {
 		LOG_DBG("Transfer %p finished", (void *)xfer);
 		evt.type = UART_TX_DONE;
+		if (!is_zlp) {
+			data->zlp_needed = len != 0 && len % xfer->mps == 0;
+		}
 	} else {
 		if (xfer->err != -ECONNRESET) {
 			LOG_ERR("Transfer failed with error %d", xfer->err);
@@ -1134,7 +1195,9 @@ static int cdc_acm_tx_cb(struct usb_device *const udev,
 	k_mutex_lock(&data->mutex, K_FOREVER);
 	k_work_cancel_delayable(&data->tx_timeout_work);
 	data->tx_xfer = NULL;
-	cdc_acm_uart_evt(data, &evt);
+	if (!is_zlp) {
+		cdc_acm_uart_evt(data, &evt);
+	}
 	k_mutex_unlock(&data->mutex);
 
 	net_buf_unref(buf);
@@ -1143,8 +1206,7 @@ static int cdc_acm_tx_cb(struct usb_device *const udev,
 	return 0;
 }
 
-static int cdc_acm_rx_cb(struct usb_device *const udev,
-			 struct uhc_transfer *const xfer)
+static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
 	struct cdc_acm_uart_data *const data = xfer->priv;
 	struct net_buf *const buf = xfer->buf;
@@ -1213,8 +1275,7 @@ static int cdc_acm_rx_cb(struct usb_device *const udev,
 
 	/* Reception stopped, release any pending next buffer and disable. */
 	if (data->rx_next_xfer != NULL) {
-		const struct cdc_acm_buf_ud *next_ud =
-			net_buf_user_data(data->rx_next_xfer->buf);
+		const struct cdc_acm_buf_ud *next_ud = net_buf_user_data(data->rx_next_xfer->buf);
 
 		evt.type = UART_RX_BUF_RELEASED;
 		evt.data.rx_buf.buf = next_ud->user_buf;
@@ -1234,8 +1295,7 @@ static int cdc_acm_rx_cb(struct usb_device *const udev,
 	return 0;
 }
 
-static int cdc_acm_notif_cb(struct usb_device *const udev,
-			    struct uhc_transfer *const xfer)
+static int cdc_acm_notif_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
 	struct cdc_acm_uart_data *const data = xfer->priv;
 	struct net_buf *const buf = xfer->buf;
@@ -1284,8 +1344,7 @@ static int cdc_acm_notif_cb(struct usb_device *const udev,
 }
 
 static int cdc_acm_parse_descriptors(struct cdc_acm_uart_data *const data,
-				     struct usb_device *const udev,
-				     const uint8_t ctrl_iface)
+				     struct usb_device *const udev, const uint8_t ctrl_iface)
 {
 	const struct usb_association_descriptor *iad;
 	const struct cdc_union_descriptor *un_desc = NULL;
@@ -1377,8 +1436,8 @@ static int cdc_acm_parse_descriptors(struct cdc_acm_uart_data *const data,
 		un_desc->bControlInterface, un_desc->bSubordinateInterface0);
 
 	if (un_desc->bControlInterface != ctrl_iface) {
-		LOG_ERR("Union control interface %u does not match %u",
-			un_desc->bControlInterface, ctrl_iface);
+		LOG_ERR("Union control interface %u does not match %u", un_desc->bControlInterface,
+			ctrl_iface);
 		return -ENODEV;
 	}
 
@@ -1386,12 +1445,10 @@ static int cdc_acm_parse_descriptors(struct cdc_acm_uart_data *const data,
 
 	/* Check IAD and verify control and data interfaces */
 	iad = usbh_desc_get_iad(udev, ctrl_iface);
-	if (iad != NULL &&
-	    (un_desc->bControlInterface != iad->bFirstInterface ||
-	     data_iface < iad->bFirstInterface ||
-	     data_iface >= iad->bFirstInterface + iad->bInterfaceCount)) {
-		LOG_ERR("Union interfaces do not match IAD %u..%u",
-			iad->bFirstInterface,
+	if (iad != NULL && (un_desc->bControlInterface != iad->bFirstInterface ||
+			    data_iface < iad->bFirstInterface ||
+			    data_iface >= iad->bFirstInterface + iad->bInterfaceCount)) {
+		LOG_ERR("Union interfaces do not match IAD %u..%u", iad->bFirstInterface,
 			iad->bFirstInterface + iad->bInterfaceCount - 1);
 		return -ENODEV;
 	}
@@ -1430,21 +1487,21 @@ static int cdc_acm_parse_descriptors(struct cdc_acm_uart_data *const data,
 	}
 
 	if (data->in_ep == 0 || data->out_ep == 0) {
-		LOG_ERR("Bulk endpoints not found, in 0x%02x out 0x%02x",
-			data->in_ep, data->out_ep);
+		LOG_ERR("Bulk endpoints not found, in 0x%02x out 0x%02x", data->in_ep,
+			data->out_ep);
 		return -ENODEV;
 	}
 
 	data->ctrl_iface = ctrl_iface;
 	data->acm_caps = acm_desc->bmCapabilities;
-	LOG_DBG("Use control interface %u, endpoints 0x%02x 0x%02x 0x%02x",
-		data->ctrl_iface, data->int_ep, data->in_ep, data->out_ep);
+	LOG_DBG("Use control interface %u, endpoints 0x%02x 0x%02x 0x%02x", data->ctrl_iface,
+		data->int_ep, data->in_ep, data->out_ep);
 
 	return 0;
 }
 
-static int cdc_acm_probe(struct usbh_class_data *const c_data,
-			 struct usb_device *const udev, const uint8_t iface)
+static int cdc_acm_probe(struct usbh_class_data *const c_data, struct usb_device *const udev,
+			 const uint8_t iface)
 {
 	const struct device *const dev = c_data->priv;
 	struct cdc_acm_uart_data *const data = dev->data;
@@ -1531,8 +1588,7 @@ static int cdc_acm_removed(struct usbh_class_data *const c_data)
 static int usbh_cdc_acm_init_wq(void)
 {
 	k_work_queue_init(&cdc_acm_work_q);
-	k_work_queue_start(&cdc_acm_work_q, cdc_acm_stack,
-			   K_KERNEL_STACK_SIZEOF(cdc_acm_stack),
+	k_work_queue_start(&cdc_acm_work_q, cdc_acm_stack, K_KERNEL_STACK_SIZEOF(cdc_acm_stack),
 			   CONFIG_SYSTEM_WORKQUEUE_PRIORITY, NULL);
 	k_thread_name_set(&cdc_acm_work_q.thread, "cdc_acm_work_q");
 
@@ -1568,32 +1624,28 @@ static struct usbh_class_filter cdc_acm_filters[] = {
 	{0},
 };
 
-#define USBH_CDC_ACM_DEVICE_DEFINE(n, _)					\
-	UDC_STATIC_BUF_DEFINE(poll_tx_buf_##n, 1);				\
-	UDC_STATIC_BUF_DEFINE(poll_rx_buf_##n, 1);				\
-										\
-	static const struct cdc_acm_uart_config uart_config_##n = {		\
-		.poll_tx_buf = poll_tx_buf_##n,					\
-		.poll_rx_buf = poll_rx_buf_##n,					\
-	};									\
-										\
-	static struct cdc_acm_uart_data uart_data_##n;				\
-										\
-	DEVICE_DEFINE(usbh_cdc_acm_##n, "usbh_cdc_acm_" #n,			\
-		      usbh_cdc_acm_preinit, NULL,				\
-		      &uart_data_##n, &uart_config_##n,				\
-		      PRE_KERNEL_1, CONFIG_SERIAL_INIT_PRIORITY,		\
-		      &cdc_acm_uart_api);					\
-										\
-	USBH_DEFINE_CLASS(cdc_acm_##n,						\
-			  &usbh_cdc_acm_api,					\
-			  (void *)DEVICE_GET(usbh_cdc_acm_##n),			\
-			  cdc_acm_filters);					\
-										\
-	static struct cdc_acm_uart_data uart_data_##n = {			\
-		.dev = DEVICE_GET(usbh_cdc_acm_##n),				\
-		.c_data = &class_data_cdc_acm_##n,				\
-		.line_coding = CDC_ACM_DEFAULT_LINECODING,			\
+#define USBH_CDC_ACM_DEVICE_DEFINE(n, _)                                                           \
+	UDC_STATIC_BUF_DEFINE(poll_tx_buf_##n, 1);                                                 \
+	UDC_STATIC_BUF_DEFINE(poll_rx_buf_##n, 1);                                                 \
+                                                                                                   \
+	static const struct cdc_acm_uart_config uart_config_##n = {                                \
+		.poll_tx_buf = poll_tx_buf_##n,                                                    \
+		.poll_rx_buf = poll_rx_buf_##n,                                                    \
+	};                                                                                         \
+                                                                                                   \
+	static struct cdc_acm_uart_data uart_data_##n;                                             \
+                                                                                                   \
+	DEVICE_DEFINE(usbh_cdc_acm_##n, "usbh_cdc_acm_" #n, usbh_cdc_acm_preinit, NULL,            \
+		      &uart_data_##n, &uart_config_##n, PRE_KERNEL_1, CONFIG_SERIAL_INIT_PRIORITY, \
+		      &cdc_acm_uart_api);                                                          \
+                                                                                                   \
+	USBH_DEFINE_CLASS(cdc_acm_##n, &usbh_cdc_acm_api, (void *)DEVICE_GET(usbh_cdc_acm_##n),    \
+			  cdc_acm_filters);                                                        \
+                                                                                                   \
+	static struct cdc_acm_uart_data uart_data_##n = {                                          \
+		.dev = DEVICE_GET(usbh_cdc_acm_##n),                                               \
+		.c_data = &class_data_cdc_acm_##n,                                                 \
+		.line_coding = CDC_ACM_DEFAULT_LINECODING,                                         \
 	};
 
 LISTIFY(CONFIG_USBH_CDC_ACM_INSTANCES_COUNT, USBH_CDC_ACM_DEVICE_DEFINE, ())
