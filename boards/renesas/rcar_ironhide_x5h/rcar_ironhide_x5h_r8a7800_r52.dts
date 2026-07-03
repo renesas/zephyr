@@ -139,3 +139,11 @@
 	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
 	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
 };
+
+&mp_phy {
+	status = "okay";
+
+	interface-names = "pci0", "pci1", "ethernet", "usb";
+	ref-use-pad = <0x0f>;
+	ref-repeat-clk-en = <0x00>;
+};
