@@ -532,17 +532,6 @@ static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renes
 			if (length) {
 				net_buf_add(xfer->buf, length);
 			}
-		} else {
-			/*
-			 * TODO: Remove this and update USBH class to append ZLP when necessary
-			 */
-			if (hal_evt->complete.len != 0 &&
-			    (hal_evt->complete.len % xfer->mps == 0)) {
-				struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-
-				R_USBH_XferStart(&priv->uhc_ctrl, xfer->udev->addr, xfer->ep, NULL,
-						 0);
-			}
 		}
 		break;
 	}
