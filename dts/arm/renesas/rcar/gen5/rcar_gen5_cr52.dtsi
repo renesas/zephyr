@@ -318,5 +318,12 @@
 			current-speed = <115200>;
 			status = "disabled";
 		};
+
+		mp_phy: mp_phy@c9a00000 {
+			compatible = "renesas,rcar-mp-phy";
+			reg = <0xc9a00000 0x100000>;
+			#phy-cells = <2>;
+			status = "disabled";
+		};
 	};
 };

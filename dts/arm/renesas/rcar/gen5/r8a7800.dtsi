@@ -361,6 +361,14 @@
 			#size-cells = <0>;
 			status = "disabled";
 		};
+
+		mp_phy: mp_phy@c9a00000 {
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_MPPHY01>,
+				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY11>,
+				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY21>,
+				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY31>,
+				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY02>;
+		};
 	};
 
 	clocks: clocks {
