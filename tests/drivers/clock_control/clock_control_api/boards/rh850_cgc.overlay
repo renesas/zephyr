@@ -11,42 +11,35 @@
 
 / {
 	soc {
-		cgc: clock-controller {
+		cgc: clock-controller@ff980000 {
 			compatible = "renesas,rh850-cgc";
 			#clock-cells = <1>;
 			status = "okay";
 
 			cpu_clk: cpu-clk {
-				compatible = "renesas,rh850-cgc-sysclk";
-				clock = <RH850_CLOCK_CPU>;
+				compatible = "renesas,rh850-cgc-pclk";
 				clock-source = <&pll>;
-				clock-frequency = <400000000>;
-				divider = <2>;
+				div = <2>;
 				#clock-cells = <0>;
 			};
 
 			rh850_test_pclk: rscfd0-pclk {
 				compatible = "renesas,rh850-cgc-pclk";
-				module = <RH850_MODULE_RSCFD>;
-				channel = <0>;
-				clock = <RH850_CLOCK_CANFD_C>;
 				clock-source = <&cpu_clk>;
-				clock-frequency = <80000000>;
-				divider = <5>;
+				div = <5>;
 				#clock-cells = <0>;
 			};
 
 			clk_rlin3: clk-rlin3 {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
 			};
 
 			clka_adc: clka-adc {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
-				div = <1>;
+				clock-source = <&hsiosc>;
+				div = <20>;
 				#clock-cells = <0>;
 				status = "okay";
 			};
