@@ -287,6 +287,35 @@ static bool is_configured_udev(const struct device *dev, uint8_t device_addr)
 	return true;
 }
 
+/*
+ * Walk up the hub chain from udev to find the HS Transaction Translator hub and its port.
+ * Per USB 2.0 §11.18.1, SPLIT tokens must identify the last HS hub above the FS/LS segment,
+ * not necessarily the immediate parent. Only relevant for FS/LS devices.
+ */
+static void uhc_renesas_ra_resolve_tt_hub(struct usb_device *udev, usb_speed_t speed,
+					  uint8_t *hub_addr, uint8_t *hub_port)
+{
+	*hub_addr = 0;
+	*hub_port = 0;
+
+	if (speed != USB_SPEED_FS && speed != USB_SPEED_LS) {
+		return;
+	}
+
+	struct usb_device *child = udev;
+	struct usb_device *parent = udev->hub;
+
+	while (parent != NULL) {
+		if (parent->speed == USB_PORT_SPEED_HS) {
+			*hub_addr = parent->addr;
+			*hub_port = child->hub_port;
+			return;
+		}
+		child = parent;
+		parent = parent->hub;
+	}
+}
+
 static int uhc_renesas_ra_configure_udev(const struct device *dev, struct usb_device *udev,
 					 uint8_t mxps0)
 {
@@ -312,15 +341,7 @@ static int uhc_renesas_ra_configure_udev(const struct device *dev, struct usb_de
 		return -ENOTSUP;
 	}
 
-	if (udev->level > 2) {
-		LOG_DBG("This controller support maximum device level at 2");
-		return -ENOTSUP;
-	}
-
-	if (udev->hub != NULL) {
-		hub_addr = udev->hub->addr;
-		hub_port = udev->hub_port;
-	}
+	uhc_renesas_ra_resolve_tt_hub(udev, speed, &hub_addr, &hub_port);
 
 	err = R_USBH_PortOpen(&priv->uhc_ctrl, udev->addr, speed, mxps0, hub_addr, hub_port);
 	if (err != FSP_SUCCESS) {
@@ -360,8 +381,8 @@ static int uhc_renesas_ra_open_pipe(const struct device *dev, uint8_t dev_addr, 
 static int uhc_renesas_ra_open_dcp(const struct device *dev, struct uhc_transfer *const xfer)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-	const uint8_t hub_addr = xfer->udev->hub != NULL ? xfer->udev->hub->addr : 0;
-	const uint8_t hub_port = hub_addr != 0 ? xfer->udev->hub_port : 0;
+	uint8_t hub_addr = 0;
+	uint8_t hub_port = 0;
 	usb_speed_t speed;
 	fsp_err_t err;
 
@@ -378,6 +399,8 @@ static int uhc_renesas_ra_open_dcp(const struct device *dev, struct uhc_transfer
 	default:
 		return -ENOTSUP;
 	}
+
+	uhc_renesas_ra_resolve_tt_hub(xfer->udev, speed, &hub_addr, &hub_port);
 
 	err = R_USBH_PortOpen(&priv->uhc_ctrl, xfer->udev->addr, speed, xfer->mps, hub_addr,
 			      hub_port);
