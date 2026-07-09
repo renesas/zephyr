@@ -504,7 +504,7 @@ dvp_20pin_interface: &ceu {};
 		reg = <1>;
 		protocol-mode = <OSPI_OPI_MODE>;
 		ospi-max-frequency = <DT_FREQ_M(166)>;
-		jedec-id = [34 5b 1a];
+		jedec-id = [34 5a 1a];
 		enter-4byte-command = <0xb7>;
 		default-8d-dummy-cycles = <20>;
 		rdsr-addr-4bytes;
