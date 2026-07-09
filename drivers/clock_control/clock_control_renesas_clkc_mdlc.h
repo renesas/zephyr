@@ -38,12 +38,6 @@ enum clkc_region {
 #define MDLC_INDEX_NUMS 32
 #define MDLC_SLOT_NUMS  16
 
-struct rcar_clkc {
-	uint32_t domain;
-	uint32_t module;
-	uint32_t rate;
-};
-
 struct clkc_clk_info_table {
 	uint32_t domain;
 	uint32_t module;

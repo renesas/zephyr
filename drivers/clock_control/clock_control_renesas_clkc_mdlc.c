@@ -10,6 +10,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/clock_control/renesas_clkc_mdlc.h>
 #include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
 #include <zephyr/sys/util.h>
 
@@ -377,6 +378,11 @@ static int rcar_clkc_update_out_freq(const struct device *dev, struct clkc_clk_i
 	return 0;
 }
 
+static bool rcar_clkc_parentless_mod(const struct clkc_clk_info_table *clk_info)
+{
+	return clk_info->domain == CLKC_MOD && clk_info->parent_id == RCAR_CLKC_NONE;
+}
+
 /**
  * @brief Resolve a clock's input frequency and update its cached output frequency.
  */
@@ -485,6 +491,10 @@ int rcar_clkc_get_rate(const struct device *dev, clock_control_subsys_t sys, uin
 		return -EINVAL;
 	}
 
+	if (rcar_clkc_parentless_mod(clk_info)) {
+		return -ENOTSUP;
+	}
+
 	data = dev->data;
 
 	key = k_spin_lock(&data->lock);
@@ -524,6 +534,10 @@ void rcar_clkc_update_all_in_out_freq(const struct device *dev)
 		struct clkc_clk_info_table *item = data->clk_info_table[domain];
 
 		for (idx = 0; idx < data->clk_info_table_size[domain]; idx++, item++) {
+			if (rcar_clkc_parentless_mod(item)) {
+				continue;
+			}
+
 			if (rcar_clkc_get_in_update_out_freq(dev, item) < 0) {
 				LOG_ERR("%s: can't update in/out freq for clock during init, "
 					"domain %u module 0x%x! Please, review correctness of data "
@@ -571,8 +585,11 @@ int rcar_clkc_set_rate(const struct device *dev, clock_control_subsys_t sys,
 
 	if (clk_info->domain == CLKC_MOD) {
 		if (!clk_info->parent) {
-			LOG_ERR("%s: parent isn't present for module clock, module id 0x%x",
-				dev->name, clk_info->module);
+			if (rcar_clkc_parentless_mod(clk_info)) {
+				return -ENOTSUP;
+			}
+
+			LOG_ERR("%s: missing parent 0x%x", dev->name, clk_info->module);
 			k_panic();
 		}
 		clk_info = clk_info->parent;
