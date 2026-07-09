@@ -49,18 +49,6 @@
 	};
 };
 
-&sci7 {
-	pinctrl-0 = <&sci7_default>;
-	pinctrl-names = "default";
-	interrupts = <4 1>, <5 1>, <6 1>, <7 1>;
-	interrupt-names = "rxi", "txi", "tei", "eri";
-	status = "okay";
-
-	uart7: uart {
-		current-speed = <115200>;
-	};
-};
-
 &spi1 {
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
@@ -201,7 +189,6 @@
 	};
 };
 
-mikrobus_serial: &uart7 {};
 
 mikrobus_spi: &spi1 {};
 

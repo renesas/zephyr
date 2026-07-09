@@ -122,6 +122,24 @@
 		};
 	};
 
+	ospi1_default: ospi1_default {
+		group1 {
+			/* sclk sio0-3 */
+			psels = <RA_PSEL(RA_PSEL_OSPI, 6, 3)>,
+				<RA_PSEL(RA_PSEL_OSPI, 12, 1)>,
+				<RA_PSEL(RA_PSEL_OSPI, 6, 5)>,
+				<RA_PSEL(RA_PSEL_OSPI, 12, 4)>,
+				<RA_PSEL(RA_PSEL_OSPI, 12, 2)>;
+			drive-strength = "highspeed-high";
+		};
+
+		group2 {
+			/* cs1 rst ecsint1 */
+			psels = <RA_PSEL(RA_PSEL_OSPI, 12, 5)>;
+			drive-strength = "high";
+		};
+	};
+
 	mdio0_default: mdio0_default {
 		group1 {
 			psels = <RA_PSEL(RA_PSEL_ETH_MII, 12, 11)>, /* MDC */

@@ -40,17 +40,29 @@ properties:
   enter-4byte-command:
     type: int
     description: |
-      Enter 4-byte address mode command (Only require if SPI NOR
+      Enter 4-byte address mode command (Only required if SPI NOR
       Flash has the incorrect BFPT DW16 information in SFDP)
 
   rdsr-addr-4bytes:
     type: boolean
     description: |
-      Whether RDSR command requires 4-byte address (Only require if SPI NOR
+      Whether RDSR command requires 4-byte address (Only required if SPI NOR
       Flash has the incorrect PROFILE1 DW1 information in SFDP)
 
   default-8d-dummy-cycles:
     type: int
     description: |
-      Default dummy cycles for read command (Only require if SPI NOR Flash enter 8D mode
+      Default dummy cycles for read command (Only required if SPI NOR Flash enter 8D mode
       but don't has dummy cycles information or the information is incorrect in SFDP)
+
+  seq-enable-qpi:
+    type: int
+    description: |
+      Override for the SFDP BFP DW15 "444 Enable Sequences" bitfield, used to select the
+      command sequence for entering 4S-4S-4S (QPI) mode (Only required if SPI NOR Flash
+      doesn't have or has incorrect BFPT DW15 information in SFDP).
+
+      Possible values are :
+       - <0x01> = Issue 0x38 after enabling Quad mode via the QE bit (quad-enable-requirements)
+       - <0x02> = Issue 0x38, no prior QE bit write required
+       - <0x04> = Issue 0x35, no prior QE bit write required
