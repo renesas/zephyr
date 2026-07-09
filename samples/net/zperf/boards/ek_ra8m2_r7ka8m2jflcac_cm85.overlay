@@ -1,0 +1,21 @@
+&usbhs {
+	zephyr_uhc0: uhc {
+		status = "okay";
+	};
+};
+
+&eswm {
+	status = "disabled";
+};
+
+
+&eth0 {
+	status = "disabled";
+};
+
+&mdio0 {
+	status = "disabled";
+	phy0: phy@0 {
+		status = "disabled";
+	};
+};
