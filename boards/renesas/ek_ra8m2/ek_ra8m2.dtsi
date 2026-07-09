@@ -168,7 +168,7 @@
 
 &octaspiclk {
 	clocks = <&pll2r>;
-	div = <2>;
+	div = <8>;
 	status = "okay";
 };
 
@@ -236,28 +236,58 @@
 	phys-clock-src = "xtal";
 };
 
-&ospi0 {
-	pinctrl-0 = <&ospi0_default>;
+// &ospi0 {
+// 	pinctrl-0 = <&ospi0_default>;
+// 	pinctrl-names = "default";
+// 	ddr-sampling-extension = <7>;
+// 	status = "okay";
+
+// 	ext_flash_ctrl: flash-controller@1 {
+// 		compatible = "renesas,ra-ospi-b-nor";
+// 		ranges = <0x0 0x90000000 DT_SIZE_M(256)>;
+// 		reg = <1>;
+// 		protocol-mode = <OSPI_OPI_MODE>;
+// 		ospi-max-frequency = <DT_FREQ_M(133)>;
+// 		jedec-id = [c2 86 3a];
+// 		default-8d-dummy-cycles = <20>;
+// 		#address-cells = <1>;
+// 		#size-cells = <1>;
+// 		status = "disabled";
+
+// 		ext_flash: mx25lw51245g: nor-flash@0 {
+// 			compatible = "soc-nv-flash";
+// 			reg = <0x0 DT_SIZE_M(64)>;
+// 			ranges = <0x0 0x0 DT_SIZE_M(64)>;
+// 			write-block-size = <16>;
+// 			erase-block-size = <DT_SIZE_K(4)>;
+// 			#address-cells = <1>;
+// 			#size-cells = <1>;
+// 		};
+// 	};
+// };
+
+&ospi1 {
+	pinctrl-0 = <&ospi1_default>;
 	pinctrl-names = "default";
-	ddr-sampling-extension = <7>;
 	status = "okay";
 
-	ext_flash_ctrl: flash-controller@1 {
+	ext_flash_ctrl: nor-flash-controller@1 {
 		compatible = "renesas,ra-ospi-b-nor";
-		ranges = <0x0 0x90000000 DT_SIZE_M(256)>;
+		ranges = <0x0 0x78000000 DT_SIZE_M(128)>;
 		reg = <1>;
-		protocol-mode = <OSPI_OPI_MODE>;
+		protocol-mode = <OSPI_QUAD_MODE>;
 		ospi-max-frequency = <DT_FREQ_M(133)>;
-		jedec-id = [c2 86 3a];
-		default-8d-dummy-cycles = <20>;
+		jedec-id = [ef 40 17];
+		quad-enable-requirements = "S2B1v4";
+		seq-enable-qpi = <0x03>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		status = "disabled";
 
-		ext_flash: mx25lw51245g: nor-flash@0 {
+		ext_flash: w25q32jv: nor-flash@0 {
 			compatible = "soc-nv-flash";
-			reg = <0x0 DT_SIZE_M(64)>;
-			ranges = <0x0 0x0 DT_SIZE_M(64)>;
+			reg = <0x0 DT_SIZE_M(4)>;
+			ranges = <0x0 0x0 DT_SIZE_M(4)>;
 			write-block-size = <16>;
 			erase-block-size = <DT_SIZE_K(4)>;
 			#address-cells = <1>;

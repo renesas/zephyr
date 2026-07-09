@@ -36,6 +36,12 @@ K_HEAP_DEFINE(ospi_b_heap, CONFIG_RENESAS_RA_OSPI_B_HEAP_SIZE);
 #define SFDP_PARAM_SCCR_MAP_AVAILABLE      BIT(3)
 #define SFDP_PARAM_SEQ_OCTAL_DDR_AVAILABLE BIT(4)
 
+#define OSPI_B_PRV_COMSTT_MEMACCCH_MASK  (0x03 << R_XSPI0_COMSTT_MEMACCCH_Pos)
+#define OSPI_B_PRV_COMSTT_WRBUFNECH_MASK (0x03 << R_XSPI0_COMSTT_WRBUFNECH_Pos)
+
+#define OSPI_B_PRV_COMSTT_PENDING_ACTION_MASK                                                      \
+	(OSPI_B_PRV_COMSTT_MEMACCCH_MASK | OSPI_B_PRV_COMSTT_WRBUFNECH_MASK)
+
 struct flash_region_info {
 	uint32_t offset;
 	uint32_t size;
@@ -73,6 +79,8 @@ struct flash_sfdp_region {
 struct flash_special_require_info {
 	uint16_t enter_4byte_cmd;
 	uint8_t def_8d_dummy_cycles;
+	uint8_t qer_value;
+	uint8_t seq_enable_444;
 	bool rdsr_addr_4bytes;
 };
 
@@ -80,7 +88,7 @@ struct flash_renesas_ra_ospi_b_data {
 	ospi_b_instance_ctrl_t ospi_b_ctrl;
 	spi_flash_cfg_t ospi_b_cfg;
 	ospi_b_timing_setting_t ospi_b_timing_settings;
-	ospi_b_xspi_command_set_t ospi_b_command_set_table;
+	ospi_b_xspi_command_set_t ospi_b_command_set_table[2];
 	ospi_b_extended_cfg_t ospi_b_config_extend;
 	spi_flash_erase_command_t erase_command_list[JESD216_NUM_ERASE_TYPES];
 	ospi_b_table_t ospi_b_command_set;
@@ -90,8 +98,6 @@ struct flash_renesas_ra_ospi_b_data {
 	uint8_t address_mode;
 	struct k_sem sem;
 	uint32_t calib_sector_size;
-	spi_flash_direct_transfer_t transfer_write_enable;
-	spi_flash_direct_transfer_t transfer_read_status;
 };
 
 struct flash_renesas_ra_ospi_b_config {
@@ -101,60 +107,108 @@ struct flash_renesas_ra_ospi_b_config {
 	uint32_t clock_div;
 	const struct pinctrl_dev_config *pcfg;
 	const struct flash_parameters flash_parameters;
-	ospi_b_xspi_command_set_t ospi_b_base_command_set_table;
 	const struct flash_special_require_info special_require_info;
 	const uint32_t start_address;
 	const uint32_t max_frequency;
 	const uint32_t erase_block_size;
 	const size_t flash_size;
-	const uint8_t protocol;
+	const uint8_t desired_protocol;
 	const uint8_t jedec_id[JESD216_READ_ID_LEN];
 };
 
-static int flash_ospi_b_wait_operation(struct flash_renesas_ra_ospi_b_data *data, uint8_t bit,
-				       uint8_t desire_bit_value, uint32_t timeout)
+static int flash_ospi_b_wait_operation(ospi_b_instance_ctrl_t *p_ctrl, uint32_t timeout)
+{
+	spi_flash_status_t status;
+	fsp_err_t err;
+	int ret = 0;
+	bool need_update_protocol = false;
+
+	if (p_ctrl->spi_protocol == SPI_FLASH_PROTOCOL_1S_4S_4S) {
+		err = R_OSPI_B_SpiProtocolSet(p_ctrl, SPI_FLASH_PROTOCOL_1S_1S_1S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		need_update_protocol = true;
+	}
+
+	status.write_in_progress = true;
+	while (status.write_in_progress) {
+		k_sleep(K_USEC(50));
+		/* Get device status */
+		err = R_OSPI_B_StatusGet(p_ctrl, &status);
+		if (timeout == 0 || err != FSP_SUCCESS) {
+			LOG_DBG("Time out for operation");
+			ret = -EIO;
+			break;
+		}
+		timeout--;
+	}
+
+	if (need_update_protocol) {
+		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
+		 *
+		 * Protocol is switched exactly ONCE for the entire write (not
+		 * per-chunk).  A per-chunk SpiProtocolSet round-trip caused a
+		 * timing window between consecutive calls that corrupted flash WEL,
+		 * making every odd-indexed chunk silently fail to program. */
+		while (p_ctrl->p_reg->COMSTT & OSPI_B_PRV_COMSTT_PENDING_ACTION_MASK) {
+		}
+
+		err = R_OSPI_B_SpiProtocolSet(p_ctrl, SPI_FLASH_PROTOCOL_1S_4S_4S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+	}
+
+	return ret;
+}
+
+static int flash_ospi_b_write_enable(struct flash_renesas_ra_ospi_b_data *data)
 {
 	fsp_err_t err;
+	uint32_t timeout = MAX_TIME_WREN;
+
+	spi_flash_direct_transfer_t transfer_write_enable = {
+		.command = SPI_NOR_CMD_WREN,
+		.command_length = 1,
+		.address_length = 0,
+		.data_length = 0,
+		.dummy_cycles = 0,
+	};
+
+	spi_flash_direct_transfer_t transfer_read_status = {
+		.command = SPI_NOR_CMD_RDSR,
+		.command_length = 1,
+		.address_length = 0,
+		.data_length = 1,
+		.dummy_cycles = 0,
+	};
+
+	/* Transfer write enable command */
+	err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_write_enable,
+				      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
 
 	while (timeout) {
-		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &data->transfer_read_status,
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_read_status,
 					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
 
-		if (((data->transfer_read_status.data & BIT(bit)) >> bit) == desire_bit_value) {
+		if (((transfer_read_status.data & BIT(1)) >> 1) == 1U) {
 			break;
 		}
 
-		k_sleep(K_USEC(200));
+		k_sleep(K_USEC(50));
 		timeout--;
 	}
 
 	if (timeout == 0) {
 		LOG_DBG("Time out for operation");
 		return -EIO;
-	}
-
-	return 0;
-}
-
-static int flash_ospi_b_write_enable(struct flash_renesas_ra_ospi_b_data *data)
-{
-	fsp_err_t err;
-	int ret;
-
-	/* Transfer write enable command */
-	err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &data->transfer_write_enable,
-				      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
-	if (err != FSP_SUCCESS) {
-		return -EIO;
-	}
-
-	ret = flash_ospi_b_wait_operation(data, 1, 1, MAX_TIME_WREN);
-	if (ret != 0) {
-		LOG_DBG("Failed to wait for write enable");
-		return ret;
 	}
 
 	return 0;
@@ -170,10 +224,13 @@ static bool flash_ospi_b_is_valid_address(const struct device *dev, off_t offset
 		return false;
 	}
 
-	/* Accessible end: last region's end minus the calibration sector */
 	flash_end = (off_t)(layout->regions[layout->region_count - 1].offset +
-			    layout->regions[layout->region_count - 1].size) -
-		    (off_t)data->calib_sector_size;
+			    layout->regions[layout->region_count - 1].size);
+
+	if (data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_8D_8D_8D) {
+		/* Accessible end: last region's end minus the calibration sector */
+		flash_end -= (off_t)data->calib_sector_size;
+	}
 
 	return (offset < flash_end) && ((off_t)len <= flash_end - offset);
 }
@@ -368,6 +425,7 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 	fsp_err_t err;
 	struct flash_pages_info page_info_start, page_info_end;
 	int ret = 0;
+	bool need_update_protocol = false;
 
 	if (!len) {
 		return 0;
@@ -397,6 +455,21 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 	if (ret != 0) {
 		LOG_ERR("Failed to acquire semaphore for erase");
 		return ret;
+	}
+
+	if (ospi_b_data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_1S_4S_4S) {
+		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
+		 *
+		 * Protocol is switched exactly ONCE for the entire write (not
+		 * per-chunk).  A per-chunk SpiProtocolSet round-trip caused a
+		 * timing window between consecutive calls that corrupted flash WEL,
+		 * making every odd-indexed chunk silently fail to program. */
+		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
+					      SPI_FLASH_PROTOCOL_1S_1S_1S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		need_update_protocol = true;
 	}
 
 	while (len > 0) {
@@ -430,22 +503,18 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 		erase_time = erase_len / erase_size;
 
 		for (uint32_t i = 0; i < erase_time; i++) {
-			ret = flash_ospi_b_write_enable(ospi_b_data);
-			if (ret != 0) {
-				break;
-			}
-
 			err = R_OSPI_B_Erase(&ospi_b_data->ospi_b_ctrl,
 					     (uint8_t *)(config->start_address + offset),
 					     erase_size);
 			if (err != FSP_SUCCESS) {
-				LOG_ERR("Erase at address 0x%lx, size %u Failed", (long)offset,
-					erase_size);
+				LOG_ERR("Erase at address 0x%lx, size %u Failed %d", (long)offset,
+					erase_size, err);
 				ret = -EIO;
 				break;
 			}
 
-			ret = flash_ospi_b_wait_operation(ospi_b_data, 0, 0, MAX_TIME_ERASE);
+			ret = flash_ospi_b_wait_operation(&ospi_b_data->ospi_b_ctrl,
+							  MAX_TIME_ERASE);
 			if (ret != 0) {
 				LOG_ERR("Wait for erase to finish timeout");
 				break;
@@ -457,6 +526,24 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 
 		if (ret != 0) {
 			break;
+		}
+	}
+
+	if (need_update_protocol) {
+		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
+		 *
+		 * Protocol is switched exactly ONCE for the entire write (not
+		 * per-chunk).  A per-chunk SpiProtocolSet round-trip caused a
+		 * timing window between consecutive calls that corrupted flash WEL,
+		 * making every odd-indexed chunk silently fail to program. */
+		while (ospi_b_data->ospi_b_ctrl.p_reg->COMSTT &
+		       OSPI_B_PRV_COMSTT_PENDING_ACTION_MASK) {
+		}
+
+		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
+					      SPI_FLASH_PROTOCOL_1S_4S_4S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
 		}
 	}
 
@@ -491,22 +578,24 @@ static int flash_renesas_ra_ospi_b_read(const struct device *dev, off_t offset, 
 		return ret;
 	}
 
-	/* OSPI-B bus requires the source address and length to be even-aligned */
-
 	/* Head: 1 odd byte -> advance to 2-byte alignment */
 	if (((uintptr_t)src & 1) && len > 0) {
 		uint16_t val = *(volatile uint16_t *)((uint8_t *)src - 1);
 
-		*(uint8_t *)dst = (uint8_t)(val >> 8);
+		*(uint8_t *)dst = (uint8_t)((val >> 8) & 0xff);
 		src = (uint32_t *)((uint8_t *)src + 1);
 		dst = (uint32_t *)((uint8_t *)dst + 1);
 		len--;
 	}
 
-	/* Bulk: 4-byte aligned copies */
-	while (len >= 4) {
-		*dst++ = *(volatile uint32_t *)src++;
-		len -= 4;
+	/* Bulk: copy 4-byte aligned chunks, dst may be unaligned */
+	if (len >= 4) {
+		size_t bulk = len & ~3U;
+
+		memcpy(dst, src, bulk);
+		src = (uint32_t *)((uint8_t *)src + bulk);
+		dst = (uint32_t *)((uint8_t *)dst + bulk);
+		len -= bulk;
 	}
 
 	/* Tail: remaining < 4 bytes -> read a full 4-byte word then copy only
@@ -517,7 +606,7 @@ static int flash_renesas_ra_ospi_b_read(const struct device *dev, off_t offset, 
 		uint8_t *d = (uint8_t *)dst;
 
 		for (size_t i = 0; i < len; i++) {
-			d[i] = (uint8_t)(tmp >> (i * 8) & 0xff);
+			d[i] = (uint8_t)((tmp >> (i * 8)) & 0xff);
 		}
 	}
 
@@ -535,6 +624,7 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 	int ret = 0;
 	size_t size;
 	const uint8_t *p_src;
+	bool need_update_protocol = false;
 
 	if (!len) {
 		return 0;
@@ -565,6 +655,23 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		return ret;
 	}
 
+	if (ospi_b_data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_1S_4S_4S) {
+		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
+		 *
+		 * Protocol is switched exactly ONCE for the entire write (not
+		 * per-chunk).  A per-chunk SpiProtocolSet round-trip caused a
+		 * timing window between consecutive calls that corrupted flash WEL,
+		 * making every odd-indexed chunk silently fail to program. */
+
+		/* 4. Switch to 1S-1S-1S with CMCFG1 updated to Fast Read 0x0B */
+		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
+					      SPI_FLASH_PROTOCOL_1S_1S_1S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		need_update_protocol = true;
+	}
+
 	while (len > 0) {
 		size = len > ospi_b_data->ospi_b_cfg.page_size_bytes
 			       ? ospi_b_data->ospi_b_cfg.page_size_bytes
@@ -573,12 +680,12 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		err = R_OSPI_B_Write(&ospi_b_data->ospi_b_ctrl, p_src,
 				     (uint8_t *)(config->start_address + offset), size);
 		if (err != FSP_SUCCESS) {
-			LOG_ERR("Write at address 0x%lx, size %zu", offset, size);
+			LOG_ERR("Write at address 0x%lx, size %zu, error: %d", offset, size, err);
 			ret = -EIO;
 			break;
 		}
 
-		ret = flash_ospi_b_wait_operation(ospi_b_data, 0, 0, MAX_TIME_WRITE);
+		ret = flash_ospi_b_wait_operation(&ospi_b_data->ospi_b_ctrl, MAX_TIME_WRITE);
 		if (ret != 0) {
 			LOG_ERR("Wait for write to finish timeout");
 			break;
@@ -587,6 +694,24 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		len -= size;
 		offset += size;
 		p_src = p_src + size;
+	}
+
+	if (need_update_protocol) {
+		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
+		 *
+		 * Protocol is switched exactly ONCE for the entire write (not
+		 * per-chunk).  A per-chunk SpiProtocolSet round-trip caused a
+		 * timing window between consecutive calls that corrupted flash WEL,
+		 * making every odd-indexed chunk silently fail to program. */
+		while (ospi_b_data->ospi_b_ctrl.p_reg->COMSTT &
+		       OSPI_B_PRV_COMSTT_PENDING_ACTION_MASK) {
+		}
+
+		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
+					      SPI_FLASH_PROTOCOL_1S_4S_4S);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
 	}
 
 	k_sem_give(&ospi_b_data->sem);
@@ -666,6 +791,7 @@ static int flash_ospi_b_setup_calibrate_data(struct flash_renesas_ra_ospi_b_data
 	data->ospi_b_config_extend.p_autocalibration_preamble_pattern_addr =
 		(uint8_t *)(calib_sector_address);
 
+	/* Read via direct transfer to bypass the OSPI_B prefetch buffer */
 	if (memcmp((uint8_t *)calib_sector_address, &autocalibration_data,
 		   sizeof(autocalibration_data)) != 0) {
 
@@ -678,7 +804,7 @@ static int flash_ospi_b_setup_calibrate_data(struct flash_renesas_ra_ospi_b_data
 		}
 
 		/* Wait until erase operation completes */
-		ret = flash_ospi_b_wait_operation(data, 0, 0, MAX_TIME_ERASE);
+		ret = flash_ospi_b_wait_operation(&data->ospi_b_ctrl, MAX_TIME_ERASE);
 		if (ret != 0) {
 			LOG_DBG("Wait for erase operation completes Failed");
 			return ret;
@@ -688,12 +814,12 @@ static int flash_ospi_b_setup_calibrate_data(struct flash_renesas_ra_ospi_b_data
 		err = R_OSPI_B_Write(&data->ospi_b_ctrl, (uint8_t *)&autocalibration_data,
 				     (uint8_t *)calib_sector_address, sizeof(autocalibration_data));
 		if (err != FSP_SUCCESS) {
-			LOG_DBG("Write auto-calibration data Failed");
+			LOG_DBG("Write auto-calibration data Failed %d", err);
 			return -EIO;
 		}
 
 		/* Wait until write operation completes */
-		ret = flash_ospi_b_wait_operation(data, 0, 0, MAX_TIME_WRITE);
+		ret = flash_ospi_b_wait_operation(&data->ospi_b_ctrl, MAX_TIME_WRITE);
 		if (ret != 0) {
 			LOG_DBG("Wait for write operation completes Failed");
 			return ret;
@@ -767,6 +893,69 @@ static int flash_ospi_b_jedec_id_read_helper(ospi_b_instance_ctrl_t *p_ctrl, uin
 		return -EIO;
 	}
 	memcpy(data, &transfer_jedec_id.data, transfer_jedec_id.data_length);
+
+	return 0;
+}
+
+/*
+ * Some flash devices stay latched in QPI (4S-4S-4S) mode across a warm reboot
+ * even though OM_RESET toggled CS, so the default 1S-1S-1S SFDP read comes back
+ * garbled. The Reset Enable/Reset Memory commands must be issued in the protocol
+ * the device is currently expecting, so the OSPI unit is switched to 4S-4S-4S to
+ * send them, then switched back to 1S-1S-1S once the device has reset back to its
+ * default SPI mode.
+ *
+ * command_set_table[0] is still the only populated table entry at this point in
+ * probe (command_set_table[1] is configured later, once the target mode is known),
+ * so it is temporarily repurposed to expose a 4S-4S-4S entry for
+ * R_OSPI_B_SpiProtocolSet() to match against, then restored.
+ */
+static int flash_ospi_b_software_reset(struct flash_renesas_ra_ospi_b_data *data)
+{
+	fsp_err_t err;
+	spi_flash_direct_transfer_t transfer_reset_en = {
+		.command = SPI_NOR_CMD_RESET_EN,
+		.command_length = 1,
+		.address_length = 0,
+		.data_length = 0,
+		.dummy_cycles = 0,
+	};
+	spi_flash_direct_transfer_t transfer_reset_mem = {
+		.command = SPI_NOR_CMD_RESET_MEM,
+		.command_length = 1,
+		.address_length = 0,
+		.data_length = 0,
+		.dummy_cycles = 0,
+	};
+
+	data->ospi_b_command_set_table[0].protocol = SPI_FLASH_PROTOCOL_4S_4S_4S;
+	err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_4S_4S_4S);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
+
+	err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_reset_en,
+				      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
+
+	err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_reset_mem,
+				      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
+
+	/* tRST: device needs time to complete the internal reset before it will
+	 * respond to further commands.
+	 */
+	k_sleep(K_USEC(30));
+
+	data->ospi_b_command_set_table[0].protocol = SPI_FLASH_PROTOCOL_1S_1S_1S;
+	err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_1S_1S_1S);
+	if (err != FSP_SUCCESS) {
+		return -EIO;
+	}
 
 	return 0;
 }
@@ -1063,10 +1252,253 @@ static int flash_ospi_b_4byte_enable(struct flash_renesas_ra_ospi_b_data *data, 
 		/* Flash is always in 4 byte mode. We just need to configure LUT */
 	} else {
 		/* Other methods not supported. Include:
-		 *
-		 *	BIT(2): 8-bit volatile extended address register used to define A[31:24]
-		 * bits. BIT(3): 8-bit volatile bank register used to define A[31:24] bits.
+		 * BIT(2): 8-bit volatile extended address register used to define A[31:24] bits.
+		 * BIT(3): 8-bit volatile bank register used to define A[31:24] bits.
 		 */
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+static int flash_ospi_b_quad_enable(struct flash_renesas_ra_ospi_b_data *data, uint8_t qer)
+{
+	ospi_b_instance_ctrl_t *p_ctrl = &data->ospi_b_ctrl;
+	spi_flash_direct_transfer_t transfer;
+	fsp_err_t err;
+	int ret;
+	uint8_t sr1_value, sr2_value;
+
+	switch (qer) {
+	case JESD216_DW15_QER_VAL_NONE:
+		/* No init needed */
+		return 0;
+	case JESD216_DW15_QER_VAL_S2B1v1:
+	case JESD216_DW15_QER_VAL_S2B1v4:
+	case JESD216_DW15_QER_VAL_S2B1v5:
+		/* QE = bit 1 of SR2; read SR1 (RDSR) + SR2 (RDSR2), write both with WRSR (2 bytes)
+		 */
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_RDSR,
+			.command_length = 1,
+			.address_length = 0,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		sr1_value = transfer.data & 0xFF;
+		LOG_DBG("sr1_value: 0x%02x", sr1_value);
+
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_RDSR2,
+			.command_length = 1,
+			.address_length = 0,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		sr2_value = transfer.data & 0xFF;
+		LOG_DBG("sr2_value: 0x%02x", sr2_value);
+
+		if (sr2_value & BIT(1)) {
+			return 0;
+		}
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_WRSR,
+			.command_length = 1,
+			.address_length = 0,
+			.data = (uint32_t)sr1_value | ((uint32_t)(sr2_value | BIT(1)) << 8),
+			.data_length = 2,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		break;
+
+	case JESD216_DW15_QER_VAL_S1B6:
+		/* QE = bit 6 of SR1; read with RDSR (0x05), write with WRSR (0x01) 1 byte */
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_RDSR,
+			.command_length = 1,
+			.address_length = 0,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		sr1_value = transfer.data & 0xFF;
+
+		if (sr1_value & BIT(6)) {
+			return 0;
+		}
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_WRSR,
+			.command_length = 1,
+			.address_length = 0,
+			.data = sr1_value | BIT(6),
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		break;
+
+	case JESD216_DW15_QER_VAL_S2B7:
+		/* QE = bit 7 of SR2; read with 0x3F, write with 0x3E 1 byte */
+		transfer = (spi_flash_direct_transfer_t){
+			.command = 0x3F,
+			.command_length = 1,
+			.address_length = 0,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		sr2_value = transfer.data & 0xFF;
+
+		if (sr2_value & BIT(7)) {
+			return 0;
+		}
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		transfer = (spi_flash_direct_transfer_t){
+			.command = 0x3E,
+			.command_length = 1,
+			.address_length = 0,
+			.data = sr2_value | BIT(7),
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		break;
+
+	case JESD216_DW15_QER_VAL_S2B1v6:
+		/* QE = bit 1 of SR2; read with RDSR2 (0x35), write with WRSR2 (0x31) 1 byte */
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_RDSR2,
+			.command_length = 1,
+			.address_length = 0,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		sr2_value = transfer.data & 0xFF;
+
+		if (sr2_value & BIT(1)) {
+			return 0;
+		}
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		transfer = (spi_flash_direct_transfer_t){
+			.command = SPI_NOR_CMD_WRSR2,
+			.command_length = 1,
+			.address_length = 0,
+			.data = sr2_value | BIT(1),
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+		err = R_OSPI_B_DirectTransfer(p_ctrl, &transfer,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		break;
+
+	default:
+		return -ENOTSUP;
+	}
+
+	return flash_ospi_b_wait_operation(p_ctrl, MAX_TIME_WRITE);
+}
+
+static int flash_ospi_b_qpi_enable(struct flash_renesas_ra_ospi_b_data *data,
+				   struct jesd216_bfp_dw15 dw15)
+{
+	fsp_err_t err;
+	int ret;
+	spi_flash_direct_transfer_t transfer_enter_qpi = {
+		.command_length = 1, .address_length = 0, .data_length = 0, .dummy_cycles = 0};
+
+	if (dw15.enable_444 & BIT(0)) {
+		ret = flash_ospi_b_quad_enable(data, dw15.qer);
+		if (ret != 0) {
+			LOG_DBG("QER enable failed");
+			return ret;
+		}
+
+		transfer_enter_qpi.command = 0x38;
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_enter_qpi,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Enter QPI mode failed");
+			return -EIO;
+		}
+	} else if (dw15.enable_444 & BIT(1)) {
+		transfer_enter_qpi.command = 0x38;
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_enter_qpi,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Enter QPI mode failed");
+			return -EIO;
+		}
+	} else if (dw15.enable_444 & BIT(2)) {
+		transfer_enter_qpi.command = 0x35;
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_enter_qpi,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Enter QPI mode failed");
+			return -EIO;
+		}
+	} else {
+		LOG_DBG("Not support this seq enable 444: %hhu", dw15.enable_444);
 		return -ENOTSUP;
 	}
 
@@ -1308,11 +1740,12 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 		.program_command = SPI_NOR_CMD_PP,
 		.program_dummy_cycles = 0,
 		.write_enable_command = SPI_NOR_CMD_WREN,
+		.address_msb_mask = 0x00,
 		.p_erase_commands = &local_erase_table,
 	};
 
 	/* Check supported mode; each case falls through to the next lower mode on failure */
-	switch (config->protocol) {
+	switch (config->desired_protocol) {
 	case OSPI_OPI_MODE:
 		if (jesd216_bfp_read_support(&sfdp_region->phdr[0], bfp, JESD216_MODE_8D8D8D,
 					     &instr) == 0 &&
@@ -1324,7 +1757,18 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 		}
 		LOG_DBG("Octal DDR mode can not be supported on this NOR flash");
 		return -ENOTSUP;
-	/* TODO: support more modes (4S-4D-4D, 2S-2S-2S,...) */
+	case OSPI_QUAD_MODE:
+		if (jesd216_bfp_read_support(&sfdp_region->phdr[0], bfp, JESD216_MODE_444, &instr) >
+		    0) {
+			target_mode = JESD216_MODE_444;
+			break;
+		} else if (jesd216_bfp_read_support(&sfdp_region->phdr[0], bfp, JESD216_MODE_144,
+						    &instr) > 0) {
+			target_mode = JESD216_MODE_144;
+			break;
+		}
+		LOG_DBG("Octal DDR mode can not be supported on this NOR flash");
+		return -ENOTSUP;
 	default:
 		target_mode = JESD216_MODE_111;
 		break;
@@ -1349,7 +1793,7 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 	ret = jesd216_bfp_decode_dw14(&sfdp_region->phdr[0], bfp, &dw14);
 	if (ret < 0) {
 		/* Default to legacy polling mode */
-		dw14.poll_options = 0x0;
+		dw14.poll_options = 0x1;
 	}
 
 	if (dw14.poll_options & BIT(0)) {
@@ -1402,33 +1846,18 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 
 			flash_ospi_b_parse_erase_4b(local_erase_list, sfdp_region->addr_4b_buf);
 		} else {
-			LOG_WRN("Flash size > 16MB but 4-byte address instruction table is not "
-				"available, trying to use "
-				"3-byte address commands in 4-byte mode, but it may cause issues");
+			LOG_DBG("Flash size > 16MB but 4-byte address instruction table is not "
+				"available");
+			return -ENOTSUP;
 		}
 	} else {
 		data->address_mode = 3;
 		local_cmd_set.address_bytes = SPI_FLASH_ADDRESS_BYTES_3;
 	}
 
-	/* Sync erase list into local table for SPI mode init */
+	/* Sync erase list into local table for smpt check */
 	for (uint8_t i = 0; i < JESD216_NUM_ERASE_TYPES; i++) {
 		data->erase_command_list[i] = local_erase_list[i];
-	}
-
-	if (target_mode == JESD216_MODE_111) {
-		data->ospi_b_command_set_table = local_cmd_set;
-		data->ospi_b_command_set_table.p_erase_commands = &data->ospi_b_erase_commands;
-		data->ospi_b_command_set.p_table = &data->ospi_b_command_set_table;
-	} else {
-		data->ospi_b_command_set.p_table = &local_cmd_set;
-	}
-
-	/* Init SPI module mode to SPI mode to using memory map */
-	err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_EXTENDED_SPI);
-	if (err != FSP_SUCCESS) {
-		LOG_DBG("Init SPI mode Failed");
-		return -EIO;
 	}
 
 	/* Handle sector map parameter table */
@@ -1469,25 +1898,39 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 #endif /* CONFIG_FLASH_PAGE_LAYOUT */
 	}
 
-	if ((target_mode == JESD216_MODE_8D8D8D) &&
-	    (bfp->dw10[8] & JESD216_SFDP_BFP_DW18_BYTE_ORDER_SWAPPED)) {
-		/* OSPI controller can not enable memory map at 1S-1S-1S */
-		word_swapped = true;
-		LOG_DBG("Byte order is swapped for this device, please aware that the data "
-			"on NOR Flash is not correct when read or programed by other mode");
-	}
+	/* Just mode 8D need to use DS signal and need auto calibration */
+	if (target_mode == JESD216_MODE_8D8D8D) {
+		data->ospi_b_command_set.p_table = &local_cmd_set;
 
-	/* Setup calibrate data */
-	ret = flash_ospi_b_setup_calibrate_data(data, config->start_address, config->flash_size,
-						word_swapped);
-	if (ret != 0) {
-		LOG_DBG("Setup calibrate data Failed");
-		return -EIO;
+		/* Init SPI module mode to SPI mode to using memory map */
+		err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_EXTENDED_SPI);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Init SPI mode Failed");
+			return -EIO;
+		}
+
+		if (bfp->dw10[8] & JESD216_SFDP_BFP_DW18_BYTE_ORDER_SWAPPED) {
+			/* OSPI controller can not enable memory map at 1S-1S-1S */
+			word_swapped = true;
+			LOG_DBG("Byte order is swapped for this device, please aware that the data "
+				"on NOR Flash is not correct when read or programed by other mode");
+		}
+
+		/* Setup calibrate data */
+		ret = flash_ospi_b_setup_calibrate_data(data, config->start_address,
+							config->flash_size, word_swapped);
+		if (ret != 0) {
+			LOG_DBG("Setup calibrate data Failed");
+			return -EIO;
+		}
 	}
 
 	/* Start other mode config from the resolved 1S state, then override */
-	data->ospi_b_command_set_table = local_cmd_set;
-	data->ospi_b_command_set_table.p_erase_commands = &data->ospi_b_erase_commands;
+	data->ospi_b_command_set_table[0] = local_cmd_set;
+	data->ospi_b_command_set_table[0].p_erase_commands = &data->ospi_b_erase_commands;
+
+	data->ospi_b_command_set_table[1] = local_cmd_set;
+	data->ospi_b_command_set_table[1].p_erase_commands = &data->ospi_b_erase_commands;
 
 	if (target_mode == JESD216_MODE_8D8D8D) {
 		if (sfdp_region->param_available & SFDP_PARAM_SCCR_MAP_AVAILABLE) {
@@ -1522,7 +1965,7 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 
 			/* Round up to an even value to avoid tripping controllers up. */
 			dummy = (uint8_t)ROUND_UP(dummy, 2);
-			data->ospi_b_command_set_table.read_dummy_cycles = dummy;
+			data->ospi_b_command_set_table[1].read_dummy_cycles = dummy;
 		} else if (sfdp_region->param_available & SFDP_PARAM_SEQ_OCTAL_DDR_AVAILABLE) {
 			/* Reset SPI NOR flash device by driving OM_RESET pin */
 			data->ospi_b_ctrl.p_reg->LIOCTL_b.RSTCS0 = 0;
@@ -1539,72 +1982,68 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 			}
 
 			/* JESD216 define when set up using Sequence table */
-			data->ospi_b_command_set_table.read_dummy_cycles = 20;
+			data->ospi_b_command_set_table[1].read_dummy_cycles = 20;
 		} else {
 			LOG_DBG("Target mode is 8D-8D-8D, but not SPI NOR Flash not support "
 				"Sequence table or SCCR map to enable it");
 			return -EIO;
 		}
 
-		data->ospi_b_command_set_table.protocol = SPI_FLASH_PROTOCOL_8D_8D_8D;
+		data->ospi_b_command_set_table[1].protocol = SPI_FLASH_PROTOCOL_8D_8D_8D;
 		data->address_mode = 4;
-		data->ospi_b_command_set_table.address_bytes = SPI_FLASH_ADDRESS_BYTES_4;
-		data->ospi_b_command_set_table.command_bytes = OSPI_B_COMMAND_BYTES_2;
-		data->ospi_b_command_set_table.frame_format = OSPI_B_FRAME_FORMAT_XSPI_PROFILE_1;
+		data->ospi_b_command_set_table[1].address_bytes = SPI_FLASH_ADDRESS_BYTES_4;
+		data->ospi_b_command_set_table[1].command_bytes = OSPI_B_COMMAND_BYTES_2;
+		data->ospi_b_command_set_table[1].frame_format = OSPI_B_FRAME_FORMAT_XSPI_PROFILE_1;
 
-		data->ospi_b_command_set_table.read_command = sfdp_region->pr1_buf[0] >> 8 & 0xFF;
+		data->ospi_b_command_set_table[1].read_command =
+			sfdp_region->pr1_buf[0] >> 8 & 0xFF;
 
 		/* If 8D dummy cycles are base on Sequence table or profile 1 is not correct */
 		if (config->special_require_info.def_8d_dummy_cycles != 0) {
-			data->ospi_b_command_set_table.read_dummy_cycles =
+			data->ospi_b_command_set_table[1].read_dummy_cycles =
 				config->special_require_info.def_8d_dummy_cycles;
 		}
 
 		/* Although the PP_4B is not supported in 4-byte instruction table, so far the nor
 		 * still use PP_4B + extend for octal mode
 		 */
-		data->ospi_b_command_set_table.program_command = SPI_NOR_CMD_PP_4B;
-		data->ospi_b_command_set_table.program_dummy_cycles = 0;
-		data->ospi_b_command_set_table.write_enable_command = SPI_NOR_CMD_WREN;
+		data->ospi_b_command_set_table[1].program_command = SPI_NOR_CMD_PP_4B;
+		data->ospi_b_command_set_table[1].program_dummy_cycles = 0;
+		data->ospi_b_command_set_table[1].write_enable_command = SPI_NOR_CMD_WREN;
 		/* the status command has been checked and set above */
 
 		if (sfdp_region->pr1_buf[0] & JESD216_SFDP_PROFILE1_DW1_RDSR_DUMMY) {
-			data->ospi_b_command_set_table.status_dummy_cycles = 8;
-			data->transfer_read_status.dummy_cycles = 8;
+			data->ospi_b_command_set_table[1].status_dummy_cycles = 8;
 		} else {
-			data->ospi_b_command_set_table.status_dummy_cycles = 4;
-			data->transfer_read_status.dummy_cycles = 4;
+			data->ospi_b_command_set_table[1].status_dummy_cycles = 4;
 		}
 
 		if ((config->special_require_info.rdsr_addr_4bytes) ||
 		    (sfdp_region->pr1_buf[0] & JESD216_SFDP_PROFILE1_DW1_RDSR_ADDR_BYTES)) {
-			data->ospi_b_command_set_table.status_needs_address = true;
-			data->ospi_b_command_set_table.status_address_bytes =
+			data->ospi_b_command_set_table[1].status_needs_address = true;
+			data->ospi_b_command_set_table[1].status_address_bytes =
 				SPI_FLASH_ADDRESS_BYTES_4;
-			data->ospi_b_command_set_table.status_address = 0;
-
-			data->transfer_read_status.address_length = 4;
-			data->transfer_read_status.address = 0;
+			data->ospi_b_command_set_table[1].status_address = 0;
 		} else {
-			data->ospi_b_command_set_table.status_needs_address = false;
+			data->ospi_b_command_set_table[1].status_needs_address = false;
 		}
 
 		/* 8D-8D-8D command extension. */
 		switch (bfp->dw10[8] & JESD216_SFDP_BFP_DW18_CMD_EXT_MASK) {
 		case JESD216_SFDP_BFP_DW18_CMD_EXT_REP:
 			/* Handle repeat command extension */
-			data->ospi_b_command_set_table.read_command =
-				data->ospi_b_command_set_table.read_command << 8 |
-				data->ospi_b_command_set_table.read_command;
-			data->ospi_b_command_set_table.program_command =
-				data->ospi_b_command_set_table.program_command << 8 |
-				data->ospi_b_command_set_table.program_command;
-			data->ospi_b_command_set_table.write_enable_command =
-				data->ospi_b_command_set_table.write_enable_command << 8 |
-				data->ospi_b_command_set_table.write_enable_command;
-			data->ospi_b_command_set_table.status_command =
-				data->ospi_b_command_set_table.status_command << 8 |
-				data->ospi_b_command_set_table.status_command;
+			data->ospi_b_command_set_table[1].read_command =
+				data->ospi_b_command_set_table[1].read_command << 8 |
+				data->ospi_b_command_set_table[1].read_command;
+			data->ospi_b_command_set_table[1].program_command =
+				data->ospi_b_command_set_table[1].program_command << 8 |
+				data->ospi_b_command_set_table[1].program_command;
+			data->ospi_b_command_set_table[1].write_enable_command =
+				data->ospi_b_command_set_table[1].write_enable_command << 8 |
+				data->ospi_b_command_set_table[1].write_enable_command;
+			data->ospi_b_command_set_table[1].status_command =
+				data->ospi_b_command_set_table[1].status_command << 8 |
+				data->ospi_b_command_set_table[1].status_command;
 
 			for (uint8_t i = 0; i < JESD216_NUM_ERASE_TYPES; i++) {
 				if (data->erase_command_list[i].command != 0) {
@@ -1616,18 +2055,18 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 			break;
 		case JESD216_SFDP_BFP_DW18_CMD_EXT_INV:
 			/* Handle invert command extension */
-			data->ospi_b_command_set_table.read_command =
-				data->ospi_b_command_set_table.read_command << 8 |
-				(~data->ospi_b_command_set_table.read_command & 0xFF);
-			data->ospi_b_command_set_table.program_command =
-				data->ospi_b_command_set_table.program_command << 8 |
-				(~data->ospi_b_command_set_table.program_command & 0xFF);
-			data->ospi_b_command_set_table.write_enable_command =
-				data->ospi_b_command_set_table.write_enable_command << 8 |
-				(~data->ospi_b_command_set_table.write_enable_command & 0xFF);
-			data->ospi_b_command_set_table.status_command =
-				data->ospi_b_command_set_table.status_command << 8 |
-				(~data->ospi_b_command_set_table.status_command & 0xFF);
+			data->ospi_b_command_set_table[1].read_command =
+				data->ospi_b_command_set_table[1].read_command << 8 |
+				(~data->ospi_b_command_set_table[1].read_command & 0xFF);
+			data->ospi_b_command_set_table[1].program_command =
+				data->ospi_b_command_set_table[1].program_command << 8 |
+				(~data->ospi_b_command_set_table[1].program_command & 0xFF);
+			data->ospi_b_command_set_table[1].write_enable_command =
+				data->ospi_b_command_set_table[1].write_enable_command << 8 |
+				(~data->ospi_b_command_set_table[1].write_enable_command & 0xFF);
+			data->ospi_b_command_set_table[1].status_command =
+				data->ospi_b_command_set_table[1].status_command << 8 |
+				(~data->ospi_b_command_set_table[1].status_command & 0xFF);
 
 			for (uint8_t i = 0; i < JESD216_NUM_ERASE_TYPES; i++) {
 				if (data->erase_command_list[i].command != 0) {
@@ -1645,12 +2084,6 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 			return -EIO;
 		}
 
-		data->transfer_write_enable.command =
-			data->ospi_b_command_set_table.write_enable_command;
-		data->transfer_write_enable.command_length = 2;
-		data->transfer_read_status.command = data->ospi_b_command_set_table.status_command;
-		data->transfer_read_status.command_length = 2;
-
 		data->ospi_b_command_set.p_table = &data->ospi_b_command_set_table;
 
 		octaclk_settings.source_clock = config->clock_src;
@@ -1661,6 +2094,193 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 		err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_8D_8D_8D);
 		if (err != FSP_SUCCESS) {
 			LOG_DBG("Switch to OPI mode Failed");
+			return -EIO;
+		}
+	} else if (target_mode == JESD216_MODE_444) {
+		struct jesd216_bfp_dw15 dw15;
+
+		ret = jesd216_bfp_decode_dw15(&sfdp_region->phdr[0], bfp, &dw15);
+		if (ret != 0) {
+			if (config->special_require_info.seq_enable_444 != 0) {
+				dw15.enable_444 = config->special_require_info.seq_enable_444;
+				dw15.qer = config->special_require_info.qer_value;
+			} else {
+				LOG_DBG("dw15 decode failed");
+				return -EIO;
+			}
+		}
+
+		ret = flash_ospi_b_qpi_enable(data, dw15);
+		if (ret != 0) {
+			LOG_DBG("QPI enable failed");
+			return -EIO;
+		}
+
+		/* Configure command set for 4S-4S-4S (QPI) mode.
+		 * Read command / program command are resolved from SFDP:
+		 *   - 4-byte address: prefer dedicated 4B instructions from the
+		 *     4-Byte Address Instruction table.
+		 *   - 3-byte address: use the instruction returned by
+		 *     jesd216_bfp_read_support(JESD216_MODE_444) and standard PP.
+		 * read_dummy_cycles comes from instr.wait_states + instr.mode_clocks.
+		 */
+		data->ospi_b_command_set_table[1].protocol = SPI_FLASH_PROTOCOL_4S_4S_4S;
+		data->ospi_b_command_set_table[1].frame_format = OSPI_B_FRAME_FORMAT_STANDARD;
+		data->ospi_b_command_set_table[1].command_bytes = OSPI_B_COMMAND_BYTES_1;
+		/* address_bytes already set from local_cmd_set (3B or 4B) */
+
+		if (data->address_mode == 4 &&
+		    (sfdp_region->param_available & SFDP_PARAM_4BYTE_ADDR_AVAILABLE)) {
+			/* 0xEC (Fast Read Quad I/O 4B) is the same opcode in QPI mode */
+			data->ospi_b_command_set_table[1].read_command =
+				(sfdp_region->addr_4b_buf[0] &
+				 JESD216_SFDP_4B_ADDR_DW1_1S_4S_4_FAST_READ_EC_SUP)
+					? SPI_NOR_CMD_4READ_4B
+					: instr.instr; /* TODO: Needs testing to confirm */
+			/* PP4B (0x12) works in QPI mode on devices that support it in SPI */
+			data->ospi_b_command_set_table[1].program_command =
+				(sfdp_region->addr_4b_buf[0] &
+				 JESD216_SFDP_4B_ADDR_DW1_1S_1S_1S_PP_12_SUP)
+					? SPI_NOR_CMD_PP_4B
+					: SPI_NOR_CMD_PP; /* TODO: Needs testing to confirm */
+		} else {
+			data->ospi_b_command_set_table[1].read_command = instr.instr;
+			data->ospi_b_command_set_table[1].program_command = SPI_NOR_CMD_PP;
+		}
+
+		data->ospi_b_command_set_table[1].read_dummy_cycles =
+			instr.wait_states + instr.mode_clocks;
+		data->ospi_b_command_set_table[1].program_dummy_cycles = 0;
+		data->ospi_b_command_set_table[1].status_dummy_cycles = 0;
+
+		data->ospi_b_command_set.p_table = &data->ospi_b_command_set_table;
+
+		octaclk_settings.source_clock = config->clock_src;
+		octaclk_settings.divider = BSP_CFG_OCTACLK_DIV;
+		R_BSP_OctaclkUpdate(&octaclk_settings);
+
+		err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_4S_4S_4S);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Switch to QPI mode failed");
+			return -EIO;
+		}
+
+	} else if (target_mode == JESD216_MODE_144) {
+		struct jesd216_bfp_dw15 dw15;
+
+		ret = jesd216_bfp_decode_dw15(&sfdp_region->phdr[0], bfp, &dw15);
+		if (ret != 0) {
+			if (config->special_require_info.qer_value != 0) {
+				dw15.qer = config->special_require_info.qer_value;
+			} else {
+				LOG_DBG("dw15 decode failed");
+				return -EIO;
+			}
+		}
+
+		ret = flash_ospi_b_quad_enable(data, dw15.qer);
+		if (ret != 0) {
+			LOG_DBG("Quad SPI enable failed");
+			return -EIO;
+		}
+
+		/* Update command set for 1S-4S-4S mode.
+		 * read_command / program_command are resolved from SFDP:
+		 *   - 4-byte address: prefer dedicated 4B quad instructions from the
+		 *     4-Byte Address Instruction table (DW1 bits 5 and 8).
+		 *   - 3-byte address: use the instruction returned by
+		 *     jesd216_bfp_read_support(JESD216_MODE_144) and the standard
+		 *     1-4-4 page-program opcode.
+		 * read_dummy_cycles comes from instr.wait_states decoded above.
+		 * row_load_command / row_store_command have no NOR-flash equivalent
+		 * in SFDP; set 0 to disable them in the FSP command set.
+		 */
+		data->ospi_b_command_set_table[1].protocol = SPI_FLASH_PROTOCOL_1S_4S_4S;
+		data->ospi_b_command_set_table[1].frame_format = OSPI_B_FRAME_FORMAT_STANDARD;
+		data->ospi_b_command_set_table[1].command_bytes = OSPI_B_COMMAND_BYTES_1;
+		/* address_bytes already set from local_cmd_set (3B or 4B) */
+
+		if (data->address_mode == 4 &&
+		    (sfdp_region->param_available & SFDP_PARAM_4BYTE_ADDR_AVAILABLE)) {
+			data->ospi_b_command_set_table[1].read_command =
+				(sfdp_region->addr_4b_buf[0] &
+				 JESD216_SFDP_4B_ADDR_DW1_1S_4S_4_FAST_READ_EC_SUP)
+					? SPI_NOR_CMD_4READ_4B
+					: SPI_NOR_CMD_READ_FAST_4B;
+			data->ospi_b_command_set_table[1].program_command =
+				(sfdp_region->addr_4b_buf[0] &
+				 JESD216_SFDP_4B_ADDR_DW1_1S_4S_4S_PP_3E_SUP)
+					? SPI_NOR_CMD_PP_1_4_4_4B
+					: 0;
+		} else {
+			data->ospi_b_command_set_table[1].read_command = instr.instr;
+			/* To-do: Add flow support 1-4-4 program command
+			 * (not 1-1-4, since 1-1-4 is not supported by HW)
+			 */
+			data->ospi_b_command_set_table[1].program_command = 0;
+		}
+
+		data->ospi_b_command_set_table[1].read_dummy_cycles =
+			instr.wait_states + instr.mode_clocks;
+		data->ospi_b_command_set_table[1].program_dummy_cycles = 0;
+		data->ospi_b_command_set_table[1].status_dummy_cycles = 0;
+
+		data->ospi_b_command_set.p_table = &data->ospi_b_command_set_table;
+
+		octaclk_settings.source_clock = config->clock_src;
+		octaclk_settings.divider = BSP_CFG_OCTACLK_DIV;
+		R_BSP_OctaclkUpdate(&octaclk_settings);
+
+		err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_1S_4S_4S);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Switch to Quad SPI mode Failed");
+			return -EIO;
+		}
+
+	} else if (target_mode == JESD216_MODE_111) {
+		data->ospi_b_command_set.p_table = &data->ospi_b_command_set_table;
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		spi_flash_direct_transfer_t transfer_write_sample = {.command = 0x02,
+								     .command_length = 1,
+								     .address = 0x8,
+								     .address_length = 3,
+								     .data = 0x87654321,
+								     .data_length = 4,
+								     .dummy_cycles = 0};
+
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_write_sample,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		ret = flash_ospi_b_wait_operation(&data->ospi_b_ctrl, MAX_TIME_WRITE);
+		if (ret != 0) {
+			return -EIO;
+		}
+
+		spi_flash_direct_transfer_t transfer_read = {.command = 0x0b,
+							     .command_length = 1,
+							     .address = 0x8,
+							     .address_length = 3,
+							     .data_length = 1,
+							     .dummy_cycles = 8};
+
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_read,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+		LOG_DBG("Data 1-1-1: 0x%02x", transfer_read.data);
+
+		/* Init SPI module mode to SPI mode to using memory map */
+		err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_1S_1S_1S);
+		if (err != FSP_SUCCESS) {
+			LOG_DBG("Init SPI mode Failed");
 			return -EIO;
 		}
 	}
@@ -1701,10 +2321,38 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 
 	LOG_DBG("SFDP header magic: 0x%x", sfdp_region->header.magic);
 	if (jesd216_sfdp_magic(&sfdp_region->header) != JESD216_SFDP_MAGIC) {
-		/* Header was read incorrectly */
-		LOG_DBG("Invalid header");
-		ret = -EIO;
-		goto _exit;
+		if (config->desired_protocol == OSPI_QUAD_MODE) {
+			/* The device may still be latched in QPI mode from a previous
+			 * session; issue a software reset over 4S-4S-4S to bring it back
+			 * to the default 1S-1S-1S protocol before retrying the SFDP read.
+			 */
+			ret = flash_ospi_b_software_reset(data);
+			if (ret != 0) {
+				LOG_DBG("Software reset Failed");
+				goto _exit;
+			}
+
+			ret = flash_ospi_b_sfdp_read_helper(&data->ospi_b_ctrl,
+							    &sfdp_region->header, 0,
+							    sizeof(sfdp_region->header));
+			if (ret != 0) {
+				LOG_DBG("Read SFDP header Failed");
+				goto _exit;
+			}
+
+			LOG_DBG("SFDP header magic: 0x%x", sfdp_region->header.magic);
+			if (jesd216_sfdp_magic(&sfdp_region->header) != JESD216_SFDP_MAGIC) {
+				/* Header was read incorrectly */
+				LOG_DBG("Invalid header");
+				ret = -EIO;
+				goto _exit;
+			}
+		} else {
+			/* Header was read incorrectly */
+			LOG_ERR("Invalid header");
+			ret = -EIO;
+			goto _exit;
+		}
 	}
 
 	/* Read JEDEC ID */
@@ -1715,7 +2363,7 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 	}
 
 	if (memcmp(config->jedec_id, device_id, JESD216_READ_ID_LEN) != 0) {
-		LOG_DBG("JEDEC ID mismatch: expected 0x%02x 0x%02x 0x%02x, "
+		LOG_ERR("JEDEC ID mismatch: expected 0x%02x 0x%02x 0x%02x, "
 			"got 0x%02x 0x%02x 0x%02x",
 			config->jedec_id[0], config->jedec_id[1], config->jedec_id[2], device_id[0],
 			device_id[1], device_id[2]);
@@ -1894,8 +2542,8 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 	uint32_t clock_freq;
 	int ret;
 
-	/* protocol of OSPI checking */
-	if (config->protocol == OSPI_DUAL_MODE || config->protocol == OSPI_QUAD_MODE) {
+	/* desired_protocol of OSPI checking */
+	if (config->desired_protocol == OSPI_DUAL_MODE) {
 		LOG_ERR("OSPI mode DUAL|QUAD currently not support");
 		return -ENOTSUP;
 	}
@@ -1949,13 +2597,19 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 	return ret;
 }
 
+#define DT_INST_QER_PROP_OR(inst)                                                                  \
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, quad_enable_requirements),	                   \
+		    (_CONCAT(JESD216_DW15_QER_VAL_,				                   \
+		     DT_INST_STRING_TOKEN(inst, quad_enable_requirements))),	                   \
+		    ((JESD216_DW15_QER_VAL_NONE)))
+
 #define OSPI_B_RENESAS_RA_INIT(idx)                                                                \
 	PINCTRL_DT_DEFINE(DT_INST_PARENT(idx));                                                    \
 	static const struct flash_renesas_ra_ospi_b_config ospi_b_config_##idx = {                 \
 		.pcfg = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(idx)),                            \
 		.start_address = DT_RANGES_PARENT_BUS_ADDRESS_BY_IDX(DT_DRV_INST(idx), 0),         \
 		.flash_size = DT_REG_SIZE(DT_INST_CHILD(idx, nor_flash_0)),                        \
-		.protocol = (uint8_t)DT_INST_PROP(idx, protocol_mode),                             \
+		.desired_protocol = (uint8_t)DT_INST_PROP(idx, protocol_mode),                     \
 		.max_frequency = DT_INST_PROP(idx, ospi_max_frequency),                            \
 		.erase_block_size = DT_PROP(DT_INST_CHILD(idx, nor_flash_0), erase_block_size),    \
 		.jedec_id = DT_INST_PROP(idx, jedec_id),                                           \
@@ -1969,6 +2623,9 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 				.def_8d_dummy_cycles =                                             \
 					(uint8_t)DT_INST_PROP_OR(idx, default_8d_dummy_cycles, 0), \
 				.rdsr_addr_4bytes = DT_INST_PROP_OR(idx, rdsr_addr_4bytes, false), \
+				.qer_value = DT_INST_QER_PROP_OR(idx),                             \
+				.seq_enable_444 =                                                  \
+					(uint8_t)DT_INST_PROP_OR(idx, seq_enable_qpi, 0),          \
 			},                                                                         \
 		.clock_subsys =                                                                    \
 			{                                                                          \
@@ -1982,24 +2639,6 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 							    write_block_size),                     \
 				.erase_value = 0xff,                                               \
 			},                                                                         \
-		.ospi_b_base_command_set_table =                                                   \
-			{                                                                          \
-				.protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,                           \
-				.frame_format = OSPI_B_FRAME_FORMAT_STANDARD,                      \
-				.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                         \
-				.command_bytes = OSPI_B_COMMAND_BYTES_1,                           \
-				.address_bytes = SPI_FLASH_ADDRESS_BYTES_3,                        \
-				.address_msb_mask = 0xF0,                                          \
-				.status_needs_address = false,                                     \
-				.p_erase_commands = NULL,                                          \
-				.read_command = 0,                                                 \
-				.read_dummy_cycles = 0,                                            \
-				.program_command = 0,                                              \
-				.program_dummy_cycles = 0,                                         \
-				.write_enable_command = SPI_NOR_CMD_WREN,                          \
-				.status_command = SPI_NOR_CMD_RDSR,                                \
-				.status_dummy_cycles = 0,                                          \
-			},                                                                         \
 	};                                                                                         \
                                                                                                    \
 	static struct flash_renesas_ra_ospi_b_data ospi_b_data_##idx = {                           \
@@ -2011,7 +2650,7 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 				.cs_pulldown_lead =                                                \
 					OSPI_B_COMMAND_CS_PULLDOWN_CLOCKS_NO_EXTENSION,            \
 				.sdr_drive_timing = OSPI_B_SDR_DRIVE_TIMING_BEFORE_CK,             \
-				.sdr_sampling_edge = OSPI_B_CK_EDGE_FALLING,                       \
+				.sdr_sampling_edge = OSPI_B_CK_EDGE_RISING,                        \
 				.sdr_sampling_delay = OSPI_B_SDR_SAMPLING_DELAY_NONE,              \
 				.ddr_sampling_extension =                                          \
 					DT_PROP(DT_INST_PARENT(idx), ddr_sampling_extension),      \
@@ -2023,35 +2662,42 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 			},                                                                         \
 		.ospi_b_command_set_table =                                                        \
 			{                                                                          \
-				.frame_format = OSPI_B_FRAME_FORMAT_STANDARD,                      \
-				.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                         \
-				.command_bytes = OSPI_B_COMMAND_BYTES_1,                           \
-				.address_bytes = SPI_FLASH_ADDRESS_BYTES_3,                        \
-				.status_needs_address = false,                                     \
-				.p_erase_commands = &ospi_b_data_##idx.ospi_b_erase_commands,      \
+				{                                                                  \
+					.protocol = SPI_FLASH_PROTOCOL_1S_1S_1S,                   \
+					.frame_format = OSPI_B_FRAME_FORMAT_STANDARD,              \
+					.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                 \
+					.command_bytes = OSPI_B_COMMAND_BYTES_1,                   \
+					.address_bytes = SPI_FLASH_ADDRESS_BYTES_3,                \
+					.address_msb_mask = 0x00,                                  \
+					.status_needs_address = false,                             \
+					.p_erase_commands =                                        \
+						&ospi_b_data_##idx.ospi_b_erase_commands,          \
+					.read_command = 0xb,                                       \
+					.read_dummy_cycles = 8,                                    \
+					.program_command = 0x2,                                    \
+					.program_dummy_cycles = 0,                                 \
+					.write_enable_command = SPI_NOR_CMD_WREN,                  \
+					.status_command = SPI_NOR_CMD_RDSR,                        \
+					.status_dummy_cycles = 0,                                  \
+				},                                                                 \
+				{                                                                  \
+					.frame_format = OSPI_B_FRAME_FORMAT_STANDARD,              \
+					.latency_mode = OSPI_B_LATENCY_MODE_FIXED,                 \
+					.command_bytes = OSPI_B_COMMAND_BYTES_1,                   \
+					.address_bytes = SPI_FLASH_ADDRESS_BYTES_3,                \
+					.status_needs_address = false,                             \
+					.address_msb_mask = 0x00,                                  \
+					.p_erase_commands =                                        \
+						&ospi_b_data_##idx.ospi_b_erase_commands,          \
+				},                                                                 \
 			},                                                                         \
 		.ospi_b_command_set =                                                              \
 			{                                                                          \
-				.p_table = (ospi_b_xspi_command_set_t *)&ospi_b_config_##idx       \
-						   .ospi_b_base_command_set_table,                 \
-				.length = 1,                                                       \
+				.p_table = (ospi_b_xspi_command_set_t *)&ospi_b_data_##idx         \
+						   .ospi_b_command_set_table,                      \
+				.length = 2,                                                       \
 			},                                                                         \
-		.transfer_write_enable =                                                           \
-			{                                                                          \
-				.command = SPI_NOR_CMD_WREN,                                       \
-				.command_length = 1,                                               \
-				.address_length = 0,                                               \
-				.data_length = 0,                                                  \
-				.dummy_cycles = 0,                                                 \
-			},                                                                         \
-		.transfer_read_status =                                                            \
-			{                                                                          \
-				.command = SPI_NOR_CMD_RDSR,                                       \
-				.command_length = 1,                                               \
-				.address_length = 0,                                               \
-				.data_length = 1,                                                  \
-				.dummy_cycles = 0,                                                 \
-			},                                                                         \
+                                                                                                   \
 		.ospi_b_config_extend =                                                            \
 			{                                                                          \
 				.ospi_b_unit = DT_PROP(DT_INST_PARENT(idx), unit),                 \
@@ -2067,7 +2713,7 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 				.address_bytes = SPI_FLASH_ADDRESS_BYTES_3,                        \
 				.dummy_clocks = SPI_FLASH_DUMMY_CLOCKS_DEFAULT,                    \
 				.page_program_address_lines = (spi_flash_data_lines_t)0U,          \
-				.page_size_bytes = 64, /* Max OSPI_B HW support */                 \
+				.page_size_bytes = 64,                                             \
 				.write_status_bit = 0,                                             \
 				.write_enable_bit = 1,                                             \
 				.erase_command_list_length = 0,                                    \
