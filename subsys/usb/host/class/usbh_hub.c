@@ -354,16 +354,16 @@ static int enumerate_port_device(struct usbh_hub_data *hub_data,
 	uint8_t speed;
 
 	if ((port_sts->wPortStatus & USB_HUB_PORT_STATUS_HIGH_SPEED) != 0) {
-		speed = USB_SPEED_SPEED_HS;
+		speed = USB_PORT_SPEED_HS;
 	} else if ((port_sts->wPortStatus & USB_HUB_PORT_STATUS_LOW_SPEED) != 0) {
-		speed = USB_SPEED_SPEED_LS;
+		speed = USB_PORT_SPEED_LS;
 	} else {
-		speed = USB_SPEED_SPEED_FS;
+		speed = USB_PORT_SPEED_FS;
 	}
 
 	LOG_INF("Device ready on port %d (speed: %s)", port_num,
-		speed == USB_SPEED_SPEED_HS ? "HIGH" :
-		speed == USB_SPEED_SPEED_LS ? "LOW" : "FULL");
+		speed == USB_PORT_SPEED_HS ? "HIGH" :
+		speed == USB_PORT_SPEED_LS ? "LOW" : "FULL");
 
 	udev = usbh_device_alloc(hub_data->uhs_ctx);
 	if (udev == NULL) {
