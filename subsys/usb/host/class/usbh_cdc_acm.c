@@ -46,10 +46,10 @@ struct cdc_acm_buf_ud {
 };
 
 /*
- * Each instance can have a TX, an active RX and a pending RX (ping-pong)
+ * Each instance can have a TX, a ZLP TX, an active RX and a pending RX (ping-pong)
  * buffer allocated at the same time.
  */
-#define USBH_CDC_ACM_BUF_COUNT (3 * CONFIG_USBH_CDC_ACM_INSTANCES_COUNT)
+#define USBH_CDC_ACM_BUF_COUNT (4 * CONFIG_USBH_CDC_ACM_INSTANCES_COUNT)
 
 /*
  * Pool for wrapping DMA-able user buffers without copying. The buffers carry no
@@ -452,14 +452,6 @@ static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf, con
 	if (data->tx_xfer != NULL) {
 		ret = -EBUSY;
 		goto unlock;
-	}
-
-	if (data->zlp_needed) {
-		ret = cdc_acm_tx_zlp_locked(data, udev);
-		if (ret != 0) {
-			LOG_WRN("Failed to send ZLP: %d", ret);
-			goto unlock;
-		}
 	}
 
 	buf = cdc_acm_buf_alloc((uint8_t *)tx_buf, len, true);
@@ -1166,13 +1158,14 @@ static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *con
 	struct uart_event evt;
 	size_t len;
 	bool is_zlp;
+	int ret = 0;
 
 	/*
 	 * The controller consumes the OUT buffer, so the number of bytes
 	 * transferred is the difference between the original buffer size and
 	 * the data left in it.
 	 */
-	len = buf->size - buf->len;
+	len = (buf->flags & NET_BUF_EXTERNAL_DATA) ? buf->len : buf->size - buf->len;
 	is_zlp = (ud->user_buf == NULL);
 	evt.data.tx.len = len;
 	evt.data.tx.buf = ud->user_buf;
@@ -1195,7 +1188,12 @@ static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *con
 	k_mutex_lock(&data->mutex, K_FOREVER);
 	k_work_cancel_delayable(&data->tx_timeout_work);
 	data->tx_xfer = NULL;
-	if (!is_zlp) {
+	if (data->zlp_needed) {
+		ret = cdc_acm_tx_zlp_locked(data, udev);
+		if (ret != 0) {
+			LOG_WRN("Failed to send ZLP: %d", ret);
+		}
+	} else {
 		cdc_acm_uart_evt(data, &evt);
 	}
 	k_mutex_unlock(&data->mutex);
@@ -1203,7 +1201,7 @@ static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *con
 	net_buf_unref(buf);
 	usbh_xfer_free(udev, xfer);
 
-	return 0;
+	return ret;
 }
 
 static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
