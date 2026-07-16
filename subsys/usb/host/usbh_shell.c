@@ -11,6 +11,7 @@
 #include <zephyr/shell/shell.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/usb/usbh.h>
+#include <zephyr/usb/class/usbh_dfu.h>
 
 #include "usbh_device.h"
 #include "usbh_ch9.h"
@@ -817,6 +818,191 @@ static int cmd_device_address(const struct shell *sh,
 	return err;
 }
 
+int cmd_dfu_upload_cb(void *upload_arg, char *data, const size_t len)
+{
+	const struct shell *sh = (const struct shell *)upload_arg;
+
+	if (len) {
+		shell_print(sh, "Upload chunk:");
+		shell_hexdump(sh, data, len);
+	} else {
+		shell_print(sh, "Upload is done");
+	}
+
+	return 0;
+}
+
+static int cmd_dfu_upload(const struct shell *sh,
+			      size_t argc, char **argv)
+{
+	struct usbh_dfu_settings dfu_settings = { 0 };
+	static struct device *dev;
+	static struct usb_device *udev;
+	struct usbh_context *uhs_ctx;
+	uint8_t addr;
+	uint8_t alternate_idx;
+	int err;
+
+	uhs_ctx = get_uhs_ctx_or_error(sh);
+	if (uhs_ctx == NULL) {
+		return -ENODEV;
+	}
+
+	addr = strtol(argv[1], NULL, 10);
+	udev = usbh_device_get(uhs_ctx, addr);
+	if (udev == NULL) {
+		shell_error(sh, "host: No USB device with address %u", addr);
+		return -ENOMEM;
+	}
+
+	err = usbh_dfu_find_dev(udev, &dev);
+	if (err) {
+		shell_error(sh, "DFU device with requested address %d does not exist", addr);
+		return err;
+	}
+
+	alternate_idx = strtol(argv[2], NULL, 10);
+	dfu_settings.alternate_idx = alternate_idx;
+
+	err = z_impl_usbh_dfu_settings(dev, &dfu_settings);
+	if (err) {
+		shell_error(sh, "DFU settings error %d", err);
+		return err;
+	}
+
+	err = z_impl_usbh_dfu_upload(dev, cmd_dfu_upload_cb, (void *)sh);
+	if (err) {
+		shell_error(sh, "DFU UPLOAD error %d", err);
+		return err;
+	}
+
+	return err;
+}
+
+int cmd_dfu_dnload_cb(void *upload_arg, char *data, const size_t len)
+{
+	static unsigned int dnload_count;
+	static unsigned char *dnload_msg[2] = {"Hello from ", "DNLOAD-ed FW"};
+	const struct shell *sh = (const struct shell *)upload_arg;
+	size_t msg_len;
+
+	/* return 0 to complete FW download */
+	if (dnload_count == 2) {
+		dnload_count = 0;
+		shell_print(sh, "Download complete");
+		return 0;
+	}
+
+	/* Copy message to buffer to be send to USB device */
+	msg_len = strlen(dnload_msg[dnload_count]);
+	msg_len = len < msg_len ? len : msg_len;
+	strncpy(data, dnload_msg[dnload_count], msg_len);
+
+	shell_print(sh, "Download chunk: %d", dnload_count);
+	dnload_count++;
+
+	/* Return number of copied data */
+	return msg_len;
+}
+
+static int cmd_dfu_dnload(const struct shell *sh,
+			      size_t argc, char **argv)
+{
+	struct usbh_dfu_settings dfu_settings = { 0 };
+	static struct device *dev;
+	static struct usb_device *udev;
+	struct usbh_context *uhs_ctx;
+	uint8_t addr;
+	uint8_t alternate_idx;
+	int err;
+
+	uhs_ctx = get_uhs_ctx_or_error(sh);
+	if (uhs_ctx == NULL) {
+		return -ENODEV;
+	}
+
+	addr = strtol(argv[1], NULL, 10);
+	udev = usbh_device_get(uhs_ctx, addr);
+	if (udev == NULL) {
+		shell_error(sh, "host: No USB device with address %u", addr);
+		return -ENOMEM;
+	}
+
+	err = usbh_dfu_find_dev(udev, &dev);
+	if (err) {
+		shell_error(sh, "DFU device with requested address %d does not exist", addr);
+		return err;
+	}
+
+	alternate_idx = strtol(argv[2], NULL, 10);
+	dfu_settings.alternate_idx = alternate_idx;
+
+	err = z_impl_usbh_dfu_settings(dev, &dfu_settings);
+	if (err) {
+		shell_error(sh, "DFU settings error %d", err);
+		return err;
+	}
+
+	err = z_impl_usbh_dfu_dnload(dev, cmd_dfu_dnload_cb, (void *)sh);
+	if (err) {
+		shell_error(sh, "DFU DNLOAD error %d", err);
+		return err;
+	}
+
+	return err;
+}
+
+static int cmd_dfurt_enter_dfu(const struct shell *sh,
+			      size_t argc, char **argv)
+{
+	struct usbh_dfu_settings dfu_settings = { 0 };
+	static struct device *dev;
+	static struct usb_device *udev;
+	struct usbh_context *uhs_ctx;
+	uint8_t addr;
+	uint8_t alternate_idx;
+	int err;
+
+	uhs_ctx = get_uhs_ctx_or_error(sh);
+	if (uhs_ctx == NULL) {
+		return -ENODEV;
+	}
+
+	addr = strtol(argv[1], NULL, 10);
+	udev = usbh_device_get(uhs_ctx, addr);
+	if (udev == NULL) {
+		shell_error(sh, "host: No USB device with address %u", addr);
+		return -ENOMEM;
+	}
+
+	err = usbh_dfurt_find_dev(udev, &dev);
+	if (err) {
+		shell_error(sh, "DFURT device with requested address %d does not exist", addr);
+		return err;
+	}
+
+	alternate_idx = strtol(argv[2], NULL, 10);
+	dfu_settings.alternate_idx = alternate_idx;
+
+	err = z_impl_usbh_dfurt_settings(dev, &dfu_settings);
+	if (err) {
+		shell_error(sh, "DFURT settings error %d", err);
+		return err;
+	}
+
+	err = z_impl_usbh_dfurt_enter_dfu(dev);
+	if (err) {
+		shell_error(sh, "DFURT enter dfu error %d", err);
+		return err;
+	}
+
+	return err;
+}
+
+
+
+
+
 static int cmd_device_list(const struct shell *sh,
 			   size_t argc, char **argv)
 {
@@ -1182,6 +1368,30 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 		cmd_device_interface, 4, 0),
 	SHELL_CMD_ARG(descriptor, &desc_cmds, "Descriptor commands",
 		      NULL, 2, 0),
+	SHELL_CMD_ARG(dfu_upload, NULL,
+		SHELL_HELP(
+			"Upload firmware from Device to Host",
+			"<addr> <iface>\n"
+			"addr: Device bus address [dec]\n"
+			"alt: Alternate setting number [dec]"
+		),
+		cmd_dfu_upload, 3, 0),
+	SHELL_CMD_ARG(dfu_dnload, NULL,
+		SHELL_HELP(
+			"Download firmware from Host to Device",
+			"<addr> <iface>\n"
+			"addr: Device bus address [dec]\n"
+			"alt: Alternate setting number [dec]"
+		),
+		cmd_dfu_dnload, 3, 0),
+	SHELL_CMD_ARG(dfurt_enter_dfu, NULL,
+		SHELL_HELP(
+			"Switch DFU-realtime device to DFU mode",
+			"<addr>\n"
+			"addr: Device bus address [dec]\n"
+			"alt: Alternate setting number [dec]"
+		),
+		cmd_dfurt_enter_dfu, 3, 0),
 	SHELL_CMD_ARG(feature-set, &feature_set_cmds, "Set Feature commands",
 		      NULL, 2, 0),
 	SHELL_CMD_ARG(feature-clear, &feature_clear_cmds, "Clear Feature commands",

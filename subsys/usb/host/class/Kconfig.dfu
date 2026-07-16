@@ -1,0 +1,37 @@
+
+config USBH_DFU_CLASS
+        bool "USB DFU Class support [EXPERIMENTAL]"
+        select EXPERIMENTAL
+        help
+          USB Host Device Firmware Update Class implementation.
+
+
+if USBH_DFU_CLASS
+
+config USBH_DFU_INSTANCES_COUNT
+        int "Number of DFU instances"
+        default 4
+        help
+          Number of instances of this USB class
+
+config USBH_DFU_MAX_ALTERNATE_NR
+        int "Maximum number of alaternate settings"
+        default 32
+        help
+          Maximum number of alternate settings that
+          driver accepts from device
+
+config USBH_DFU_LIMIT_DATA_ALLOC_BYTES
+        int "Upper limit of bytes allocated for data transfers"
+        default 64
+        help
+          The driver won't allocate more than LIMIT_DATA_ALLOC_BYTES for data transfers.
+          This prevents a malicious device from requesting a full 16K space from host.
+
+module = USBH_DFU
+module-str = usbh dfu
+default-count = 1
+source "subsys/logging/Kconfig.template.log_config"
+source "subsys/usb/common/Kconfig.template.instances_count"
+
+endif # USBH_DFU_CLASS

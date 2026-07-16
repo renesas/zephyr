@@ -27,6 +27,11 @@ zephyr_library_sources_ifdef(
 add_subdirectory_ifdef(CONFIG_USBH_HID_CLASS class/hid)
 
 zephyr_library_sources_ifdef(
+  CONFIG_USBH_DFU_CLASS
+  class/usbh_dfu.c
+)
+
+zephyr_library_sources_ifdef(
   CONFIG_USBIP
   usbip.c
 )

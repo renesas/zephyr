@@ -3,3 +3,5 @@
 
 rsource "Kconfig.uvc"
 rsource "hid/Kconfig"
+rsource "Kconfig.dfu"
+
