@@ -512,7 +512,38 @@ void usbh_device_connect(struct usbh_context *const ctx,
 		return;
 	}
 
-	usbh_class_probe_device(udev);
+	/* Try each configuration until a class driver matches.
+	 * Config 1 is already active after usbh_device_init(); only switch
+	 * when it yields no match and there are further configurations to try.
+	 */
+	for (uint8_t cfg = 1; cfg <= udev->dev_desc.bNumConfigurations; cfg++) {
+		bool bound = false;
+
+		if (cfg > 1) {
+			if (usbh_device_set_configuration(udev, cfg) != 0) {
+				continue;
+			}
+			LOG_INF("Retrying class probe with configuration %u", cfg);
+		}
+
+		usbh_class_probe_device(udev);
+
+		STRUCT_SECTION_FOREACH(usbh_class_node, c_node) {
+			if (c_node->state == USBH_CLASS_STATE_BOUND &&
+			    c_node->c_data->udev == udev) {
+				bound = true;
+				break;
+			}
+		}
+
+		if (bound) {
+			break;
+		}
+
+		if (cfg < udev->dev_desc.bNumConfigurations) {
+			usbh_class_remove_all(udev);
+		}
+	}
 }
 
 void usbh_device_disconnect(struct usbh_context *ctx, struct usb_device *udev)
