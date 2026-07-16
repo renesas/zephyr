@@ -12,12 +12,40 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/arch/cpu.h>
+#include <zephyr/devicetree.h>
 #include <soc.h>
 #include <bsp_api.h>
 #include <zephyr/drivers/clock_control/renesas_rx_cgc.h>
 
+/* itcm and itcm_ns are aliases of the same physical LRAM0 — only one may be
+ * enabled at a time. Likewise for dtcm / dtcm_ns (same physical SRAM region).
+ */
+BUILD_ASSERT(!(DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(itcm)) &&
+	       DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(itcm_ns))),
+	     "itcm and itcm_ns cannot both be enabled: they alias the same physical LRAM0");
+
+BUILD_ASSERT(!(DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(dtcm)) &&
+	       DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(dtcm_ns))),
+	     "dtcm and dtcm_ns cannot both be enabled: they alias the same physical SRAM region");
+
 uint32_t SystemCoreClock BSP_SECTION_EARLY_INIT;
 volatile uint32_t g_protect_pfswe_counter BSP_SECTION_EARLY_INIT;
+
+void soc_prep_hook(void)
+{
+#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+	/*
+	 * LRMSABAR0 resets to LRMSABA = 111111b, making the entire LRAM0 a
+	 * secure-only region. The non-secure CPU alias at 0x00000000 (itcm_ns)
+	 * is inaccessible until LRMSABA is cleared to 000000b. This must happen
+	 * before arch_data_copy() copies the .itcm section to 0x00000000.
+	 * Writing LRMSABAR0 requires PRCR_S.PRC4 to be unlocked first (key 0xA5).
+	 */
+	R_SYSTEM->PRCR = (uint16_t)((0xA5u << 8) | BIT(4));
+	R_CPSCU->LRMSABAR0 = 0U;
+	R_SYSTEM->PRCR = (uint16_t)(0xA5u << 8); /* re-lock */
+#endif
+}
 
 void soc_early_init_hook(void)
 {

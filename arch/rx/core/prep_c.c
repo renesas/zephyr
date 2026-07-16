@@ -23,6 +23,7 @@
 #include <zephyr/arch/common/init.h>
 #include <zephyr/arch/rx/mpu.h>
 #include <zephyr/arch/cache.h>
+#include <zephyr/platform/hooks.h>
 
 K_KERNEL_PINNED_STACK_ARRAY_DEFINE(z_initialization_process_stacks, CONFIG_MP_MAX_NUM_CPUS,
 				   CONFIG_INITIALIZATION_STACK_SIZE);
@@ -35,6 +36,8 @@ K_KERNEL_PINNED_STACK_ARRAY_DEFINE(z_initialization_process_stacks, CONFIG_MP_MA
  */
 FUNC_NORETURN void z_prep_c(void)
 {
+	soc_prep_hook();
+
 	arch_bss_zero();
 
 	arch_data_copy();

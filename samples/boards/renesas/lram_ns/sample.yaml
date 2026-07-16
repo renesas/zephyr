@@ -1,0 +1,15 @@
+sample:
+  description: LRAM0 non-secure alias demo for RX74M
+  name: lram_ns
+tests:
+  sample.boards.renesas.lram_ns:
+    platform_allow:
+      - ek_rx74m
+    integration_platforms:
+      - ek_rx74m
+    tags: linker memory
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "All checks passed.*"

@@ -351,28 +351,48 @@ SECTIONS
 #include <zephyr/linker/common-noinit.ld>
 
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
+
+/* When CONFIG_RX74M_LRAM0_NS is set, itcm_ns carries zephyr,memory-region =
+ * "ITCM_NS" so the generated memory region is called ITCM_NS, not ITCM.
+ * GROUP_START/GROUP_LINK_IN/GROUP_END must match that name.
+ */
+#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+GROUP_START(ITCM_NS)
+#else
 GROUP_START(ITCM)
+#endif
 
 	SECTION_PROLOGUE(_ITCM_SECTION_NAME,,SUBALIGN(8))
 	{
 		PLACE_SYMBOL_HERE(__itcm_start);
 		*(.itcm)
-		*(".itcm.*")
+		*(.itcm.text)    /* code via __attribute__((section(".itcm.text"))) */
+		*(.itcm.rodata)  /* read-only data via __attribute__((section(".itcm.rodata"))) */
+		*(".itcm.*")     /* catch-all for any other .itcm.* subsections */
 
 /* Located in generated directory. This file is populated by the
  * zephyr_linker_sources() Cmake function. */
 #include <snippets-itcm-section.ld>
 
 		PLACE_SYMBOL_HERE(__itcm_end);
+#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+	} GROUP_LINK_IN(ITCM_NS AT> ROMABLE_REGION)
+#else
 	} GROUP_LINK_IN(ITCM AT> ROMABLE_REGION)
+#endif
 
 	___itcm_size = __itcm_end - __itcm_start;
 	___itcm_load_start = LOADADDR(_ITCM_SECTION_NAME);
 	PROVIDE(__itcm_size = ___itcm_size);
 	PROVIDE(__itcm_load_start = ___itcm_load_start);
 
+#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+GROUP_END(ITCM_NS)
+#else
 GROUP_END(ITCM)
 #endif
+
+#endif /* DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay) */
 
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
 GROUP_START(DTCM)

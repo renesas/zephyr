@@ -51,16 +51,54 @@
 		};
 	};
 
+	/* LRAM0 secure alias — used when Zephyr kernel code runs from TCM. */
 	itcm: lram@80000000 {
 		compatible = "zephyr,memory-region";
 		reg = <0x80000000 DT_SIZE_K(128)>;
 		zephyr,memory-region = "ITCM";
 	};
 
+	/*
+	 * LRAM0 non-secure alias — same physical 128 KB as itcm@80000000.
+	 *
+	 * Use this node (with zephyr,itcm = &itcm_ns in the chosen node) when a
+	 * pre-built binary library is linked at fixed address 0x00000000. The
+	 * existing ITCM linker section and xip.c copy machinery handle storage in
+	 * MRAM and boot-time copy to 0x00000000 automatically — no extra code
+	 * needed. Only one of itcm / itcm_ns may be enabled at a time (same RAM).
+	 *
+	 * CPSCU.LRMSABAR0 resets to LRMSABA = 111111b (fully secure), so the
+	 * non-secure alias at 0x00000000 is inaccessible by default. soc_prep_hook()
+	 * clears LRMSABAR0 to 0 before arch_data_copy() runs when this node is
+	 * enabled.
+	 */
+	itcm_ns: lram@0 {
+		compatible = "zephyr,memory-region";
+		reg = <0x00000000 DT_SIZE_K(128)>;
+		zephyr,memory-region = "ITCM_NS";
+		status = "disabled";
+	};
+
+	/* DTCM secure alias — SRAM region used as data TCM. */
 	dtcm: lram@82800000 {
 		compatible = "zephyr,memory-region";
 		reg = <0x82800000 DT_SIZE_K(128)>;
 		zephyr,memory-region = "DTCM";
+	};
+
+	/*
+	 * DTCM non-secure alias — same physical SRAM as dtcm@82800000.
+	 *
+	 * Use this node (with zephyr,dtcm = &dtcm_ns) when DTCM data must be
+	 * reachable at its non-secure address 0x02800000. Unlike LRAM0, SRAM
+	 * security boundaries are not controlled by LRMSABAR, so no additional
+	 * register write is needed in soc_prep_hook().
+	 */
+	dtcm_ns: lram@2800000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x02800000 DT_SIZE_K(128)>;
+		zephyr,memory-region = "DTCM_NS";
+		status = "disabled";
 	};
 
 	soc {
