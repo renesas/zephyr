@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2025 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+// /delete-node/ &storage_partition;
+
+&mx25lw51245g_ctrl {
+	status = "okay";
+};
+
+&mx25lw51245g {
+	status = "okay";
+
+	partitions {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		storage_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "nor";
+			reg = <0x00000000 DT_SIZE_M(1)>;
+		};
+	};
+};
