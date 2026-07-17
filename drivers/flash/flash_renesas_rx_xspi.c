@@ -10,6 +10,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/init.h>
+#include <zephyr/arch/cache.h>
 #include <soc.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/pinctrl.h>
@@ -617,6 +618,8 @@ static int flash_renesas_rx_xspi_controller_erase(const struct device *dev, off_
 		len -= erased_len;
 	}
 
+	arch_dcache_flush_and_invd_all();
+
 	release_device(dev);
 
 	return ret;
@@ -678,6 +681,8 @@ static int flash_renesas_rx_xspi_controller_write(const struct device *dev, off_
 		offset += size;
 		p_src = p_src + size;
 	}
+
+	arch_dcache_flush_and_invd_all();
 
 	release_device(dev);
 
