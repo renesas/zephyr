@@ -13,9 +13,9 @@
 #include <zephyr/types.h>
 
 /* JEDEC Read identification */
-#define JESD216_CMD_READ_ID   SPI_NOR_CMD_RDID
-#define JESD216_OCMD_READ_ID  0x9F60
-#define JESD216_READ_ID_LEN   3
+#define JESD216_CMD_READ_ID  SPI_NOR_CMD_RDID
+#define JESD216_OCMD_READ_ID 0x9F60
+#define JESD216_READ_ID_LEN  3
 
 /* Following are structures and constants supporting the JEDEC Serial
  * Flash Discoverable Parameters standard, JESD216 and its successors,
@@ -23,18 +23,18 @@
  * https://www.jedec.org/standards-documents/docs/jesd216b
  */
 
-#define JESD216_CMD_READ_SFDP   0x5A
-#define JESD216_CMD_BURST_SFDP  0x5B
-#define JESD216_OCMD_READ_SFDP  0x5AA5
+#define JESD216_CMD_READ_SFDP  0x5A
+#define JESD216_CMD_BURST_SFDP 0x5B
+#define JESD216_OCMD_READ_SFDP 0x5AA5
 
 /* Layout of a JESD216 parameter header. */
 struct jesd216_param_header {
-	uint8_t id_lsb;		/* ID LSB */
-	uint8_t rev_minor;	/* Minor revision number */
-	uint8_t rev_major;	/* Major revision number */
-	uint8_t len_dw;		/* Length of table in 32-bit DWORDs */
-	uint8_t ptp[3];		/* Address of table in SFDP space (LSB@0) */
-	uint8_t id_msb;		/* ID MSB */
+	uint8_t id_lsb;    /* ID LSB */
+	uint8_t rev_minor; /* Minor revision number */
+	uint8_t rev_major; /* Major revision number */
+	uint8_t len_dw;    /* Length of table in 32-bit DWORDs */
+	uint8_t ptp[3];    /* Address of table in SFDP space (LSB@0) */
+	uint8_t id_msb;    /* ID MSB */
 } __packed;
 
 /* Get the number of bytes required for the parameter table. */
@@ -54,18 +54,16 @@ static inline uint16_t jesd216_param_id(const struct jesd216_param_header *hp)
  */
 static inline uint32_t jesd216_param_addr(const struct jesd216_param_header *hp)
 {
-	return ((hp->ptp[2] << 16)
-		| (hp->ptp[1] << 8)
-		| (hp->ptp[0] << 0));
+	return ((hp->ptp[2] << 16) | (hp->ptp[1] << 8) | (hp->ptp[0] << 0));
 }
 
 /* Layout of the Serial Flash Discoverable Parameters header. */
 struct jesd216_sfdp_header {
-	uint32_t magic;		/* "SFDP" in little endian */
-	uint8_t rev_minor;	/* Minor revision number */
-	uint8_t rev_major;	/* Major revision number */
-	uint8_t nph;		/* Number of parameter headers */
-	uint8_t access;		/* Access protocol */
+	uint32_t magic;                     /* "SFDP" in little endian */
+	uint8_t rev_minor;                  /* Minor revision number */
+	uint8_t rev_major;                  /* Major revision number */
+	uint8_t nph;                        /* Number of parameter headers */
+	uint8_t access;                     /* Access protocol */
 	struct jesd216_param_header phdr[]; /* Headers */
 } __packed;
 
@@ -88,15 +86,19 @@ struct jesd216_sfdp_header {
  */
 
 /* JESD216D-01 section 6.4: Basic Flash Parameter */
-#define JESD216_SFDP_PARAM_ID_BFP 0xFF00
+#define JESD216_SFDP_PARAM_ID_BFP              0xFF00
 /* JESD216D-01 section 6.5: Sector Map Parameter */
-#define JESD216_SFDP_PARAM_ID_SECTOR_MAP 0xFF81
+#define JESD216_SFDP_PARAM_ID_SECTOR_MAP       0xFF81
 /* JESD216D-01 section 6.6: 4-Byte Address Instruction Parameter */
-#define JESD216_SFDP_PARAM_ID_4B_ADDR_INSTR 0xFF84
+#define JESD216_SFDP_PARAM_ID_4B_ADDR_INSTR    0xFF84
 /* JESD216D-01 section 6.7: xSPI (Profile 1.0) Parameter */
 #define JESD216_SFDP_PARAM_ID_XSPI_PROFILE_1V0 0xFF05
 /* JESD216D-01 section 6.8: xSPI (Profile 2.0) Parameter */
 #define JESD216_SFDP_PARAM_ID_XSPI_PROFILE_2V0 0xFF06
+/* JESD216D-01 section 6.9: SCCR Map Parameter */
+#define JESD216_SFDP_PARAM_ID_SCCR_MAP         0xFF87
+/* JESD216D-01 section 6.13: Sequences Octal DDR Parameter */
+#define JESD216_SFDP_PARAM_ID_SEQ_OCTAL_DDR    0xFF0A
 
 /* Macro to define the number of bytes required for the SFDP pheader
  * and @p nph parameter headers.
@@ -106,8 +108,8 @@ struct jesd216_sfdp_header {
  *
  * @return required buffer size in bytes.
  */
-#define JESD216_SFDP_SIZE(nph) (sizeof(struct jesd216_sfdp_header)	\
-				+ ((nph) * sizeof(struct jesd216_param_header)))
+#define JESD216_SFDP_SIZE(nph)                                                                     \
+	(sizeof(struct jesd216_sfdp_header) + ((nph) * sizeof(struct jesd216_param_header)))
 
 /** Extract the magic number from the SFDP structure in host byte order.
  *
@@ -151,23 +153,29 @@ struct jesd216_bfp {
  * See the JESD216 specification for the interpretation of these
  * bitfields.
  */
-#define JESD216_SFDP_BFP_DW1_DTRCLK_FLG BIT(19)
-#define JESD216_SFDP_BFP_DW1_ADDRBYTES_MASK (BIT(17) | BIT(18))
-#define JESD216_SFDP_BFP_DW1_ADDRBYTES_SHFT 17
-#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_3B 0
-#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_3B4B 1
-#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_4B 2
-#define JESD216_SFDP_BFP_DW1_4KERASEINSTR_SHFT 8
-#define JESD216_SFDP_BFP_DW1_4KERASEINSTR_MASK (0xFF << JESD216_SFDP_BFP_DW1_4KERASEINSTR_SHFT)
-#define JESD216_SFDP_BFP_DW1_WEISWVSR_FLG BIT(4)
-#define JESD216_SFDP_BFP_DW1_VSRBP_FLG BIT(3)
-#define JESD216_SFDP_BFP_DW1_WRTGRAN_FLG BIT(2)
-#define JESD216_SFDP_BFP_DW1_BSERSZ_SHFT 0
-#define JESD216_SFDP_BFP_DW1_BSERSZ_MASK (0x03 << JESD216_SFDP_BFP_DW1_BSERSZ_SHFT)
-#define JESD216_SFDP_BFP_DW1_BSERSZ_VAL_4KSUP 0x01
+#define JESD216_SFDP_BFP_DW1_DTRCLK_FLG          BIT(19)
+#define JESD216_SFDP_BFP_DW1_ADDRBYTES_MASK      (BIT(17) | BIT(18))
+#define JESD216_SFDP_BFP_DW1_ADDRBYTES_SHFT      17
+#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_3B    0
+#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_3B4B  1
+#define JESD216_SFDP_BFP_DW1_ADDRBYTES_VAL_4B    2
+#define JESD216_SFDP_BFP_DW1_4KERASEINSTR_SHFT   8
+#define JESD216_SFDP_BFP_DW1_4KERASEINSTR_MASK   (0xFF << JESD216_SFDP_BFP_DW1_4KERASEINSTR_SHFT)
+#define JESD216_SFDP_BFP_DW1_WEISWVSR_FLG        BIT(4)
+#define JESD216_SFDP_BFP_DW1_VSRBP_FLG           BIT(3)
+#define JESD216_SFDP_BFP_DW1_WRTGRAN_FLG         BIT(2)
+#define JESD216_SFDP_BFP_DW1_BSERSZ_SHFT         0
+#define JESD216_SFDP_BFP_DW1_BSERSZ_MASK         (0x03 << JESD216_SFDP_BFP_DW1_BSERSZ_SHFT)
+#define JESD216_SFDP_BFP_DW1_BSERSZ_VAL_4KSUP    0x01
 #define JESD216_SFDP_BFP_DW1_BSERSZ_VAL_4KNOTSUP 0x03
 
 #define JESD216_SFDP_BFP_DW12_SUSPRESSUP_FLG BIT(31)
+
+#define JESD216_SFDP_BFP_DW18_CMD_EXT_MASK       GENMASK(30, 29)
+#define JESD216_SFDP_BFP_DW18_CMD_EXT_REP        (0x00 << 29)
+#define JESD216_SFDP_BFP_DW18_CMD_EXT_INV        (0x01 << 29)
+#define JESD216_SFDP_BFP_DW18_CMD_EXT_16B        (0x03 << 29)
+#define JESD216_SFDP_BFP_DW18_BYTE_ORDER_SWAPPED BIT(31)
 
 /* Data can be extracted from the BFP words using these APIs:
  *
@@ -195,8 +203,8 @@ struct jesd216_bfp {
 static inline uint8_t jesd216_bfp_addrbytes(const struct jesd216_bfp *hp)
 {
 	uint32_t dw1 = sys_le32_to_cpu(hp->dw1);
-	uint8_t addr_support = (dw1 & JESD216_SFDP_BFP_DW1_ADDRBYTES_MASK)
-		>> JESD216_SFDP_BFP_DW1_ADDRBYTES_SHFT;
+	uint8_t addr_support =
+		(dw1 & JESD216_SFDP_BFP_DW1_ADDRBYTES_MASK) >> JESD216_SFDP_BFP_DW1_ADDRBYTES_SHFT;
 
 	return addr_support;
 }
@@ -230,7 +238,7 @@ static inline uint64_t jesd216_bfp_density(const struct jesd216_bfp *hp)
  * about instruction support.
  */
 enum jesd216_mode_type {
-	JESD216_MODE_044,	/* implied instruction, execute in place */
+	JESD216_MODE_044, /* implied instruction, execute in place */
 	JESD216_MODE_088,
 	JESD216_MODE_111,
 	JESD216_MODE_112,
@@ -282,10 +290,8 @@ struct jesd216_instr {
  *
  * @retval -ENOTSUP if instruction is not supported.
  */
-int jesd216_bfp_read_support(const struct jesd216_param_header *php,
-			     const struct jesd216_bfp *bfp,
-			     enum jesd216_mode_type mode,
-			     struct jesd216_instr *res);
+int jesd216_bfp_read_support(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
+			     enum jesd216_mode_type mode, struct jesd216_instr *res);
 
 /* Description of a supported erase operation. */
 struct jesd216_erase_type {
@@ -315,9 +321,7 @@ struct jesd216_erase_type {
  * @retval 0 if the erase type index provided usable information.
  * @retval -EINVAL if the erase type index is undefined.
  */
-int jesd216_bfp_erase(const struct jesd216_bfp *bfp,
-		      uint8_t idx,
-		      struct jesd216_erase_type *etp);
+int jesd216_bfp_erase(const struct jesd216_bfp *bfp, uint8_t idx, struct jesd216_erase_type *etp);
 
 /* Extract typical and maximum erase times from DW10.
  *
@@ -337,9 +341,7 @@ int jesd216_bfp_erase(const struct jesd216_bfp *bfp,
  * to maximum erase times.
  */
 int jesd216_bfp_erase_type_times(const struct jesd216_param_header *php,
-				 const struct jesd216_bfp *bfp,
-				 uint8_t idx,
-				 uint32_t *typ_ms);
+				 const struct jesd216_bfp *bfp, uint8_t idx, uint32_t *typ_ms);
 
 /* Get the page size from the Basic Flash Parameters.
  *
@@ -398,8 +400,7 @@ struct jesd216_bfp_dw11 {
  * @retval -ENOTSUP if this information is not available from this BFP table.
  * @retval 0 on successful storage into @c *res.
  */
-int jesd216_bfp_decode_dw11(const struct jesd216_param_header *php,
-			    const struct jesd216_bfp *bfp,
+int jesd216_bfp_decode_dw11(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw11 *res);
 
 /* Decoded data from JESD216 DW14 */
@@ -430,8 +431,7 @@ struct jesd216_bfp_dw14 {
  * @retval -ENOTSUP if this information is not available from this BFP table.
  * @retval 0 on successful storage into @c *res.
  */
-int jesd216_bfp_decode_dw14(const struct jesd216_param_header *php,
-			    const struct jesd216_bfp *bfp,
+int jesd216_bfp_decode_dw14(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw14 *res);
 
 /* DW15 Quad Enable Requirements specifies status register QE bits.
@@ -453,10 +453,10 @@ enum jesd216_dw15_qer_type {
 	JESD216_DW15_QER_S2B1v6 = 6,
 };
 
-#define JESD216_DW15_QER_VAL_NONE 0
+#define JESD216_DW15_QER_VAL_NONE   0
 #define JESD216_DW15_QER_VAL_S2B1v1 1
-#define JESD216_DW15_QER_VAL_S1B6 2
-#define JESD216_DW15_QER_VAL_S2B7 3
+#define JESD216_DW15_QER_VAL_S1B6   2
+#define JESD216_DW15_QER_VAL_S2B7   3
 #define JESD216_DW15_QER_VAL_S2B1v4 4
 #define JESD216_DW15_QER_VAL_S2B1v5 5
 #define JESD216_DW15_QER_VAL_S2B1v6 6
@@ -490,8 +490,7 @@ struct jesd216_bfp_dw15 {
  * @retval -ENOTSUP if this information is not available from this BFP table.
  * @retval 0 on successful storage into @c *res.
  */
-int jesd216_bfp_decode_dw15(const struct jesd216_param_header *php,
-			    const struct jesd216_bfp *bfp,
+int jesd216_bfp_decode_dw15(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw15 *res);
 
 /* Decoded data from JESD216_DW16 */
@@ -528,8 +527,7 @@ struct jesd216_bfp_dw16 {
  * @retval -ENOTSUP if this information is not available from this BFP table.
  * @retval 0 on successful storage into @c *res.
  */
-int jesd216_bfp_decode_dw16(const struct jesd216_param_header *php,
-			    const struct jesd216_bfp *bfp,
+int jesd216_bfp_decode_dw16(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw16 *res);
 
 /* Decoded data from JESD216 DW19 */
@@ -551,12 +549,67 @@ struct jesd216_bfp_dw19 {
  * @retval -ENOTSUP if this information is not available from this BFP table.
  * @retval 0 on successful storage into @c *res.
  */
-int jesd216_bfp_decode_dw19(const struct jesd216_param_header *php,
-			    const struct jesd216_bfp *bfp,
+int jesd216_bfp_decode_dw19(const struct jesd216_param_header *php, const struct jesd216_bfp *bfp,
 			    struct jesd216_bfp_dw19 *res);
 
 #define JESD216_DW19_OER_VAL_NONE 0U
 #define JESD216_DW19_OER_VAL_S2B3 1U
+
+/* BFP DW14 "Status Register Polling Device Busy" (DW14 bits 7:2), as decoded
+ * into jesd216_bfp_dw14.poll_options.
+ */
+#define JESD216_DW14_POLL_LEGACY_SR BIT(0) /* RDSR (05h) bit0, 1 = busy */
+#define JESD216_DW14_POLL_FSR       BIT(1) /* RDFLSR (70h) bit7, 0 = busy */
+
+/* JESD216D-01 section 6.5: Sector Map Parameter */
+#define JESD216_SFDP_SMP_CMD_ADDRESS_LEN_MASK        GENMASK(23, 22)
+#define JESD216_SFDP_SMP_CMD_ADDRESS_LEN_0           (0x0UL << 22)
+#define JESD216_SFDP_SMP_CMD_ADDRESS_LEN_3           (0x1UL << 22)
+#define JESD216_SFDP_SMP_CMD_ADDRESS_LEN_4           (0x2UL << 22)
+#define JESD216_SFDP_SMP_CMD_ADDRESS_LEN_USE_CURRENT (0x3UL << 22)
+
+#define JESD216_SFDP_SMP_CMD_READ_DUMMY_MASK  GENMASK(19, 16)
+#define JESD216_SFDP_SMP_CMD_READ_DUMMY_SHIFT 16
+#define JESD216_SFDP_SMP_CMD_READ_DUMMY(_cmd)                                                      \
+	(((_cmd) & JESD216_SFDP_SMP_CMD_READ_DUMMY_MASK) >> JESD216_SFDP_SMP_CMD_READ_DUMMY_SHIFT)
+#define JESD216_SFDP_SMP_CMD_READ_DUMMY_IS_VARIABLE 0xfUL
+
+#define JESD216_SFDP_SMP_CMD_READ_DATA_MASK  GENMASK(31, 24)
+#define JESD216_SFDP_SMP_CMD_READ_DATA_SHIFT 24
+#define JESD216_SFDP_SMP_CMD_READ_DATA(_cmd)                                                       \
+	(((_cmd) & JESD216_SFDP_SMP_CMD_READ_DATA_MASK) >> JESD216_SFDP_SMP_CMD_READ_DATA_SHIFT)
+
+#define JESD216_SFDP_SMP_CMD_OPCODE_MASK  GENMASK(15, 8)
+#define JESD216_SFDP_SMP_CMD_OPCODE_SHIFT 8
+#define JESD216_SFDP_SMP_CMD_OPCODE(_cmd)                                                          \
+	(((_cmd) & JESD216_SFDP_SMP_CMD_OPCODE_MASK) >> JESD216_SFDP_SMP_CMD_OPCODE_SHIFT)
+
+#define JESD216_SFDP_SMP_MAP_REGION_COUNT_MASK  GENMASK(23, 16)
+#define JESD216_SFDP_SMP_MAP_REGION_COUNT_SHIFT 16
+#define JESD216_SFDP_SMP_MAP_REGION_COUNT(_header)                                                 \
+	((((_header) & JESD216_SFDP_SMP_MAP_REGION_COUNT_MASK) >>                                  \
+	  JESD216_SFDP_SMP_MAP_REGION_COUNT_SHIFT) +                                               \
+	 1)
+
+#define JESD216_SFDP_SMP_MAP_ID_MASK  GENMASK(15, 8)
+#define JESD216_SFDP_SMP_MAP_ID_SHIFT 8
+#define JESD216_SFDP_SMP_MAP_ID(_header)                                                           \
+	(((_header) & JESD216_SFDP_SMP_MAP_ID_MASK) >> JESD216_SFDP_SMP_MAP_ID_SHIFT)
+
+#define JESD216_SFDP_SMP_MAP_REGION_SIZE_MASK  GENMASK(31, 8)
+#define JESD216_SFDP_SMP_MAP_REGION_SIZE_SHIFT 8
+#define JESD216_SFDP_SMP_MAP_REGION_SIZE(_region)                                                  \
+	(((((_region) & JESD216_SFDP_SMP_MAP_REGION_SIZE_MASK) >>                                  \
+	   JESD216_SFDP_SMP_MAP_REGION_SIZE_SHIFT) +                                               \
+	  1) *                                                                                     \
+	 256)
+
+#define JESD216_SFDP_SMP_MAP_REGION_ERASE_TYPE_MASK GENMASK(3, 0)
+#define JESD216_SFDP_SMP_MAP_REGION_ERASE_TYPE(_region)                                            \
+	((_region) & JESD216_SFDP_SMP_MAP_REGION_ERASE_TYPE_MASK)
+
+#define JESD216_SFDP_SMP_DESC_TYPE_MAP BIT(1)
+#define JESD216_SFDP_SMP_DESC_END      BIT(0)
 
 /* JESD216D-01 section 6.6: 4-Byte Address Instruction Parameter */
 #define JESD216_SFDP_4B_ADDR_DW1_1S_1S_1S_READ_13_SUP      BIT(0)
@@ -568,5 +621,57 @@ int jesd216_bfp_decode_dw19(const struct jesd216_param_header *php,
 #define JESD216_SFDP_4B_ADDR_DW1_1S_1S_1S_PP_12_SUP        BIT(6)
 #define JESD216_SFDP_4B_ADDR_DW1_1S_1S_4S_PP_34_SUP        BIT(7)
 #define JESD216_SFDP_4B_ADDR_DW1_1S_4S_4S_PP_3E_SUP        BIT(8)
+/* Erase Type support bits (JESD216H 6.7.3, 1st DWORD, bits 9..12) */
+#define JESD216_SFDP_4B_ADDR_DW1_ERASE_TYPE_1_SUP          BIT(9)
+#define JESD216_SFDP_4B_ADDR_DW1_ERASE_TYPE_2_SUP          BIT(10)
+#define JESD216_SFDP_4B_ADDR_DW1_ERASE_TYPE_3_SUP          BIT(11)
+#define JESD216_SFDP_4B_ADDR_DW1_ERASE_TYPE_4_SUP          BIT(12)
+/* Extract 4-byte erase instruction for type n (0-indexed) from 2nd DWORD */
+#define JESD216_SFDP_4B_ADDR_DW2_ERASE_TYPE_INSTR(dw2, n)  (((dw2) >> (8U * (n))) & 0xFFU)
+
+/* JESD216D-01 section 6.7: xSPI (Profile 1.0) Parameter */
+#define JESD216_SFDP_PROFILE1_DW1_RDSR_ADDR_BYTES BIT(29)
+#define JESD216_SFDP_PROFILE1_DW1_RDSR_DUMMY      BIT(28)
+#define JESD216_SFDP_PROFILE1_DW4_DUMMY_200MHZ    GENMASK(11, 7)
+#define JESD216_SFDP_PROFILE1_DW5_DUMMY_166MHZ    GENMASK(31, 27)
+#define JESD216_SFDP_PROFILE1_DW5_DUMMY_133MHZ    GENMASK(21, 17)
+#define JESD216_SFDP_PROFILE1_DW5_DUMMY_100MHZ    GENMASK(11, 7)
+
+/* JESD216D-01 section 6.13: Sequences Octal DDR Parameter */
+#define JESD216_SFDP_SODP_LENGTH_MASK  GENMASK(31, 24)
+#define JESD216_SFDP_SODP_LENGTH_SHIFT 24
+#define JESD216_SFDP_SODP_LENGTH(_cmd)                                                             \
+	(((_cmd) & JESD216_SFDP_SODP_LENGTH_MASK) >> JESD216_SFDP_SODP_LENGTH_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE1_MASK  GENMASK(23, 16)
+#define JESD216_SFDP_SODP_BYTE1_SHIFT 16
+#define JESD216_SFDP_SODP_BYTE1(_cmd)                                                              \
+	(((_cmd) & JESD216_SFDP_SODP_BYTE1_MASK) >> JESD216_SFDP_SODP_BYTE1_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE2_MASK  GENMASK(15, 8)
+#define JESD216_SFDP_SODP_BYTE2_SHIFT 8
+#define JESD216_SFDP_SODP_BYTE2(_cmd)                                                              \
+	(((_cmd) & JESD216_SFDP_SODP_BYTE2_MASK) >> JESD216_SFDP_SODP_BYTE2_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE3_MASK  GENMASK(7, 0)
+#define JESD216_SFDP_SODP_BYTE3(_cmd) (((_cmd) & JESD216_SFDP_SODP_BYTE3_MASK))
+
+#define JESD216_SFDP_SODP_BYTE4_MASK  GENMASK(31, 24)
+#define JESD216_SFDP_SODP_BYTE4_SHIFT 24
+#define JESD216_SFDP_SODP_BYTE4(_cmd)                                                              \
+	(((_cmd) & JESD216_SFDP_SODP_BYTE4_MASK) >> JESD216_SFDP_SODP_BYTE4_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE5_MASK  GENMASK(23, 16)
+#define JESD216_SFDP_SODP_BYTE5_SHIFT 16
+#define JESD216_SFDP_SODP_BYTE5(_cmd)                                                              \
+	(((_cmd) & JESD216_SFDP_SODP_BYTE5_MASK) >> JESD216_SFDP_SODP_BYTE5_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE6_MASK  GENMASK(15, 8)
+#define JESD216_SFDP_SODP_BYTE6_SHIFT 8
+#define JESD216_SFDP_SODP_BYTE6(_cmd)                                                              \
+	(((_cmd) & JESD216_SFDP_SODP_BYTE6_MASK) >> JESD216_SFDP_SODP_BYTE6_SHIFT)
+
+#define JESD216_SFDP_SODP_BYTE7_MASK  GENMASK(7, 0)
+#define JESD216_SFDP_SODP_BYTE7(_cmd) (((_cmd) & JESD216_SFDP_SODP_BYTE7_MASK))
 
 #endif /* ZEPHYR_DRIVERS_FLASH_JESD216_H_ */

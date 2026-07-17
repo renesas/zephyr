@@ -137,3 +137,61 @@ properties:
     type: int
     default: 0
     description: Chip Select channel on OSPI
+
+  quad-protocol:
+    type: string
+    default: "io"
+    enum:
+      - "io"
+      - "qpi"
+    description: |
+      Quad sub-protocol to use when protocol-mode selects XSPI_QUAD_MODE.
+      - "io"  = 1S-4S-4S (address/command on 1 line, data on 4 lines)
+      - "qpi" = 4S-4S-4S (command/address/data all on 4 lines)
+
+  enter-4byte-command:
+    type: int
+    default: 0
+    description: |
+      Override opcode used to enter 4-byte addressing mode. If 0 (default),
+      the driver decodes the correct method from JESD216 BFP DW16
+      "Enter 4-Byte Addressing" bits.
+
+  default-8d-dummy-cycles:
+    type: int
+    default: 0
+    description: |
+      Override the read dummy cycle count used in 8D-8D-8D (Octal DDR) mode.
+      If 0 (default), the value is decoded from the JESD216 xSPI Profile 1.0
+      table or the Sequence Octal DDR table.
+
+  rdsr-addr-4bytes:
+    type: boolean
+    description: |
+      Force the status register read (RDSR) in 8D-8D-8D mode to use a
+      4-byte address phase, overriding the JESD216 xSPI Profile 1.0
+      RDSR-address-bytes bit.
+
+  reset-dummy-cycles:
+    type: boolean
+    description: |
+      Some flash devices (e.g. ISSI IS25 series) apply a non-default read
+      dummy-cycle count that must be reset to the hardware default (via a
+      vendor-specific "Set Read Parameters" command) before entering
+      QPI/Octal mode. Enable this quirk for such devices.
+
+  fix-bfpt-addr-bytes:
+    type: boolean
+    description: |
+      Some flash devices report incorrect addressing width in JESD216 BFP
+      DW1 (e.g. claiming 3-byte-only addressing while 4-byte addressing is
+      required/supported). When set, the driver overrides the decoded BFP
+      value to force 4-byte addressing.
+
+  reduce-drive-strength:
+    type: boolean
+    description: |
+      Lower the flash output drive strength (vendor-specific volatile
+      register write) to reduce simultaneous-switching-output noise on
+      quad/octal reads. Only applies to flash devices that support this
+      quirk (e.g. ISSI IS25 series Extended Read Register ODS bits).
