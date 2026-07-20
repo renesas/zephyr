@@ -1322,6 +1322,14 @@
 			status = "disabled";
 		};
 
+		vin: vin@40347400 {
+			compatible = "renesas,ra-vin";
+			reg = <0x40347400 0x10000>;
+			clocks = <&iclk 0 0>, <&pclka MSTPC 17>;
+			clock-names = "aclk", "vclk";
+			status = "disabled";
+		};
+
 		ceu: ceu@40348000 {
 			compatible = "renesas,ra-ceu";
 			reg = <0x40348000 0x8000>;

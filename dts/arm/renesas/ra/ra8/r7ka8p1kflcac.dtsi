@@ -78,9 +78,77 @@
 			compatible = "renesas,ra-mipi-dsi";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x40346000 0x2000>;
+			reg = <0x40346000 0xc00>;
 			clocks = <&lcdclk MSTPC 10>;
+			phys = <&mipi_phy 1>;
+			phy-names = "dphy";
 			status = "disabled";
+		};
+
+		/*
+		 * Shared CSI/DSI D-PHY block. DPHYMDC.MASTEREN selects the
+		 * operating mode: CSI receiver (slave) or DSI transmitter (master).
+		 * Only one mode can be active at a time.
+		 */
+		mipi_phy: mipi-dphy@40346c00 {
+			compatible = "renesas,ra-mipi-dphy";
+			reg = <0x40346c00 0x400>;
+			clocks = <&pclka MSTPC 16>;
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		mipi_csi: csihost@40347000 {
+			compatible = "renesas,ra-mipi-csi";
+			reg = <0x40347000 0x1000>;
+			clocks = <&pclka MSTPC 17>;
+			clock-names = "vclk";
+			phys = <&mipi_phy 0>;
+			phy-names = "dphy";
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					/* sensor-facing input: the sensor's endpoint and
+					 * this port's own endpoint are both added by the
+					 * board/shield overlay, e.g.:
+					 * &mipi_csi {
+					 *     ports {
+					 *         port@0 {
+					 *             csi_ep_in: endpoint {
+					 *                 remote-endpoint-label = "sensor_ep_out";
+					 *             };
+					 *         };
+					 *     };
+					 * };
+					 */
+					reg = <0>;
+				};
+
+				port@1 {
+					/* VIN-facing output */
+					reg = <1>;
+					csi_ep_out: endpoint {
+						remote-endpoint-label = "vin_ep_in";
+					};
+				};
+			};
+		};
+
+	};
+};
+
+/*
+ * The family-level VIN node (&vin) is already defined in ra8x2.dtsi.
+ * Only add the OF-graph link to &mipi_csi here.
+ */
+&vin {
+	port {
+		vin_ep_in: endpoint {
+			remote-endpoint-label = "csi_ep_out";
 		};
 	};
 };
