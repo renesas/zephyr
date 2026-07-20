@@ -130,6 +130,17 @@ config DCACHE_LINE_SIZE
 config ICACHE_LINE_SIZE
 	default 32
 
+config RX_DCACHE_FORCE_WRITE_THROUGH
+	bool "Force RX data cache into write-through mode"
+	depends on DCACHE
+	help
+	  By default the RX data cache operates in write-back mode with write
+	  allocation enabled. Enable this option to force the data cache into
+	  write-through mode instead, so every store is written through to
+	  memory immediately. Useful when external bus masters (DMA, other
+	  cores) share memory with the CPU and cannot tolerate dirty cache
+	  lines that have not yet been flushed.
+
 endif # CPU_HAS_MPU
 
 endmenu
