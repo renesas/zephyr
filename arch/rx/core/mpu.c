@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <wchar.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/devicetree.h>
