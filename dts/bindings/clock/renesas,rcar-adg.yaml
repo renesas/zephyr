@@ -1,0 +1,43 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car Audio Clock Generator
+
+compatible: "renesas,rcar-adg"
+
+include: [clock-controller.yaml, base.yaml]
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  clock-names:
+    required: true
+
+  audio-clkout-sel:
+    type: array
+    required: true
+    description: |
+      Selects the clock output to AUDIO_CLKOUT0, AUDIO_CLKOUT1, AUDIO_CLKOUT2, AUDIO_CLKOUT3 pins.
+      e.g. audio-clkout-sel = <ADG_CLKSRC(BRGB) ADG_CLKSRC(AVB0) ADG_CLKSRC(AVB1) ADG_CLKSRC(AVB2)>;
+
+  brga-clk-sel:
+    type: int
+    required: true
+    description: |
+      Selects the clock input for BRGA. Use ADG_BRGSRC(CLKA|CLKB|CLKC|S0D4).
+
+  brgb-clk-sel:
+    type: int
+    required: true
+    description: |
+      Selects the clock input for BRGB. Use ADG_BRGSRC(CLKA|CLKB|CLKC|S0D4).
+
+  "#clock-cells":
+    const: 1
+
+clock-cells:
+  - clock_source
