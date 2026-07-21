@@ -6,6 +6,7 @@
 
 #include <renesas/rcar/gen5/rcar_gen5_cr52.dtsi>
 #include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
+#include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 
 / {
 	soc {
@@ -23,6 +24,38 @@
 			compatible = "renesas,r8a7800-clkc-mdlc";
 			reg = <0xc08f0000 0x4000>;
 			#clock-cells = <2>;
+		};
+
+		adg0: audio-clock@ec530000 {
+			compatible = "renesas,rcar-adg";
+			reg = <0xec530000 0x140>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_ADG0>,
+				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD1CK_MP_BUS>,
+				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD4CK_MP_BUS>,
+				 <&audio_clk_a>, <&audio_clk_b>, <&audio_clk_c>;
+			clock-names = "pclk", "s0d1", "s0d4",
+				      "clk_a", "clk_b", "clk_c";
+			#clock-cells = <1>;
+			audio-clkout-sel = <ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)
+					    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
+			brga-clk-sel = <ADG_BRGSRC(S0D4)>;
+			brgb-clk-sel = <ADG_BRGSRC(S0D4)>;
+		};
+
+		adg1: audio-clock@ed530000 {
+			compatible = "renesas,rcar-adg";
+			reg = <0xed530000 0x140>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_ADG1>,
+				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD1CK_MP_BUS>,
+				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD4CK_MP_BUS>,
+				 <&audio_clk_a>, <&audio_clk_b>, <&audio_clk_c>;
+			clock-names = "pclk", "s0d1", "s0d4",
+				      "clk_a", "clk_b", "clk_c";
+			#clock-cells = <1>;
+			audio-clkout-sel = <ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)
+					    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
+			brga-clk-sel = <ADG_BRGSRC(S0D4)>;
+			brgb-clk-sel = <ADG_BRGSRC(S0D4)>;
 		};
 
 		gpio0: gpio@c1080100 {
@@ -267,6 +300,29 @@
 			interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_SCIF1>,
 				 <&clkc CLKC_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
+		};
+	};
+
+	clocks: clocks {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		audio_clk_a: audio-clk-a {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+		};
+
+		audio_clk_b: audio-clk-b {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
+		};
+
+		audio_clk_c: audio-clk-c {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
 		};
 	};
 };
