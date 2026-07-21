@@ -9,6 +9,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "rcar_ironhide_x5h_r8a7800_r52-pinctrl.dtsi"
+#include <freq.h>
 
 / {
 	model = "R-Car Ironhide X5H R52";
@@ -104,4 +105,23 @@
 	pinctrl-0 = <&i2c6_sda_default &i2c6_scl_default>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&audio_clk_a {
+	clock-frequency = <DT_FREQ_K(24576)>;
+};
+
+&adg0 {
+	audio-clkout-sel = <ADG_CLKSRC(BRGB) ADG_CLKSRC(NONE)
+			    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
+	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
+	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
+	status = "okay";
+};
+
+&adg1 {
+	audio-clkout-sel = <ADG_CLKSRC(BRGB) ADG_CLKSRC(NONE)
+			    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
+	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
+	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
 };

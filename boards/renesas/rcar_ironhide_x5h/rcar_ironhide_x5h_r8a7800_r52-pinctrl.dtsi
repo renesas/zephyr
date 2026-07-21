@@ -31,4 +31,12 @@
 	i2c6_scl_default: i2c6_scl_default {
 		pin = <PIN_SCL6 FUNC_SCL6>;
 	};
+
+	audio_clka_default: audio_clka_default {
+		pin = <PIN_AUDIO_CLKA FUNC_AUDIO_CLKA_A>;
+	};
+
+	audio0_clkout0_default: audio0_clkout0_default {
+		pin = <PIN_AUDIO0_CLKOUT0 FUNC_AUDIO0_CLKOUT0>;
+	};
 };
