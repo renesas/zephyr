@@ -1,0 +1,17 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config CLOCK_CONTROL_RENESAS_RCAR_ADG
+	bool "R-Car Audio Clock Generator"
+	default y
+	depends on SOC_FAMILY_RENESAS_RCAR
+	depends on DT_HAS_RENESAS_RCAR_ADG_ENABLED
+	help
+	  Enable support for Renesas R-Car ADG clock control driver.
+
+config CLOCK_CONTROL_ADG_INIT_PRIORITY
+	int "Initialization priority of the ADG driver"
+	default 40
+	depends on CLOCK_CONTROL_RENESAS_RCAR_ADG
+	help
+	  Initialization priority of the ADG clock control driver. Must init before I2S.
