@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PHY_RENESAS_PCS
+	bool "Renesas R-Car Ethernet PCS channel driver"
+	select RENESAS_RCAR_MP_PHY
+	help
+	  Enable this to support the Ethernet Physical Coding Sublayer (PCS)
+	  channels found on Renesas R-Car SoCs. Each channel acts as an
+	  internal PHY, connecting the MAC to a SERDES lane (MP-PHY).
+
+if PHY_RENESAS_PCS
+
+config PHY_RENESAS_PCS_TIMEOUT_US
+	int "Register access timeout (us)"
+	default 100000
+	help
+	  Timeout in microseconds for waiting on PCS register bit changes
+	  during SERDES bring-up.
+
+endif # PHY_RENESAS_PCS

@@ -334,5 +334,30 @@
 			#phy-cells = <2>;
 			status = "disabled";
 		};
+
+		eth_pcs: pcs@c9c50000 {
+			compatible = "renesas,r8a78000-ether-pcs";
+			reg = <0xc9c50000 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			pcs_ch4: phy@4 {
+				compatible = "renesas,rcar-ether-pcs-channel";
+				clocks = <&clkc CLKC_MOD R8A78000_MOD_XPCS4>;
+				reg = <4>;
+				phys = <&mp_phy 2 0>;
+				phy-mode = "usxgmii";
+				status = "disabled";
+			};
+
+			pcs_ch5: phy@5 {
+				compatible = "renesas,rcar-ether-pcs-channel";
+				clocks = <&clkc CLKC_MOD R8A78000_MOD_XPCS5>;
+				reg = <5>;
+				phys = <&mp_phy 2 1>;
+				phy-mode = "sgmii";
+			};
+		};
 	};
 };

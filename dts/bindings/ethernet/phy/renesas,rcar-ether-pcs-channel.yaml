@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas R-Car X5H Ethernet PCS channel. Each channel drives the SERDES
+  lane (through the MP-PHY) between one rswitch3 ETHA port and its
+  external PHY.
+
+compatible: "renesas,rcar-ether-pcs-channel"
+
+include: [phy.yaml]
+
+properties:
+  reg:
+    required: true
+    description: PCS channel index within the parent PCS block.
+
+  phys:
+    type: phandle-array
+    required: true
+    description: MP-PHY channel/lane driving this PCS channel's SERDES.
+
+  phy-mode:
+    type: string
+    required: true
+    enum:
+      - "sgmii"
+      - "usxgmii"
+    description: MAC-to-PCS interface mode used by this channel's ETHA port.

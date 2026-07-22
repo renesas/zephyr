@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car X5H Ethernet PCS block
+
+compatible: "renesas,r8a78000-ether-pcs"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
