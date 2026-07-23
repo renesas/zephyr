@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 menu "Mbed TLS alternative configuration"
-	depends on MBEDTLS_CUSTOM && MBEDTLS_CFG_FILE = "alt_config.h"
+	depends on MBEDTLS_CUSTOM && MBEDTLS_CONFIG_FILE = "alt_config.h"
 
 config MBEDTLS_CIPHER_ALT
 	bool "Use cipher alternative implementation"
@@ -14,27 +14,27 @@ config MBEDTLS_CIPHER_ALT
 config MBEDTLS_AES_ALT
 	bool "Use AES alternative implementation"
 	default y
-	depends on MBEDTLS_CIPHER_AES_ENABLED
+	depends on PSA_WANT_KEY_TYPE_AES
 
 config MBEDTLS_CCM_ALT
 	bool "Use CCM alternative implementation"
 	default y
-	depends on MBEDTLS_CIPHER_CCM_ENABLED
+	depends on PSA_WANT_ALG_CCM
 
 config MBEDTLS_GCM_ALT
 	bool "Use GCM alternative implemetation"
 	default y
-	depends on MBEDTLS_CIPHER_GCM_ENABLED
+	depends on PSA_WANT_ALG_GCM
 
 config MBEDTLS_CMAC_ALT
 	bool "Use CMAC alternative implementation"
 	default y
-	depends on MBEDTLS_CMAC
+	depends on PSA_WANT_ALG_CMAC
 
 config MBEDTLS_RSA_ALT
 	bool "Use RSA alternative implemetation"
 	default y
-	depends on MBEDTLS_RSA_C
+	depends on PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC
 
 config MBEDTLS_PLATFORM_SETUP_TEARDOWN_ALT
 	bool "Use platform setup alternative implemetation"
@@ -43,37 +43,37 @@ config MBEDTLS_PLATFORM_SETUP_TEARDOWN_ALT
 config MBEDTLS_ECP_ALT
 	bool "Use ECP alternative implementation"
 	default y
-	depends on MBEDTLS_ECP_C
+	depends on PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC
 
 config MBEDTLS_SHA256_ALT
 	bool "Use SHA256 alternative implementation"
 	default y
-	depends on MBEDTLS_SHA256
+	depends on PSA_WANT_ALG_SHA_256
 
 config MBEDTLS_SHA512_ALT
 	bool "Use SHA512 alternative implementation"
 	default y
-	depends on MBEDTLS_SHA512
+	depends on PSA_WANT_ALG_SHA_512
 
 config MBEDTLS_ECDSA_VERIFY_ALT
 	bool "Use ECDSA verify alternative implementation"
 	default y
-	depends on MBEDTLS_ECDSA_C
+	depends on PSA_WANT_ALG_ECDSA
 
 config MBEDTLS_ECDSA_SIGN_ALT
 	bool "Use ECDSA sign alternative implementation"
 	default y
-	depends on MBEDTLS_ECDSA_C
+	depends on PSA_WANT_ALG_ECDSA
 
 config MBEDTLS_CTR_DRBG_C_ALT
 	bool "Use CTR DRBG C alternative implementation"
 	default y
-	depends on MBEDTLS_CTR_DRBG_ENABLED
+	depends on MBEDTLS_CTR_DRBG_C
 
 config MBEDTLS_ECDH_ALT
 	bool "Use ECDH alternative implementation"
 	default y
-	depends on MBEDTLS_ECDH_C
+	depends on PSA_WANT_ALG_ECDH
 
 if MBEDTLS_AES_ALT
 

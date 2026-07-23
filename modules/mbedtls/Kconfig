@@ -32,7 +32,8 @@ if MBEDTLS
 
 choice MBEDTLS_IMPLEMENTATION
 	prompt "Select implementation"
-	default MBEDTLS_ALT
+	default MBEDTLS_CUSTOM if RX74M
+	default MBEDTLS_BUILTIN
 
 config MBEDTLS_BUILTIN
 	bool "Zephyr in-tree mbedTLS version"
@@ -43,6 +44,8 @@ config MBEDTLS_BUILTIN
 
 config MBEDTLS_CUSTOM
 	bool "Custom mbedTLS library"
+	select USE_RA_FSP_SCE if SOC_FAMILY_RENESAS_RA
+	select USE_RX_FSP_SCE if SOC_FAMILY_RENESAS_RX
 	help
 	  The mbedTLS library must be configured and added out of tree.
 
@@ -71,6 +74,7 @@ rsource "Kconfig.mbedtls"
 rsource "Kconfig.tf-psa-crypto"
 rsource "Kconfig.ciphersuites"
 rsource "Kconfig.deprecated"
+rsource "Kconfig.mbedtls_alt"
 
 config MBEDTLS_DEBUG
 	bool "mbed TLS debug activation"

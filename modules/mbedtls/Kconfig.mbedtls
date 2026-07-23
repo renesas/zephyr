@@ -4,13 +4,10 @@
 # Copyright (c) 2018 Nordic Semiconductor ASA
 # SPDX-License-Identifier: Apache-2.0
 
-menu "Mbed TLS configuration"
-	depends on MBEDTLS_BUILTIN
-
 config MBEDTLS_CONFIG_FILE
 	string "Mbed TLS configuration file"
 	default MBEDTLS_CFG_FILE if MBEDTLS_CFG_FILE != "" # deprecated
-	default "config-mbedtls.h"
+	default "config-mbedtls.h" if MBEDTLS_BUILTIN
 	help
 	  Use a specific mbedTLS configuration file. The default config file
 	  file can be tweaked with Kconfig. The default configuration is
@@ -29,6 +26,9 @@ config MBEDTLS_USER_CONFIG_FILE
 
 config MBEDTLS_USER_CONFIG
 	def_bool MBEDTLS_USER_CONFIG_FILE != ""
+
+menu "Mbed TLS configuration"
+	depends on MBEDTLS_BUILTIN
 
 menu "TLS"
 

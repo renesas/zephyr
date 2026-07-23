@@ -6,18 +6,19 @@
 
 if(CONFIG_MBEDTLS)
 
-  if(CONFIG_MBEDTLS_BUILTIN)
-    # Create an interface library named "mbedTLS":
-    # - This is the library other modules/subsystems link against.
-    # - It contains some Mbed TLS configuration flags (ex: MBEDTLS_CONFIG_FILE
-    #   and TF_PSA_CRYPTO_CONFIG_FILE) which are used in Mbed TLS build, but
-    #   which must also be defined when Zephyr code includes headers
-    #   from Mbed TLS.
-    # - It contains public include directories which are provided by Mbed TLS.
-    zephyr_interface_library_named(mbedTLS)
+  # Create an interface library named "mbedTLS":
+  # - This is the library other modules/subsystems link against.
+  # - It contains some Mbed TLS configuration flags (ex: MBEDTLS_CONFIG_FILE
+  #   and TF_PSA_CRYPTO_CONFIG_FILE) which are used in Mbed TLS build, but
+  #   which must also be defined when Zephyr code includes headers
+  #   from Mbed TLS.
+  # - It contains public include directories which are provided by Mbed TLS.
+  zephyr_interface_library_named(mbedTLS)
 
-    # Explicitly link zephyr_interface to mbedTLS
-    zephyr_link_libraries(mbedTLS)
+  # Explicitly link zephyr_interface to mbedTLS
+  zephyr_link_libraries(mbedTLS)
+
+  if(CONFIG_MBEDTLS_BUILTIN)
 
     target_compile_definitions(mbedTLS INTERFACE
       MBEDTLS_CONFIG_FILE="${CONFIG_MBEDTLS_CONFIG_FILE}"
