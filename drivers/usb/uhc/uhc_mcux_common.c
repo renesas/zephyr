@@ -178,49 +178,14 @@ usb_status_t USB_HostHelperGetPeripheralInformation(usb_device_handle deviceHand
 		break;
 
 	case kUSB_HostGetDeviceHubNumber:
-		if (udev->hub != NULL) {
-			*infoValue = udev->hub->addr;
-		} else {
-			*infoValue = 0;
-		}
-		break;
-
 	case kUSB_HostGetDevicePortNumber:
-		*infoValue = udev->hub_port;
-		break;
-
 	case kUSB_HostGetDeviceHSHubNumber:
-		for (; udev->hub != NULL; udev = udev->hub) {
-			if (udev->hub->speed == USB_SPEED_SPEED_HS) {
-				*infoValue = udev->hub->addr;
-				return kStatus_USB_Success;
-			}
-		}
-		*infoValue = 0;
-		break;
-
 	case kUSB_HostGetDeviceHSHubPort:
-		for (; udev->hub != NULL; udev = udev->hub) {
-			if (udev->hub->speed == USB_SPEED_SPEED_HS) {
-				*infoValue = udev->hub->hub_port;
-				return kStatus_USB_Success;
-			}
-		}
+	case kUSB_HostGetHubThinkTime:
 		*infoValue = 0;
 		break;
-
-	case kUSB_HostGetHubThinkTime: {
-		uint16_t total_think_time = 0;
-
-		for (; udev->hub != NULL; udev = udev->hub) {
-			total_think_time += udev->hub->tt;
-		}
-		*infoValue = total_think_time;
-		break;
-	}
-
 	case kUSB_HostGetDeviceLevel:
-		*infoValue = udev->level;
+		*infoValue = 1;
 		break;
 
 	case kUSB_HostGetDeviceSpeed:

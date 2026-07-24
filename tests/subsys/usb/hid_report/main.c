@@ -5,11 +5,12 @@
 
 #include <zephyr/ztest.h>
 #include <zephyr/usb/class/hid.h>
+#include <zephyr/usb/class/usbh_hid.h>
 
 #define HID_TEST_MAX_VALUES 8u
 
 struct hid_report_suite_fixture {
-	struct hid_report report;
+	struct usbh_hid_report report;
 };
 
 struct hid_test_values {
@@ -30,7 +31,7 @@ static void suite_before(void *fixture)
 
 ZTEST_SUITE(hid_report_suite, NULL, suite_setup, suite_before, NULL, NULL);
 
-static int field_inspector(struct hid_report_field const *field, uint8_t report_id,
+static int field_inspector(struct usbh_hid_report_field const *field, uint8_t report_id,
 			   uint8_t const *data, size_t bit_index, void *user_data)
 {
 	size_t value_index = bit_index / 8;
@@ -40,9 +41,9 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 	struct hid_test_values *test_values = user_data;
 
 	/* Keyboard input */
-	if (hid_report_match_usage_page(field, HID_USAGE_GEN_KEYBOARD)) {
+	if (usbh_hid_report_match_usage_page(field, HID_USAGE_GEN_KEYBOARD)) {
 		/* Keyboard array, each element is a button press */
-		if (HID_REPORT_DATA_IS_ARRAY(field->flags) && field->size == 8u) {
+		if (USBH_HID_REPORT_DATA_IS_ARRAY(field->flags) && field->size == 8u) {
 			for (size_t key_index = value_index; key_index < field->count;
 			     key_index++) {
 				if (data[key_index] != 0u) {
@@ -54,7 +55,7 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 
 		}
 		/* Keyboard variable, mostly for modifiers */
-		else if (HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
+		else if (USBH_HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
 			for (size_t key_position = 0u; key_position < field->count;
 			     key_position++) {
 				if (data[value_index] & (1u << key_position)) {
@@ -66,13 +67,14 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 		}
 	}
 	/* Mouse button input */
-	if (hid_report_get_usage_id_u32(field, &data[value_index], value_bit_shift,
-					HID_USAGE_ID(HID_USAGE_GEN_BUTTON, 1u), &u32_value) == 0) {
+	if (usbh_hid_report_get_usage_id_u32(field, &data[value_index], value_bit_shift,
+					     HID_USAGE_ID(HID_USAGE_GEN_BUTTON, 1u),
+					     &u32_value) == 0) {
 		test_values->values[test_values->num_values] = u32_value;
 		test_values->num_values++;
 	}
 	/* Mouse X movement */
-	if (hid_report_get_usage_id_i32(
+	if (usbh_hid_report_get_usage_id_i32(
 		    field, &data[value_index], value_bit_shift,
 		    HID_USAGE_ID(HID_USAGE_GEN_DESKTOP, HID_USAGE_GEN_DESKTOP_X),
 		    &i32_value) == 0) {
@@ -80,7 +82,7 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 		test_values->num_values++;
 	}
 	/* Mouse Y movement */
-	if (hid_report_get_usage_id_i32(
+	if (usbh_hid_report_get_usage_id_i32(
 		    field, &data[value_index], value_bit_shift,
 		    HID_USAGE_ID(HID_USAGE_GEN_DESKTOP, HID_USAGE_GEN_DESKTOP_Y),
 		    &i32_value) == 0) {
@@ -88,7 +90,7 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 		test_values->num_values++;
 	}
 	/* Mouse wheel */
-	if (hid_report_get_usage_id_i32(
+	if (usbh_hid_report_get_usage_id_i32(
 		    field, &data[value_index], value_bit_shift,
 		    HID_USAGE_ID(HID_USAGE_GEN_DESKTOP, HID_USAGE_GEN_DESKTOP_WHEEL),
 		    &i32_value) == 0) {
@@ -101,7 +103,7 @@ static int field_inspector(struct hid_report_field const *field, uint8_t report_
 
 ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 {
-	struct hid_report *report = &fixture->report;
+	struct usbh_hid_report *report = &fixture->report;
 	struct hid_test_values test_values = {};
 	size_t collection_index = 0;
 	size_t report_index = 0;
@@ -124,7 +126,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 		0x09, 0x02, 0x81, 0x00, 0x09, 0x02, 0x91, 0x00, 0xc0,
 	};
 
-	int result = hid_report_parse(report, sizeof(report_data), report_data);
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
 	zassert_equal(0, result, "Could not parse report descriptor");
 
 	/* Collections */
@@ -221,9 +223,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	field_index = 0u;
 
 	/* First field, buttons */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(16u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
@@ -238,9 +240,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	field_index++;
 
 	/* Second field, X/Y */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(2u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(12u, report->fields[field_index].size, "Wrong field report size");
@@ -255,9 +257,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	field_index++;
 
 	/* Third field, wheel */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -270,9 +272,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	field_index++;
 
 	/* Fourth field, AC pan */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -285,7 +287,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	field_index++;
 
 	uint8_t const data[] = {0x02u, 0x01u, 0x00u, 0xFEu, 0x1Fu, 0x00u, 0x10u, 0x00u};
-	hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+	usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
 
 	zassert_equal(4u, test_values.num_values, "Wrong number of values");
 	/* First button  */
@@ -300,7 +302,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 
 ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 {
-	struct hid_report *report = &fixture->report;
+	struct usbh_hid_report *report = &fixture->report;
 	struct hid_test_values test_values = {};
 	size_t collection_index = 0u;
 	size_t field_index = 0u;
@@ -315,7 +317,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 		0x00, 0x95, 0x40, 0xb1, 0x02, 0xc0, 0xc0,
 	};
 
-	int result = hid_report_parse(report, sizeof(report_data), report_data);
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
 	zassert_equal(0, result, "Could not parse the report descriptor");
 
 	/* Collections */
@@ -351,9 +353,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	field_index = 0u;
 
 	/* First field, buttons */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly an array");
 	zassert_equal(5u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
@@ -368,18 +370,18 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	field_index++;
 
 	/* Second field, padding */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
 	zassert_equal(3u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
-	zassert_true(HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
 		     "Field is unexpectedly mutable");
 	field_index++;
 
 	/* Third field, X/Y */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(2u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(16u, report->fields[field_index].size, "Wrong field report size");
@@ -394,9 +396,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	field_index++;
 
 	/* Fourth field, wheel */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -409,9 +411,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	field_index++;
 
 	/* Fifth field, AC pan */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -424,7 +426,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	field_index++;
 
 	/* Sixth field, vendor specific feature */
-	zassert_equal(HID_REPORT_FIELD_TYPE_FEATURE, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_FEATURE, report->fields[field_index].type,
 		      "Wrong field type");
 	zassert_equal(64u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -441,7 +443,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 		uint8_t const data[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00};
 
 		memset(&test_values, 0, sizeof(test_values));
-		hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+		usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					      &test_values);
 
 		zassert_equal(4u, test_values.num_values, "Wrong number of values");
 		zassert_equal(1u, test_values.values[3], "Wrong scroll value");
@@ -452,7 +455,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 		uint8_t const data[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00};
 
 		memset(&test_values, 0, sizeof(test_values));
-		hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+		usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					      &test_values);
 
 		zassert_equal(4u, test_values.num_values, "Wrong number of values");
 		zassert_equal(-1u, test_values.values[3], "Wrong scroll value");
@@ -461,7 +465,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 
 ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 {
-	struct hid_report *report = &fixture->report;
+	struct usbh_hid_report *report = &fixture->report;
 	struct hid_test_values test_values = {};
 	size_t collection_index = 0;
 	size_t report_index = 0;
@@ -478,7 +482,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 		0x02, 0x95, 0x01, 0x81, 0x06, 0xc0, 0xc0,
 	};
 
-	int result = hid_report_parse(report, sizeof(report_data), report_data);
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
 	zassert_equal(0, result);
 
 	/* Collections */
@@ -533,9 +537,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index = 0u;
 
 	/* First field, vendor specific */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(7u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -548,9 +552,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index++;
 
 	/* Second field, vendor specific */
-	zassert_equal(HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(7u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -563,9 +567,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index++;
 
 	/* Third field, buttons */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(8u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
@@ -580,9 +584,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index++;
 
 	/* Fourth field, X/Y */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(2u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(12u, report->fields[field_index].size, "Wrong field report size");
@@ -597,9 +601,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index++;
 
 	/* Fifth field, wheel */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -612,9 +616,9 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	field_index++;
 
 	/* Sixth field, AC pan */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly constant");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -629,7 +633,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	{
 		memset(&test_values, 0, sizeof(test_values));
 		uint8_t const data[] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00};
-		hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+		usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					      &test_values);
 
 		zassert_equal(4u, test_values.num_values);
 		zassert_equal(1u, test_values.values[3]);
@@ -638,7 +643,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	{
 		memset(&test_values, 0, sizeof(test_values));
 		uint8_t const data[] = {0x02, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00};
-		hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+		usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					      &test_values);
 
 		zassert_equal(4u, test_values.num_values);
 		zassert_equal(-1u, test_values.values[3]);
@@ -647,7 +653,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 
 ZTEST_F(hid_report_suite, test_hid_gamepad_parsing)
 {
-	struct hid_report *report = &fixture->report;
+	struct usbh_hid_report *report = &fixture->report;
 	size_t collection_index = 0;
 	size_t report_index = 0;
 
@@ -675,7 +681,7 @@ ZTEST_F(hid_report_suite, test_hid_gamepad_parsing)
 		0x85, 0xf5, 0x09, 0x36, 0x95, 0x03, 0xb1, 0x02, 0xc0,
 	};
 
-	int result = hid_report_parse(report, sizeof(report_data), report_data);
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
 	zassert_equal(0, result);
 
 	/* Collections */
@@ -796,7 +802,7 @@ ZTEST_F(hid_report_suite, test_hid_gamepad_parsing)
 
 ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 {
-	struct hid_report *report = &fixture->report;
+	struct usbh_hid_report *report = &fixture->report;
 	struct hid_test_values test_values = {};
 	size_t collection_index = 0;
 	size_t field_index = 0;
@@ -810,7 +816,7 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 		0x00, 0x05, 0x07, 0x19, 0x00, 0x2a, 0xff, 0x00, 0x81, 0x00, 0xc0,
 	};
 
-	int result = hid_report_parse(report, sizeof(report_data), report_data);
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
 	zassert_equal(0, result, "Could not parse report descriptor");
 
 	/* Collections */
@@ -836,9 +842,9 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	field_index = 0u;
 
 	/* First field, modifiers */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly an array");
 	zassert_equal(8u, report->fields[field_index].count, "Wrong field report size");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
@@ -851,18 +857,18 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	field_index++;
 
 	/* Second field, padding */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_VARIABLE(report->fields[field_index].flags),
 		     "Field is unexpectedly an array");
 	zassert_equal(8u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
-	zassert_true(HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
 		     "Field is unexpectedly mutable");
 	field_index++;
 
 	/* Third field, LEDs */
-	zassert_equal(HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
 		      "Wrong field type");
 	zassert_equal(5u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(1u, report->fields[field_index].size, "Wrong field report size");
@@ -873,18 +879,18 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	field_index++;
 
 	/* Fourth field, padding */
-	zassert_equal(HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_OUTPUT, report->fields[field_index].type,
 		      "Wrong field type");
 	zassert_equal(1u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(3u, report->fields[field_index].size, "Wrong field report size");
-	zassert_true(HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_CONSTANT(report->fields[field_index].flags),
 		     "Field is unexpectedly mutable");
 	field_index++;
 
 	/* Fifth field, keys */
-	zassert_equal(HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
+	zassert_equal(USBH_HID_REPORT_FIELD_TYPE_INPUT, report->fields[field_index].type,
 		      "Wrong field type");
-	zassert_true(HID_REPORT_DATA_IS_ARRAY(report->fields[field_index].flags),
+	zassert_true(USBH_HID_REPORT_DATA_IS_ARRAY(report->fields[field_index].flags),
 		     "Field is unexpectedly a variable");
 	zassert_equal(6u, report->fields[field_index].count, "Wrong field report count");
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
@@ -895,7 +901,7 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	field_index++;
 
 	uint8_t const data[] = {0x01u, 0x00u, 0x1Bu, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u};
-	hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
+	usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector, &test_values);
 
 	zassert_equal(2u, test_values.num_values);
 	/* First button  */

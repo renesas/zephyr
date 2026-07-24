@@ -11,7 +11,9 @@
 #include <zephyr/shell/shell.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/usb/usbh.h>
+#if CONFIG_USBH_DFU_CLASS
 #include <zephyr/usb/class/usbh_dfu.h>
+#endif /* CONFIG_USBH_DFU_CLASS */
 
 #include "usbh_device.h"
 #include "usbh_ch9.h"
@@ -818,6 +820,7 @@ static int cmd_device_address(const struct shell *sh,
 	return err;
 }
 
+#if CONFIG_USBH_DFU_CLASS
 int cmd_dfu_upload_cb(void *upload_arg, char *data, const size_t len)
 {
 	const struct shell *sh = (const struct shell *)upload_arg;
@@ -998,10 +1001,7 @@ static int cmd_dfurt_enter_dfu(const struct shell *sh,
 
 	return err;
 }
-
-
-
-
+#endif /* CONFIG_USBH_DFU_CLASS */
 
 static int cmd_device_list(const struct shell *sh,
 			   size_t argc, char **argv)
@@ -1368,6 +1368,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 		cmd_device_interface, 4, 0),
 	SHELL_CMD_ARG(descriptor, &desc_cmds, "Descriptor commands",
 		      NULL, 2, 0),
+#if CONFIG_USBH_DFU_CLASS
 	SHELL_CMD_ARG(dfu_upload, NULL,
 		SHELL_HELP(
 			"Upload firmware from Device to Host",
@@ -1392,6 +1393,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 			"alt: Alternate setting number [dec]"
 		),
 		cmd_dfurt_enter_dfu, 3, 0),
+#endif /* CONFIG_USBH_DFU_CLASS */
 	SHELL_CMD_ARG(feature-set, &feature_set_cmds, "Set Feature commands",
 		      NULL, 2, 0),
 	SHELL_CMD_ARG(feature-clear, &feature_clear_cmds, "Clear Feature commands",

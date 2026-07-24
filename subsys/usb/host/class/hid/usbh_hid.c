@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#define DT_DRV_COMPAT zephyr_usbh_hid_device
+
 #include <zephyr/init.h>
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
@@ -34,6 +36,16 @@ LOG_MODULE_REGISTER(usbh_hid, CONFIG_USBH_HID_LOG_LEVEL);
 #define MOUSE_BOOT_PROTOCOL_REPORT_SIZE       3u
 #define MOUSE_BOOT_PROTOCOL_BUTTONS           3u
 
+struct driver_config {
+	/* Size of the idle rates array */
+	size_t idle_rates_ms_size;
+	/* Idle period in milliseconds */
+	uint16_t idle_rates_ms[CONFIG_USBH_HID_REPORT_MAX_VARIANTS * 2];
+	/* Whether this device relies on the boot protocol */
+	bool boot_protocol;
+	uint32_t reg;
+};
+
 struct driver_data {
 	/* USB host class device */
 	struct device const *dev;
@@ -50,7 +62,7 @@ struct driver_data {
 	/* Interface index */
 	uint8_t target_iface;
 	/* Report descriptor */
-	struct hid_report report;
+	struct usbh_hid_report report;
 	/* Interrupt report request */
 	struct uhc_transfer *interrupt_in_xfer;
 	/* Whether the interrupt report request is in progress */
@@ -63,13 +75,16 @@ struct driver_data {
 	} previous_reports[CONFIG_USBH_HID_REPORT_MAX_VARIANTS];
 #else
 	/* Callback to be invoked with input data */
-	hid_report_cb_t input_cb;
+	usbh_hid_report_cb_t input_cb;
 	/* User data */
 	void *user_data;
 #endif
 };
 
-static int req_interrupt_input(struct driver_data *const driver_data);
+static int req_interrupt_input(struct device const *dev);
+static int driver_stop_input_reports(struct device const *dev);
+static int driver_set_idle_rate(struct device const *dev, uint8_t report_id,
+				uint16_t idle_period_ms);
 
 /**
  * @brief Check whether the connected device is a keyboard
@@ -217,7 +232,6 @@ static void report_button(struct device const *dev, uint8_t usage_id, bool value
 		     hid_button_to_input_map, HID_BTN_1, usage_id, value, sync);
 }
 
-#if !CONFIG_USBH_HID_BOOT_PROTOCOL
 /**
  * @brief Get a pointer to the buffer where the previous report is stored
  *
@@ -230,7 +244,7 @@ static void report_button(struct device const *dev, uint8_t usage_id, bool value
 static int get_previous_report_buffer(struct driver_data const *driver_data, uint8_t report_id)
 {
 	int result = -ENOMEM;
-	struct hid_report const *report = &driver_data->report;
+	struct usbh_hid_report const *report = &driver_data->report;
 
 	/* Check if the current report actually has multiple variants */
 	if (report->num_reports > 1u) {
@@ -247,7 +261,6 @@ static int get_previous_report_buffer(struct driver_data const *driver_data, uin
 
 	return result;
 }
-#endif
 
 /**
  * @brief Checks wether a key was previously pressed and now not anymore
@@ -367,7 +380,6 @@ static void report_variable_button(struct device const *dev, uint8_t const *prev
 	}
 }
 
-#if !CONFIG_USBH_HID_BOOT_PROTOCOL
 /**
  * @brief Report events from a report field
  *
@@ -380,7 +392,7 @@ static void report_variable_button(struct device const *dev, uint8_t const *prev
  * @return 0 on success, negative errno value on failure.
  *
  */
-static int report_events(struct hid_report_field const *field, uint8_t report_id,
+static int report_events(struct usbh_hid_report_field const *field, uint8_t report_id,
 			 uint8_t const *data, size_t bit_index, void *user_data)
 {
 	size_t value_index = bit_index / 8;
@@ -401,60 +413,60 @@ static int report_events(struct hid_report_field const *field, uint8_t report_id
 	prev_value_ptr = &driver_data->previous_reports[result].data[value_index];
 
 	/* Keyboard input */
-	if (hid_report_match_usage_page(field, HID_USAGE_GEN_KEYBOARD)) {
+	if (usbh_hid_report_match_usage_page(field, HID_USAGE_GEN_KEYBOARD)) {
 		/* Keyboard array, each element is a button press */
-		if (HID_REPORT_DATA_IS_ARRAY(field->flags) && field->size == 8u) {
+		if (USBH_HID_REPORT_DATA_IS_ARRAY(field->flags) && field->size == 8u) {
 			report_array_keys(dev, prev_value_ptr, value_ptr, value_bit_shift,
 					  field->count);
 		}
 		/* Keyboard variable, mostly for modifiers */
-		else if (HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
+		else if (USBH_HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
 			for (size_t key_position = 0u; key_position < field->count;
 			     key_position++) {
 				report_variable_key(dev, prev_value_ptr, value_ptr,
 						    value_bit_shift + key_position,
-						    hid_report_field_get_usage_id_by_index(
+						    usbh_hid_report_field_get_usage_id_by_index(
 							    field, key_position));
 			}
 		}
 	}
 	/* Mouse buttons */
-	else if (hid_report_match_usage_page(field, HID_USAGE_GEN_BUTTON)) {
-		if (HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
+	else if (usbh_hid_report_match_usage_page(field, HID_USAGE_GEN_BUTTON)) {
+		if (USBH_HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
 			for (size_t button_position = 0u; button_position < field->count;
 			     button_position++) {
 				report_variable_button(dev, prev_value_ptr, value_ptr,
 						       value_bit_shift + button_position,
-						       hid_report_field_get_usage_id_by_index(
+						       usbh_hid_report_field_get_usage_id_by_index(
 							       field, button_position));
 			}
 		}
 	} else {
 		/* Mouse relative X movement */
-		if (HID_REPORT_DATA_IS_RELATIVE(field->flags) &&
-		    hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
-						(HID_USAGE_GEN_DESKTOP << 16u) |
-							HID_USAGE_GEN_DESKTOP_X,
-						&signed_value) == 0) {
+		if (USBH_HID_REPORT_DATA_IS_RELATIVE(field->flags) &&
+		    usbh_hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
+						     (HID_USAGE_GEN_DESKTOP << 16u) |
+							     HID_USAGE_GEN_DESKTOP_X,
+						     &signed_value) == 0) {
 			if (signed_value != 0u) {
 				input_report_rel(dev, INPUT_REL_X, signed_value, false, K_FOREVER);
 			}
 		}
 		/* Mouse relative Y movement */
-		if (HID_REPORT_DATA_IS_RELATIVE(field->flags) &&
-		    hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
-						(HID_USAGE_GEN_DESKTOP << 16) |
-							HID_USAGE_GEN_DESKTOP_Y,
-						&signed_value) == 0) {
+		if (USBH_HID_REPORT_DATA_IS_RELATIVE(field->flags) &&
+		    usbh_hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
+						     (HID_USAGE_GEN_DESKTOP << 16) |
+							     HID_USAGE_GEN_DESKTOP_Y,
+						     &signed_value) == 0) {
 			if (signed_value != 0u) {
 				input_report_rel(dev, INPUT_REL_Y, signed_value, false, K_FOREVER);
 			}
 		}
 		/* Mouse relative wheel movement */
-		if (hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
-						(HID_USAGE_GEN_DESKTOP << 16u) |
-							HID_USAGE_GEN_DESKTOP_WHEEL,
-						&signed_value) == 0) {
+		if (usbh_hid_report_get_usage_id_i32(field, value_ptr, value_bit_shift,
+						     (HID_USAGE_GEN_DESKTOP << 16u) |
+							     HID_USAGE_GEN_DESKTOP_WHEEL,
+						     &signed_value) == 0) {
 			if (signed_value != 0u) {
 				input_report_rel(dev, INPUT_REL_WHEEL, signed_value, false,
 						 K_FOREVER);
@@ -465,106 +477,121 @@ static int report_events(struct hid_report_field const *field, uint8_t report_id
 	return 0;
 }
 #endif
-#endif
 
 /**
  * @brief Manage an input report
  *
- * @param driver_data  Pointer to the driver data structure
- * @param data_length  Length of the raw report
- * @param data         Raw report
+ * @param driver_config  Pointer to the driver configuration structure
+ * @param driver_data    Pointer to the driver data structure
+ * @param data_length    Length of the raw report
+ * @param data           Raw report
  *
  * @return 0 on success, negative errno value on failure.
  *
  */
-static int handle_input_report(struct driver_data *driver_data, size_t data_length,
+static int handle_input_report(struct driver_config const *driver_config,
+			       struct driver_data *driver_data, size_t data_length,
 			       uint8_t const data[data_length])
 {
 #if CONFIG_USBH_HID_ROUTE_TO_INPUT
 	size_t input_size = 0u;
 	size_t previous_report_index = 0u;
 	uint8_t report_id = 0u;
-#if CONFIG_USBH_HID_BOOT_PROTOCOL
 	struct device const *dev = driver_data->dev;
-#else
 	int result = 0;
-#endif
 #endif
 
 	LOG_HEXDUMP_DBG(data, data_length, "RX  : ");
 
 #if CONFIG_USBH_HID_ROUTE_TO_INPUT
-#if CONFIG_USBH_HID_BOOT_PROTOCOL
-	report_id = 0;
+	if (driver_config->boot_protocol) {
+		report_id = 0;
 
-	/* Mouse boot protocol */
-	if (is_mouse(driver_data)) {
-		input_size = MOUSE_BOOT_PROTOCOL_REPORT_SIZE;
-		int8_t x = data[MOUSE_BOOT_PROTOCOL_X_INDEX];
-		int8_t y = data[MOUSE_BOOT_PROTOCOL_Y_INDEX];
+		/* Mouse boot protocol */
+		if (is_mouse(driver_data)) {
+			int8_t x = 0;
+			int8_t y = 0;
 
-		/* Keyboard variable, mostly for modifiers */
-		for (size_t key_position = 0u; key_position < MOUSE_BOOT_PROTOCOL_BUTTONS;
-		     key_position++) {
-			report_variable_button(dev,
-					       &driver_data->previous_reports[0u]
-							.data[MOUSE_BOOT_PROTOCOL_BUTTONS_INDEX],
-					       &data[MOUSE_BOOT_PROTOCOL_BUTTONS_INDEX],
-					       key_position, HID_BTN_1 + key_position);
+			/* Not enough data */
+			if (data_length < MOUSE_BOOT_PROTOCOL_REPORT_SIZE) {
+				return -EIO;
+			}
+
+			x = data[MOUSE_BOOT_PROTOCOL_X_INDEX];
+			y = data[MOUSE_BOOT_PROTOCOL_Y_INDEX];
+			input_size = MOUSE_BOOT_PROTOCOL_REPORT_SIZE;
+
+			/* Keyboard variable, mostly for modifiers */
+			for (size_t key_position = 0u; key_position < MOUSE_BOOT_PROTOCOL_BUTTONS;
+			     key_position++) {
+				report_variable_button(
+					dev,
+					&driver_data->previous_reports[0u]
+						 .data[MOUSE_BOOT_PROTOCOL_BUTTONS_INDEX],
+					&data[MOUSE_BOOT_PROTOCOL_BUTTONS_INDEX], key_position,
+					HID_BTN_1 + key_position);
+			}
+
+			if (x != 0) {
+				input_report_rel(dev, INPUT_REL_X, x, false, K_FOREVER);
+			}
+			if (y != 0) {
+				input_report_rel(dev, INPUT_REL_Y, y, true, K_FOREVER);
+			}
+		}
+		/* Keyboard boot protocol */
+		else if (is_keyboard(driver_data)) {
+			/* Not enough data */
+			if (data_length < KEYBOARD_BOOT_PROTOCOL_REPORT_SIZE) {
+				return -EIO;
+			}
+
+			input_size = KEYBOARD_BOOT_PROTOCOL_REPORT_SIZE;
+			/* Keyboard array, each element is a button press */
+			report_array_keys(dev,
+					  &driver_data->previous_reports[0u]
+						   .data[KEYBOARD_BOOT_PROTOCOL_KEY_INDEX],
+					  &data[KEYBOARD_BOOT_PROTOCOL_KEY_INDEX], 0u,
+					  KEYBOARD_BOOT_PROTOCOL_KEYS);
+
+			/* Keyboard variable, mostly for modifiers */
+			for (size_t key_position = 0u;
+			     key_position < KEYBOARD_BOOT_PROTOCOL_MODIFIERS; key_position++) {
+				report_variable_key(
+					dev,
+					&driver_data->previous_reports[0u]
+						 .data[KEYBOARD_BOOT_PROTOCOL_MODIFIER_INDEX],
+					&data[KEYBOARD_BOOT_PROTOCOL_MODIFIER_INDEX], key_position,
+					HID_USAGE_GEN_DESKTOP_KEYBOARD_LEFT_CTRL + key_position);
+			}
+		}
+	}
+	/* Report dynamic parsing and handling */
+	else {
+		/* If multiple reports are specified pick the first byte of the data as the ID */
+		if (driver_data->report.num_reports > 1u) {
+			report_id = data[0u];
 		}
 
-		if (x != 0) {
-			input_report_rel(dev, INPUT_REL_X, x, false, K_FOREVER);
+		result = get_previous_report_buffer(driver_data, report_id);
+		if (result < 0) {
+			LOG_WRN("Unable to get previous buffer for report ID 0x%02X", report_id);
+			return result;
 		}
-		if (y != 0) {
-			input_report_rel(dev, INPUT_REL_Y, y, true, K_FOREVER);
-		}
-	}
-	/* Keyboard boot protocol */
-	else if (is_keyboard(driver_data)) {
-		input_size = KEYBOARD_BOOT_PROTOCOL_REPORT_SIZE;
-		/* Keyboard array, each element is a button press */
-		report_array_keys(
-			dev,
-			&driver_data->previous_reports[0u].data[KEYBOARD_BOOT_PROTOCOL_KEY_INDEX],
-			&data[KEYBOARD_BOOT_PROTOCOL_KEY_INDEX], 0u, KEYBOARD_BOOT_PROTOCOL_KEYS);
+		previous_report_index = result;
 
-		/* Keyboard variable, mostly for modifiers */
-		for (size_t key_position = 0u; key_position < KEYBOARD_BOOT_PROTOCOL_MODIFIERS;
-		     key_position++) {
-			report_variable_key(
-				dev,
-				&driver_data->previous_reports[0u]
-					 .data[KEYBOARD_BOOT_PROTOCOL_MODIFIER_INDEX],
-				&data[KEYBOARD_BOOT_PROTOCOL_MODIFIER_INDEX], key_position,
-				HID_USAGE_GEN_DESKTOP_KEYBOARD_LEFT_CTRL + key_position);
+		input_size = usbh_hid_report_get_input_size(&driver_data->report, report_id);
+
+		if (input_size == data_length) {
+			usbh_hid_report_input_iterate(&driver_data->report, data_length, data,
+						      report_events, driver_data);
+		} else {
+			LOG_WRN("Length mismatch between report descriptor "
+				"and actual report: %i vs %i",
+				input_size, data_length);
 		}
 	}
-#else
-	/* If multiple reports are specified pick the first byte of the data as the ID */
-	if (driver_data->report.num_reports > 1u) {
-		report_id = data[0u];
-	}
 
-	result = get_previous_report_buffer(driver_data, report_id);
-	if (result < 0) {
-		LOG_WRN("Unable to get previous buffer for report ID 0x%02X", report_id);
-		return result;
-	}
-	previous_report_index = result;
-
-	input_size = hid_report_get_input_size(&driver_data->report, report_id);
-
-	if (input_size == data_length) {
-		hid_report_input_iterate(&driver_data->report, data_length, data, report_events,
-					 driver_data);
-	} else {
-		LOG_WRN("Length mismatch between report descriptor "
-			"and actual report: %i vs %i",
-			input_size, data_length);
-	}
-
-#endif
 	/* Update the previous report buffer */
 	memcpy(&driver_data->previous_reports[previous_report_index].data, data, input_size);
 	driver_data->previous_reports[previous_report_index].id = report_id;
@@ -579,6 +606,24 @@ static int handle_input_report(struct driver_data *driver_data, size_t data_leng
 }
 
 /**
+ * @brief Clear an endpoint, re-enabling it
+ *
+ * @param driver_data  Pointer to the driver data structure
+ * @param endpoint     Target endpoint address
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t endpoint)
+{
+	/* See USB specification, section 9.4 */
+	const uint8_t bmRequestType = (USB_REQTYPE_DIR_TO_DEVICE << 7u) |
+				      (USB_REQTYPE_TYPE_STANDARD << 5u) |
+				      (USB_REQTYPE_RECIPIENT_ENDPOINT << 0u);
+	return usbh_req_setup(driver_data->udev, bmRequestType, USB_SREQ_CLEAR_FEATURE,
+			      USB_SFS_ENDPOINT_HALT, endpoint, 0, NULL);
+}
+
+/**
  * @brief Callback on completion of input interrupt requests
  *
  * @param udev  Pointer to the USB device structure
@@ -590,9 +635,10 @@ static int handle_input_report(struct driver_data *driver_data, size_t data_leng
 static int input_interrupt_transfer_cb(struct usb_device *const udev,
 				       struct uhc_transfer *const xfer)
 {
-	struct driver_data *const driver_data = xfer->priv;
+	struct device *const dev = xfer->priv;
+	struct driver_data *driver_data = dev->data;
+	struct driver_config const *driver_config = dev->config;
 	int result = 0;
-	LOG_INF("Request finished %p, err %d", xfer, xfer->err);
 
 	k_mutex_lock(&driver_data->lock, K_FOREVER);
 
@@ -601,28 +647,45 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 		struct net_buf *buf = xfer->buf;
 		if (USB_EP_DIR_IS_IN(xfer->ep)) {
 			if (buf && buf->len > 0u) {
-				result = handle_input_report(driver_data, buf->len, buf->data);
+				result = handle_input_report(driver_config, driver_data, buf->len,
+							     buf->data);
 				if (result != 0) {
 					LOG_WRN("Error handling input: %i", result);
 				}
 			}
 		}
 	}
-
-	/* Finally free the request */
-	if (xfer->buf) {
-		usbh_xfer_buf_free(driver_data->udev, xfer->buf);
+	/* Endpoint halt condition to be cleared */
+	else if (xfer->err == -ENOTSUP) {
+		LOG_DBG("Endpoint in stalled, clearing and retrying...");
+		result = clear_feature_endpoint_halt(driver_data,
+						     driver_data->input_ep->bEndpointAddress);
+		if (result != 0) {
+			LOG_ERR("Could not restore input endpoint: %i", result);
+			goto error_cleanup;
+		}
+	}
+	/* Continue with the error */
+	else {
+		LOG_WRN("IN endpoint request failed: %i", xfer->err);
+		result = xfer->err;
 	}
 
-	usbh_xfer_free(driver_data->udev, xfer);
 	/* Clear the saved xfer reference */
 	driver_data->interrupt_in_xfer = NULL;
 
 	if (result == 0 && driver_data->input_interrupt_report_on) {
-		result = req_interrupt_input(driver_data);
+		result = req_interrupt_input(dev);
 	} else {
 		LOG_INF("Stopping input requests");
 	}
+
+error_cleanup:
+	/* Finally free the request */
+	if (xfer->buf) {
+		usbh_xfer_buf_free(driver_data->udev, xfer->buf);
+	}
+	usbh_xfer_free(driver_data->udev, xfer);
 
 	k_mutex_unlock(&driver_data->lock);
 
@@ -632,18 +695,19 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 /**
  * @brief Enqueue an interrupt input request, kickstarting a periodic update
  *
- * @param driver_data  Pointer to driver data structure
+ * @param dev  Pointer to device structure
  *
  * @return 0 on success, negative errno value on failure.
  */
-static int req_interrupt_input(struct driver_data *const driver_data)
+static int req_interrupt_input(struct device const *dev)
 {
 	struct uhc_transfer *xfer = NULL;
+	struct driver_data *driver_data = (void *)dev->data;
 	int result = 0;
 
 	/* Allocate with enough buffer for one interrupt packet */
 	xfer = usbh_xfer_alloc_with_buf(driver_data->udev, driver_data->input_ep->bEndpointAddress,
-					input_interrupt_transfer_cb, driver_data,
+					input_interrupt_transfer_cb, (void *)dev,
 					driver_data->input_ep->wMaxPacketSize);
 	if (xfer == NULL) {
 		LOG_WRN("Unable to allocate memory buffer");
@@ -663,7 +727,6 @@ static int req_interrupt_input(struct driver_data *const driver_data)
 	return 0;
 }
 
-#if !CONFIG_USBH_HID_BOOT_PROTOCOL
 /**
  * @brief Enqueue a request for an interface descriptor
  *
@@ -686,7 +749,6 @@ static int req_iface_desc(struct usb_device *const udev, uint8_t const type, uin
 
 	return usbh_req_setup(udev, bmRequestType, bRequest, wValue, id, len, buf);
 }
-#endif
 
 /**
  * @brief Enqueue a HID class request
@@ -714,17 +776,17 @@ static int hid_class_request(struct usb_device *const udev, uint8_t const iface,
 /**
  * @brief Analyze the various descriptors of the USB device interface
  *
- * @param driver_data  Pointer to the driver data structure
- * @param iface        Target interface
+ * @param driver_config  Pointer to the driver configuration structure
+ * @param driver_data    Pointer to the driver data structure
+ * @param iface          Target interface
  *
  * @return 0 on success, negative errno value on failure.
  */
-static int scan_descriptors(struct driver_data *const driver_data, uint8_t const iface)
+static int scan_descriptors(struct driver_config const *driver_config,
+			    struct driver_data *const driver_data, uint8_t const iface)
 {
-#if !CONFIG_USBH_HID_BOOT_PROTOCOL
 	int result = 0;
 	struct net_buf *buf = NULL;
-#endif
 	struct usb_desc_header const *dhp = NULL;
 	uint16_t report_descriptor_length = 0u;
 
@@ -772,44 +834,39 @@ static int scan_descriptors(struct driver_data *const driver_data, uint8_t const
 		return -ENOSYS;
 	}
 
-#if !CONFIG_USBH_HID_BOOT_PROTOCOL
-	/* Fetch report descriptor */
-	if (report_descriptor_length == 0) {
-		LOG_ERR("No report descriptor found");
-		return -ENOSYS;
+	/* If not using the boot protocol parse the report descriptors */
+	if (!driver_config->boot_protocol) {
+		/* Fetch report descriptor */
+		if (report_descriptor_length == 0) {
+			LOG_ERR("No report descriptor found");
+			return -ENOSYS;
+		}
+
+		buf = usbh_xfer_buf_alloc(driver_data->udev, report_descriptor_length);
+		if (buf == NULL) {
+			return -ENOMEM;
+		}
+
+		result = req_iface_desc(driver_data->udev, USB_DESC_HID_REPORT, 0u, iface,
+					report_descriptor_length, buf);
+		if (result != 0) {
+			LOG_WRN("Request for HID report descriptor failed: %i", result);
+			goto error_cleanup;
+		}
+
+		LOG_HEXDUMP_INF(buf->data, buf->len, "Report: ");
+
+		result = usbh_hid_report_parse(&driver_data->report, buf->len, buf->data);
+		if (result != 0) {
+			LOG_WRN("Parsing of the HID report descriptor failed: %i", result);
+			goto error_cleanup;
+		}
 	}
-
-	buf = usbh_xfer_buf_alloc(driver_data->udev, report_descriptor_length);
-	if (buf == NULL) {
-		return -ENOMEM;
-	}
-
-	result = req_iface_desc(driver_data->udev, USB_DESC_HID_REPORT, 0u, iface,
-				report_descriptor_length, buf);
-	if (result != 0) {
-		LOG_WRN("Request for HID report descriptor failed: %i", result);
-		goto error_cleanup;
-	}
-
-	LOG_HEXDUMP_INF(buf->data, buf->len, "Report: ");
-
-	result = hid_report_parse(&driver_data->report, buf->len, buf->data);
-	if (result != 0) {
-		LOG_WRN("Parsing of the HID report descriptor failed: %i", result);
-		goto error_cleanup;
-	}
-
-	usbh_xfer_buf_free(driver_data->udev, buf);
-
-	return 0;
 
 error_cleanup:
 	usbh_xfer_buf_free(driver_data->udev, buf);
 
 	return result;
-#else
-	return 0;
-#endif
 }
 
 /**
@@ -821,7 +878,7 @@ error_cleanup:
  */
 static int usbh_class_init(struct usbh_class_data *const c_data)
 {
-	const struct device *dev = c_data->priv;
+	struct device const *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
 	int result = 0;
 
@@ -856,13 +913,12 @@ static int usbh_class_init(struct usbh_class_data *const c_data)
 static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_device *const udev,
 			    uint8_t iface)
 {
-	const struct device *dev = c_data->priv;
-	struct driver_data *driver_data = (void *)dev->data;
+	struct device const *dev = c_data->priv;
+	struct driver_data *driver_data = dev->data;
+	struct driver_config const *driver_config = dev->config;
 	uint8_t target_iface = 0;
 	int result = 0;
-#if CONFIG_USBH_HID_BOOT_PROTOCOL
 	struct usb_if_descriptor const *interface = NULL;
-#endif
 
 	if ((udev == NULL) || (udev->state != USB_STATE_CONFIGURED)) {
 		LOG_ERR("USB device not properly configured");
@@ -883,61 +939,70 @@ static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_dev
 
 	k_mutex_lock(&driver_data->lock, K_FOREVER);
 
+	/* Clear some data before starting */
+	driver_data->input_ep = NULL;
+	driver_data->output_ep = NULL;
+	memset(&driver_data->report, 0, sizeof(driver_data->report));
+
 	driver_data->udev = udev;
 	driver_data->target_iface = target_iface;
 
-	if (is_mouse(driver_data)) {
-		LOG_INF("HID mouse connected");
-	} else if (is_keyboard(driver_data)) {
-		LOG_INF("HID keyboard connected");
-	} else {
-		LOG_INF("HID device connected");
-	}
-
 	/* Fetch the relevant information */
-	result = scan_descriptors(driver_data, target_iface);
+	result = scan_descriptors(driver_config, driver_data, target_iface);
 	if (result != 0) {
 		goto error_cleanup;
 	}
 
-#if CONFIG_USBH_HID_BOOT_PROTOCOL
-	interface = usbh_desc_get_iface(driver_data->udev, driver_data->target_iface);
-	/* The device may not support the boot protocol, in which case we abort */
-	if (interface->bInterfaceSubClass != USB_HID_SUBCLASS_BOOT) {
-		LOG_WRN("Device doesn't support boot protocol!");
-		result = -ENOTSUP;
-		goto error_cleanup;
-	}
-	/* Set the boot protocol */
-	result = hid_class_request(driver_data->udev, target_iface, USB_REQTYPE_DIR_TO_DEVICE,
-				   USB_HID_SET_PROTOCOL, HID_PROTOCOL_BOOT, 0, NULL);
-	if (result != 0) {
-		/* Setting boot protocol is a required operation */
-		LOG_WRN("Failed to set boot protocol: %i", result);
-		goto error_cleanup;
-	}
+	/* Select the boot protocol */
+	if (driver_config->boot_protocol) {
+		interface = usbh_desc_get_iface(driver_data->udev, driver_data->target_iface);
+		/* The device may not support the boot protocol, in which case we abort */
+		if (interface->bInterfaceSubClass != USB_HID_SUBCLASS_BOOT) {
+			LOG_WRN("Device doesn't support boot protocol!");
+			result = -ENOTSUP;
+			goto error_cleanup;
+		}
+		/* Set the boot protocol */
+		result = hid_class_request(driver_data->udev, target_iface,
+					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_PROTOCOL,
+					   HID_PROTOCOL_BOOT, 0, NULL);
+		if (result != 0) {
+			/* Setting boot protocol is a required operation */
+			LOG_WRN("Failed to set boot protocol: %i", result);
+			goto error_cleanup;
+		}
 
-#else
+		LOG_INF("Selected boot protocol");
+	}
 	/* Set the generic protocol */
-	result = hid_class_request(driver_data->udev, target_iface, USB_REQTYPE_DIR_TO_DEVICE,
-				   USB_HID_SET_PROTOCOL, HID_PROTOCOL_REPORT, 0, NULL);
-	if (result != 0) {
-		LOG_WRN("Failed to set protocol: %i", result);
-		/* Setting other protocols is optional */
+	else {
+		result = hid_class_request(driver_data->udev, target_iface,
+					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_PROTOCOL,
+					   HID_PROTOCOL_REPORT, 0, NULL);
+		if (result != 0) {
+			LOG_WRN("Failed to set protocol: %i", result);
+			/* Setting other protocols is optional */
+		}
+
+		LOG_INF("Selected report protocol");
 	}
-#endif
 
 	/* Set the idle rate */
-	result = hid_class_request(driver_data->udev, target_iface, USB_REQTYPE_DIR_TO_DEVICE,
-				   USB_HID_SET_IDLE, 0, 0, NULL);
-	/* Set idle not supported, can ignore */
-	if (result == -ENOTSUP) {
-		LOG_INF("HID does not support SET_IDLE");
-	}
-	/* Any other error is a problem */
-	else if (result != 0) {
-		LOG_WRN("Failed to set idle rate: %i", result);
-		goto error_cleanup;
+	for (size_t idle_rate_index = 0; idle_rate_index < driver_config->idle_rates_ms_size / 2;
+	     idle_rate_index++) {
+		uint8_t report_id = driver_config->idle_rates_ms[idle_rate_index * 2u];
+		uint16_t idle_period_ms = driver_config->idle_rates_ms[idle_rate_index * 2u + 1u];
+
+		result = driver_set_idle_rate(dev, report_id, idle_period_ms);
+		if (result == -ENOTSUP) {
+			/* Set idle not supported, can ignore */
+		}
+		/* Other error */
+		else if (result != 0) {
+			LOG_WRN("Failed to set idle rate for report ID 0x%02X: %i", report_id,
+				result);
+			goto error_cleanup;
+		}
 	}
 
 	LOG_INF("HID device (addr=%d) initialization completed for iface %i",
@@ -961,8 +1026,12 @@ error_cleanup:
  */
 static int usbh_class_remove(struct usbh_class_data *const c_data)
 {
-	const struct device *dev = c_data->priv;
+	struct device const *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
+
+	driver_stop_input_reports(dev);
+
+	k_mutex_lock(&driver_data->lock, K_FOREVER);
 
 #if CONFIG_USBH_HID_ROUTE_TO_INPUT
 	memset(driver_data->previous_reports, 0u, sizeof(driver_data->previous_reports));
@@ -976,6 +1045,8 @@ static int usbh_class_remove(struct usbh_class_data *const c_data)
 	driver_data->input_interrupt_report_on = false;
 	driver_data->target_iface = 0;
 	driver_data->udev = NULL;
+
+	k_mutex_unlock(&driver_data->lock);
 
 	LOG_INF("HID device removal completed");
 
@@ -994,7 +1065,7 @@ static struct usbh_class_api usbh_class_api = {
 /**
  * @brief USB Host class filters
  */
-static struct usbh_class_filter const usbh_filters[] = {
+static __maybe_unused struct usbh_class_filter const generic_hid_filters[] = {
 	{
 		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
 		.class = USB_BCC_HID,
@@ -1028,28 +1099,75 @@ static struct usbh_class_filter const usbh_filters[] = {
 	{0u},
 };
 
+/**
+ * @brief Synchronization callback to wait for completion of asynchronous transfers
+ *
+ * Should be passed to `usbh_xfer_alloc_with_buf` or `usbh_xfer_alloc` before queuing the
+ * transfer, to then block on `driver_data->sync` in order to wait for completion. This
+ * function only gives way to the semaphore; it doesn't analyze or deallocate anything.
+ *
+ * @param udev Pointer to the connected USB device structure
+ * @param xfer Pointer to completed transfer structure
+ *
+ * @return 0
+ */
 static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
 	struct driver_data *driver_data = xfer->priv;
 
-	LOG_DBG("Request finished %p, err %d", xfer, xfer->err);
-	if (xfer->err == -ECONNRESET) {
-		LOG_INF("Transfer %p cancelled", (void *)xfer);
-
-		if (xfer->buf) {
-			usbh_xfer_buf_free(driver_data->udev, xfer->buf);
-		}
-		usbh_xfer_free(udev, xfer);
-
-		return 0;
+	if (xfer->err != 0) {
+		LOG_DBG("Request finished %p, err %d, sem %i", xfer, xfer->err,
+			k_sem_count_get(&driver_data->sync));
 	}
-
 	k_sem_give(&driver_data->sync);
 
 	return 0;
 }
 
-static int driver_get_report_descriptor(struct device const *dev, struct hid_report *report)
+/**
+ * @brief Block on `driver_data->sync` waiting for the `sync_cb` callback
+ *
+ * This function waits for the last transfer enqueued with `sync_cb` as completion to be
+ * done. If it actually completes it returns the error code; in the event of a timeout it
+ * makes sure the transfer is no longer pending.
+ *
+ * @param driver_data  Pointer to the driver data structure
+ * @param xfer         Pointer to the transfer structure
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *xfer)
+{
+	if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
+		int result = 0;
+
+		LOG_ERR("Timeout");
+
+		result = usbh_xfer_dequeue(driver_data->udev, xfer);
+		/* While the semaphore take timed out, the transfer was actually already
+		 * done and the callback on its way. */
+		if (result == -EALREADY) {
+			/* Take the semaphore again to be sure that the callback is done */
+			if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
+				/* Should not happen */
+				LOG_ERR("Double timeout");
+			}
+		}
+		/* Dequeue failed */
+		else if (result != 0) {
+			LOG_ERR("Failed to cancel transfer");
+		}
+		/* Dequeue succeeded, do nothing */
+		else {
+		}
+
+		return -ETIMEDOUT;
+	}
+
+	return xfer->err;
+}
+
+static int driver_get_report_descriptor(struct device const *dev, struct usbh_hid_report *report)
 {
 	struct driver_data *driver_data = (void *)dev->data;
 
@@ -1066,13 +1184,13 @@ static int driver_get_report_descriptor(struct device const *dev, struct hid_rep
 		return -ENOTCONN;
 	}
 
-	memcpy(report, &driver_data->report, sizeof(struct hid_report));
+	memcpy(report, &driver_data->report, sizeof(struct usbh_hid_report));
 	k_mutex_unlock(&driver_data->lock);
 
 	return 0;
 }
 
-static int driver_get_report(struct device const *dev, enum hid_report_field_type type,
+static int driver_get_report(struct device const *dev, enum usbh_hid_report_field_type type,
 			     uint8_t report_id, size_t length, uint8_t *buffer)
 {
 	struct driver_data *driver_data = (void *)dev->data;
@@ -1087,7 +1205,7 @@ static int driver_get_report(struct device const *dev, enum hid_report_field_typ
 	}
 
 	result = hid_class_request(driver_data->udev, driver_data->target_iface,
-				   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_GET_REPORT,
+				   USB_REQTYPE_DIR_TO_HOST, USB_HID_GET_REPORT,
 				   (type << 8u) | report_id, length, buf);
 
 	if (result == 0) {
@@ -1100,18 +1218,12 @@ static int driver_get_report(struct device const *dev, enum hid_report_field_typ
 	return result;
 }
 
-static int driver_set_report(struct device const *dev, enum hid_report_field_type type,
+static int driver_set_report(struct device const *dev, enum usbh_hid_report_field_type type,
 			     uint8_t report_id, size_t data_length, uint8_t const data[data_length])
 {
 	struct driver_data *driver_data = (void *)dev->data;
-	uint8_t report_type_values[] = {1u, 2u, 3u};
 	struct net_buf *buf = NULL;
 	int result = 0;
-
-	if (type >= sizeof(report_type_values) / sizeof(report_type_values[0])) {
-		/* Unrecognized report type */
-		return -EINVAL;
-	}
 
 	if (data == NULL || data_length == 0u) {
 		return -EINVAL;
@@ -1166,35 +1278,8 @@ static int driver_set_report(struct device const *dev, enum hid_report_field_typ
 			goto error_cleanup;
 		}
 
-		if (k_sem_take(&driver_data->sync, K_MSEC(100)) != 0) {
-			LOG_ERR("Timeout");
-
-			result = usbh_xfer_dequeue(driver_data->udev, xfer);
-			/* While the semaphore take timed out, the transfer was actually already
-			 * done and the callback on its way. */
-			if (result == -EALREADY) {
-				/* Take the semaphore again, just to be sure not to free data
-				 * structures that the callback may still be using */
-				if (k_sem_take(&driver_data->sync, K_MSEC(10)) != 0) {
-					/* Should not happen */
-					LOG_ERR("Double timeout");
-				}
-
-				if (xfer->buf) {
-					usbh_xfer_buf_free(driver_data->udev, xfer->buf);
-				}
-				usbh_xfer_free(driver_data->udev, xfer);
-			}
-			/* Dequeue failed */
-			else if (result != 0) {
-				LOG_ERR("Failed to cancel transfer");
-			}
-
-			k_mutex_unlock(&driver_data->lock);
-			return -ETIMEDOUT;
-		}
-
-		result = xfer->err;
+		/* Wait for completion */
+		result = wait_for_sync(driver_data, xfer);
 		usbh_xfer_free(driver_data->udev, xfer);
 	}
 	/* No interrupt OUT endpoint, fall back to a control request */
@@ -1209,8 +1294,7 @@ static int driver_set_report(struct device const *dev, enum hid_report_field_typ
 
 		result = hid_class_request(driver_data->udev, driver_data->target_iface,
 					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_REPORT,
-					   (report_type_values[type] << 8) | report_id, data_length,
-					   buf);
+					   ((uint16_t)type << 8u) | report_id, data_length, buf);
 	}
 
 error_cleanup:
@@ -1241,7 +1325,7 @@ static int driver_start_input_reports(struct device const *dev)
 
 	driver_data->input_interrupt_report_on = true;
 	/* Start input inteerrupt */
-	result = req_interrupt_input(driver_data);
+	result = req_interrupt_input(dev);
 
 	k_mutex_unlock(&driver_data->lock);
 
@@ -1275,8 +1359,8 @@ static int driver_stop_input_reports(struct device const *dev)
 	return result;
 }
 
-#if !CONFIG_USBH_HID_ROUTE_TO_INPUT
-static int driver_set_input_callback(struct device const *dev, hid_report_cb_t callback,
+#ifndef CONFIG_USBH_HID_ROUTE_TO_INPUT
+static int driver_set_input_callback(struct device const *dev, usbh_hid_report_cb_t callback,
 				     void *user_data)
 {
 	struct driver_data *driver_data = (void *)dev->data;
@@ -1292,6 +1376,117 @@ static int driver_set_input_callback(struct device const *dev, hid_report_cb_t c
 }
 #endif
 
+static bool has_report_id(struct usbh_hid_report const *report, uint8_t report_id)
+{
+	/* 0 means all report IDs; always present */
+	if (report_id == 0) {
+		return true;
+	}
+	/* If a specific report ID is given check if it actually matches one in the report
+	 * descriptor */
+	else {
+		bool found = false;
+
+		for (size_t report_index = 0; report_index < report->num_reports; report_index++) {
+			if (report->reports[report_index].id == report_id) {
+				found = true;
+				break;
+			}
+		}
+
+		return found;
+	}
+}
+
+static int driver_set_idle_rate(struct device const *dev, uint8_t report_id,
+				uint16_t idle_period_ms)
+{
+	struct driver_data *driver_data = (void *)dev->data;
+	int result = 0;
+
+	k_mutex_lock(&driver_data->lock, K_FOREVER);
+
+	if (driver_data->udev == NULL) {
+		/* Device not yet connected */
+		result = -ENOTCONN;
+		goto error_cleanup;
+	}
+
+	if (!has_report_id(&driver_data->report, report_id)) {
+		LOG_ERR("Report ID 0x%02X doesn't exist", report_id);
+		result = -EINVAL;
+		goto error_cleanup;
+	}
+
+	result = hid_class_request(driver_data->udev, driver_data->target_iface,
+				   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_IDLE,
+				   ((idle_period_ms / 4u) << 8u) | report_id, 0, NULL);
+	/* Set idle not supported, can ignore */
+	if (result == -ENOTSUP) {
+		LOG_INF("HID does not support SET_IDLE");
+		goto error_cleanup;
+	}
+	/* Any other error is a problem */
+	else if (result != 0) {
+		LOG_WRN("Failed to set idle rate: %i", result);
+		goto error_cleanup;
+	}
+
+error_cleanup:
+	k_mutex_unlock(&driver_data->lock);
+
+	return result;
+}
+
+static int driver_get_idle_rate(struct device const *dev, uint8_t report_id,
+				uint16_t *idle_period_ms)
+{
+	struct driver_data *driver_data = (void *)dev->data;
+	int result = 0;
+	struct net_buf *buf = NULL;
+
+	k_mutex_lock(&driver_data->lock, K_FOREVER);
+
+	if (driver_data->udev == NULL) {
+		/* Device not yet connected */
+		result = -ENOTCONN;
+		goto error_cleanup;
+	}
+
+	if (!has_report_id(&driver_data->report, report_id)) {
+		LOG_ERR("Report ID 0x%02X doesn't exist", report_id);
+		result = -EINVAL;
+		goto error_cleanup;
+	}
+
+	buf = usbh_xfer_buf_alloc(driver_data->udev, 1);
+	if (buf == NULL) {
+		result = -ENOMEM;
+		goto error_cleanup;
+	}
+	result = hid_class_request(driver_data->udev, driver_data->target_iface,
+				   USB_REQTYPE_DIR_TO_HOST, USB_HID_GET_IDLE, report_id, 1, buf);
+	/* Set idle not supported, can ignore */
+	if (result == -ENOTSUP) {
+		LOG_INF("HID does not support GET_IDLE");
+		goto error_cleanup;
+	}
+	/* Any other error is a problem */
+	else if (result != 0) {
+		LOG_WRN("Failed to get idle rate: %i", result);
+		goto error_cleanup;
+	}
+
+	*idle_period_ms = buf->data[0] * 4;
+
+error_cleanup:
+	usbh_xfer_buf_free(driver_data->udev, buf);
+
+	k_mutex_unlock(&driver_data->lock);
+
+	return result;
+}
+
 /**
  * @brief USB Host HID driver API vtable
  */
@@ -1301,18 +1496,38 @@ DEVICE_API(usbh_hid, driver_api) = {
 	.set_report = driver_set_report,
 	.start_input_reports = driver_start_input_reports,
 	.stop_input_reports = driver_stop_input_reports,
-#if !CONFIG_USBH_HID_ROUTE_TO_INPUT
+	.set_idle_rate = driver_set_idle_rate,
+	.get_idle_rate = driver_get_idle_rate,
+#ifndef CONFIG_USBH_HID_ROUTE_TO_INPUT
 	.set_input_callback = driver_set_input_callback,
 #endif
 };
 
-#define USBH_DEVICE_DEFINE(index, _)                                                               \
-	static struct driver_data driver_data_##index;                                             \
-                                                                                                   \
-	DEVICE_DEFINE(usbh_hid_##index, "usbh_hid_" #index, NULL, NULL, &driver_data_##index,      \
-		      NULL, POST_KERNEL, 50, &driver_api);                                         \
-                                                                                                   \
-	USBH_DEFINE_CLASS(usbh_hid_data_##index, &usbh_class_api,                                  \
-			  (void *)DEVICE_GET(usbh_hid_##index), usbh_filters);
+#define USBH_DEVICE_DEFINE(index)                                                                    \
+	static struct driver_data driver_data_##index = {0u};                                        \
+	static struct driver_config const driver_config_##index = {                                  \
+		.idle_rates_ms = DT_INST_PROP(index, in_idle_rate_ms),                               \
+		.idle_rates_ms_size = DT_INST_PROP_LEN(index, in_idle_rate_ms),                      \
+		.boot_protocol = DT_INST_PROP(index, boot_protocol),                                 \
+		.reg = DT_INST_REG_ADDR(index),                                                      \
+	};                                                                                           \
+                                                                                                     \
+	DEVICE_DT_INST_DEFINE(index, NULL, NULL, &driver_data_##index, &driver_config_##index,       \
+			      POST_KERNEL, 50, &driver_api);                                         \
+                                                                                                     \
+	COND_CODE_0(DT_INST_PROP(index, match_class),                                              \
+	(static struct usbh_class_filter const hid_filters_##index[] = {                           \
+		{                                                                                  \
+			.flags = USBH_CLASS_MATCH_VID_PID,                                         \
+			.vid = (DT_INST_REG_ADDR(index) >> 16u) & 0xFFFFu,                         \
+			.pid = DT_INST_REG_ADDR(index) & 0xFFFFu,                                  \
+		},                                                                                 \
+		{0u},                                                                              \
+	};)       ,()                                                                              \
+	) \
+                                                                                                     \
+	USBH_DEFINE_CLASS(usbh_hid_data_##index, &usbh_class_api,                                    \
+			  (void *)DEVICE_DT_INST_GET(index),                                         \
+			  COND_CODE_1(DT_INST_PROP(index, match_class), (generic_hid_filters), (hid_filters_##index)));
 
-LISTIFY(CONFIG_USBH_HID_INSTANCES_COUNT, USBH_DEVICE_DEFINE, (;), _)
+DT_INST_FOREACH_STATUS_OKAY(USBH_DEVICE_DEFINE)

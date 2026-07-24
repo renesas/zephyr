@@ -10,22 +10,6 @@ config USBH_HID_CLASS
 
 if USBH_HID_CLASS
 
-config USBH_HID_INSTANCES_COUNT
-	int "Number of HOST HID instances"
-	default 2
-	help
-	  Number of instances of this USB class
-
-config USBH_HID_BOOT_PROTOCOL
-	bool "Use boot protocol when interfacing with HID devices"
-	default y
-	help
-	  Most USB HID devices will implement a common report descriptor
-	  known as "boot protocol". It is meant to let host machines interact
-	  with the device even without loading a fully fledged HID driver,
-	  usually in the context of a bootloader. It works well by itself,
-	  so it may be used exclusively in order to save resources.
-
 config USBH_HID_REPORT_MAX_USAGES
 	int "Maximum usages to be found in a HID report descriptor"
 	default 8

@@ -27,7 +27,7 @@ struct usbh_hid_keyboard_suite_fixture {
 };
 
 static struct device const *hid_dev = DEVICE_DT_GET(DT_NODELABEL(hid_keyboard));
-static struct device const *usbh_hid_dev = NULL;
+static struct device const *usbh_hid_dev = DEVICE_DT_GET(DT_NODELABEL(any_hid_device));
 static struct usbd_context *test_usbd;
 
 USBH_CONTROLLER_DEFINE(test_uhs_ctx, DEVICE_DT_GET(DT_NODELABEL(zephyr_uhc0)));
@@ -72,8 +72,6 @@ static void *suite_setup(void)
 	/* Allow the host time to reset the device. */
 	k_msleep(500);
 
-	usbh_hid_dev = device_get_binding("usbh_hid_0");
-	zassert_not_null(usbh_hid_dev);
 	result = usbh_hid_start_input_reports(usbh_hid_dev);
 	zassert_ok(result, "Failed to start input reports");
 
@@ -102,6 +100,34 @@ static void suite_shutdown(void *f)
 }
 
 ZTEST_SUITE(usbh_hid_keyboard_suite, NULL, suite_setup, NULL, NULL, suite_shutdown);
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_idle)
+{
+	int result = 0;
+	uint16_t idle_period_ms = 0;
+
+	/* Idle period must be a multiple of 4 */
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 501u);
+	zassert_equal(result, -EINVAL, "Idle periods not divisible by 4 should be rejected");
+
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 255u * 4u + 1u);
+	zassert_equal(result, -EINVAL,
+		      "Idle periods beyond what fits in a byte should be rejected");
+
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 500u);
+	zassert_ok(result, "Failed to set idle rate");
+
+	result = usbh_hid_get_idle_rate(usbh_hid_dev, 0, &idle_period_ms);
+	zassert_ok(result, "Failed to set idle rate");
+	zassert_equal(idle_period_ms, 500u, "Wrong idle rate");
+
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 0u);
+	zassert_ok(result, "Failed to set idle rate");
+
+	result = usbh_hid_get_idle_rate(usbh_hid_dev, 0, &idle_period_ms);
+	zassert_ok(result, "Failed to set idle rate");
+	zassert_equal(idle_period_ms, 0u, "Wrong idle rate");
+}
 
 ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_single_keys)
 {

@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <zephyr/usb/class/hid.h>
+#include <zephyr/usb/class/usbh_hid.h>
 
 /* Wether the item is long or short, given its first byte */
 #define ITEM_IS_LONG(First)  ((First) == 0xFE)
@@ -133,7 +134,7 @@ struct context {
 	struct global_state global_state;
 
 	/* Pointer to the output report structure */
-	struct hid_report *report;
+	struct usbh_hid_report *report;
 
 	/* Prasing cursor (i.e. byte index for the data array) */
 	size_t cursor;
@@ -143,123 +144,75 @@ struct context {
 	uint8_t const *data;
 };
 
-/**
- * @brief Checks that the item currently under cursor can fit in the remaining data
- *
- * @param context Parsing context
- *
- * @retval A positive integer represents the length of the item
- * @retval -EINVAL if there is not enough data for the item
+/*
+ * Checks that the item currently under cursor can fit in the remaining data.
  */
 static int check_size(struct context *context);
 
-/**
- * @brief Reads a usage page under the cursor position into the context
- *
- * @param context Parsing context
- *
- * @retval 0 if successful
- * @retval -EINVAL if the usage page is invalid
+/*
+ * Reads a usage page under the cursor position into the context.
+ * Returns -EINVAL if the usage page is invalid.
  */
 static int read_usage_page(struct context *context);
 
-/**
- * @brief Reads a usage ID under the cursor
- *
- * @param context Parsing context
- * @param usage Output pointer for the usage ID
- *
- * @retval 0 if successful
- * @retval -EINVAL if the usage ID is invalid
+/*
+ * Reads a usage ID under the cursor.
+ * Returns -EINVAL if the usage ID is invalid.
  */
 static int read_usage_id(struct context *context, uint32_t *usage);
 
-/**
- * @brief Reads up to a 32-bit unsigned integer from under the cursor
- *
- * @param context Parsing context
- * @param value Output pointer for the value
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
+/*
+ * Reads up to a 32-bit unsigned integer from under the cursor.
+ * Returns -EINVAL if the value is invalid.
  */
 static int read_u32(struct context *context, uint32_t *value);
 
-/**
- * @brief Reads up to a 32-bit signed integer from under the cursor
- *
- * @param context Parsing context
- * @param value Output pointer for the value
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
+/*
+ * Reads up to a 32-bit signed integer from under the cursor.
+ * Returns -EINVAL if the value is invalid.
  */
 static int read_i32(struct context *context, int32_t *value);
 
-/**
- * @brief Pops a usage ID from the list in the context
- *
- * @details The last ID in the list is always kept on, only cleared when moving to a new main item.
- *
- * @param context Parsing context
- * @param usage Output pointer for the usage ID
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
+/*
+ * Pops a usage ID from the list in the context. The last ID in the list is always kept on, only
+ * cleared when moving to a new main item.
+ * Returns -EINVAL if the value is invalid
  */
 static int pop_usage(struct context *context, uint32_t *usage);
 
-/**
- * @brief Parse a global item. Does not advance the cursor.
- *
- * @param context Parsing context
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
- * @retval -ENOMEM if the statically allocated resources are not sufficient
+/*
+ * Parse a global item. Does not advance the cursor.
+ * Returns -EINVAL if the value is invalid, -ENOMEM if the statically allocated resources are not
+ * sufficient.
  */
 static int parse_global_item(struct context *context);
 
-/**
- * @brief Parse a local item. Does not advance the cursor.
- *
- * @param context Parsing context
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
- * @retval -ENOMEM if the statically allocated resources are not sufficient
+/*
+ * Parse a local item. Does not advance the cursor.
+ * Returns -EINVAL if the value is invalid, -ENOMEM if the statically allocated resources are not
+ * sufficient.
  */
 static int parse_local_item(struct context *context);
 
-/**
- * @brief Parse a main item. Does not advance the cursor.
- *
- * @param context Parsing context
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
- * @retval -ENOMEM if the statically allocated resources are not sufficient
+/*
+ * Parse a main item. Does not advance the cursor.
+ * Returns -EINVAL if the value is invalid, -ENOMEM if the statically allocated resources are not
+ * sufficient.
  */
 static int parse_main_item(struct context *context);
 
-/**
- * @brief Parse a field. Does not advance the cursor.
- *
- * @details Most of the data for the field is actually taken from local and global states.
- *
- * @param context Parsing context
- * @param type Input, output or feature
- *
- * @retval 0 if successful
- * @retval -EINVAL if the value is invalid
- * @retval -ENOMEM if the statically allocated resources are not sufficient
+/*
+ * Parse a field. Does not advance the cursor. Most of the data for the field is actually taken from
+ * local and global states. Returns -EINVAL if the value is invalid, -ENOMEM if the statically
+ * allocated resources are not sufficient.
  */
-static int parse_field(struct context *context, enum hid_report_field_type type);
+static int parse_field(struct context *context, enum usbh_hid_report_field_type type);
 
-static int get_report_boundaries(struct hid_report const *report, uint8_t report_id,
+static int get_report_boundaries(struct usbh_hid_report const *report, uint8_t report_id,
 				 size_t *start_index, size_t *end_index);
 
-int hid_report_parse(struct hid_report *report, size_t data_length, uint8_t const data[data_length])
+int usbh_hid_report_parse(struct usbh_hid_report *report, size_t data_length,
+			  uint8_t const data[data_length])
 {
 	int result = 0;
 	/* Initialize the context */
@@ -321,8 +274,8 @@ int hid_report_parse(struct hid_report *report, size_t data_length, uint8_t cons
 	return 0;
 }
 
-uint16_t hid_report_field_get_usage_id_by_index(struct hid_report_field const *field,
-						size_t field_index)
+uint16_t usbh_hid_report_field_get_usage_id_by_index(struct usbh_hid_report_field const *field,
+						     size_t field_index)
 {
 	uint16_t result = 0;
 
@@ -360,8 +313,8 @@ uint16_t hid_report_field_get_usage_id_by_index(struct hid_report_field const *f
 	return result;
 }
 
-bool hid_report_field_contains_usage_id(struct hid_report_field const *field, uint32_t usage_id,
-					size_t *field_index)
+bool usbh_hid_report_field_contains_usage_id(struct usbh_hid_report_field const *field,
+					     uint32_t usage_id, size_t *field_index)
 {
 	bool result = false;
 
@@ -392,8 +345,8 @@ bool hid_report_field_contains_usage_id(struct hid_report_field const *field, ui
 	return result;
 }
 
-int hid_report_get_usage_id_u32(struct hid_report_field const *field, uint8_t const *data,
-				size_t bit_start, uint32_t usage_id, uint32_t *value)
+int usbh_hid_report_get_usage_id_u32(struct usbh_hid_report_field const *field, uint8_t const *data,
+				     size_t bit_start, uint32_t usage_id, uint32_t *value)
 {
 	size_t index = 0;
 
@@ -406,12 +359,12 @@ int hid_report_get_usage_id_u32(struct hid_report_field const *field, uint8_t co
 		return -ENOTSUP;
 	}
 
-	if (HID_REPORT_DATA_IS_ARRAY(field->flags)) {
+	if (USBH_HID_REPORT_DATA_IS_ARRAY(field->flags)) {
 		/* Search is supported only for data items */
 		return -ENOTSUP;
 	}
 
-	if (!hid_report_field_contains_usage_id(field, usage_id, &index)) {
+	if (!usbh_hid_report_field_contains_usage_id(field, usage_id, &index)) {
 		/* No such usage ID */
 		return -ENOENT;
 	}
@@ -431,8 +384,8 @@ int hid_report_get_usage_id_u32(struct hid_report_field const *field, uint8_t co
 	return 0;
 }
 
-int hid_report_get_usage_id_i32(struct hid_report_field const *field, uint8_t const *data,
-				size_t bit_start, uint32_t usage_id, int32_t *value)
+int usbh_hid_report_get_usage_id_i32(struct usbh_hid_report_field const *field, uint8_t const *data,
+				     size_t bit_start, uint32_t usage_id, int32_t *value)
 {
 	/* First, fetch the u32 value */
 	uint32_t unsigned_value = 0;
@@ -444,7 +397,8 @@ int hid_report_get_usage_id_i32(struct hid_report_field const *field, uint8_t co
 		return 0;
 	}
 
-	int result = hid_report_get_usage_id_u32(field, data, bit_start, usage_id, &unsigned_value);
+	int result =
+		usbh_hid_report_get_usage_id_u32(field, data, bit_start, usage_id, &unsigned_value);
 	if (result < 0) {
 		return result;
 	}
@@ -463,7 +417,8 @@ int hid_report_get_usage_id_i32(struct hid_report_field const *field, uint8_t co
 	return 0;
 }
 
-bool hid_report_match_usage_page(struct hid_report_field const *field, uint16_t usage_page)
+bool usbh_hid_report_match_usage_page(struct usbh_hid_report_field const *field,
+				      uint16_t usage_page)
 {
 	bool result = false;
 
@@ -492,7 +447,7 @@ bool hid_report_match_usage_page(struct hid_report_field const *field, uint16_t 
 	return result;
 }
 
-int hid_report_get_input_size(struct hid_report const *report, uint8_t report_id)
+int usbh_hid_report_get_input_size(struct usbh_hid_report const *report, uint8_t report_id)
 {
 	/* The report descriptors have bit precision */
 	size_t bitsize = 0;
@@ -511,10 +466,10 @@ int hid_report_get_input_size(struct hid_report const *report, uint8_t report_id
 	}
 
 	for (size_t field_index = start_index; field_index < end_index; field_index++) {
-		struct hid_report_field const *field = &report->fields[field_index];
+		struct usbh_hid_report_field const *field = &report->fields[field_index];
 
 		/* We are only interested in input reports */
-		if (field->type != HID_REPORT_FIELD_TYPE_INPUT) {
+		if (field->type != USBH_HID_REPORT_FIELD_TYPE_INPUT) {
 			continue;
 		}
 
@@ -536,9 +491,9 @@ int hid_report_get_input_size(struct hid_report const *report, uint8_t report_id
 	return bitsize / 8;
 }
 
-int hid_report_input_iterate(struct hid_report const *report, size_t data_length,
-			     uint8_t const data[data_length], hid_report_cb_t callback,
-			     void *user_data)
+int usbh_hid_report_input_iterate(struct usbh_hid_report const *report, size_t data_length,
+				  uint8_t const data[data_length], usbh_hid_report_cb_t callback,
+				  void *user_data)
 {
 	size_t data_bit_position = 0;
 	int result = 0;
@@ -562,7 +517,7 @@ int hid_report_input_iterate(struct hid_report const *report, size_t data_length
 	}
 
 	for (size_t field_index = start_index; field_index < end_index; field_index++) {
-		struct hid_report_field const *field = &report->fields[field_index];
+		struct usbh_hid_report_field const *field = &report->fields[field_index];
 		size_t field_bit_length = field->size * field->count;
 
 		if (data_bit_position + field_bit_length > data_length * 8) {
@@ -570,12 +525,12 @@ int hid_report_input_iterate(struct hid_report const *report, size_t data_length
 		}
 
 		/* Stop only on input fields */
-		if (field->type != HID_REPORT_FIELD_TYPE_INPUT) {
+		if (field->type != USBH_HID_REPORT_FIELD_TYPE_INPUT) {
 			continue;
 		}
 
 		/* Invoke the user provided callback on each non-constant field */
-		if (HID_REPORT_DATA_IS_DATA(field->flags)) {
+		if (USBH_HID_REPORT_DATA_IS_DATA(field->flags)) {
 			result = callback(field, report_id, data, data_bit_position, user_data);
 			if (result != 0) {
 				return result;
@@ -588,137 +543,29 @@ int hid_report_input_iterate(struct hid_report const *report, size_t data_length
 	return 0;
 }
 
-/**
- * @brief Print space indentation
- */
-static inline void print_indentation(unsigned int indentation)
-{
-	printf("%*c", indentation, ' ');
-}
-
-void hid_report_print(struct hid_report const *report)
-{
-	unsigned int indentation = 0;
-	char const *const field_names[] = {"Input", "Output", "Feature"};
-
-	indentation++;
-	for (size_t field_index = 0; field_index < report->num_fields; field_index++) {
-		struct hid_report_field const *const field = &report->fields[field_index];
-
-		/* Check if a collection starts on this field, in which case it should be printed */
-		for (size_t collection_index = 0; collection_index < report->num_collections;
-		     collection_index++) {
-			struct hid_report_collection const *const collection =
-				&report->collections[collection_index];
-			if (collection->start == field_index) {
-				print_indentation(indentation);
-				printf("Collection 0x%02X - 0x%04X\n", collection->type,
-				       collection->usage);
-				indentation++;
-			}
-		}
-
-		/* Check if a report variant starts on this field, in which case it should be
-		 * printed */
-		for (size_t report_index = 0; report_index < report->num_reports; report_index++) {
-			struct hid_report_variant const *const variant =
-				&report->reports[report_index];
-			if (variant->start == field_index) {
-				print_indentation(indentation);
-				printf("Report ID 0x%02X\n", variant->id);
-			}
-		}
-
-		/* Print the field */
-		print_indentation(indentation);
-		if (field->type > sizeof(field_names) / sizeof(field_names[0])) {
-			printf("Field %zu: %i\n", field_index, field->type);
-		} else {
-			printf("%s %zu:\n", field_names[field->type], field_index);
-		}
-		indentation++;
-
-		/* Print its usages */
-		print_indentation(indentation);
-		printf("Usages: ");
-		if (field->usage_minimum != 0 || field->usage_maximum != 0) {
-			printf("0x%04X - 0x%04X", field->usage_minimum, field->usage_maximum);
-		} else {
-			for (size_t usage_index = 0;
-			     usage_index < sizeof(field->usages) / sizeof(field->usages[0]) &&
-			     field->usages[usage_index] != 0;
-			     usage_index++) {
-				printf("0x%04X, ", field->usages[usage_index]);
-			}
-		}
-		printf("\n");
-
-		/* Print its flags */
-		print_indentation(indentation);
-		printf("Flags: %s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-		       HID_REPORT_DATA_IS_CONSTANT(field->flags) ? "Const" : "Data",
-		       HID_REPORT_DATA_IS_ARRAY(field->flags) ? "Array" : "Var",
-		       HID_REPORT_DATA_IS_RELATIVE(field->flags) ? "Rel" : "Abs",
-		       HID_REPORT_DATA_IS_WRAP(field->flags) ? "Wrap" : "No Wrap",
-		       HID_REPORT_DATA_IS_NON_LINEAR(field->flags) ? "Non Linear" : "Linear",
-		       HID_REPORT_DATA_HAS_NO_PREFERRED(field->flags) ? "No Preferred"
-								      : "Preferred State",
-		       HID_REPORT_DATA_HAS_NULL_STATE(field->flags) ? "Null State"
-								    : "No Null Position",
-		       HID_REPORT_DATA_IS_VOLATILE(field->flags) ? "Volatile" : "Non Volatile",
-		       HID_REPORT_DATA_IS_BUFFERED_BYTES(field->flags) ? "Buffered Bytes"
-								       : "Bit Field");
-
-		/* Print its range and layout */
-		print_indentation(indentation);
-		printf("Logical range: %i - %i\n", field->logical_minimum, field->logical_maximum);
-
-		print_indentation(indentation);
-		printf("Physical range: %i - %i (%i, %i)\n", field->physical_minimum,
-		       field->physical_maximum, field->unit, field->unit_exponent);
-
-		print_indentation(indentation);
-		printf("Report size & count: %i, %i\n", field->size, field->count);
-
-		/* If a collection ends here we should reduce indentation */
-		for (size_t collection_index = 0; collection_index < report->num_collections;
-		     collection_index++) {
-			struct hid_report_collection const *const collection =
-				&report->collections[collection_index];
-			if (collection->end == field_index) {
-				indentation--;
-			}
-		}
-		indentation--;
-	}
-	indentation--;
-
-	printf("Done\n");
-}
-
 static int parse_main_item(struct context *context)
 {
 	enum item_data_size item_size = ITEM_SIZE(context->data[context->cursor]);
-	struct hid_report *report = context->report;
+	struct usbh_hid_report *report = context->report;
 	int result = 0;
 
 	switch (ITEM_TAG(context->data[context->cursor])) {
 	case MAIN_ITEM_TAG_INPUT: {
-		result = parse_field(context, HID_REPORT_FIELD_TYPE_INPUT);
+		result = parse_field(context, USBH_HID_REPORT_FIELD_TYPE_INPUT);
 		if (result < 0) {
 			return result;
 		}
 		break;
 	}
 	case MAIN_ITEM_TAG_OUTPUT: {
-		result = parse_field(context, HID_REPORT_FIELD_TYPE_OUTPUT);
+		result = parse_field(context, USBH_HID_REPORT_FIELD_TYPE_OUTPUT);
 		if (result < 0) {
 			return result;
 		}
 		break;
 	}
 	case MAIN_ITEM_TAG_FEATURE: {
-		result = parse_field(context, HID_REPORT_FIELD_TYPE_FEATURE);
+		result = parse_field(context, USBH_HID_REPORT_FIELD_TYPE_FEATURE);
 		if (result < 0) {
 			return result;
 		}
@@ -727,7 +574,7 @@ static int parse_main_item(struct context *context)
 	case MAIN_ITEM_TAG_COLLECTION: {
 		uint32_t usage = 0;
 		size_t collection_index = report->num_collections;
-		struct hid_report_collection *collection = NULL;
+		struct usbh_hid_report_collection *collection = NULL;
 
 		if (report->num_collections >=
 		    sizeof(report->collections) / sizeof(report->collections[0])) {
@@ -839,8 +686,8 @@ static int parse_global_item(struct context *context)
 		break;
 	}
 	case GLOBAL_ITEM_TAG_REPORT_ID: {
-		struct hid_report *report = context->report;
-		struct hid_report_variant *variant = NULL;
+		struct usbh_hid_report *report = context->report;
+		struct usbh_hid_report_variant *variant = NULL;
 		uint32_t report_id = 0;
 
 		if (report->num_reports >= sizeof(report->reports) / sizeof(report->reports[0])) {
@@ -1153,11 +1000,11 @@ static int pop_usage(struct context *context, uint32_t *usage)
 	return 0;
 }
 
-static int parse_field(struct context *context, enum hid_report_field_type type)
+static int parse_field(struct context *context, enum usbh_hid_report_field_type type)
 {
-	struct hid_report *report = context->report;
+	struct usbh_hid_report *report = context->report;
 	struct global_state *global_state = &context->global_state;
-	struct hid_report_field *field = NULL;
+	struct usbh_hid_report_field *field = NULL;
 
 	if (report->num_fields >= sizeof(report->fields) / sizeof(report->fields[0])) {
 		/* Too many fields */
@@ -1179,8 +1026,18 @@ static int parse_field(struct context *context, enum hid_report_field_type type)
 	/* Store the remaining global state */
 	field->logical_minimum = global_state->logical_minimum;
 	field->logical_maximum = global_state->logical_maximum;
-	field->physical_minimum = global_state->physical_minimum;
-	field->physical_maximum = global_state->physical_maximum;
+
+	/* Physical limits were not specified, they default to logical ones */
+	if (global_state->physical_minimum == 0 && global_state->physical_maximum == 0) {
+		field->physical_minimum = global_state->logical_minimum;
+		field->physical_maximum = global_state->logical_maximum;
+	}
+	/* They were specified, use them */
+	else {
+		field->physical_minimum = global_state->physical_minimum;
+		field->physical_maximum = global_state->physical_maximum;
+	}
+
 	field->count = global_state->report_count;
 	field->size = global_state->report_size;
 	field->unit = global_state->unit;
@@ -1190,7 +1047,7 @@ static int parse_field(struct context *context, enum hid_report_field_type type)
 	return 0;
 }
 
-static int get_report_boundaries(struct hid_report const *report, uint8_t report_id,
+static int get_report_boundaries(struct usbh_hid_report const *report, uint8_t report_id,
 				 size_t *start_index, size_t *end_index)
 {
 	if (report == NULL || start_index == NULL || end_index == NULL) {
@@ -1202,7 +1059,8 @@ static int get_report_boundaries(struct hid_report const *report, uint8_t report
 		bool found = false;
 
 		for (size_t report_index = 0; report_index < report->num_reports; report_index++) {
-			struct hid_report_variant const *variant = &report->reports[report_index];
+			struct usbh_hid_report_variant const *variant =
+				&report->reports[report_index];
 
 			if (variant->id == report_id) {
 				/* Start from the beginning of the report variant */

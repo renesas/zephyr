@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Copyright Nordic Semiconductor ASA
+# SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library()
