@@ -2,7 +2,7 @@ sample:
   description: Code data relocation nocopy Sample
   name: code relocation nocopy
 tests:
-  sample.app_dev.code_relocation_nocopy:
+  sample.app_dev.renesas_code_relocation_nocopy:
     platform_allow:
       - ek_rx74m
     integration_platforms:
