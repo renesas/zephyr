@@ -22,11 +22,11 @@ config USBH_DFU_MAX_ALTERNATE_NR
           driver accepts from device
 
 config USBH_DFU_LIMIT_DATA_ALLOC_BYTES
-        int "Upper limit of bytes allocated for data transfers"
-        default 64
+        int "Upper memory limit in bytes allocated for USB Host data transfers"
+        default 512
         help
           The driver won't allocate more than LIMIT_DATA_ALLOC_BYTES for data transfers.
-          This prevents a malicious device from requesting a full 16K space from host.
+          This prevents a malicious device from requesting a full 64K space from host.
 
 module = USBH_DFU
 module-str = usbh dfu

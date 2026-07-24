@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdlib.h>
 
@@ -245,7 +250,7 @@ static int usbh_req_dfu_getstatus(struct usbh_dfu_drv_data *drv_data, struct dfu
 		memcpy(getstatus_data, drv_data->eph.command_netbuf->data, sizeof(*getstatus_data));
 	}
 
-	return 0;
+	return result;
 }
 
 /**
@@ -255,7 +260,7 @@ static int usbh_req_dfu_getstatus(struct usbh_dfu_drv_data *drv_data, struct dfu
  *
  * @return 0 on success, negative errno on failure
  */
-static int __unused usbh_req_dfu_clrstatus(struct usbh_dfu_drv_data *drv_data)
+static int usbh_req_dfu_clrstatus(struct usbh_dfu_drv_data *drv_data)
 {
 	return usbh_req_setup(drv_data->eph.udev, DFU_REQUEST_TYPE_DFU_CLRSTATUS, USB_DFU_REQ_GETSTATUS,
 		0, drv_data->eph.iface, 0, NULL);
@@ -455,8 +460,20 @@ static int usbh_dfu_init(struct usbh_dfu_drv_data *const drv_data)
 		return result;
 	}
 
-	/* Attempt to bring device to IDLE */
-	if ((state != DFU_IDLE) && usbh_dfu_state_support_abort(state)) {
+	/* Attempting to bring device from ERROR state to IDLE and continue */
+	if (unlikely(state == DFU_ERROR)) {
+		result = usbh_req_dfu_clrstatus(drv_data);
+		if (result) {
+			return result;
+		}
+
+		result = usbh_req_dfu_getstate(drv_data, &state);
+		if (result) {
+			return result;
+		}
+	}
+	/* Attempting to bring device from non-IDLE state to IDLE and continue  */
+	else if (unlikely((state != DFU_IDLE) && usbh_dfu_state_support_abort(state))) {
 		result = usbh_req_dfu_abort(drv_data);
 		if (result) {
 			return result;
@@ -477,21 +494,59 @@ static int usbh_dfu_init(struct usbh_dfu_drv_data *const drv_data)
 }
 
 /**
- * @brief Implement upload transitions
+ * @brief Perform device state/status check, perform clrstatus on error
  *
  * @param drv_data     Pointer DFU driver context
  *
  * @return 0 on success, negative errno on failure
  */
+static int usbh_dfu_check_and_clear_device_error(struct usbh_dfu_drv_data *const drv_data)
+{
+	if (drv_data->eph.getstatus_data.bState == DFU_ERROR) {
+		LOG_ERR("Device entered DFU_ERROR state. Clearing status and aborting operation");
+		if (drv_data->eph.getstatus_data.bStatus < ARRAY_SIZE(dfu_status_msg)) {
+			LOG_ERR("%s", dfu_status_msg[drv_data->eph.getstatus_data.bStatus]);
+		}
+		usbh_req_dfu_clrstatus(drv_data);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Perfoms abort transition if abort transition is valid
+ *
+ * @param drv_data     Pointer DFU driver context
+ */
+static void usbh_dfu_abort_if_possible(struct usbh_dfu_drv_data *const drv_data)
+{
+	if (usbh_dfu_support_abort(drv_data)) {
+		LOG_ERR("Performing abort");
+		usbh_req_dfu_abort(drv_data);
+	}
+}
+
+/**
+ * @brief Implement upload transitions
+ *
+ * @param drv_data     Pointer DFU driver context
+ */
 static int usbh_dfu_upload_processing(struct usbh_dfu_drv_data *const drv_data)
 {
 	int result;
 
-	do {
-		result = usbh_req_dfu_upload(drv_data);
-	} while ((result == 0) && (drv_data->eph.upload_result != 0));
+	result = usbh_req_dfu_upload(drv_data);
+	if (result) {
+		return result;
+	}
 
-	return result;
+	result = usbh_req_dfu_getstatus(drv_data, &drv_data->eph.getstatus_data);
+	if (result) {
+		return result;
+	}
+
+	return 0;
 }
 
 /**
@@ -510,7 +565,7 @@ static int usbh_dfu_upload_api(struct device const *dev, usbh_dfu_upload_block_c
 		    void *upload_arg)
 {
 	struct usbh_dfu_drv_data *drv_data = dev->data;
-	int result;
+	int result, err_result;
 
 	result = k_mutex_lock(&drv_data->lock, K_FOREVER);
 	if (result) {
@@ -552,15 +607,20 @@ static int usbh_dfu_upload_api(struct device const *dev, usbh_dfu_upload_block_c
 		drv_data->eph.upload_cb = upload_cb;
 		drv_data->eph.upload_arg = upload_arg;
 
-		result = usbh_dfu_upload_processing(drv_data);
+		do {
+			result = usbh_dfu_upload_processing(drv_data);
+		} while ((result == 0) && (drv_data->eph.upload_result != 0) &&
+			  (drv_data->eph.getstatus_data.bState != DFU_ERROR));
 
-		/* Attempt to bring device to IDLE on error */
+		err_result = usbh_dfu_check_and_clear_device_error(drv_data);
+		if (err_result) {
+			result = err_result;
+			break;
+		}
+
 		if (result != 0) {
 			LOG_ERR("Upload failed");
-			if (usbh_dfu_support_abort(drv_data)) {
-				LOG_ERR("Performing abort");
-				usbh_req_dfu_abort(drv_data);
-			}
+			usbh_dfu_abort_if_possible(drv_data);
 		}
 	} while (0);
 
@@ -707,7 +767,7 @@ static int usbh_dfu_dnload_api(struct device const *dev, usbh_dfu_dnload_block_c
 			   void *dnload_arg)
 {
 	struct usbh_dfu_drv_data *drv_data = dev->data;
-	int result;
+	int result, err_result;
 
 	result = k_mutex_lock(&drv_data->lock, K_FOREVER);
 	if (result) {
@@ -751,21 +811,33 @@ static int usbh_dfu_dnload_api(struct device const *dev, usbh_dfu_dnload_block_c
 
 		/* Download by chunks */
 		result = usbh_dfu_dnload_processing_start(drv_data);
-		while ((drv_data->eph.dnload_result > 0) && (result == 0)) {
+		while ((drv_data->eph.dnload_result > 0) && (result == 0) &&
+			   (drv_data->eph.getstatus_data.bState != DFU_ERROR)) {
 			result = usbh_dfu_dnload_processing_repeat(drv_data);
 		}
 
-		/* Attempt to bring the device to the IDLE state on error */
+		err_result = usbh_dfu_check_and_clear_device_error(drv_data);
+		if (err_result) {
+			result = err_result;
+			break;
+		}
+
 		if (result != 0) {
 			LOG_ERR("Download failed");
-			if (usbh_dfu_support_abort(drv_data)) {
-				LOG_ERR("Performing abort");
-				usbh_req_dfu_abort(drv_data);
-			}
+			usbh_dfu_abort_if_possible(drv_data);
 			break;
 		}
 
 		result = usbh_dfu_dnload_complete(drv_data);
+
+		err_result = usbh_dfu_check_and_clear_device_error(drv_data);
+		if (err_result) {
+			result = err_result;
+			break;
+		}
+
+		/* NOTE: At this point, transitioning to ABORT on error is not possible. */
+
 	} while (0);
 
 	drv_data->eph.dnload_cb = NULL;
@@ -796,33 +868,6 @@ static int usbh_dfu_get_status_api(struct device const *dev)
 	}
 
 	return drv_data->eph.getstatus_data.bStatus;
-}
-
-/**
- * @brief Get string representation of DFU state machine status
- *
- * @return 0 on success, negative errno on failure
- */
-static int usbh_dfu_get_status_msg_api(struct device const *dev, uint8_t status_code, const char **const msg)
-{
-	struct usbh_dfu_drv_data *drv_data = dev->data;
-
-	if (!drv_data->probed) {
-		LOG_DBG("Driver was not probed yet");
-		return -EAGAIN;
-	}
-
-	if (usbh_dfu_invalid_version(drv_data)) {
-		LOG_ERR("Device does not support DFU 1.1");
-		return -ENOTSUP;
-	}
-
-	if (status_code >= ARRAY_SIZE(dfu_status_msg)) {
-		return -EFAULT;
-	}
-	*msg = dfu_status_msg[status_code];
-
-	return 0;
 }
 
 /**
@@ -903,8 +948,7 @@ static int usbh_dfu_parse_desc(struct usbh_class_data *const c_data, struct usb_
 	}
 
 	drv_data->eph.settings.alternate_idx = (DFU_ALTERNATE_BITMAP_CAPACITY * bitmap_idx) + (alternate_idx - 1);
-	drv_data->eph.data_alloc_size = drv_data->eph.func_desc.wTransferSize < CONFIG_USBH_DFU_LIMIT_DATA_ALLOC_BYTES ?
-					drv_data->eph.func_desc.wTransferSize : CONFIG_USBH_DFU_LIMIT_DATA_ALLOC_BYTES;
+	drv_data->eph.data_alloc_size = MIN(drv_data->eph.func_desc.wTransferSize, CONFIG_USBH_DFU_LIMIT_DATA_ALLOC_BYTES);
 
 	return 0;
 }
@@ -1274,8 +1318,7 @@ DEVICE_API(usbh_dfu, usbh_dfu_api) = {
 	.settings = usbh_dfu_settings_api,
 	.upload = usbh_dfu_upload_api,
 	.dnload = usbh_dfu_dnload_api,
-	.get_status = usbh_dfu_get_status_api,
-	.get_status_msg = usbh_dfu_get_status_msg_api,
+	.get_status = usbh_dfu_get_status_api
 };
 
 /**

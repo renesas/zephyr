@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
@@ -42,7 +47,7 @@ USBD_CONFIGURATION_DEFINE(sample_hs_config,
  * The upload request must therefore handle a buffer size of at least
  * 'CONFIG_USBD_DFU_TRANSFER_SIZE' amount of data.
  */
-#define DFUTEST_FIRMWARE_SIZE ((CONFIG_USBD_DFU_TRANSFER_SIZE) * 1)
+#define DFUTEST_FIRMWARE_SIZE (256)
 #define DFUTEST_SECTOR_SIZE (CONFIG_USBD_DFU_TRANSFER_SIZE)
 
 #if DFUTEST_SECTOR_SIZE > CONFIG_USBD_DFU_TRANSFER_SIZE
@@ -52,19 +57,19 @@ USBD_CONFIGURATION_DEFINE(sample_hs_config,
 static void switch_to_dfu_mode(struct usbd_context *const ctx);
 
 static char fw0[DFUTEST_FIRMWARE_SIZE] = \
-	"Lorem ipsum dolo" "r sit amet, cons" "ectetur adipisci" "ng elit. Praesen"
-	"t placerat preti" "um odio et tinci" "dunt. Integer no" "n fermentum enim";
+	"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praese "
+	"t placerat pretium odio et tincidunt. Integer non fermentum enim";
 
 char fw1[DFUTEST_FIRMWARE_SIZE] = \
-	"Curabitur conseq" "uat dui dignissi" "m quam egestas, " "a tristique enim"
-	"vestibulum. Null" "a facilisi. Done" "c hendrerit hend" "rerit nulla, ut "
-	"convallis metus " "mollis ultricies" ". Duis eu sem no" "n sapien digniss"
-	"im condimentum s" "ed et nibh. Sed " "velit nunc, maxi" "mus sed sollicit";
+	"Curabitur consequat dui dignissim quam egestas, a tristique eni "
+	"vestibulum. Nulla facilisi. Donec hendrerit hendrerit nulla, ut "
+	"convallis metus mollis ultricies. Duis eu sem non sapien dignis "
+	"im condimentum sed et nibh. Sed velit nunc, maximus sed sollicit";
 
 char fw2[DFUTEST_FIRMWARE_SIZE] = \
-	"Phasellus nec ma" "uris elit. In tr" "istique turpis q" "uis tortor maxim"
-	"us, a placerat e" "ros facilisis. D" "uis vel odio non" " mi consectetur "
-	"odales nec sed e" "rat. Nam ferment" "um leo eget risu" "s ultricies dign";
+	"Phasellus nec mauris elit. In tristique turpis quis tortor maxi "
+	"us, a placerat eros facilisis. Duis vel odio non mi consectetur "
+	"odales nec sed erat. Nam fermentum leo eget risus ultricies dign";
 
 struct dfu_ramdisk_data {
 	const char *name;
@@ -81,20 +86,6 @@ static struct dfu_ramdisk_data ramdisk0_data = {
 	.sector_size = DFUTEST_SECTOR_SIZE,
 	.sector_count = DIV_ROUND_UP(DFUTEST_FIRMWARE_SIZE, DFUTEST_SECTOR_SIZE),
 	.fw = fw0
-};
-
-static struct dfu_ramdisk_data ramdisk1_data = {
-	.name = "image1",
-	.sector_size = DFUTEST_SECTOR_SIZE,
-	.sector_count = DIV_ROUND_UP(DFUTEST_FIRMWARE_SIZE, DFUTEST_SECTOR_SIZE),
-	.fw = fw1
-};
-
-static struct dfu_ramdisk_data ramdisk2_data = {
-	.name = "image2",
-	.sector_size = DFUTEST_SECTOR_SIZE,
-	.sector_count = DIV_ROUND_UP(DFUTEST_FIRMWARE_SIZE, DFUTEST_SECTOR_SIZE),
-	.fw = fw2
 };
 
 static int ramdisk_read(void *const priv, const uint32_t block, const uint16_t size,
@@ -122,7 +113,6 @@ static int ramdisk_read(void *const priv, const uint32_t block, const uint16_t s
 		return 0;
 	}
 
-	/* NOTE: assuming that 'size' is constant in each transfer */
 	copy_size = MIN(size, data->sector_size);
 
 	if (data->cursor >= DFUTEST_FIRMWARE_SIZE) {
@@ -165,7 +155,6 @@ static int ramdisk_write(void *const priv, const uint32_t block, const uint16_t 
 		return 0;
 	}
 
-	/* NOTE: assuming that 'size' is constant in each transfer */
 	copy_size = MIN(size, data->sector_size);
 
 	if (data->cursor >= DFUTEST_FIRMWARE_SIZE) {
@@ -328,7 +317,7 @@ int test_dfu_upload_cb(void *arg, char *data, size_t len)
 	}
 
 	copy_len = dfu_ctx->max_size - dfu_ctx->cursor;
-	copy_len = len < copy_len ? len : copy_len;
+	copy_len = MIN(len, copy_len);
 
 	LOG_DBG("Received: %.*s", len, data);
 	if (memcmp(data, &dfu_ctx->fw[dfu_ctx->cursor], copy_len)) {
@@ -340,7 +329,8 @@ int test_dfu_upload_cb(void *arg, char *data, size_t len)
 }
 
 /* Report back custom error, upper layer should perform cleanup and put the
- * state machine into DFU_IDLE state */
+ * state machine into DFU_IDLE state
+ */
 int test_dfu_upload_custom_err_cb(void *arg, char *data, size_t len)
 {
 	struct dfu_cb_context *dfu_ctx = (struct dfu_cb_context *)arg;
@@ -362,7 +352,7 @@ int test_dfu_dnload_cb(void *arg, char *data, size_t len)
 	}
 
 	copy_len = dfu_ctx->max_size - dfu_ctx->cursor;
-	copy_len = len < copy_len ? len : copy_len;
+	copy_len = MIN(len, copy_len);
 
 	memcpy(data, &dfu_ctx->fw[dfu_ctx->cursor], copy_len);
 	dfu_ctx->cursor += copy_len;
@@ -385,10 +375,10 @@ ZTEST(dfu_host_test, test_runtime)
 		.detach_timeout_ms = 1000
 	};
 
-	ret = z_impl_usbh_dfurt_settings(dfurt_dev, &settings);
+	ret = usbh_dfurt_settings(dfurt_dev, &settings);
 	zassert_equal(ret, 0, "USB DFU-runtime could prepare settings");
 
-	ret = z_impl_usbh_dfurt_enter_dfu(dfurt_dev);
+	ret = usbh_dfurt_enter_dfu(dfurt_dev);
 	zassert_equal(ret, 0, "USB DFU-runtime could not enter DFU mode");
 
 	ret = k_sem_take(&dfu_ready_sem, K_MSEC(2000));
@@ -401,7 +391,7 @@ ZTEST(dfu_host_test, test_runtime)
 	/* Try several times, the driver of DFU device may not be probed yet */
 	ret = -EAGAIN;
 	for (i = 0; (i < 7) && (ret == -EAGAIN); i++) {
-		ret = z_impl_usbh_dfu_settings(dfu_dev, &settings);
+		ret = usbh_dfu_settings(dfu_dev, &settings);
 		/* Device was not probed yet */
 		if (ret == -EAGAIN) {
 			k_msleep(100);
@@ -412,39 +402,39 @@ ZTEST(dfu_host_test, test_runtime)
 	struct dfu_cb_context dfu_cb_ctx;
 
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw0 };
-	ret = z_impl_usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
 	zassert_equal(ret, 0, "USB DFU could not upload data");
 
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw0 };
-	ret = z_impl_usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
 	zassert_equal(ret, 0, "USB DFU could not repeat the data upload");
 
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw0 };
-	ret = z_impl_usbh_dfu_upload(dfu_dev, test_dfu_upload_custom_err_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_upload(dfu_dev, test_dfu_upload_custom_err_cb, &dfu_cb_ctx);
 	zassert_equal(ret, -0x0DEADBEE, "USB DFU upload callback could not report custom retor");
 
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw0 };
-	ret = z_impl_usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
 	zassert_equal(ret, 0, "USB DFU could not repeat the data upload after custom retor");
 
 	/* Use quirks because DFU Zephyr device has broken state machine and does not follow the spec */
 	settings.quirks = USBH_DFU_QUIRK_IGNORE_DNLOAD_COMPLETE_CHECK;
-	ret = z_impl_usbh_dfu_settings(dfu_dev, &settings);
+	ret = usbh_dfu_settings(dfu_dev, &settings);
 	zassert_equal(ret, 0, "USB DFU could populate DFU settings");
 
 	/* Download 'fw1' to 'fw0' */
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw1 };
-	ret = z_impl_usbh_dfu_dnload(dfu_dev, test_dfu_dnload_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_dnload(dfu_dev, test_dfu_dnload_cb, &dfu_cb_ctx);
 	zassert_equal(ret, 0, "USB DFU could not download the data");
 
 	/* Check downloaded data, 'fw0' sholuld be the same as 'fw1'*/
 	dfu_cb_ctx = (struct dfu_cb_context){ .max_size = DFUTEST_FIRMWARE_SIZE, .fw = fw1 };
-	ret = z_impl_usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
+	ret = usbh_dfu_upload(dfu_dev, test_dfu_upload_cb, &dfu_cb_ctx);
 	zassert_equal(ret, 0, "USB DFU comparison of downloaded firmware failed");
 
 	/* Try to switch to invalid alternate function 42 */
 	settings.alternate_idx = 42;
-	ret = z_impl_usbh_dfu_settings(dfu_dev, &settings);
+	ret = usbh_dfu_settings(dfu_dev, &settings);
 	zassert_not_equal(ret, 0, "USB DFU could populate DFU settings");
 
 	/* Cleanup */

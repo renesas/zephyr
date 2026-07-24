@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Embedd
+ * Copyright (c) 2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -106,18 +106,6 @@ typedef int (*usbh_dfu_dnload_t)(struct device const *dev, usbh_dfu_dnload_block
 typedef int (*usbh_dfu_get_status_t)(struct device const *dev);
 
 /**
- * @brief Starts the FW download from USB Host to USB Device.
- *
- * Return status of DFU state machine
- *
- * @param dev           Pointer to the device
- * @param msg           Double char pointer to report string status of DFU state machine
- *
- * @return positive status on success, negative errno value on failure.
- */
-typedef int (*usbh_dfu_get_status_msg_t)(struct device const *dev, uint8_t status_code, const char **const msg);
-
-/**
  * @driver_ops{USBH DFU}
  */
 __subsystem struct usbh_dfu_driver_api {
@@ -137,10 +125,6 @@ __subsystem struct usbh_dfu_driver_api {
 	 * @driver_ops_optional @copybrief usbh_dfu_get_status
 	 */
 	usbh_dfu_get_status_t get_status;
-	/**
-	 * @driver_ops_optional @copybrief usbh_dfu_get_status_msg
-	 */
-	usbh_dfu_get_status_msg_t get_status_msg;
 };
 
 /**
@@ -247,28 +231,6 @@ static inline int z_impl_usbh_dfu_dnload(struct device const *dev, usbh_dfu_dnlo
 	}
 
 	return api->dnload(dev, dnload_cb, dnload_arg);
-}
-
-/**
- * @brief Return DFU status string based on status_code
- *
- * @param dev           Pointer to the device
- * @param status_code   DFU status code, returned from 'usbh_dfu_get_status'
- * @param msg           Pointer to char pointer to report the status string
- *
- * @return 0 on success, negative errno value on failure.
- */
-__syscall int usbh_dfu_get_status_msg(struct device const *dev, uint8_t status_code, const char **const msg);
-
-static inline int z_impl_usbh_dfu_get_status_msg(struct device const *dev, uint8_t status_code, const char **const msg)
-{
-	struct usbh_dfu_driver_api const *api = DEVICE_API_GET(usbh_dfu, dev);
-
-	if (api->get_status_msg == NULL) {
-		return -ENOSYS;
-	}
-
-	return api->get_status_msg(dev, status_code, msg);
 }
 
 /**
