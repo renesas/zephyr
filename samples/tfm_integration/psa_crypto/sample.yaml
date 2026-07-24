@@ -4,7 +4,7 @@ sample:
       using IPC mode.
   name: PSA crypto example
 tests:
-  sample.psa_crypto:
+  sample.psa_crypto_tfm:
     # Sample disabled due to TF-M downloading qcbor which is not apache licensed
     skip: true
     tags:
