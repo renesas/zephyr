@@ -17,6 +17,12 @@ properties:
     description: |
       The channel of MSPI unit
 
+  unit:
+    type: int
+    required: true
+    description: |
+      The unit index of MSPI
+
   tx-dtc:
     type: boolean
 
