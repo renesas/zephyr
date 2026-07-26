@@ -3,8 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+&mspitx_ored0 {
+	interrupts = <88 11>;
+	status = "okay";
+};
+
+&mspirx_ored0 {
+	interrupts = <89 10>;
+	status = "okay";
+};
+
+&mspite_ored0 {
+	interrupts = <90 12>;
+	status = "okay";
+};
+
+&mspier_ored0 {
+	interrupts = <91 15>;
+	status = "okay";
+};
+
 &mspi0 {
-	interrupts = <76 11>, <79 10>, <90 12>, <91 15>;
+	interrupts-extended = <&mspitx_ored0>,
+			      <&mspirx_ored0>,
+			      <&mspite_ored0>,
+			      <&mspier_ored0>;
 	spi-cs-sck-delay = <1>;
 	spi-sck-sck-delay = <1>;
 

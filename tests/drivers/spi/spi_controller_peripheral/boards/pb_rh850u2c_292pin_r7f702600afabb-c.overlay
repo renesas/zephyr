@@ -37,8 +37,51 @@
 	};
 };
 
+&mspitx_ored0 {
+	interrupts = <88 11>;
+	status = "okay";
+};
+
+&mspirx_ored0 {
+	interrupts = <89 12>;
+	status = "okay";
+};
+
+&mspite_ored0 {
+	interrupts = <90 13>;
+	status = "okay";
+};
+
+&mspier_ored0 {
+	interrupts = <91 15>;
+	status = "okay";
+};
+
+&mspitx_ored1 {
+	interrupts = <92 8>;
+	status = "okay";
+};
+
+&mspirx_ored1 {
+	interrupts = <93 7>;
+	status = "okay";
+};
+
+&mspite_ored1 {
+	interrupts = <94 10>;
+	status = "okay";
+};
+
+&mspier_ored1 {
+	interrupts = <95 15>;
+	status = "okay";
+};
+
 &mspi0 {
-	interrupts = <76 11>, <79 10>, <90 12>, <91 15>;
+	interrupts-extended = <&mspitx_ored0>,
+			      <&mspirx_ored0>,
+			      <&mspite_ored0>,
+			      <&mspier_ored0>;
 	status = "okay";
 	pinctrl-0 = <&mspi0_default>;
 	pinctrl-names = "default";
@@ -51,7 +94,10 @@
 };
 
 dut_spis: &mspi1 {
-	interrupts = <82 8>, <85 7>, <90 10>, <91 15>;
+	interrupts-extended = <&mspitx_ored1>,
+			      <&mspirx_ored1>,
+			      <&mspite_ored1>,
+			      <&mspier_ored1>;
 	status = "okay";
 	pinctrl-0 = <&mspi1_default>;
 	pinctrl-names = "default";
