@@ -503,5 +503,189 @@
 				num-lines = <3>;
 			};
 		};
+
+		intif: intif@ff090800 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc2>;
+			compatible = "renesas,rh850-intif";
+			reg = <0xff090800 0x13c>;
+
+			mspitx_ored0: mspitx_ored0@0 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x0>;
+				channel = <0>;
+				interrupt-controller;
+				interrupts = <88 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspirx_ored0: mspirx_ored0@1 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x1>;
+				channel = <0>;
+				interrupt-controller;
+				interrupts = <89 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspite_ored0: mspite_ored0@2 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x2>;
+				channel = <0>;
+				interrupt-controller;
+				interrupts = <90 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspier_ored0: mspier_ored0@3 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x3>;
+				channel = <0>;
+				interrupt-controller;
+				interrupts = <91 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspitx_ored1: mspitx_ored1@4 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x4>;
+				channel = <1>;
+				interrupt-controller;
+				interrupts = <92 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspirx_ored1: mspirx_ored1@5 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x5>;
+				channel = <1>;
+				interrupt-controller;
+				interrupts = <93 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspite_ored1: mspite_ored1@6 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x6>;
+				channel = <1>;
+				interrupt-controller;
+				interrupts = <94 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspier_ored1: mspier_ored1@7 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x7>;
+				channel = <1>;
+				interrupt-controller;
+				interrupts = <95 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspitx_ored2: mspitx_ored2@8 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x8>;
+				channel = <2>;
+				interrupt-controller;
+				interrupts = <96 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspirx_ored2: mspirx_ored2@9 {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0x9>;
+				channel = <2>;
+				interrupt-controller;
+				interrupts = <97 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspite_ored2: mspite_ored2@a {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xa>;
+				channel = <2>;
+				interrupt-controller;
+				interrupts = <98 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspier_ored2: mspier_ored2@b {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xb>;
+				channel = <2>;
+				interrupt-controller;
+				interrupts = <99 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspitx_ored3: mspitx_ored3@c {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xc>;
+				channel = <3>;
+				interrupt-controller;
+				interrupts = <100 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspirx_ored3: mspirx_ored3@d {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xd>;
+				channel = <3>;
+				interrupt-controller;
+				interrupts = <101 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspite_ored3: mspite_ored3@e {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xe>;
+				channel = <3>;
+				interrupt-controller;
+				interrupts = <102 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+
+			mspier_ored3: mspier_ored3@f {
+				compatible = "renesas,rh850-intif-ored";
+				#address-cells = <0>;
+				reg = <0xf>;
+				channel = <3>;
+				interrupt-controller;
+				interrupts = <103 1>;
+				#interrupt-cells = <0>;
+				status = "disabled";
+			};
+		};
 	};
 };

@@ -604,6 +604,7 @@
 			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			unit = <0>;
 			channel = <0>;
 			status = "disabled";
 		};
@@ -616,6 +617,7 @@
 			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			unit = <1>;
 			channel = <1>;
 			status = "disabled";
 		};

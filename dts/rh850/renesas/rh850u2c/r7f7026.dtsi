@@ -488,24 +488,60 @@
 
 		mspi0: spi@ffc76000 {
 			compatible = "renesas,rh850-spi";
-			interrupts = <76 1>, <79 1>, <90 1>, <91 1>;
+			interrupts-extended = <&intc2 76 1>,
+					      <&intc2 79 1>,
+					      <&mspite_ored0>,
+					      <&mspier_ored0>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
 			reg = <0xffc76000 0x680>;
-			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			unit = <0>;
 			channel = <0>;
 			status = "disabled";
 		};
 
 		mspi1: spi@ffd5e000 {
 			compatible = "renesas,rh850-spi";
-			interrupts = <82 1>, <85 1>, <90 1>, <91 1>;
+			interrupts-extended = <&mspitx_ored1>,
+					      <&mspirx_ored1>,
+					      <&mspite_ored1>,
+					      <&mspier_ored1>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
 			reg = <0xffd5e000 0x680>;
-			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			unit = <1>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi2: spi@ffd80000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored2>,
+					      <&mspirx_ored2>,
+					      <&mspite_ored2>,
+					      <&mspier_ored2>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffd80000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <2>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi3: spi@ffd60000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored3>,
+					      <&mspirx_ored3>,
+					      <&mspite_ored3>,
+					      <&mspier_ored3>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			reg = <0xffd60000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <3>;
 			channel = <0>;
 			status = "disabled";
 		};
