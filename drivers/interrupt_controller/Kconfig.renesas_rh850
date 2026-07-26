@@ -9,3 +9,10 @@ config RENESAS_RH850_EXT_IRQ
 	select PINCTRL
 	help
 	  Renesas RH850 external interrupt controller driver
+
+config RENESAS_RH850_INTIF_ORED
+	bool "Renesas RH850 U2x series ORed interrupt function (ORed Interrupt)"
+	default y
+	depends on DT_HAS_RENESAS_RH850_INTIF_ORED_ENABLED
+	help
+	  Renesas RH850 U2x series ORed interrupt function (ORed Interrupt)
