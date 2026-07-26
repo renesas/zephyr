@@ -31,6 +31,15 @@ LOG_MODULE_REGISTER(rh850_spi);
 #define SPI_RH850_MSPI_CDIV_MAX_VALUE	(32U)	/* Max value of CDIV */
 #define SPI_RH850_MSPI_TX_DUMMY_DATA	(0U)
 
+#define _MSPI_TXI_IRQ_IS_ORED(n, channel)  BSP_ORED_TRANSMIT_MSPI##n##_ORED##channel
+#define MSPI_TXI_IRQ_IS_ORED(n, channel)   _MSPI_TXI_IRQ_IS_ORED(n, channel)
+#define _MSPI_RXI_IRQ_IS_ORED(n, channel)  BSP_ORED_RECEIVE_MSPI##n##_ORED##channel
+#define MSPI_RXI_IRQ_IS_ORED(n, channel)   _MSPI_RXI_IRQ_IS_ORED(n, channel)
+#define _MSPI_TEI_IRQ_IS_ORED(n, channel)  BSP_ORED_FRAMECOUNT_MSPI##n##_ORED##channel
+#define MSPI_TEI_IRQ_IS_ORED(n, channel)   _MSPI_TEI_IRQ_IS_ORED(n, channel)
+#define _MSPI_ERI_IRQ_IS_ORED(n, channel)  BSP_ORED_ERROR_MSPI##n##_ORED##channel
+#define MSPI_ERI_IRQ_IS_ORED(n, channel)   _MSPI_ERI_IRQ_IS_ORED(n, channel)
+
 struct spi_rh850_config {
 	const struct pinctrl_dev_config *pinctrl_dev;
 	const spi_api_t *fsp_api;
@@ -43,6 +52,16 @@ struct spi_rh850_data {
 	spi_cfg_t *fsp_config;
 	mspi_instance_ctrl_t *fsp_ctrl;
 	uint8_t dfs;
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+	/* INT SEL controller for TXI interrupt */
+	const struct device *txi_ctrl;
+	/* INT SEL controller for RXI interrupt */
+	const struct device *rxi_ctrl;
+	/* INT SEL controller for TEI interrupt */
+	const struct device *tei_ctrl;
+	/* INT SEL controller for ERI interrupt */
+	const struct device *eri_ctrl;
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
 };
 
 #ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
@@ -55,6 +74,14 @@ static void spi_rh850_rxi_isr(const struct device *dev);
 static void spi_rh850_txi_isr(const struct device *dev);
 static void spi_rh850_fe_isr(const struct device *dev);
 static void spi_rh850_eri_isr(const struct device *dev);
+
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+static int spi_rh850_irq_init(const struct device *dev);
+static void spi_rh850_txi_isr_cb(void *arg);
+static void spi_rh850_rxi_isr_cb(void *arg);
+static void spi_rh850_fe_isr_cb(void *arg);
+static void spi_rh850_eri_isr_cb(void *arg);
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
 #endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
 
 static bool spi_rh850_transfer_done(struct spi_context *ctx)
@@ -527,11 +554,6 @@ static int spi_rh850_configure(const struct device *dev, const struct spi_config
 				(mspi_extended_cfg_t *)(data->fsp_config->p_extend);
 	mspi_instance_ctrl_t *spi_ctrl = data->fsp_ctrl;
 	fsp_err_t err;
-#ifdef BSP_FEATURE_DEVICE_HAS_ORED_IRQ
-#ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
-	static bool ored_irq_not_init = true;
-#endif
-#endif
 
 	/* If the MSPI instance has been opened, close it */
 	if (spi_ctrl->open != 0U) {
@@ -672,28 +694,6 @@ static int spi_rh850_configure(const struct device *dev, const struct spi_config
 		LOG_ERR("%s: R_MSPI_Open error: %d", dev->name, err);
 		return -EIO;
 	}
-
-#ifdef BSP_FEATURE_DEVICE_HAS_ORED_IRQ
-#ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
-	/* Enable FE and ERR ORED interrupt once. */
-	if (true == ored_irq_not_init) {
-		IRQ_CONNECT(VECTOR_NUMBER_INTMSPICSERR0,
-			data->fsp_config->eri_ipl, spi_rh850_eri_isr,
-			NULL, 0);
-		IRQ_CONNECT(VECTOR_NUMBER_INTMSPICSFE0,
-				data->fsp_config->tei_ipl, spi_rh850_fe_isr,
-				NULL, 0);
-		irq_enable(VECTOR_NUMBER_INTMSPICSERR0);
-		irq_enable(VECTOR_NUMBER_INTMSPICSFE0);
-
-		ored_irq_not_init = false;
-	}
-#else
-	/* Disable ORED interrupt for polling mode */
-	R_BSP_ORed_IrqCfgDisable(spi_config_extend->error_ored_int);
-	R_BSP_ORed_IrqCfgDisable(spi_config_extend->frame_ored_int);
-#endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
-#endif /* BSP_FEATURE_DEVICE_HAS_ORED_IRQ */
 
 	data->ctx.config = spi_cfg;
 
@@ -871,65 +871,285 @@ static int spi_rh850_init(const struct device *dev)
 
 	spi_context_unlock_unconditionally(&data->ctx);
 
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+	ret = spi_rh850_irq_init(dev);
+	if (ret < 0) {
+		LOG_ERR("%s: RH850 mspi driver initial interrupt is fail: %d", dev->name, ret);
+		return ret;
+	}
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
+
+	return 0;
+}
+
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+static int spi_rh850_irq_init(const struct device *dev)
+{
+	struct spi_rh850_data *data = dev->data;
+	mspi_extended_cfg_t *spi_config_extend =
+				(mspi_extended_cfg_t *)(data->fsp_config->p_extend);
+	int err;
+
+#ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
+	if (spi_config_extend->com_ored_int != BSP_ORED_MSPI_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(
+			data->txi_ctrl,
+			spi_config_extend->com_ored_int,
+			spi_rh850_txi_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("TXI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->txi_ctrl,
+			spi_config_extend->com_ored_int,
+			data->fsp_config->txi_ipl,
+			true);
+	}
+
+	if (spi_config_extend->rec_ored_int != BSP_ORED_MSPI_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(
+			data->rxi_ctrl,
+			spi_config_extend->rec_ored_int,
+			spi_rh850_rxi_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("RXI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->rxi_ctrl,
+			spi_config_extend->rec_ored_int,
+			data->fsp_config->rxi_ipl,
+			true);
+	}
+
+	if (spi_config_extend->frame_ored_int != BSP_ORED_MSPI_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(data->tei_ctrl,
+			spi_config_extend->frame_ored_int,
+			spi_rh850_fe_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("TEI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->tei_ctrl,
+			spi_config_extend->frame_ored_int,
+			data->fsp_config->tei_ipl,
+			true);
+	}
+
+	if (spi_config_extend->error_ored_int != BSP_ORED_MSPI_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(data->eri_ctrl,
+			spi_config_extend->error_ored_int,
+			spi_rh850_eri_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("ERI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->eri_ctrl,
+			spi_config_extend->error_ored_int,
+			data->fsp_config->eri_ipl,
+			true);
+	}
+#else /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
+	intc_rh850_intif_ored_set_enabled(data->txi_ctrl,
+		spi_config_extend->com_ored_int,
+		data->fsp_config->txi_ipl,
+		false);
+
+	intc_rh850_intif_ored_set_enabled(data->rxi_ctrl,
+		spi_config_extend->rec_ored_int,
+		data->fsp_config->rxi_ipl,
+		false);
+
+	intc_rh850_intif_ored_set_enabled(data->tei_ctrl,
+		spi_config_extend->frame_ored_int,
+		data->fsp_config->tei_ipl,
+		false);
+
+	intc_rh850_intif_ored_set_enabled(data->eri_ctrl,
+		spi_config_extend->error_ored_int,
+		data->fsp_config->eri_ipl,
+		false);
+#endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
 	return 0;
 }
 
 #ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
-#ifdef BSP_FEATURE_DEVICE_HAS_ORED_IRQ
+static void spi_rh850_txi_isr_cb(void *arg)
+{
+	const struct device *dev = (const struct device *)arg;
+
+	spi_rh850_txi_isr(dev);
+}
+
+static void spi_rh850_rxi_isr_cb(void *arg)
+{
+	const struct device *dev = (const struct device *)arg;
+
+	spi_rh850_rxi_isr(dev);
+}
+
+static void spi_rh850_fe_isr_cb(void *arg)
+{
+	const struct device *dev = (const struct device *)arg;
+
+	spi_rh850_fe_isr(dev);
+}
+
+static void spi_rh850_eri_isr_cb(void *arg)
+{
+	const struct device *dev = (const struct device *)arg;
+
+	spi_rh850_eri_isr(dev);
+}
+#endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
+
+/* DRIVER REGISTRATION */
+/* Macro definition to mspi driver get irq number and ipl value */
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+#define MSPI_IRQ_GET(inst, type) \
+			COND_CODE_1( \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type),  \
+									renesas_rh850_intc), \
+				(DT_INST_IRQ_BY_NAME(inst, type, irq)), \
+				(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), irq)))
+
+#define MSPI_IPL_GET(inst, type) \
+			COND_CODE_1( \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), \
+									renesas_rh850_intc), \
+				(DT_INST_IRQ_BY_NAME(inst, type, priority)), \
+				(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), priority)))
+/* Get the ORed interrupt channel associated with the specified IRQ source. */
+#define MSPI_ORED_CHAN_GET(n, type)        DT_PROP(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(n), type), \
+											channel)
+/*
+ * Determine whether the interrupt signal is routed through an ORed interrupt
+ * controller. Returns BSP_ORED_MSPI_DISABLE when TXI/RXI/TEI/ERI is handled directly by
+ * the RH850 INTC controller.
+ */
+#define MSPI_TXI_ORED_INFO(inst) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), txi), \
+							renesas_rh850_intc), \
+		(BSP_ORED_MSPI_DISABLE), \
+		(MSPI_TXI_IRQ_IS_ORED(DT_INST_PROP(inst, unit), MSPI_ORED_CHAN_GET(inst, txi))))
+#define MSPI_RXI_ORED_INFO(inst) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), rxi), \
+							renesas_rh850_intc), \
+		(BSP_ORED_MSPI_DISABLE), \
+		(MSPI_RXI_IRQ_IS_ORED(DT_INST_PROP(inst, unit), MSPI_ORED_CHAN_GET(inst, rxi))))
+#define MSPI_TEI_ORED_INFO(inst) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), tei), \
+							renesas_rh850_intc), \
+		(BSP_ORED_MSPI_DISABLE), \
+		(MSPI_TEI_IRQ_IS_ORED(DT_INST_PROP(inst, unit), MSPI_ORED_CHAN_GET(inst, tei))))
+#define MSPI_ERI_ORED_INFO(inst) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), eri), \
+							renesas_rh850_intc), \
+		(BSP_ORED_MSPI_DISABLE), \
+		(MSPI_ERI_IRQ_IS_ORED(DT_INST_PROP(inst, unit), MSPI_ORED_CHAN_GET(inst, eri))))
+/* Initialize ORed interrupt configuration for all MSPI interrupt sources. */
+#define SPI_RH850_ORED_CONFIG(n)              \
+	.com_ored_int = MSPI_TXI_ORED_INFO(n),    \
+	.rec_ored_int = MSPI_RXI_ORED_INFO(n),    \
+	.frame_ored_int = MSPI_TEI_ORED_INFO(n),  \
+	.error_ored_int = MSPI_ERI_ORED_INFO(n),
+#else
+#define MSPI_IRQ_GET(inst, type) DT_INST_IRQ_BY_NAME(inst, type, irq)
+#define MSPI_IPL_GET(inst, type) DT_INST_IRQ_BY_NAME(inst, type, priority)
+#define SPI_RH850_ORED_CONFIG(n)
+#endif      /* CONFIG_RENESAS_RH850_INTIF_ORED */
+
+
+#ifdef CONFIG_SPI_RENESAS_RH850_INTERRUPT
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+/*
+ * Get the interrupt controller device associated with the specified MSPI
+ * interrupt source. Returns NULL when the interrupt is managed by the
+ * RH850 INTC driver since no external interrupt control device is required.
+ */
+#define MSPI_CTRL_GET(inst, type)                   \
+			COND_CODE_1(                           \
+				DT_NODE_HAS_COMPAT(                          \
+					DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), \
+						renesas_rh850_intc),                          \
+					(NULL),                          \
+					(DEVICE_DT_GET(                          \
+						DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type))))
+/* Macro for initializing interrupt control data */
+#define SPI_RH850_INT_CTRL_INIT(n) \
+			.txi_ctrl = MSPI_CTRL_GET(n, txi),            \
+			.rxi_ctrl = MSPI_CTRL_GET(n, rxi),            \
+			.tei_ctrl = MSPI_CTRL_GET(n, tei),            \
+			.eri_ctrl = MSPI_CTRL_GET(n, eri)
+#else /* CONFIG_RENESAS_RH850_INTIF_ORED */
+#define SPI_RH850_INT_CTRL_INIT(n)
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
+/*
+ * Connect and enable the specified MSPI interrupt when it is routed
+ * through the RH850 INTC interrupt controller.
+ */
+#define MSPI_IRQ_CONNECT_IF_RH850_INTC(inst, type, isr) \
+			COND_CODE_1( \
+				DT_NODE_HAS_COMPAT( \
+					DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), \
+					renesas_rh850_intc), \
+					( \
+						IRQ_CONNECT( \
+							MSPI_IRQ_GET(inst, type), \
+							MSPI_IPL_GET(inst, type), \
+							isr, \
+							DEVICE_DT_INST_GET(inst), \
+							0); \
+							irq_enable(MSPI_IRQ_GET(inst, type)); \
+						), \
+					())
+/*
+ * Connect and enable all MSPI interrupts that are routed through
+ * the RH850 INTC controller.
+ */
 #define RH850_SPI_IRQ_INIT(n) \
-	do {										   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, rxi, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, rxi, priority), spi_rh850_rxi_isr,  \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, txi, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, txi, priority), spi_rh850_txi_isr,  \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, rxi, irq));				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, txi, irq));				   \
+	do {                      \
+		MSPI_IRQ_CONNECT_IF_RH850_INTC(n, txi, spi_rh850_txi_isr)    \
+		MSPI_IRQ_CONNECT_IF_RH850_INTC(n, rxi, spi_rh850_rxi_isr)    \
+		MSPI_IRQ_CONNECT_IF_RH850_INTC(n, tei, spi_rh850_fe_isr)     \
+		MSPI_IRQ_CONNECT_IF_RH850_INTC(n, eri, spi_rh850_eri_isr)    \
 	} while (0)
 
-#else
-#define RH850_SPI_IRQ_INIT(n)								   \
-	do {										   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, rxi, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, rxi, priority), spi_rh850_rxi_isr,  \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, txi, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, txi, priority), spi_rh850_txi_isr,  \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, eri, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, eri, priority), spi_rh850_eri_isr,  \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(n, tei, irq),				   \
-				DT_INST_IRQ_BY_NAME(n, tei, priority), spi_rh850_fe_isr,   \
-				DEVICE_DT_INST_GET(n), 0);				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, rxi, irq));				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, txi, irq));				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, eri, irq));				   \
-		irq_enable(DT_INST_IRQ_BY_NAME(n, tei, irq));				   \
-	} while (0)
-
-#endif /* BSP_FEATURE_DEVICE_HAS_ORED_IRQ */
-
-#else
+#else /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
 #define RH850_SPI_IRQ_INIT(n)
-
+#define SPI_RH850_INT_CTRL_INIT(n)
 #endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
 
-#ifdef BSP_FEATURE_DEVICE_HAS_ORED_IRQ
-#define SPI_RH850_ORED_CONFIG(n)						  \
-	.com_ored_int = BSP_ORED_MSPI_DISABLE,					  \
-	.rec_ored_int = BSP_ORED_MSPI_DISABLE,					  \
-	.frame_ored_int = BSP_ORED_FRAMECOUNT_MSPI##n##_ORED0,			  \
-	.error_ored_int = BSP_ORED_ERROR_MSPI##n##_ORED0,
-#else
-#define SPI_RH850_ORED_CONFIG(n)
-
-#endif /* BSP_FEATURE_DEVICE_HAS_ORED_IRQ */
-
-#define SPI_RH850_INIT(n)									   \
+/*
+ * ***********Instantiate an RH850 MSPI device from devicetree***********
+ */
+#define SPI_RH850_INIT(n)                          \
 	PINCTRL_DT_INST_DEFINE(n);							           \
-	static mspi_instance_ctrl_t g_spi##n##_ctrl;						   \
+	static mspi_instance_ctrl_t g_spi##n##_ctrl;				   \
 												   \
 	static mspi_chip_select_cfg0_t g_spi##n##_chip_select_cfg00 =				   \
 	{											   \
@@ -981,67 +1201,68 @@ static int spi_rh850_init(const struct device *dev)
 		.mspi_consistency_check = MSPI_CONSISTENCY_CHECK_DISABLE,			   \
 		.mspi_select = MSPI_SELECTABLE_MODE_TRANSMIT_RECEIVE,				   \
 		.mspi_chip_selection = MSPI_CHIP_SELECT_STATE_ACTIVE,				   \
-		.mspi_baudrate_channel = 266,							   \
-		.p_mspi_config_cfg0 = &g_spi##n##_chip_select_cfg00,				   \
-		.p_mspi_config_cfg1 = &g_spi##n##_chip_select_cfg01,				   \
-		.p_mspi_config_cfg4 = &g_spi##n##_chip_select_cfg04,				   \
-		.mspi_setup_time = DT_INST_PROP_OR(n, spi_cs_sck_delay, 4095U),			   \
-		.mspi_hold_time = DT_INST_PROP_OR(n, spi_sck_cs_delay, 1U),			   \
-		.mspi_idle_time = DT_INST_PROP_OR(n, spi_cs_cs_delay, 1U),			   \
-		.mspi_inter_data = DT_INST_PROP_OR(n, spi_sck_sck_delay, 4095U),		   \
-		.mspi_ram_start = 0x0000,							   \
-		.mspi_tx_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,				   \
-		.mspi_rx_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,				   \
-		.mspi_fe_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,				   \
-		.mspi_err_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,				   \
-		.mspi_transfer_trigger = MSPI_TRANSFER_TRIGGER_DMA,				   \
-		.mspi_trigger_source = MSPI_TRIGGER_SOURCE_NONE,				   \
-		.unit = n,									   \
-		.mspi_dma_alternative = MSPI_TRANSFER_ALTERNATIVE_DISABLE,			   \
-		.mspi_dts_alternative = MSPI_TRANSFER_ALTERNATIVE_DISABLE,			   \
-		SPI_RH850_ORED_CONFIG(n)                                                           \
-		.mspi_number_of_cs = BSP_FEATURE_MSPI_NUMBER_CHIP_SELECT_UNIT_##n		   \
-	};											   \
-												   \
-	static spi_cfg_t g_spi##n##_cfg =							   \
-	{											   \
-		.operating_mode = SPI_MODE_MASTER,						   \
-		.channel = DT_INST_PROP(n, channel),						   \
-		.txi_irq = DT_INST_IRQ_BY_NAME(n, txi, irq),					   \
-		.rxi_irq = DT_INST_IRQ_BY_NAME(n, rxi, irq),					   \
-		.tei_irq = DT_INST_IRQ_BY_NAME(n, tei, irq),					   \
-		.eri_irq = DT_INST_IRQ_BY_NAME(n, eri, irq),					   \
-		.txi_ipl = DT_INST_IRQ_BY_NAME(n, txi, priority),				   \
-		.rxi_ipl = DT_INST_IRQ_BY_NAME(n, rxi, priority),				   \
-		.tei_ipl = DT_INST_IRQ_BY_NAME(n, tei, priority),				   \
-		.eri_ipl = DT_INST_IRQ_BY_NAME(n, eri, priority),				   \
-		.p_callback = spi_rh850_transfer_callback,					   \
+		.mspi_baudrate_channel = 266,                                  \
+		.p_mspi_config_cfg0 = &g_spi##n##_chip_select_cfg00,           \
+		.p_mspi_config_cfg1 = &g_spi##n##_chip_select_cfg01,           \
+		.p_mspi_config_cfg4 = &g_spi##n##_chip_select_cfg04,           \
+		.mspi_setup_time = DT_INST_PROP_OR(n, spi_cs_sck_delay, 4095U),     \
+		.mspi_hold_time = DT_INST_PROP_OR(n, spi_sck_cs_delay, 1U),         \
+		.mspi_idle_time = DT_INST_PROP_OR(n, spi_cs_cs_delay, 1U),          \
+		.mspi_inter_data = DT_INST_PROP_OR(n, spi_sck_sck_delay, 4095U),    \
+		.mspi_ram_start = 0x0000,							\
+		.mspi_tx_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,             \
+		.mspi_rx_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,             \
+		.mspi_fe_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,             \
+		.mspi_err_isr_mask = MSPI_MASKED_INTERRUPT_DISABLE,            \
+		.mspi_transfer_trigger = MSPI_TRANSFER_TRIGGER_DMA,            \
+		.mspi_trigger_source = MSPI_TRIGGER_SOURCE_NONE,     \
+		.unit = DT_INST_PROP(n, unit),                       \
+		.mspi_dma_alternative = MSPI_TRANSFER_ALTERNATIVE_DISABLE,     \
+		.mspi_dts_alternative = MSPI_TRANSFER_ALTERNATIVE_DISABLE,     \
+		SPI_RH850_ORED_CONFIG(n)                                       \
+		.mspi_number_of_cs = BSP_FEATURE_MSPI_NUMBER_CHIP_SELECT_UNIT_##n   \
+	};											\
+												\
+	static spi_cfg_t g_spi##n##_cfg =                          \
+	{											\
+		.operating_mode = SPI_MODE_MASTER,				       \
+		.channel = DT_INST_PROP(n, channel),				   \
+		.txi_irq = MSPI_IRQ_GET(n, txi),					   \
+		.rxi_irq = MSPI_IRQ_GET(n, rxi),					   \
+		.tei_irq = MSPI_IRQ_GET(n, tei),					   \
+		.eri_irq = MSPI_IRQ_GET(n, eri),					   \
+		.txi_ipl = MSPI_IPL_GET(n, txi),					   \
+		.rxi_ipl = MSPI_IPL_GET(n, rxi),					   \
+		.tei_ipl = MSPI_IPL_GET(n, tei),					   \
+		.eri_ipl = MSPI_IPL_GET(n, eri),					   \
+		.p_callback = spi_rh850_transfer_callback,             \
 		.p_transfer_tx = NULL,								   \
 		.p_transfer_rx = NULL,								   \
-		.p_context = (void *)DEVICE_DT_INST_GET(n),					   \
-		.p_extend = (void *) &g_spi##n##_ext_cfg					   \
+		.p_context = (void *)DEVICE_DT_INST_GET(n),            \
+		.p_extend = (void *) &g_spi##n##_ext_cfg               \
 	};											   \
 												   \
-	static const struct spi_rh850_config spi_rh850_config_##n = {				   \
-		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),				   \
-		.fsp_api = &g_spi_on_mspi,							   \
+	static const struct spi_rh850_config spi_rh850_config_##n = {      \
+		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),              \
+		.fsp_api = &g_spi_on_mspi,                                     \
 	};											   \
 												   \
-	static struct spi_rh850_data spi_rh850_data_##n = {					   \
-		SPI_CONTEXT_INIT_LOCK(spi_rh850_data_##n, ctx),					   \
-		SPI_CONTEXT_INIT_SYNC(spi_rh850_data_##n, ctx),					   \
-		.fsp_ctrl = &g_spi##n##_ctrl,							   \
-		.fsp_config = &g_spi##n##_cfg,							   \
+	static struct spi_rh850_data spi_rh850_data_##n = {                \
+		SPI_CONTEXT_INIT_LOCK(spi_rh850_data_##n, ctx),                \
+		SPI_CONTEXT_INIT_SYNC(spi_rh850_data_##n, ctx),                \
+		.fsp_ctrl = &g_spi##n##_ctrl,                                  \
+		.fsp_config = &g_spi##n##_cfg,                                 \
+		SPI_RH850_INT_CTRL_INIT(n)                                     \
 	};											   \
 												   \
-	static int spi_rh850_init_##n(const struct device *dev)					   \
+	static int spi_rh850_init_##n(const struct device *dev)            \
 	{											   \
-		int err = spi_rh850_init(dev);							   \
-		if (err != 0) {									   \
-			return err;								   \
+		int err = spi_rh850_init(dev);             \
+		if (err != 0) {                            \
+			return err;                            \
 		}										   \
-		RH850_SPI_IRQ_INIT(n);								   \
-		return 0;									   \
+		RH850_SPI_IRQ_INIT(n);                     \
+		return 0;                                  \
 	}											   \
 	DEVICE_DT_INST_DEFINE(n, &spi_rh850_init_##n, NULL, &spi_rh850_data_##n,		   \
 	&spi_rh850_config_##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY, &spi_rh850_driver_api);
