@@ -129,9 +129,46 @@
 	status = "okay";
 };
 
+&mspitx_ored0 {
+	status = "okay";
+};
+
+&mspirx_ored0 {
+	status = "okay";
+};
+
+&mspite_ored0 {
+	status = "okay";
+};
+
+&mspier_ored0 {
+	status = "okay";
+};
+
+&mspitx_ored1 {
+	status = "okay";
+};
+
+&mspirx_ored1 {
+	status = "okay";
+};
+
+&mspite_ored1 {
+	status = "okay";
+};
+
+&mspier_ored1 {
+	status = "okay";
+};
+
 &mspi0 {
 	pinctrl-0 = <&mspi0_default>;
 	pinctrl-names = "default";
+	interrupts-extended = <&intc2 76 1>,
+			      <&intc2 79 1>,
+			      <&mspite_ored0>,
+			      <&mspier_ored0>;
+	interrupt-names = "txi", "rxi", "tei", "eri";
 	channel = <0>;
 	status = "okay";
 };
@@ -139,6 +176,11 @@
 &mspi1 {
 	pinctrl-0 = <&mspi1_default>;
 	pinctrl-names = "default";
+	interrupts-extended = <&mspitx_ored1>,
+			      <&mspirx_ored1>,
+			      <&mspite_ored1>,
+			      <&mspier_ored1>;
+	interrupt-names = "txi", "rxi", "tei", "eri";
 	channel = <0>;
 	status = "okay";
 };
