@@ -41,9 +41,8 @@ struct driver_config {
 	size_t idle_rates_ms_size;
 	/* Idle period in milliseconds */
 	uint16_t idle_rates_ms[CONFIG_USBH_HID_REPORT_MAX_VARIANTS * 2];
-	/* Whether this device relies on the boot protocol */
-	bool boot_protocol;
-	uint32_t reg;
+	/* Whether this device starts with boot protocol */
+	bool start_with_boot_protocol;
 };
 
 struct driver_data {
@@ -67,6 +66,8 @@ struct driver_data {
 	struct uhc_transfer *interrupt_in_xfer;
 	/* Whether the interrupt report request is in progress */
 	bool input_interrupt_report_on;
+	/* Whether the currently configured protocol is the simplified boot protocol */
+	bool boot_protocol;
 #if CONFIG_USBH_HID_ROUTE_TO_INPUT
 	/* Previous input reports */
 	struct {
@@ -85,6 +86,7 @@ static int req_interrupt_input(struct device const *dev);
 static int driver_stop_input_reports(struct device const *dev);
 static int driver_set_idle_rate(struct device const *dev, uint8_t report_id,
 				uint16_t idle_period_ms);
+static int driver_set_protocol(struct device const *dev, uint8_t protocol_code);
 
 /**
  * @brief Check whether the connected device is a keyboard
@@ -504,7 +506,7 @@ static int handle_input_report(struct driver_config const *driver_config,
 	LOG_HEXDUMP_DBG(data, data_length, "RX  : ");
 
 #if CONFIG_USBH_HID_ROUTE_TO_INPUT
-	if (driver_config->boot_protocol) {
+	if (driver_data->boot_protocol) {
 		report_id = 0;
 
 		/* Mouse boot protocol */
@@ -834,33 +836,30 @@ static int scan_descriptors(struct driver_config const *driver_config,
 		return -ENOSYS;
 	}
 
-	/* If not using the boot protocol parse the report descriptors */
-	if (!driver_config->boot_protocol) {
-		/* Fetch report descriptor */
-		if (report_descriptor_length == 0) {
-			LOG_ERR("No report descriptor found");
-			return -ENOSYS;
-		}
+	/* Fetch report descriptor */
+	if (report_descriptor_length == 0) {
+		LOG_ERR("No report descriptor found");
+		return -ENOSYS;
+	}
 
-		buf = usbh_xfer_buf_alloc(driver_data->udev, report_descriptor_length);
-		if (buf == NULL) {
-			return -ENOMEM;
-		}
+	buf = usbh_xfer_buf_alloc(driver_data->udev, report_descriptor_length);
+	if (buf == NULL) {
+		return -ENOMEM;
+	}
 
-		result = req_iface_desc(driver_data->udev, USB_DESC_HID_REPORT, 0u, iface,
-					report_descriptor_length, buf);
-		if (result != 0) {
-			LOG_WRN("Request for HID report descriptor failed: %i", result);
-			goto error_cleanup;
-		}
+	result = req_iface_desc(driver_data->udev, USB_DESC_HID_REPORT, 0u, iface,
+				report_descriptor_length, buf);
+	if (result != 0) {
+		LOG_WRN("Request for HID report descriptor failed: %i", result);
+		goto error_cleanup;
+	}
 
-		LOG_HEXDUMP_INF(buf->data, buf->len, "Report: ");
+	LOG_HEXDUMP_INF(buf->data, buf->len, "Report: ");
 
-		result = usbh_hid_report_parse(&driver_data->report, buf->len, buf->data);
-		if (result != 0) {
-			LOG_WRN("Parsing of the HID report descriptor failed: %i", result);
-			goto error_cleanup;
-		}
+	result = usbh_hid_report_parse(&driver_data->report, buf->len, buf->data);
+	if (result != 0) {
+		LOG_WRN("Parsing of the HID report descriptor failed: %i", result);
+		goto error_cleanup;
 	}
 
 error_cleanup:
@@ -918,7 +917,6 @@ static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_dev
 	struct driver_config const *driver_config = dev->config;
 	uint8_t target_iface = 0;
 	int result = 0;
-	struct usb_if_descriptor const *interface = NULL;
 
 	if ((udev == NULL) || (udev->state != USB_STATE_CONFIGURED)) {
 		LOG_ERR("USB device not properly configured");
@@ -954,37 +952,20 @@ static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_dev
 	}
 
 	/* Select the boot protocol */
-	if (driver_config->boot_protocol) {
-		interface = usbh_desc_get_iface(driver_data->udev, driver_data->target_iface);
-		/* The device may not support the boot protocol, in which case we abort */
-		if (interface->bInterfaceSubClass != USB_HID_SUBCLASS_BOOT) {
-			LOG_WRN("Device doesn't support boot protocol!");
-			result = -ENOTSUP;
-			goto error_cleanup;
-		}
-		/* Set the boot protocol */
-		result = hid_class_request(driver_data->udev, target_iface,
-					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_PROTOCOL,
-					   HID_PROTOCOL_BOOT, 0, NULL);
+	if (driver_config->start_with_boot_protocol) {
+		result = driver_set_protocol(dev, HID_PROTOCOL_BOOT);
 		if (result != 0) {
-			/* Setting boot protocol is a required operation */
-			LOG_WRN("Failed to set boot protocol: %i", result);
+			LOG_ERR("Failed to set boot protocol: %i", result);
 			goto error_cleanup;
 		}
-
-		LOG_INF("Selected boot protocol");
 	}
 	/* Set the generic protocol */
 	else {
-		result = hid_class_request(driver_data->udev, target_iface,
-					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_PROTOCOL,
-					   HID_PROTOCOL_REPORT, 0, NULL);
+		result = driver_set_protocol(dev, HID_PROTOCOL_REPORT);
 		if (result != 0) {
-			LOG_WRN("Failed to set protocol: %i", result);
-			/* Setting other protocols is optional */
+			LOG_ERR("Failed to set report protocol: %i", result);
+			goto error_cleanup;
 		}
-
-		LOG_INF("Selected report protocol");
 	}
 
 	/* Set the idle rate */
@@ -1272,6 +1253,7 @@ static int driver_set_report(struct device const *dev, enum usbh_hid_report_fiel
 			goto error_cleanup;
 		}
 
+		LOG_DBG("Sending report ID 0x%02X on output endpoint", report_id);
 		result = usbh_xfer_enqueue(driver_data->udev, xfer);
 		if (result != 0) {
 			usbh_xfer_free(driver_data->udev, xfer);
@@ -1292,6 +1274,7 @@ static int driver_set_report(struct device const *dev, enum usbh_hid_report_fiel
 
 		net_buf_add_mem(buf, data, data_length);
 
+		LOG_DBG("Sending report ID 0x%02X on control endpoint", report_id);
 		result = hid_class_request(driver_data->udev, driver_data->target_iface,
 					   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_REPORT,
 					   ((uint16_t)type << 8u) | report_id, data_length, buf);
@@ -1487,6 +1470,93 @@ error_cleanup:
 	return result;
 }
 
+static int driver_set_protocol(struct device const *dev, uint8_t protocol_code)
+{
+	struct driver_data *driver_data = (void *)dev->data;
+	int result = 0;
+
+	k_mutex_lock(&driver_data->lock, K_FOREVER);
+
+	if (driver_data->udev == NULL) {
+		/* Device not yet connected */
+		result = -ENOTCONN;
+		goto error_cleanup;
+	}
+
+	if (protocol_code == HID_PROTOCOL_BOOT) {
+		struct usb_if_descriptor const *interface =
+			usbh_desc_get_iface(driver_data->udev, driver_data->target_iface);
+		/* The device may not support the boot protocol, in which case we abort */
+		if (interface->bInterfaceSubClass != USB_HID_SUBCLASS_BOOT) {
+			LOG_WRN("Device doesn't support boot protocol!");
+			result = -ENOTSUP;
+			goto error_cleanup;
+		}
+	}
+
+	/* Set the requested protocol */
+	result = hid_class_request(driver_data->udev, driver_data->target_iface,
+				   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_PROTOCOL, protocol_code,
+				   0, NULL);
+	if (result != 0) {
+		LOG_ERR("Failed to set protocol %i: %i", protocol_code, result);
+		goto error_cleanup;
+	}
+
+	/* Save which protocol is currently enabled for the input event subsystem */
+	if (protocol_code == HID_PROTOCOL_BOOT) {
+		driver_data->boot_protocol = true;
+	} else {
+		driver_data->boot_protocol = false;
+	}
+
+error_cleanup:
+	k_mutex_unlock(&driver_data->lock);
+
+	return result;
+}
+
+static int driver_get_protocol(struct device const *dev, uint8_t *protocol_code)
+{
+	struct driver_data *driver_data = (void *)dev->data;
+	struct net_buf *buf = NULL;
+	int result = 0;
+
+	if (protocol_code == NULL) {
+		return -EINVAL;
+	}
+
+	k_mutex_lock(&driver_data->lock, K_FOREVER);
+
+	if (driver_data->udev == NULL) {
+		/* Device not yet connected */
+		goto error_cleanup;
+		return -ENOTCONN;
+	}
+
+	buf = usbh_xfer_buf_alloc(driver_data->udev, 1);
+	if (buf == NULL) {
+		k_mutex_unlock(&driver_data->lock);
+		return -ENOMEM;
+	}
+
+	/* Set the requested protocol */
+	result = hid_class_request(driver_data->udev, driver_data->target_iface,
+				   USB_REQTYPE_DIR_TO_HOST, USB_HID_GET_PROTOCOL, 0, 1, buf);
+	if (result != 0) {
+		LOG_ERR("Failed to get protocol: %i", result);
+		goto error_cleanup;
+	}
+
+	*protocol_code = buf->data[0];
+
+error_cleanup:
+	usbh_xfer_buf_free(driver_data->udev, buf);
+	k_mutex_unlock(&driver_data->lock);
+
+	return result;
+}
+
 /**
  * @brief USB Host HID driver API vtable
  */
@@ -1498,6 +1568,8 @@ DEVICE_API(usbh_hid, driver_api) = {
 	.stop_input_reports = driver_stop_input_reports,
 	.set_idle_rate = driver_set_idle_rate,
 	.get_idle_rate = driver_get_idle_rate,
+	.set_protocol = driver_set_protocol,
+	.get_protocol = driver_get_protocol,
 #ifndef CONFIG_USBH_HID_ROUTE_TO_INPUT
 	.set_input_callback = driver_set_input_callback,
 #endif
@@ -1508,8 +1580,7 @@ DEVICE_API(usbh_hid, driver_api) = {
 	static struct driver_config const driver_config_##index = {                                  \
 		.idle_rates_ms = DT_INST_PROP(index, in_idle_rate_ms),                               \
 		.idle_rates_ms_size = DT_INST_PROP_LEN(index, in_idle_rate_ms),                      \
-		.boot_protocol = DT_INST_PROP(index, boot_protocol),                                 \
-		.reg = DT_INST_REG_ADDR(index),                                                      \
+		.start_with_boot_protocol = DT_INST_PROP(index, start_with_boot_protocol),         \
 	};                                                                                           \
                                                                                                      \
 	DEVICE_DT_INST_DEFINE(index, NULL, NULL, &driver_data_##index, &driver_config_##index,       \

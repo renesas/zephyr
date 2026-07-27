@@ -12,7 +12,7 @@ properties:
     required: true
     description: USB device vendor + device IDs (0xFFFFFFFF acts as wildcard)
 
-  boot-protocol:
+  start-with-boot-protocol:
     type: boolean
     description: Most USB HID devices will implement a common report descriptor
       known as "boot protocol". It is meant to let host machines interact

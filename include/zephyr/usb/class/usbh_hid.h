@@ -432,6 +432,27 @@ typedef int (*usbh_hid_get_idle_rate_t)(const struct device *dev, uint8_t report
 					uint16_t *idle_period_ms);
 
 /**
+ * @brief Set the device's report protocol
+ *
+ * @param dev             Pointer to the device
+ * @param protocol_code   Protocol code. `HID_PROTOCOL_BOOT`, `HID_PROTOCOL_REPORT` or a proprietary
+ * variant.
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+typedef int (*usbh_hid_set_protocol_t)(const struct device *dev, uint8_t protocol_code);
+
+/**
+ * @brief Get the idle rate for a specific report ID
+ *
+ * @param      dev             Pointer to the device
+ * @param[out] protocol_code   Protocol code output pointer
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+typedef int (*usbh_hid_get_protocol_t)(const struct device *dev, uint8_t *protocol_code);
+
+/**
  * @driver_ops{USBH HID}
  */
 __subsystem struct usbh_hid_driver_api {
@@ -469,6 +490,16 @@ __subsystem struct usbh_hid_driver_api {
 	 * @driver_ops_optional @copybrief usbh_hid_get_idle_rate
 	 */
 	usbh_hid_get_idle_rate_t get_idle_rate;
+
+	/**
+	 * @driver_ops_optional @copybrief usbh_hid_set_protocol
+	 */
+	usbh_hid_set_protocol_t set_protocol;
+
+	/**
+	 * @driver_ops_optional @copybrief usbh_hid_get_protocol
+	 */
+	usbh_hid_get_protocol_t get_protocol;
 };
 
 /**
@@ -675,6 +706,49 @@ static inline int z_impl_usbh_hid_get_idle_rate(const struct device *dev, uint8_
 	}
 
 	return api->get_idle_rate(dev, report_id, idle_period_ms);
+}
+
+/**
+ * @brief Set the device's report protocol
+ *
+ * @param dev             Pointer to the device
+ * @param protocol_code   Protocol code. `HID_PROTOCOL_BOOT`, `HID_PROTOCOL_REPORT` or a proprietary
+ * variant.
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+__syscall int usbh_hid_set_protocol(const struct device *dev, uint8_t protocol_code);
+
+static inline int z_impl_usbh_hid_set_protocol(const struct device *dev, uint8_t protocol_code)
+{
+	struct usbh_hid_driver_api const *api = DEVICE_API_GET(usbh_hid, dev);
+
+	if (api->set_protocol == NULL) {
+		return -ENOSYS;
+	}
+
+	return api->set_protocol(dev, protocol_code);
+}
+
+/**
+ * @brief Get the idle rate for a specific report ID
+ *
+ * @param      dev             Pointer to the device
+ * @param[out] protocol_code   Protocol code output pointer
+ *
+ * @return 0 on success, negative errno value on failure.
+ */
+__syscall int usbh_hid_get_protocol(const struct device *dev, uint8_t *protocol_code);
+
+static inline int z_impl_usbh_hid_get_protocol(const struct device *dev, uint8_t *protocol_code)
+{
+	struct usbh_hid_driver_api const *api = DEVICE_API_GET(usbh_hid, dev);
+
+	if (api->get_protocol == NULL) {
+		return -ENOSYS;
+	}
+
+	return api->get_protocol(dev, protocol_code);
 }
 
 #include <zephyr/syscalls/usbh_hid.h>
