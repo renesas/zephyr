@@ -15,7 +15,7 @@ config USBH_DFU_INSTANCES_COUNT
           Number of instances of this USB class
 
 config USBH_DFU_MAX_ALTERNATE_NR
-        int "Maximum number of alaternate settings"
+        int "Maximum number of alternate settings"
         default 32
         help
           Maximum number of alternate settings that

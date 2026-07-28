@@ -1023,7 +1023,6 @@ static int cmd_dfurt_enter_dfu(const struct shell *sh,
 	static struct usb_device *udev;
 	struct usbh_context *uhs_ctx;
 	uint8_t addr;
-	uint8_t alternate_idx;
 	int err;
 
 	uhs_ctx = get_uhs_ctx_or_error(sh);
@@ -1043,9 +1042,6 @@ static int cmd_dfurt_enter_dfu(const struct shell *sh,
 		shell_error(sh, "DFURT device with requested address %d does not exist", addr);
 		return err;
 	}
-
-	alternate_idx = strtol(argv[2], NULL, 10);
-	dfu_settings.alternate_idx = alternate_idx;
 
 	err = usbh_dfurt_settings(dev, &dfu_settings);
 	if (err) {
@@ -1382,17 +1378,17 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 	SHELL_CMD_ARG(dfu_upload, NULL,
 		SHELL_HELP(
 			"Upload firmware from Device to Host",
-			"<addr> <iface>\n"
+			"<addr> <alt>\n"
 			"addr: Device bus address [dec]\n"
-			"alt: Alternate setting number [dec]"
+			"alt: Alternate setting number, usually 0 [dec]"
 		),
 		cmd_dfu_upload, 3, 0),
 	SHELL_CMD_ARG(dfu_dnload, NULL,
 		SHELL_HELP(
 			"Download firmware from Host to Device",
-			"<addr> <iface>\n"
+			"<addr> <alt> <text>\n"
 			"addr: Device bus address [dec]\n"
-			"alt: Alternate setting number [dec]"
+			"alt: Alternate setting number, usually 0 [dec]\n"
 			"text: Text to send over DFU [str]"
 		),
 		cmd_dfu_dnload, 4, 0),
@@ -1400,10 +1396,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(device_cmds,
 		SHELL_HELP(
 			"Switch DFU-realtime device to DFU mode",
 			"<addr>\n"
-			"addr: Device bus address [dec]\n"
-			"alt: Alternate setting number [dec]"
+			"addr: Device bus address [dec]"
 		),
-		cmd_dfurt_enter_dfu, 3, 0),
+		cmd_dfurt_enter_dfu, 2, 0),
 #endif /* defined(CONFIG_USBH_DFU_CLASS) */
 	SHELL_CMD_ARG(feature-set, &feature_set_cmds, "Set Feature commands",
 		      NULL, 2, 0),

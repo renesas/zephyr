@@ -13,9 +13,6 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/usb/usbh.h>
 #include <zephyr/usb/usb_ch9.h>
-#include <zephyr/drivers/usb/udc.h>
-#include <zephyr/drivers/video.h>
-#include <zephyr/drivers/video-controls.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/usb/class/usbh_dfu.h>
@@ -991,7 +988,8 @@ static int usbh_dfu_class_probe(struct usbh_class_data *const c_data, struct usb
 			break;
 		}
 
-		drv_data->eph.command_netbuf = usbh_xfer_buf_alloc(drv_data->eph.udev, 6);
+		/* Allocated memory sized for the largest structure, used for GET_STATE and GET_STATUS requests. */
+		drv_data->eph.command_netbuf = usbh_xfer_buf_alloc(drv_data->eph.udev, sizeof(struct dfu_getstatus_data));
 		if (drv_data->eph.command_netbuf == NULL) {
 			result = -ENOMEM;
 			break;

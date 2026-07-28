@@ -29,8 +29,15 @@ extern "C" {
  * Optional structure for non-default settings, tweaks and quirks
  */
 struct usbh_dfu_settings {
+	/* Bitmap where each bit represents a specific device non-conformance with the DFU standard.
+	 * e.g. Not transitioning from MANIFEST-SYNC to MANIFEST stage on a GET_STATUS request.
+	 * Use one of 'USBH_DFU_QUIRK_' macros
+	 */
 	uint32_t quirks;
+	/* Exposes multiple storage targets (flash, EEPROM, etc.) via different 'alternate_idx' */
 	uint16_t alternate_idx;
+	/* Timeout after a detach request, after which the device resumes normal operation if a
+	 * bus reset is not issued. A value of zero uses the recommended device 'wDetachTimeOut' instead. */
 	uint16_t detach_timeout_ms;
 };
 
