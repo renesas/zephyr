@@ -508,6 +508,8 @@ static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renes
 
 	switch (hal_evt->complete.result) {
 	case USB_XFER_RESULT_STALLED:
+		ret = -ENOTSUP;
+		break;
 	case USB_XFER_RESULT_TIMEOUT:
 	case USB_XFER_RESULT_FAILED:
 		ret = -EAGAIN;
