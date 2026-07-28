@@ -1,0 +1,6 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "native_sim.overlay"

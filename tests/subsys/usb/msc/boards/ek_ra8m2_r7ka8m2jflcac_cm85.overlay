@@ -1,0 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/delete-node/ &zephyr_udc0;
+
+&usbhs {
+	pinctrl-0 = <&usbhs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "high-speed";
+	status = "okay";
+
+	zephyr_uhc0: uhc {
+		compatible = "renesas,ra-uhc";
+		status = "okay";
+	};
+};
