@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
+# SPDX-License-Identifier: Apache-2.0
+
+config SYS_CLOCK_TICKS_PER_SEC
+	default 1000000 if BOARD_NATIVE_SIM
+
+config TEST_NUM_LUN
+	int
+	default 2 if BOARD_NATIVE_SIM
+	default 1
+
+# Source common USB sample options used to initialize new experimental USB
+# device stack. The scope of these options is limited to USB samples in project
+# tree, you cannot use them in your own application.
+source "samples/subsys/usb/common/Kconfig.sample_usbd"
+
+source "Kconfig.zephyr"
