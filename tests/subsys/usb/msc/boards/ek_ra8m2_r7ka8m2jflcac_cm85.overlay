@@ -1,0 +1,28 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/delete-node/ &zephyr_udc0;
+
+&ioportd {
+	status = "okay";
+
+	/* Set PD07 to high to enable host mode on USBHS port */
+	usbhs-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&usbhs {
+	pinctrl-0 = <&usbhs_default>;
+	interrupts = <28 1>;
+	interrupt-names = "usbhs-ir";
+	status = "okay";
+
+	zephyr_uhc0: uhc {
+		status = "okay";
+	};
+};
