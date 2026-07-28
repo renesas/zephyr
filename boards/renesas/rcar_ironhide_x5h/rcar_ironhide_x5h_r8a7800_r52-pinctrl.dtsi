@@ -39,4 +39,12 @@
 	audio0_clkout0_default: audio0_clkout0_default {
 		pin = <PIN_AUDIO0_CLKOUT0 FUNC_AUDIO0_CLKOUT0>;
 	};
+
+	rsw3_etha4_mdc_default: rsw3_etha4_mdc_default {
+		pin = <PIN_ETH25G0_MDC FUNC_ETH25G2_MDC>;
+	};
+
+	rsw3_etha4_mdio_default: rsw3_etha4_mdio_default {
+		pin = <PIN_ETH25G0_MDIO FUNC_ETH25G2_MDIO>;
+	};
 };

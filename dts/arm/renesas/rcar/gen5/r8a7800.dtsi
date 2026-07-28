@@ -301,6 +301,61 @@
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_SCIF1>,
 				 <&clkc CLKC_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
 		};
+
+		mdio0: mdio@c9b9e000 {
+			compatible = "renesas,rcar-rsw3-mdio";
+			reg = <0xc9b9e000 0x1000>,
+			      <0xc9b80000 0x40000>;
+			reg-names = "rmac", "base_secure";
+			channel = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		mdio1: mdio@c9ba0000 {
+			compatible = "renesas,rcar-rsw3-mdio";
+			reg = <0xc9ba0000 0x1000>,
+			      <0xc9b80000 0x40000>;
+			reg-names = "rmac", "base_secure";
+			channel = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		mdio2: mdio@c9ba2000 {
+			compatible = "renesas,rcar-rsw3-mdio";
+			reg = <0xc9ba2000 0x1000>,
+			      <0xc9b80000 0x40000>;
+			reg-names = "rmac", "base_secure";
+			channel = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		mdio3: mdio@c9ba4000 {
+			compatible = "renesas,rcar-rsw3-mdio";
+			reg = <0xc9ba4000 0x1000>,
+			      <0xc9b80000 0x40000>;
+			reg-names = "rmac", "base_secure";
+			channel = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		mdio4: mdio@c9ba6000 {
+			compatible = "renesas,rcar-rsw3-mdio";
+			reg = <0xc9ba6000 0x1000>,
+			      <0xc9b80000 0x40000>;
+			reg-names = "rmac", "base_secure";
+			channel = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 	};
 
 	clocks: clocks {

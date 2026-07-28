@@ -81,6 +81,12 @@
 	};
 };
 
+&mdio4 {
+	pinctrl-0 = <&rsw3_etha4_mdc_default &rsw3_etha4_mdio_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 &gpio0 {
 	status = "okay";
 };

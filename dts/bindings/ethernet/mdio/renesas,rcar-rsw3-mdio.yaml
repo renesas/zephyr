@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RCAR R-Switch3 (RSW3) MDIO controller
+
+compatible: "renesas,rcar-rsw3-mdio"
+
+include: [mdio-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  reg-names:
+    required: true
+
+  channel:
+    type: int
+    required: true
+    description: |
+      The MDIO(RMAC) channel number to use for this controller. This is required to
+      differentiate between multiple MDIO(RMAC) controllers in the same system.
+      In this IP only RMAC0 to RMAC4 provide external MDIO functionality.
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true

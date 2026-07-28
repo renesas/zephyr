@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config MDIO_RENESAS_RCAR_RSW3
+	bool "Renesas R-Switch3 (RSW3) MDIO controller driver"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_RSW3_MDIO_ENABLED
+	select PINCTRL
+	help
+	  Enable Renesas R-Switch3 (RSW3) MDIO support.
