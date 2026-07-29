@@ -25,6 +25,7 @@ if(CONFIG_ETH_NATIVE_TAP)
 endif()
 
 if(CONFIG_ETH_RENESAS_RX_RMAC)
+  zephyr_library_sources(eth_renesas_rx_eswm.c)
   zephyr_library_sources(eth_renesas_rx_rmac.c)
 endif()
 

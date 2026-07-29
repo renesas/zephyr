@@ -10,6 +10,7 @@ config ETH_RENESAS_RX_RMAC
 	select RENESAS_RX_GRP_INTC_FSP
 	select NOCACHE_MEMORY if ARCH_HAS_NOCACHE_MEMORY_SUPPORT
 	select MDIO
+	select NET_BRIDGE_HW_OFFLOAD_SUPPORTED
 	help
 	  Add support for Renesas RX RMAC Ethernet device driver.
 
@@ -56,5 +57,27 @@ config ETH_RENESAS_RX_RECEIVE_BUDGET
 	  may do in the RX thread before yielding the processor, in case there
 	  is more work to do. This is to prevent the RX thread to starve other
 	  threads. Each received frame counts as one unit of work.
+
+config ETH_RENESAS_RX_HW_BRIDGE
+	bool "Hardware bridge offload for Renesas RX RMAC"
+	depends on NET_BRIDGE_HW_OFFLOAD
+	default y
+	help
+	  Enable hardware-accelerated L2 bridge using the RX ESWM MAC
+	  forwarding table. Known unicast is forwarded between ports
+	  by hardware without CPU involvement. Unknown unicast and
+	  broadcast still pass through the CPU.
+
+config ETH_RENESAS_RX_HW_BRIDGE_MAC_AGING_TIME
+	int "Hardware bridge MAC table aging time (seconds)"
+	depends on ETH_RENESAS_RX_HW_BRIDGE
+	default 300
+	range 10 3600
+	help
+	  Time in seconds before an inactive hardware MAC table entry is
+	  removed from the ESWM forwarding table. Shorter values recover
+	  faster after a host moves to a different port; longer values
+	  reduce re-learning overhead on stable networks.
+	  IEEE 802.1D recommends 300 seconds as the default.
 
 endif
