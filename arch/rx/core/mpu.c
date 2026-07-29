@@ -171,16 +171,23 @@ void rx_mpu_map_write(struct rx_mpu_map *map)
 /*
  * Configure the background region (MPBAC): the default applied to any address
  * not covered by an explicit region. Mark the entire address space cacheable
- * (write-back data cache + instruction cache) and grant user mode full RWX
- * access. This means all memory not matched by an explicit MPU region is
- * treated as cacheable and fully accessible. Peripheral / MMIO ranges that
- * must not be cached should be covered by explicit regions with cache disabled.
+ * (write-through data cache + instruction cache) and grant user mode full RWX
+ * access. Write-through (rather than write-back) is used because __nocache
+ * placement only carves out an explicit non-cacheable window for addresses
+ * that fall within it (see rx_mpu_add_ram_regions()); any other memory shared
+ * with a DMA-capable bus master (e.g. Ethernet RMAC/ESWM descriptors and
+ * buffers that are not part of that window) would otherwise be exposed to
+ * dirty cache lines that have not yet been written back, causing the bus
+ * master to read stale data. Write-through ensures CPU stores are visible to
+ * memory immediately, at the cost of some store bandwidth. Peripheral / MMIO
+ * ranges that must not be cached at all should still be covered by explicit
+ * regions with cache disabled.
  */
 static void rx_mpu_set_background(void)
 {
 	k_spinlock_key_t key = k_spin_lock(&rx_mpu_lock);
 
-	R_MPU->MPBAC_b.DCA = RX_MPU_DCA_WRITE_BACK;
+	R_MPU->MPBAC_b.DCA = RX_MPU_DCA_WRITE_THROUGH;
 	R_MPU->MPBAC_b.ICA = RX_MPU_ICA_ENABLED;
 	R_MPU->MPBAC_b.UBAC = RX_MPU_UBAC_RWX;
 
@@ -268,7 +275,7 @@ static void rx_mpu_configure_regions_from_dt(struct rx_mpu_map *map)
 
 void rx_mpu_init(void)
 {
-	/* Background (MPBAC): cacheable write-back for all unmapped addresses,
+	/* Background (MPBAC): cacheable write-through for all unmapped addresses,
 	 * user mode RWX. Explicit regions override this for nocache windows.
 	 */
 	rx_mpu_set_background();
