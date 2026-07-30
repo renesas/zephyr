@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+
 #define DT_DRV_COMPAT renesas_ra_agt_counter
+
+
 
 #include <soc.h>
 #include <zephyr/kernel.h>
@@ -17,6 +20,11 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(counter_renesas_ra_agt, CONFIG_COUNTER_LOG_LEVEL);
 
+#define CHANNEL_COUNT 2
+
+
+
+
 struct counter_renesas_ra_agt_config {
 	struct counter_config_info info;
 	void (*irq_config_func)(void);
@@ -26,18 +34,21 @@ struct counter_renesas_ra_agt_data {
 	struct st_agt_instance_ctrl agt_ctrl;
 	struct st_timer_cfg agt_cfg;
 	struct st_agt_extended_cfg agt_extend_cfg;
-	IRQn_Type agtcmai_irq;
-	uint8_t agtcmai_ipl;
+	IRQn_Type agt_irq[CHANNEL_COUNT];
+	uint8_t agt_ipl[CHANNEL_COUNT];
 	uint32_t guard_period;
-	counter_alarm_callback_t alarm_cb;
+	counter_alarm_callback_t alarm_cb[CHANNEL_COUNT];
 	counter_top_callback_t top_cb;
-	void *alarm_data;
+	void *alarm_data[CHANNEL_COUNT];
 	void *top_data;
 	struct k_spinlock lock;
 };
 
 extern void agt_int_isr(void);
 extern void agtcmai_isr(void);
+extern void agtcmbi_isr(void);
+
+
 
 static inline bool renesas_ra_agt_is_running(const struct device *dev)
 {
@@ -75,7 +86,7 @@ static inline int renesas_ra_agt_period_set(const struct device *dev, uint32_t p
 	return 0;
 }
 
-static inline int renesas_ra_agt_compare_match_set(const struct device *dev, uint32_t val)
+static inline int renesas_ra_agt_compare_match_set(const struct device *dev, uint32_t val, timer_compare_match_t channel)
 {
 	struct counter_renesas_ra_agt_data *data = dev->data;
 	const bool counting = renesas_ra_agt_is_running(dev);
@@ -88,7 +99,7 @@ static inline int renesas_ra_agt_compare_match_set(const struct device *dev, uin
 		}
 	}
 
-	err = RP_AGT_CompareMatchSet(&data->agt_ctrl, val, TIMER_COMPARE_MATCH_A);
+	err = RP_AGT_CompareMatchSet(&data->agt_ctrl, val, channel);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
@@ -244,7 +255,7 @@ static inline uint32_t ticks_sub(uint32_t val, uint32_t old, uint32_t top)
 }
 
 static int renesas_ra_agt_abs_alarm_set(const struct device *dev, uint32_t val, uint32_t top,
-					bool irq_on_late)
+					bool irq_on_late, timer_compare_match_t channel)
 {
 	struct counter_renesas_ra_agt_data *data = dev->data;
 	uint32_t max_val;
@@ -252,7 +263,7 @@ static int renesas_ra_agt_abs_alarm_set(const struct device *dev, uint32_t val, 
 	fsp_err_t err;
 	int ret;
 
-	ret = renesas_ra_agt_compare_match_set(dev, val);
+	ret = renesas_ra_agt_compare_match_set(dev, val, channel);
 	if (ret != 0) {
 		return ret;
 	}
@@ -265,26 +276,26 @@ static int renesas_ra_agt_abs_alarm_set(const struct device *dev, uint32_t val, 
 	max_val = ticks_sub(read_again + top, data->guard_period, top);
 	if (val > max_val) {
 		if (irq_on_late) {
-			NVIC_SetPendingIRQ(data->agtcmai_irq);
+			NVIC_SetPendingIRQ(data->agt_irq[(int)channel]);
 		} else {
-			data->alarm_cb = NULL;
+			data->alarm_cb[(int)channel] = NULL;
 		}
 
 		ret = -ETIME;
 	}
 
-	err = RP_AGT_EventSet(&data->agt_ctrl, TIMER_AGT_AGTCMAI, true);
+	err = RP_AGT_EventSet(&data->agt_ctrl, (channel ==  TIMER_COMPARE_MATCH_A ?  TIMER_AGT_AGTCMAI : TIMER_AGT_AGTCMBI), true);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
 
-	irq_enable(data->agtcmai_irq);
+	irq_enable(data->agt_irq[(int)channel]);
 
 	return ret;
 }
 
 static int renesas_ra_agt_rel_alarm_set(const struct device *dev, uint32_t val, uint32_t top,
-					bool irq_on_late)
+					bool irq_on_late, timer_compare_match_t channel)
 {
 	struct counter_renesas_ra_agt_data *data = dev->data;
 	uint32_t max_rel_val = irq_on_late ? (top / 2) : top;
@@ -300,7 +311,7 @@ static int renesas_ra_agt_rel_alarm_set(const struct device *dev, uint32_t val, 
 
 	val = ticks_sub(now, val, top);
 
-	ret = renesas_ra_agt_compare_match_set(dev, val);
+	ret = renesas_ra_agt_compare_match_set(dev, val, channel);
 	if (ret != 0) {
 		return ret;
 	}
@@ -314,18 +325,18 @@ static int renesas_ra_agt_rel_alarm_set(const struct device *dev, uint32_t val, 
 
 	if (diff > max_rel_val || diff == 0) {
 		if (irq_on_late) {
-			NVIC_SetPendingIRQ(data->agtcmai_irq);
+			NVIC_SetPendingIRQ(data->agt_irq[(int)channel]);
 		} else {
-			data->alarm_cb = NULL;
+			data->alarm_cb[(int)channel] = NULL;
 		}
 	}
 
-	err = RP_AGT_EventSet(&data->agt_ctrl, TIMER_AGT_AGTCMAI, true);
+	err = RP_AGT_EventSet(&data->agt_ctrl, (channel ==  TIMER_COMPARE_MATCH_A ?  TIMER_AGT_AGTCMAI : TIMER_AGT_AGTCMBI), true);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
 
-	irq_enable(data->agtcmai_irq);
+	irq_enable(data->agt_irq[(int)channel]);
 
 	return 0;
 }
@@ -341,32 +352,35 @@ static int counter_renesas_ra_agt_set_alarm(const struct device *dev, uint8_t ch
 			 : alarm_cfg->ticks < (top / 2);
 	int ret = 0;
 
-	if (chan != 0) {
+
+	if(chan >= CHANNEL_COUNT){
 		ret = -EINVAL;
 		goto out;
 	}
+	timer_compare_match_t channel = (timer_compare_match_t) chan;
+
 
 	if (alarm_cfg->ticks > top) {
 		ret = -EINVAL;
 		goto out;
 	}
 
-	if (data->alarm_cb != NULL) {
+	if (data->alarm_cb[chan] != NULL) {
 		ret = -EBUSY;
 		goto out;
 	}
 
-	if (data->agtcmai_irq == BSP_IRQ_DISABLED) {
+	if (data->agt_irq[(int)chan] == BSP_IRQ_DISABLED) {
 		return -ENOTSUP;
 	}
 
-	data->alarm_cb = alarm_cfg->callback;
-	data->alarm_data = alarm_cfg->user_data;
+	data->alarm_cb[chan] = alarm_cfg->callback;
+	data->alarm_data[chan] = alarm_cfg->user_data;
 
 	if (absolute) {
-		ret = renesas_ra_agt_abs_alarm_set(dev, alarm_cfg->ticks, top, irq_on_late);
+		ret = renesas_ra_agt_abs_alarm_set(dev, alarm_cfg->ticks, top, irq_on_late, channel);
 	} else {
-		ret = renesas_ra_agt_rel_alarm_set(dev, alarm_cfg->ticks, top, irq_on_late);
+		ret = renesas_ra_agt_rel_alarm_set(dev, alarm_cfg->ticks, top, irq_on_late, channel);
 	}
 out:
 	return ret;
@@ -379,21 +393,23 @@ static int counter_renesas_ra_agt_cancel_alarm(const struct device *dev, uint8_t
 	fsp_err_t err;
 	int ret = 0;
 
-	if (data->agtcmai_irq == BSP_IRQ_DISABLED) {
+
+	if (data->agt_irq[(int)chan] == BSP_IRQ_DISABLED) {
 		ret = -ENOTSUP;
 		goto out;
 	}
-
-	err = RP_AGT_EventSet(&data->agt_ctrl, TIMER_AGT_AGTCMAI, false);
+	err = RP_AGT_EventSet(&data->agt_ctrl, (chan == (int) TIMER_COMPARE_MATCH_A ?  TIMER_AGT_AGTCMAI : TIMER_AGT_AGTCMBI), false);
 	if (err != FSP_SUCCESS) {
 		ret = -EIO;
 		goto out;
 	}
 
-	irq_disable(data->agtcmai_irq);
-	NVIC_ClearPendingIRQ(data->agtcmai_irq);
-	data->alarm_cb = NULL;
-	data->alarm_data = NULL;
+	irq_disable(data->agt_irq[(int)chan]);
+	NVIC_ClearPendingIRQ(data->agt_irq[(int)chan]);
+
+	data->alarm_cb[chan] = NULL;
+	data->alarm_data[chan] = NULL;
+	ret = 0;
 out:
 	counter_renesas_ra_agt_unlock(dev, key);
 	return ret;
@@ -438,7 +454,7 @@ static uint32_t counter_renesas_ra_agt_get_pending_int(const struct device *dev)
 	}
 
 	return (uint32_t)!!(
-		event & (R_AGTX0_AGT16_CTRL_AGTCR_TCMAF_Msk | R_AGTX0_AGT16_CTRL_AGTCR_TUNDF_Msk));
+		event & (R_AGTX0_AGT16_CTRL_AGTCR_TCMAF_Msk | R_AGTX0_AGT16_CTRL_AGTCR_TUNDF_Msk | R_AGTX0_AGT16_CTRL_AGTCR_TCMBF_Msk));
 }
 
 static uint32_t counter_renesas_ra_agt_get_freq(const struct device *dev)
@@ -467,14 +483,20 @@ static int counter_renesas_ra_agt_init(const struct device *dev)
 		return -EIO;
 	}
 
-	if (data->agtcmai_irq != BSP_IRQ_DISABLED) {
-		R_FSP_IsrContextSet(data->agtcmai_irq, &data->agt_ctrl);
+	for(int i = 0; i < CHANNEL_COUNT; i++){
+		if (data->agt_irq[i] != BSP_IRQ_DISABLED) {
+			R_FSP_IsrContextSet(data->agt_irq[i], &data->agt_ctrl);
+		}
 	}
+	
 
 	cfg->irq_config_func();
 
 	return 0;
 }
+
+
+
 
 static void counter_renesas_ra_agt_agti_isr(const struct device *dev)
 {
@@ -488,28 +510,38 @@ static void counter_renesas_ra_agt_agti_isr(const struct device *dev)
 
 	agt_int_isr();
 }
+ 
 
-static void counter_renesas_ra_agt_agtcmai_isr(const struct device *dev)
+
+static void counter_renesas_ra_agt_agtcmXi_isr(const struct device *dev, uint16_t chan)
 {
 	struct counter_renesas_ra_agt_data *data = dev->data;
-	counter_alarm_callback_t cb = data->alarm_cb;
-	void *usr_data = data->alarm_data;
+	counter_alarm_callback_t cb = data->alarm_cb[chan];
+	void *usr_data = data->alarm_data[chan];
 	uint32_t now;
 
 	if (cb != NULL) {
-		data->alarm_cb = NULL;
-		data->alarm_data = NULL;
+		#ifndef CONFIG_COUNTER_RENESAS_RA_AGT_CUSTOM_CONSTANT_ALARMS
+			data->alarm_cb[chan] = NULL;
+			data->alarm_data[chan] = NULL;
+		#endif
 
 		if (counter_renesas_ra_agt_get_value(dev, &now) != 0) {
 			LOG_DBG("Error in counter alarm");
 			return;
 		}
 
-		cb(dev, 0, now, usr_data);
+		cb(dev, chan, now, usr_data);
 	}
 
-	agtcmai_isr();
+	
 }
+
+static void counter_ra_chan_a(const struct device* dev){counter_renesas_ra_agt_agtcmXi_isr(dev, (int)TIMER_COMPARE_MATCH_A);agtcmai_isr();};
+static void counter_ra_chan_b(const struct device* dev){counter_renesas_ra_agt_agtcmXi_isr(dev, (int)TIMER_COMPARE_MATCH_B);agtcmbi_isr();};
+
+
+
 
 static DEVICE_API(counter, agt_renesas_ra_driver_api) = {
 	.start = counter_renesas_ra_agt_start,
@@ -529,6 +561,7 @@ static DEVICE_API(counter, agt_renesas_ra_driver_api) = {
 
 #define EVENT_AGT_INT(channel)       BSP_PRV_IELS_ENUM(CONCAT(EVENT_AGT, channel, _INT))
 #define EVENT_AGT_COMPARE_A(channel) BSP_PRV_IELS_ENUM(CONCAT(EVENT_AGT, channel, _COMPARE_A))
+#define EVENT_AGT_COMPARE_B(channel) BSP_PRV_IELS_ENUM(CONCAT(EVENT_AGT, channel, _COMPARE_B))
 
 #define AGT_IRQ_GET_BY_NAME(inst, name, cell)                                                      \
 	COND_CODE_1(DT_IRQ_HAS_NAME(TIMER(inst), name), (DT_IRQ_BY_NAME(TIMER(inst), name, cell)), \
@@ -549,7 +582,9 @@ static DEVICE_API(counter, agt_renesas_ra_driver_api) = {
 		AGT_IRQ_CONFIG(inst, agti, EVENT_AGT_INT(DT_PROP(TIMER(inst), channel)),           \
 			       counter_renesas_ra_agt_agti_isr);                                   \
 		AGT_IRQ_CONFIG(inst, agtcmai, EVENT_AGT_COMPARE_A(DT_PROP(TIMER(inst), channel)),  \
-			       counter_renesas_ra_agt_agtcmai_isr);                                \
+			       counter_ra_chan_a);                                \
+		AGT_IRQ_CONFIG(inst, agtcmbi, EVENT_AGT_COMPARE_B(DT_PROP(TIMER(inst), channel)),  \
+			       counter_ra_chan_b);                                                      \
 	}                                                                                          \
                                                                                                    \
 	struct counter_renesas_ra_agt_config counter_renesas_ra_agt_config##inst = {               \
@@ -558,7 +593,7 @@ static DEVICE_API(counter, agt_renesas_ra_driver_api) = {
 				? UINT32_MAX                                                       \
 				: BIT_MASK(DT_PROP(TIMER(inst), renesas_resolution)),              \
 		.info.flags = (uint8_t)0U,                                                         \
-		.info.channels = 1,                                                                \
+		.info.channels = CHANNEL_COUNT,                                                                \
 		.irq_config_func = counter_renesas_ra_agt##inst##_irq_config_func,                 \
 	};                                                                                         \
                                                                                                    \
@@ -588,8 +623,10 @@ static DEVICE_API(counter, agt_renesas_ra_driver_api) = {
 				.enable_pin = AGT_ENABLE_PIN_NOT_USED,                             \
 				.trigger_edge = AGT_TRIGGER_EDGE_RISING,                           \
 			},                                                                         \
-		.agtcmai_irq = AGT_IRQ_GET_BY_NAME(inst, agtcmai, irq),                            \
-		.agtcmai_ipl = AGT_IRQ_GET_BY_NAME(inst, agtcmai, priority),                       \
+		.agt_irq[0] = AGT_IRQ_GET_BY_NAME(inst, agtcmai, irq),                            \
+		.agt_ipl[0] = AGT_IRQ_GET_BY_NAME(inst, agtcmai, priority),                       \
+		.agt_irq[1] = AGT_IRQ_GET_BY_NAME(inst, agtcmbi, irq),                            \
+		.agt_ipl[1] = AGT_IRQ_GET_BY_NAME(inst, agtcmbi, priority),                       \
 		.guard_period = 0,                                                                 \
 	};                                                                                         \
                                                                                                    \
