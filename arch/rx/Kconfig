@@ -103,7 +103,6 @@ if CPU_HAS_MPU
 menuconfig RX_MPU
 	bool "RX MPU Support"
 	select MPU
-	select SRAM_REGION_PERMISSIONS
 	help
 	  Enable support for RX Memory Protection Unit.
 
@@ -121,6 +120,9 @@ config RX_MPU_NUM_REGIONS
 	int "Number of RX MPU regions"
 	help
 	  This option specifies the number of regions supported by RX MPU.
+
+config SRAM_REGION_PERMISSIONS
+	default n
 
 endif # RX_MPU
 
