@@ -16,6 +16,7 @@
 static const uint8_t hid_report_desc[] = HID_KEYBOARD_REPORT_DESC();
 
 static uint32_t kb_duration;
+static uint8_t report_value;
 
 static void kb_iface_ready(const struct device *dev, const bool ready)
 {
@@ -55,8 +56,8 @@ static void kb_set_protocol(const struct device *dev, const uint8_t proto)
 static void kb_output_report(const struct device *dev, const uint16_t len, const uint8_t *const buf)
 {
 	zassert_equal(1, len, "Wrong report length");
-	zassert_equal(0xF, buf[0], "Wrong report value");
 	kb_set_report(dev, HID_REPORT_TYPE_OUTPUT, 0u, len, buf);
+	report_value = buf[0];
 }
 
 static struct hid_device_ops kb_ops = {
@@ -84,4 +85,9 @@ int hid_keyboard_register(void)
 	}
 
 	return 0;
+}
+
+uint8_t hid_keyboard_get_report_value(void)
+{
+	return report_value;
 }

@@ -6,20 +6,20 @@
 /delete-node/ &zephyr_udc0;
 
 / {
-    usbh_hid: usbh-hid {
-        compatible = "zephyr,usbh-hid";
+	usbh_hid: usbh-hid {
+		compatible = "zephyr,usbh-hid";
 
-        #address-cells = <1>;
-        #size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-        any_hid_device: hid-device@ffffffff {
-            compatible = "zephyr,usbh-hid-device";
-            reg = <0xffffffff>;
-            match-class;
-            in-idle-rate-ms = <0 0>;
-            status="okay";
-        };
-    };
+		any_hid_device: hid-device@ffffffff {
+		compatible = "zephyr,usbh-hid-device";
+		reg = <0xffffffff>;
+		match-class;
+		in-idle-rate-ms = <0 0>;
+		status="okay";
+		};
+	};
 };
 
 / {

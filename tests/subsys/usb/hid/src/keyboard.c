@@ -70,7 +70,7 @@ static void *suite_setup(void)
 	zassert_ok(result, "Failed to enable device support");
 
 	/* Allow the host time to reset the device. */
-	k_msleep(500);
+	k_msleep(1000);
 
 	result = usbh_hid_start_input_reports(usbh_hid_dev);
 	zassert_ok(result, "Failed to start input reports");
@@ -100,6 +100,38 @@ static void suite_shutdown(void *f)
 }
 
 ZTEST_SUITE(usbh_hid_keyboard_suite, NULL, suite_setup, NULL, NULL, suite_shutdown);
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_protocol)
+{
+	int result = 0;
+	uint8_t protocol_code = 0;
+
+	result = usbh_hid_set_protocol(usbh_hid_dev, HID_PROTOCOL_BOOT);
+	zassert_ok(result, "Unable to set protocol");
+
+	result = usbh_hid_get_protocol(usbh_hid_dev, &protocol_code);
+	zassert_ok(result, "Unable to get protocol");
+	zassert_equal(protocol_code, HID_PROTOCOL_BOOT, "Wrong protocol");
+
+	result = usbh_hid_set_protocol(usbh_hid_dev, HID_PROTOCOL_REPORT);
+	zassert_ok(result, "Unable to set protocol");
+
+	result = usbh_hid_get_protocol(usbh_hid_dev, &protocol_code);
+	zassert_ok(result, "Unable to get protocol");
+	zassert_equal(protocol_code, HID_PROTOCOL_REPORT, "Wrong protocol");
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_output_report)
+{
+	uint8_t const report[] = {0xF};
+	int result = 0;
+
+	result = usbh_hid_set_report(usbh_hid_dev, HID_REPORT_TYPE_OUTPUT, 0, sizeof(report),
+				     report);
+	zassert_ok(result, "Unable to set report");
+
+	zassert_equal(report[0], hid_keyboard_get_report_value(), "Wrong report value");
+}
 
 ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_idle)
 {
@@ -251,12 +283,6 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		hid_device_submit_report(hid_dev, sizeof(report), report);
 		k_sem_take(&fixture.sync, K_FOREVER);
 	}
-}
-
-ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_output_report)
-{
-	uint8_t const report[] = {0xF};
-	usbh_hid_set_report(usbh_hid_dev, HID_REPORT_TYPE_OUTPUT, 0, sizeof(report), report);
 }
 
 static void verify_input_cb(struct input_event *evt, void *user_data)

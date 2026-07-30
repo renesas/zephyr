@@ -599,8 +599,8 @@ static int handle_input_report(struct driver_config const *driver_config,
 	driver_data->previous_reports[previous_report_index].id = report_id;
 #else
 	if (driver_data->input_cb) {
-		hid_report_input_iterate(&driver_data->report, data_length, data,
-					 driver_data->input_cb, driver_data->user_data);
+		usbh_hid_report_input_iterate(&driver_data->report, data_length, data,
+					      driver_data->input_cb, driver_data->user_data);
 	}
 #endif
 
@@ -1037,7 +1037,7 @@ static int usbh_class_remove(struct usbh_class_data *const c_data)
 /**
  * @brief USB Host class API vtable
  */
-static struct usbh_class_api usbh_class_api = {
+static __maybe_unused struct usbh_class_api usbh_class_api = {
 	.init = usbh_class_init,
 	.probe = usbh_class_probe,
 	.removed = usbh_class_remove,
@@ -1594,7 +1594,7 @@ DEVICE_API(usbh_hid, driver_api) = {
 			.pid = DT_INST_REG_ADDR(index) & 0xFFFFu,                                  \
 		},                                                                                 \
 		{0u},                                                                              \
-	};)       ,()                                                                              \
+	};)       , ()                                                                             \
 	) \
                                                                                                      \
 	USBH_DEFINE_CLASS(usbh_hid_data_##index, &usbh_class_api,                                    \

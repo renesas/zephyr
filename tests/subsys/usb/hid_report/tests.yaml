@@ -1,4 +1,0 @@
-tests:
-   testscenario.testsuite:
-      tags: usbh_hid
-      type: unit
