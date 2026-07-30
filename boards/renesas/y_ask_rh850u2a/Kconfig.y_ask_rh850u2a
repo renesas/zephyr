@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_Y_ASK_RH850U2A
+	select SOC_R7F702300BFABA_C if BOARD_Y_ASK_RH850U2A_R7F702300BFABA_C
+	select SOC_R7F702302FABB_C if BOARD_Y_ASK_RH850U2A_R7F702302FABB_C

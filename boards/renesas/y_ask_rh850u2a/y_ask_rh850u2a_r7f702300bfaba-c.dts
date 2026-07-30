@@ -1,0 +1,61 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <rh850/renesas/rh850u2a/r7f702300xxaba-c.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+#include "y_ask_rh850u2a-pinctrl.dtsi"
+
+/ {
+	model = "Renesas RH850 U2A 292pin";
+	compatible = "renesas,y-ask-rh850u2a", "renesas,u2a";
+
+	chosen {
+		zephyr,console = &uart9;
+		zephyr,shell-uart = &uart9;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,system-timer = &ostm0;
+	};
+
+	aliases {
+		led0 = &led0;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led0 {
+			gpios = <&ioport2 1 GPIO_ACTIVE_HIGH>;
+			label = "LED0";
+		};
+	};
+};
+
+&ostm0 {
+	status = "okay";
+
+	timer {
+		status = "okay";
+	};
+};
+
+&rlin39 {
+	pinctrl-0 = <&rlin39_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	uart9: uart {
+		current-speed = <115200>;
+		status = "okay";
+	};
+};
+
+&ioport2 {
+	status = "okay";
+};

@@ -1,0 +1,26 @@
+identifier: y_ask_rh850u2a/r7f702302fabb-c
+name: Renesas RH850/U2A Starter Kit
+type: mcu
+arch: rh850
+ram: 512
+flash: 6144
+toolchain:
+  - iar
+supported:
+  - adc
+  - clock
+  - counter
+  - gpio
+  - pinctrl
+  - interrupt_controller
+  - i2c
+  - rtc
+  - spi
+  - uart
+  - timer
+  - crc
+  - watchdog
+  - dma
+  - pwm
+  - can
+vendor: renesas

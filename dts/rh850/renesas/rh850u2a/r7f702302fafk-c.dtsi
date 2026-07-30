@@ -9,7 +9,13 @@
 / {
 	soc {
 		flash0: flash@0 {
-			reg = <0x0 DT_SIZE_M(6)>;
+			reg = <0x0 DT_SIZE_M(3)>;
+		};
+
+		flash1: flash@1 {
+			compatible = "renesas,rh850-code-flash";
+			reg = <0x00400000 DT_SIZE_M(3)>;
+			renesas,programming-enable;
 		};
 
 		sram0: memory@fe000000 {
