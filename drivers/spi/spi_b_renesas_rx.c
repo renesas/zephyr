@@ -105,6 +105,25 @@ static void rx_spi_b_retransmit(struct rx_spi_b_data *data)
 	data->spi.tx_count = 0;
 	data->spi.count = data->data_len;
 
+	/*
+	 * RSPIA only leaves the idle state (SPSR.IDLNF) once new data is written into
+	 * SPDR while SPE is still set; clearing SPTEFC alone does not resume clocking.
+	 * SPE is intentionally left enabled across segments here, so prime the shift
+	 * register directly, mirroring what R_SPI_B_Write/Read/WriteRead does on the
+	 * initial kick-off, otherwise the transfer silently stalls at the segment
+	 * boundary and the caller eventually times out.
+	 */
+	if (data->spi.p_tx_data == NULL) {
+		data->spi.p_regs->SPDR = 0;
+	} else if (data->spi.bit_width > SPI_BIT_WIDTH_16_BITS) {
+		data->spi.p_regs->SPDR = ((uint32_t *)data->spi.p_tx_data)[0];
+	} else if (data->spi.bit_width > SPI_BIT_WIDTH_8_BITS) {
+		data->spi.p_regs->SPDR = ((uint16_t *)data->spi.p_tx_data)[0];
+	} else {
+		data->spi.p_regs->SPDR = ((uint8_t *)data->spi.p_tx_data)[0];
+	}
+	data->spi.tx_count = 1;
+
 	data->spi.p_regs->SPSCLR = R_SPI_B0_SPSCLR_SPTEFC_Msk;
 }
 
