@@ -10,3 +10,9 @@ config COUNTER_RA_AGT
 	select USE_RA_FSP_AGT
 	help
 	  Enable support for Renesas Low Power Asynchronous General Purpose Timer (AGT) driver.
+
+config COUNTER_RENESAS_RA_AGT_CUSTOM_CONSTANT_ALARMS
+	bool "Enable custom feature"
+	default n
+	help 
+	  Stops agt alarms from reseting after underflow
