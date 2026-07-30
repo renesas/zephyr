@@ -436,16 +436,28 @@ static void eth_rx_thread(void *arg1, void *unused1, void *unused2)
 {
 	const struct device *dev = (const struct device *)arg1;
 	struct eth_renesas_rx_data *data = dev->data;
+	uint32_t work = 0;
 
 	ARG_UNUSED(unused1);
 	ARG_UNUSED(unused2);
 
 	while (1) {
 		if (k_sem_take(&data->rx_sem, K_MSEC(100))) {
+			work = 0;
 			continue;
 		}
 
 		renesas_rx_eth_receive(dev);
+
+		/* renesas_rx_eth_receive() re-gives rx_sem whenever more data is
+		 * pending, so under sustained traffic k_sem_take() above never
+		 * blocks. Since this thread runs at cooperative priority, yield
+		 * periodically so it cannot starve other threads indefinitely.
+		 */
+		if (++work >= CONFIG_ETH_RENESAS_RX_RECEIVE_BUDGET) {
+			work = 0;
+			k_yield();
+		}
 	}
 }
 
