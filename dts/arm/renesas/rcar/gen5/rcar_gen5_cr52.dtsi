@@ -67,6 +67,15 @@
 			status = "disabled";
 		};
 
+		gpio6: gpio@c0400900 {
+			compatible = "renesas,rcar-gpio";
+			reg = <0xc0400900 0xd0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+			channel = <6>;
+			status = "disabled";
+		};
+
 		gpio9: gpio@c9b00100 {
 			compatible = "renesas,rcar-gpio";
 			reg = <0xc9b00100 0xd0>;

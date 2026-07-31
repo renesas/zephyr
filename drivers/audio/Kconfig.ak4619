@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config AUDIO_CODEC_AK4619
+	bool "AKM AK4619 Audio CODEC driver"
+	default y
+	depends on GPIO
+	depends on DT_HAS_ASAHI_KASEI_AK4619_ENABLED
+	select I2C
+	help
+	  Enable driver for the AKM AK4619 audio CODEC.

@@ -3,6 +3,7 @@
 zephyr_library()
 
 # zephyr-keep-sorted-start
+zephyr_library_sources_ifdef(CONFIG_AUDIO_CODEC_AK4619 ak4619.c)
 zephyr_library_sources_ifdef(CONFIG_AUDIO_CODEC_AW88298 aw88298.c)
 zephyr_library_sources_ifdef(CONFIG_AUDIO_CODEC_CS43L22 cs43l22.c)
 zephyr_library_sources_ifdef(CONFIG_AUDIO_CODEC_DA7212 da7212.c)

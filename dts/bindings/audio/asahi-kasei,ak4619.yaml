@@ -1,0 +1,352 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  AKM AK4619VN 4-channel 192kHz Audio CODEC.
+
+compatible: "asahi-kasei,ak4619"
+
+include: i2c-device.yaml
+
+properties:
+  pdn-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO connected to the PDN pin (active high).
+
+  adc1-disable:
+    type: boolean
+    description: |
+      ADC1 channel is not wired up on this board; keep PMAD1 powered down
+      regardless of the requested audio route.
+
+  adc2-disable:
+    type: boolean
+    description: |
+      ADC2 channel is not wired up on this board; keep PMAD2 powered down
+      regardless of the requested audio route.
+
+  dac1-disable:
+    type: boolean
+    description: |
+      DAC1 channel is not wired up on this board; keep PMDA1 powered down
+      regardless of the requested audio route.
+
+  dac2-disable:
+    type: boolean
+    description: |
+      DAC2 channel is not wired up on this board; keep PMDA2 powered down
+      regardless of the requested audio route.
+
+  mclk:
+    type: phandle-array
+    specifier-space: clock
+    required: true
+    description: |
+      MCLK clock provider.
+
+  mic1-gain-l-mode:
+    type: int
+    default: 2
+    description: |
+      MGN1L[3:0] mic gain amp mode for ADC1 left channel.
+      The following options are available:
+      - 0: -6dB
+      - 1: -3dB
+      - 2: 0dB (default)
+      - 3: 3dB
+      - 4: 6dB
+      - 5: 9dB
+      - 6: 12dB
+      - 7: 15dB
+      - 8: 18dB
+      - 9: 21dB
+      - 10: 24dB
+      - 11: 27dB
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+
+  mic1-gain-r-mode:
+    type: int
+    default: 2
+    description: |
+      MGN1R[3:0] mic gain amp mode for ADC1 right channel.
+      The following options are available:
+      - 0: -6dB
+      - 1: -3dB
+      - 2: 0dB (default)
+      - 3: 3dB
+      - 4: 6dB
+      - 5: 9dB
+      - 6: 12dB
+      - 7: 15dB
+      - 8: 18dB
+      - 9: 21dB
+      - 10: 24dB
+      - 11: 27dB
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+
+  mic2-gain-l-mode:
+    type: int
+    default: 2
+    description: |
+      MGN2L[3:0] mic gain amp mode for ADC2 left channel.
+      The following options are available:
+      - 0: -6dB
+      - 1: -3dB
+      - 2: 0dB (default)
+      - 3: 3dB
+      - 4: 6dB
+      - 5: 9dB
+      - 6: 12dB
+      - 7: 15dB
+      - 8: 18dB
+      - 9: 21dB
+      - 10: 24dB
+      - 11: 27dB
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+
+  mic2-gain-r-mode:
+    type: int
+    default: 2
+    description: |
+      MGN2R[3:0] mic gain amp mode for ADC2 right channel.
+      The following options are available:
+      - 0: -6dB
+      - 1: -3dB
+      - 2: 0dB (default)
+      - 3: 3dB
+      - 4: 6dB
+      - 5: 9dB
+      - 6: 12dB
+      - 7: 15dB
+      - 8: 18dB
+      - 9: 21dB
+      - 10: 24dB
+      - 11: 27dB
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+
+  adc1-filter-mode:
+    type: int
+    default: 0
+    description: |
+      AD1VO/AD1SD/AD1SL digital filter mode for ADC1.
+      The following options are available:
+      - 0: Sharp Roll-Off Filter (default)
+      - 1: Slow Roll-Off Filter
+      - 2: Short Delay Sharp Roll-Off Filter
+      - 3: Short Delay Slow Roll-Off Filter
+      - 4: Voice Filter (fs <= 48kHz only)
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+
+  adc2-filter-mode:
+    type: int
+    default: 0
+    description: |
+      AD2VO/AD2SD/AD2SL digital filter mode for ADC2.
+      The following options are available:
+      - 0: Sharp Roll-Off Filter (default)
+      - 1: Slow Roll-Off Filter
+      - 2: Short Delay Sharp Roll-Off Filter
+      - 3: Short Delay Slow Roll-Off Filter
+      - 4: Voice Filter (fs <= 48kHz only)
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+
+  dac1-filter-mode:
+    type: int
+    default: 2
+    description: |
+      DA1SD/DA1SL digital filter mode for DAC1.
+      The following options are available:
+      - 0: Sharp Roll-Off Filter
+      - 1: Slow Roll-Off Filter
+      - 2: Short Delay Sharp Roll-Off Filter (default)
+      - 3: Short Delay Slow Roll-Off Filter
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+
+  dac2-filter-mode:
+    type: int
+    default: 2
+    description: |
+      DA2SD/DA2SL digital filter mode for DAC2.
+      The following options are available:
+      - 0: Sharp Roll-Off Filter
+      - 1: Slow Roll-Off Filter
+      - 2: Short Delay Sharp Roll-Off Filter (default)
+      - 3: Short Delay Slow Roll-Off Filter
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+
+  dac1-input:
+    type: int
+    default: 0
+    description: |
+      DAC1SEL[1:0] PCM source select for DAC1.
+      The following options are available:
+      - 0: SDIN1 (default)
+      - 1: SDIN2
+      - 2: SDOUT1
+      - 3: SDOUT2
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+
+  dac2-input:
+    type: int
+    default: 1
+    description: |
+      DAC2SEL[1:0] PCM source select for DAC2.
+      The following options are available:
+      - 0: SDIN1
+      - 1: SDIN2 (default)
+      - 2: SDOUT1
+      - 3: SDOUT2
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+
+  dac1-deemphasis:
+    type: boolean
+    description: |
+      Enable the DAC1 de-emphasis IIR filter.
+      Only takes effect when the sampling rate is 32kHz, 44.1kHz, or 48kHz and
+      the audio route includes playback; otherwise the filter is kept OFF.
+
+  dac2-deemphasis:
+    type: boolean
+    description: |
+      Enable the DAC2 de-emphasis IIR filter.
+      Only takes effect when the sampling rate is 32kHz, 44.1kHz, or 48kHz and
+      the audio route includes playback; otherwise the filter is kept OFF.
+
+  adc1-l-input-mode:
+    type: string
+    default: "differential"
+    description: |
+      AD1LSEL[1:0] input mode for ADC1 left channel.
+      The following options are available:
+      - "differential": 00, IN1P/IN1N (default)
+      - "single-ended-1": 01, AIN1L
+      - "single-ended-2": 10, AIN2L
+      - "pseudo-differential": 11, AIN3L/GND3L
+    enum:
+      - "differential"
+      - "single-ended-1"
+      - "single-ended-2"
+      - "pseudo-differential"
+
+  adc1-r-input-mode:
+    type: string
+    default: "differential"
+    description: |
+      AD1RSEL[1:0] input mode for ADC1 right channel.
+      The following options are available:
+      - "differential": 00, IN2P/IN2N (default)
+      - "single-ended-1": 01, AIN1R
+      - "single-ended-2": 10, AIN2R
+      - "pseudo-differential": 11, AIN3R/GND3R
+    enum:
+      - "differential"
+      - "single-ended-1"
+      - "single-ended-2"
+      - "pseudo-differential"
+
+  adc2-l-input-mode:
+    type: string
+    default: "differential"
+    description: |
+      AD2LSEL[1:0] input mode for ADC2 left channel.
+      The following options are available:
+      - "differential": 00, IN3P/IN3N (default)
+      - "single-ended-1": 01, AIN4L
+      - "single-ended-2": 10, AIN5L
+      - "pseudo-differential": 11, AIN6L/GND6L
+    enum:
+      - "differential"
+      - "single-ended-1"
+      - "single-ended-2"
+      - "pseudo-differential"
+
+  adc2-r-input-mode:
+    type: string
+    default: "differential"
+    description: |
+      AD2RSEL[1:0] input mode for ADC2 right channel.
+      The following options are available:
+      - "differential": 00, IN4P/IN4N (default)
+      - "single-ended-1": 01, AIN4R
+      - "single-ended-2": 10, AIN5R
+      - "pseudo-differential": 11, AIN6R/GND6R
+    enum:
+      - "differential"
+      - "single-ended-1"
+      - "single-ended-2"
+      - "pseudo-differential"

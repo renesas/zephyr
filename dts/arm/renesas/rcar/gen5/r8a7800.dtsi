@@ -63,6 +63,11 @@
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_PFC_PERE_GPIODM0>;
 		};
 
+		gpio6: gpio@c0400900 {
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_PFC_PERE_GPIODM0>;
+		};
+
 		gpio9: gpio@c9b00100 {
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clocks = <&clkc CLKC_MOD R8A78000_MOD_PFC_PERE_GPIODM0>;
