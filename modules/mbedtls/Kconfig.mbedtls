@@ -28,7 +28,7 @@ config MBEDTLS_USER_CONFIG
 	def_bool MBEDTLS_USER_CONFIG_FILE != ""
 
 menu "Mbed TLS configuration"
-	depends on MBEDTLS_BUILTIN
+	depends on MBEDTLS_BUILTIN || MBEDTLS_CUSTOM
 
 menu "TLS"
 
