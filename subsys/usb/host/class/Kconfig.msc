@@ -4,6 +4,7 @@
 config USBH_MSC_CLASS
 	bool "USB host Mass Storage Class support [EXPERIMENTAL]"
 	select EXPERIMENTAL
+	select DISK_ACCESS
 	help
 	  USB Mass Storage Class (MSC) implementation.
 

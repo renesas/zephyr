@@ -12,8 +12,8 @@
 	maximum-speed = "full-speed";
 	status = "okay";
 
-	zephyr_uhc0: uhc {
-		compatible = "renesas,ra-uhc";
+	zephyr_udc0: udc {
+		compatible = "renesas,ra-udc";
 		status = "okay";
 	};
 };
@@ -24,8 +24,8 @@
 	maximum-speed = "high-speed";
 	status = "okay";
 
-	zephyr_udc0: udc {
-		compatible = "renesas,ra-udc";
+	zephyr_uhc0: uhc {
+		compatible = "renesas,ra-uhc";
 		status = "okay";
 	};
 };

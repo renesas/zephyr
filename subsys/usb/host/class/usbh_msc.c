@@ -126,7 +126,7 @@ struct lun_data {
 	uint32_t last_logical_block_address;
 	/* Block size */
 	uint32_t block_length_in_bytes;
-	/* Unit state; whether initialization was successfull, if the medium is actually connected
+	/* Unit state; whether initialization was successful, if the medium is actually connected
 	 */
 	enum {
 		UNIT_STATE_NOT_READY,
@@ -160,20 +160,15 @@ struct driver_data {
 static int reset_recovery(struct driver_data *driver_data);
 static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t endpoint);
 
-/**
- * @brief Synchronization callback to wait for completion of asynchronous transfers
- *
+/*
+ * Synchronization callback to wait for completion of asynchronous transfers
  * Should be passed to `usbh_xfer_alloc_with_buf` or `usbh_xfer_alloc` before queuing the
  * transfer, to then block on `driver_data->sync` in order to wait for completion. This
  * function only gives way to the semaphore; it doesn't analyze or deallocate anything.
- *
- * @param udev Pointer to the connected USB device structure
- * @param xfer Pointer to completed transfer structure
- *
- * @return 0
  */
 static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
+	ARG_UNUSED(udev);
 	struct driver_data *driver_data = xfer->priv;
 
 	if (xfer->err != 0) {
@@ -185,17 +180,11 @@ static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfe
 	return 0;
 }
 
-/**
- * @brief Block on `driver_data->sync` waiting for the `sync_cb` callback
- *
+/*
+ * Block on `driver_data->sync` waiting for the `sync_cb` callback
  * This function waits for the last transfer enqueued with `sync_cb` as completion to be
  * done. If it actually completes it returns the error code; in the event of a timeout it
  * makes sure the transfer is no longer pending.
- *
- * @param driver_data  Pointer to the driver data structure
- * @param xfer         Pointer to the transfer structure
- *
- * @return 0 on success, negative errno value on failure.
  */
 static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *xfer)
 {
@@ -218,10 +207,6 @@ static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *x
 		else if (result != 0) {
 			LOG_ERR("Failed to cancel transfer");
 		}
-		/* Dequeue succeeded, the callback will deallocate the transfer, do nothing
-		 */
-		else {
-		}
 
 		return -ETIMEDOUT;
 	}
@@ -229,13 +214,9 @@ static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *x
 	return xfer->err;
 }
 
-/**
- * @brief Get the endpoint address for the provided direction
- *
- * @param driver_data  Pointer to the driver data structure
- * @param direction    Transfer direction
- *
- * @return Corresponding endpoint address
+/*
+ * Get the endpoint address for the provided direction.
+ * Returns the corresponding endpoint address.
  */
 static inline uint8_t get_endpoint_for_direction(struct driver_data *driver_data,
 						 enum scsi_direction direction)
@@ -247,12 +228,8 @@ static inline uint8_t get_endpoint_for_direction(struct driver_data *driver_data
 	}
 }
 
-/**
- * @brief Convert the unit state to an errno code
- *
- * @param lun_data  Pointer to the lun_data structure
- *
- * @return Corresponding errno code
+/*
+ * Convert the unit state to an errno code.
  */
 static inline int unit_state_to_errno(struct lun_data *lun_data)
 {
@@ -269,19 +246,11 @@ static inline int unit_state_to_errno(struct lun_data *lun_data)
 	}
 }
 
-/**
- * @brief Data transfer phase of a SCSI transaction
- *
- * @param driver_data  Pointer to the driver data structure
- * @param data_length  Size of the data to be transferred
- * @param data         Data to be either received or transmitted
- * @param direction    Direction of the transfer
- *
- * @return positive value (the number of transferred bytes) on success, negative errno value
- * on failure.
+/*
+ * Data transfer phase of a SCSI transaction.
  */
-static int scsi_transfer_data(struct driver_data *driver_data, size_t data_length,
-			      uint8_t data[data_length], enum scsi_direction direction)
+static int scsi_transfer_data(struct driver_data *driver_data, size_t data_length, uint8_t *data,
+			      enum scsi_direction direction)
 {
 	struct uhc_transfer *xfer;
 	int result = 0;
@@ -319,9 +288,6 @@ static int scsi_transfer_data(struct driver_data *driver_data, size_t data_lengt
 	if (direction == SCSI_DIRECTION_DATA_IN) {
 		/* If the data goes into the host copy it into the buffer */
 		memcpy(data, xfer->buf->data, xfer->buf->len);
-		// LOG_HEXDUMP_DBG(xfer->buf->data, xfer->buf->len, "IN DATA");
-	} else {
-		// LOG_HEXDUMP_DBG(xfer->buf->data, xfer->buf->len, "OUT DATA");
 	}
 
 	/* Return the number of bytes transferred */
@@ -334,13 +300,8 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Read a pending Command Status Wrapper
- *
- * @param driver_data  Pointer to the driver data structure
- * @param csw          Pointer to the CSW structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Read a pending Command Status Wrapper.
  */
 static int scsi_read_status(struct driver_data *driver_data, struct scsi_csw *csw)
 {
@@ -389,13 +350,8 @@ static int scsi_read_status(struct driver_data *driver_data, struct scsi_csw *cs
 	return 0;
 }
 
-/**
- * @brief Send an SCSI Command Block Wrapper
- *
- * @param driver_data  Pointer to the driver data structure
- * @param cbw          Command Block Wrapper structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Send an SCSI Command Block Wrapper.
  */
 static int scsi_command(struct driver_data *driver_data, struct scsi_cbw cbw)
 {
@@ -447,8 +403,6 @@ static int scsi_command(struct driver_data *driver_data, struct scsi_cbw cbw)
 		net_buf_add_u8(xfer->buf, 0);
 	}
 
-	// LOG_HEXDUMP_DBG(xfer->buf->data, xfer->buf->len, "CBW");
-
 	result = usbh_xfer_enqueue(driver_data->udev, xfer);
 	if (result != 0) {
 		LOG_ERR("Unable to enqueue the transfer: %i", result);
@@ -463,23 +417,15 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Full SCSI transaction: CBW - Data - CSW
- *
- * @param driver_data       Pointer to the driver data structure
- * @param cbw               Command Block Wrapper structure
- * @param data              Data to be transferred (in or out, depending on the direction)
- * @param attempt_recovery  Wether the recovery procedure should be attempted on failure
- *
- * @return positive value (the number of processed bytes) on success, negative errno value
- * on failure.
+/*
+ * Full SCSI transaction: CBW - Data - CSW.
  */
 static int scsi_transaction(struct driver_data *driver_data, struct scsi_cbw cbw, uint8_t *data,
 			    bool attempt_recovery)
 {
 	struct scsi_csw csw = {};
 	int result = 0;
-	unsigned attempts = 0;
+	size_t attempts = 0u;
 
 	do {
 		attempts++;
@@ -584,33 +530,26 @@ static int scsi_transaction(struct driver_data *driver_data, struct scsi_cbw cbw
 	return result;
 }
 
-/**
- * @brief Request SCSI sense data
- *
- * @param driver_data  Pointer to the driver data structure
- * @param sense_data   Pointer to the sense data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Request SCSI sense data.
  */
 static int scsi_request_sense(struct driver_data *driver_data, struct scsi_sense_data *sense_data,
 			      uint8_t lun_index)
 {
 	int result = 0;
-	uint8_t buffer[SCSI_MAX_SENSE_DATA] = {0};
-	uint8_t const command_block[] = {
-		SCSI_COMMAND_REQUEST_SENSE, 0, 0, 0, SCSI_MAX_SENSE_DATA, 0,
+	uint8_t buffer[SCSI_MAX_SENSE_DATA] = {0u};
+	uint8_t const command_block[6u] = {
+		SCSI_COMMAND_REQUEST_SENSE, 0u, 0u, 0u, SCSI_MAX_SENSE_DATA, 0u,
+	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_IN,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = sizeof(buffer),
 	};
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_IN,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = sizeof(buffer),
-				  },
-				  buffer, true);
+	result = scsi_transaction(driver_data, cbw, buffer, true);
 
 	if (result < 0) {
 		LOG_ERR("Request sense failed: %i", result);
@@ -632,18 +571,8 @@ static int scsi_request_sense(struct driver_data *driver_data, struct scsi_sense
 	return 0;
 }
 
-/**
- * @brief Request and log sense data
- *
- * This function has mainly debugging purposes. Codes are listed in the SPC document's
- * tables 49 and
- * 50. There are hundreds of codes, most regarding obsolete or irreparable conditions, so in
- * case of error the best course of action is to just fail and print what was encountered
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return Error relative to the sense data
+/*
+ * Request sense data, converting it to a proper errno value.
  */
 static int check_sense(struct driver_data *driver_data, uint8_t lun_index)
 {
@@ -686,32 +615,27 @@ static int check_sense(struct driver_data *driver_data, uint8_t lun_index)
 	return result;
 }
 
-/**
- * @brief Check if the device is ready
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Check if the device is ready.
  */
 static int test_unit_ready(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
-	size_t attempts = 0;
-	uint8_t const command_block[] = {
-		SCSI_COMMAND_TEST_UNIT_READY, 0, 0, 0, 0, 0,
+	size_t attempts = 0u;
+	uint8_t const command_block[6u] = {
+		SCSI_COMMAND_TEST_UNIT_READY, 0u, 0u, 0u, 0u, 0u,
+	};
+	struct scsi_cbw cbw = {
+		.direction = SCSI_DIRECTION_DATA_OUT,
+		.lun = lun_index,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = 0u,
 	};
 
 	/* Repeat the procedure for a number of attempts */
 	for (attempts = 0; attempts < CONFIG_USBH_MSC_TEST_UNIT_READY_ATTEMPTS; attempts++) {
-		result = scsi_transaction(driver_data,
-					  (struct scsi_cbw){
-						  .direction = SCSI_DIRECTION_DATA_OUT,
-						  .lun = lun_index,
-						  .command_block_length = sizeof(command_block),
-						  .command_block = command_block,
-					  },
-					  NULL, false);
+		result = scsi_transaction(driver_data, cbw, NULL, false);
 		if (result == 0) {
 			/* Done! */
 			break;
@@ -733,7 +657,7 @@ static int test_unit_ready(struct driver_data *driver_data, uint8_t lun_index)
 				 * the same: wait a bit and retry. */
 			}
 		} else {
-			LOG_ERR("Unable to test the unit for readyness: %i", result);
+			LOG_ERR("Unable to test the unit for readiness: %i", result);
 			return result;
 		}
 
@@ -748,31 +672,25 @@ static int test_unit_ready(struct driver_data *driver_data, uint8_t lun_index)
 	return result;
 }
 
-/**
- * @brief Read the capacity information of a logical unit, storing it in `driver_data`
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Read the capacity information of a logical unit, storing it in `driver_data`.
  */
 static int read_capacity(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	uint8_t response[SCSI_READ_CAPACITY_10_DATA_LENGTH] = {};
-	uint8_t const command_block[] = {
+	uint8_t const command_block[10u] = {
 		SCSI_COMMAND_READ_CAPACITY_10, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u,
 	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_IN,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = sizeof(response),
+	};
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_IN,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = sizeof(response),
-				  },
-				  response, true);
+	result = scsi_transaction(driver_data, cbw, response, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -796,19 +714,14 @@ static int read_capacity(struct driver_data *driver_data, uint8_t lun_index)
 	return 0;
 }
 
-/**
- * @brief Read the mode information of a logical unit, storing it in `driver_data`
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Read the mode information of a logical unit, storing it in `driver_data`.
  */
 static int mode_sense_6(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	uint8_t response[SCSI_MODE_SENSE_DATA_LENGTH] = {};
-	uint8_t const command_block[] = {
+	uint8_t const command_block[6u] = {
 		SCSI_COMMAND_MODE_SENSE_6,
 		1u << 3u,                            /* Disable block descriptors */
 		0x3Fu,                               /* All pages, current values */
@@ -817,15 +730,15 @@ static int mode_sense_6(struct driver_data *driver_data, uint8_t lun_index)
 		0u,
 	};
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_IN,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = sizeof(response),
-				  },
-				  response, true);
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_IN,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = sizeof(response),
+	};
+
+	result = scsi_transaction(driver_data, cbw, response, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -847,19 +760,14 @@ static int mode_sense_6(struct driver_data *driver_data, uint8_t lun_index)
 	return 0;
 }
 
-/**
- * @brief Read the mode information of a logical unit, storing it in `driver_data`
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Read the mode information of a logical unit, storing it in `driver_data`.
  */
 static int mode_sense_10(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	uint8_t response[SCSI_MODE_SENSE_DATA_LENGTH] = {};
-	uint8_t const command_block[] = {
+	uint8_t const command_block[10u] = {
 		SCSI_COMMAND_MODE_SENSE_10,
 		1u << 3u, /* Disable block descriptors */
 		0x3Fu,    /* All pages, current values */
@@ -871,16 +779,15 @@ static int mode_sense_10(struct driver_data *driver_data, uint8_t lun_index)
 		SCSI_MODE_SENSE_DATA_LENGTH & 0xFFu,
 		0u,
 	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_IN,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = sizeof(response),
+	};
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_IN,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = sizeof(response),
-				  },
-				  response, true);
+	result = scsi_transaction(driver_data, cbw, response, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -902,19 +809,14 @@ static int mode_sense_10(struct driver_data *driver_data, uint8_t lun_index)
 	return 0;
 }
 
-#if !CONFIG_USBH_MSC_IGNORE_SYNC
-/**
- * @brief Flush the device's caches
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+#ifndef CONFIG_USBH_MSC_IGNORE_SYNC
+/*
+ * Flush the device's caches.
  */
 static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
-	uint8_t const command_block[] = {
+	uint8_t const command_block[10u] = {
 		SCSI_COMMAND_SYNCHRONIZE_CACHE_10,
 		0u, /* Sync to medium */
 		0u, /* LBA */
@@ -926,15 +828,15 @@ static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 		0u,
 		0u,
 	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_OUT,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = 0u,
+	};
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_OUT,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-				  },
-				  NULL, true);
+	result = scsi_transaction(driver_data, cbw, NULL, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -966,18 +868,10 @@ static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 
 	return 0;
 }
-#endif
+#endif /* CONFIG_USBH_MSC_IGNORE_SYNC */
 
-/**
- * @brief Read a number of blocks from a logical unit
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- * @param lba          Starting logical block address
- * @param block_count  Number of blocks to read
- * @param buffer       Buffer to read the data into
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Read a number of blocks from a logical unit.
  */
 static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
 		       uint16_t block_count, uint8_t *buffer)
@@ -985,30 +879,29 @@ static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint3
 	int result = 0;
 	uint32_t transfer_length =
 		block_count * driver_data->lun_data[lun_index].block_length_in_bytes;
-	uint8_t const command_block[] = {
+	uint8_t const command_block[10u] = {
 		SCSI_COMMAND_READ_10,
-		0,                    /* Obsolete flags */
+		0u,                   /* Obsolete flags */
 		(lba >> 24u) & 0xFFu, /* Big Endian address */
 		(lba >> 16u) & 0xFFu,
 		(lba >> 8u) & 0xFFu,
 		lba & 0xFFu,
-		0,                           /* Obsolete flags */
+		0u,                          /* Obsolete flags */
 		(block_count >> 8u) & 0xFFu, /* Big Endian count */
 		block_count & 0xFFu,
 		0u,
 	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_IN,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = transfer_length,
+	};
 
 	LOG_DBG("Read %i blocks starting from %i (%i bytes)", block_count, lba, transfer_length);
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_IN,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = transfer_length,
-				  },
-				  buffer, true);
+	result = scsi_transaction(driver_data, cbw, buffer, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -1034,16 +927,8 @@ static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint3
 	return 0;
 }
 
-/**
- * @brief Write a number of blocks to a logical unit
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- * @param lba          Starting logical block address
- * @param block_count  Number of blocks to write
- * @param buffer       Buffer to read the data from
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Write a number of blocks to a logical unit.
  */
 static int write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
 			uint16_t block_count, uint8_t const *buffer)
@@ -1051,31 +936,29 @@ static int write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint
 	int result = 0;
 	uint32_t transfer_length =
 		block_count * driver_data->lun_data[lun_index].block_length_in_bytes;
-	uint8_t const command_block[] = {
+	uint8_t const command_block[10u] = {
 		SCSI_COMMAND_WRITE_10,
-		0,                    /* Obsolete flags */
+		0u,                   /* Obsolete flags */
 		(lba >> 24u) & 0xFFu, /* Big Endian address */
 		(lba >> 16u) & 0xFFu,
 		(lba >> 8u) & 0xFFu,
 		lba & 0xFFu,
-		0,                           /* Obsolete flags */
+		0u,                          /* Obsolete flags */
 		(block_count >> 8u) & 0xFFu, /* Big Endian count */
 		block_count & 0xFFu,
 		0u,
 	};
+	struct scsi_cbw cbw = {
+		.lun = lun_index,
+		.direction = SCSI_DIRECTION_DATA_OUT,
+		.command_block_length = sizeof(command_block),
+		.command_block = command_block,
+		.data_transfer_length = transfer_length,
+	};
 
 	LOG_DBG("Write %i blocks starting from %i (%i bytes)", block_count, lba, transfer_length);
-	//LOG_HEXDUMP_DBG(buffer, transfer_length, "BLOCK");
 
-	result = scsi_transaction(driver_data,
-				  (struct scsi_cbw){
-					  .lun = lun_index,
-					  .direction = SCSI_DIRECTION_DATA_OUT,
-					  .command_block_length = sizeof(command_block),
-					  .command_block = command_block,
-					  .data_transfer_length = transfer_length,
-				  },
-				  (uint8_t *)buffer, true);
+	result = scsi_transaction(driver_data, cbw, (uint8_t *)buffer, true);
 
 	/* Transaction refused */
 	if (result == -EACCES) {
@@ -1099,12 +982,8 @@ static int write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint
 	return 0;
 }
 
-/**
- * @brief Get the maximum logical unit index for this device
- *
- * @param driver_data  Pointer to the driver data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Get the maximum logical unit index for this device.
  */
 static int get_max_lun(struct driver_data *driver_data)
 {
@@ -1137,12 +1016,8 @@ static int get_max_lun(struct driver_data *driver_data)
 	return result;
 }
 
-/**
- * @brief Require a soft reset of the device
- *
- * @param driver_data  Pointer to the driver data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Require a soft reset of the device.
  */
 static int bulk_only_mass_storage_reset(struct driver_data *driver_data)
 {
@@ -1154,13 +1029,8 @@ static int bulk_only_mass_storage_reset(struct driver_data *driver_data)
 			      driver_data->target_iface, 0, NULL);
 }
 
-/**
- * @brief Clear an endpoint, re-enabling it
- *
- * @param driver_data  Pointer to the driver data structure
- * @param endpoint     Target endpoint address
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Clear an endpoint, re-enabling it.
  */
 static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t endpoint)
 {
@@ -1172,12 +1042,8 @@ static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t 
 			      USB_SFS_ENDPOINT_HALT, endpoint, 0, NULL);
 }
 
-/**
- * @brief Apply a reset recovery procedure (see SPC section 5.3.4)
- *
- * @param driver_data  Pointer to the driver data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Apply a reset recovery procedure (see SPC section 5.3.4).
  */
 static int reset_recovery(struct driver_data *driver_data)
 {
@@ -1206,7 +1072,7 @@ static int reset_recovery(struct driver_data *driver_data)
 		return result;
 	}
 
-	/* Check for readyness again */
+	/* Check for readiness again */
 	for (size_t lun_index = 0; lun_index <= driver_data->max_logical_unit &&
 				   lun_index < CONFIG_USBH_MSC_MAX_SUPPORTED_LUN;
 	     lun_index++) {
@@ -1225,13 +1091,8 @@ static int reset_recovery(struct driver_data *driver_data)
 	return 0;
 }
 
-/**
- * @brief Scan endpoints in the interface
- *
- * @param driver_data  Pointer to the driver data structure
- * @param iface        Target interface
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Scan endpoints in the interface.
  */
 static int scan_interface_endpoints(struct driver_data *driver_data, uint8_t iface)
 {
@@ -1288,25 +1149,16 @@ static int scan_interface_endpoints(struct driver_data *driver_data, uint8_t ifa
 	return 0;
 }
 
-/**
- * @brief Retrieve the containing `struct lun_data` from a `disk` field pointer
- *
- * @param disk  Pointer to disk field of the containing structure
- *
- * @return Pointer to containing `struct lun_data`
+/*
+ * Retrieve the containing `struct lun_data` from a `disk` field pointer.
  */
 static inline struct lun_data *get_lun_data_from_disk(struct disk_info *disk)
 {
 	return CONTAINER_OF(disk, struct lun_data, disk);
 }
 
-/**
- * @brief Fetch medatada (write protect status, capacity) for the specified unit
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Fetch medatada (write protect status, capacity) for the specified unit.
  */
 static int retrieve_unit_metadata(struct driver_data *driver_data, uint8_t lun_index)
 {
@@ -1338,20 +1190,15 @@ static int retrieve_unit_metadata(struct driver_data *driver_data, uint8_t lun_i
 	return result;
 }
 
-/**
- * @brief Attempt to initialize a unit
- *
- * @param driver_data  Pointer to the driver data structure
- * @param lun_index    Index of the target logical unit
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Attempt to initialize a unit
  */
 static int initialize_unit(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	struct lun_data *lun_data = &driver_data->lun_data[lun_index];
 
-	/* Test the unit for readyness */
+	/* Test the unit for readiness */
 	result = test_unit_ready(driver_data, lun_index);
 	/* No medium connected */
 	if (result == -ENOMEDIUM) {
@@ -1464,9 +1311,9 @@ static int disk_access_write(struct disk_info *disk, const uint8_t *data_buf, ui
 
 static int disk_access_erase(struct disk_info *disk, uint32_t start_sector, uint32_t num_sector)
 {
-	(void)disk;
-	(void)start_sector;
-	(void)num_sector;
+	ARG_UNUSED(disk);
+	ARG_UNUSED(start_sector);
+	ARG_UNUSED(num_sector);
 	/* Erasing doesn't make sense in the context of USB drives, it should be handled by
 	 * the device's own firmware */
 	return -ENOTSUP;
@@ -1498,9 +1345,9 @@ static int disk_access_ioctl(struct disk_info *disk, uint8_t cmd, void *buff)
 	}
 	case DISK_IOCTL_CTRL_SYNC: {
 		if (lun_data->unit_state == UNIT_STATE_READY) {
-#if !CONFIG_USBH_MSC_IGNORE_SYNC
+#ifndef CONFIG_USBH_MSC_IGNORE_SYNC
 			result = synchronize_cache(driver_data, lun_data->index);
-#endif
+#endif /* CONFIG_USBH_MSC_IGNORE_SYNC */
 		} else {
 			result = unit_state_to_errno(lun_data);
 		}
@@ -1539,8 +1386,8 @@ static int disk_access_init(struct disk_info *disk)
 	return disk_access_ioctl(disk, DISK_IOCTL_CTRL_INIT, NULL);
 }
 
-/**
- * @brief Disk access vtable
+/*
+ * Disk access vtable
  */
 static const struct disk_operations disk_operations = {
 	.init = disk_access_init,
@@ -1551,14 +1398,10 @@ static const struct disk_operations disk_operations = {
 	.ioctl = disk_access_ioctl,
 };
 
-/**
- * @brief Initialize the MSC host class driver
- *
- * @param c_data  Pointer to the usb class data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Initialize the MSC host class driver.
  */
-static int usbh_class_init(struct usbh_class_data *const c_data)
+static int usbh_msc_init(struct usbh_class_data *const c_data)
 {
 	const struct device *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
@@ -1571,16 +1414,11 @@ static int usbh_class_init(struct usbh_class_data *const c_data)
 	return 0;
 }
 
-/**
- * @brief Probe the USB class driver after a device has been found
- *
- * @param c_data  Pointer to the usb class data structure
- * @param udev    Pointer to the usb device structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Probe the USB class driver after a device has been found.
  */
-static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_device *const udev,
-			    uint8_t iface)
+static int usbh_msc_probe(struct usbh_class_data *const c_data, struct usb_device *const udev,
+			  uint8_t iface)
 {
 	const struct device *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
@@ -1663,14 +1501,10 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Remove the USB class driver on disconnection
- *
- * @param c_data  Pointer to the usb class data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Remove the USB class driver on disconnection
  */
-static int usbh_class_remove(struct usbh_class_data *const c_data)
+static int usbh_msc_remove(struct usbh_class_data *const c_data)
 {
 	const struct device *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
@@ -1697,19 +1531,19 @@ static int usbh_class_remove(struct usbh_class_data *const c_data)
 	return 0;
 }
 
-/**
- * @brief USB Host class API vtable
+/*
+ * USB Host class API vtable.
  */
-static struct usbh_class_api usbh_class_api = {
-	.init = usbh_class_init,
-	.probe = usbh_class_probe,
-	.removed = usbh_class_remove,
+static struct usbh_class_api usbh_msc_api = {
+	.init = usbh_msc_init,
+	.probe = usbh_msc_probe,
+	.removed = usbh_msc_remove,
 };
 
-/**
- * @brief USB Host class filters
+/*
+ * USB Host class filters.
  */
-static struct usbh_class_filter usbh_uvc_filters[] = {
+static struct usbh_class_filter usbh_msc_filters[] = {
 	{
 		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
 		.class = USB_BCC_MASS_STORAGE,
@@ -1726,7 +1560,7 @@ static struct usbh_class_filter usbh_uvc_filters[] = {
 	DEVICE_DEFINE(usbh_msc_##index, "usbh_msc_" #index, NULL, NULL, &driver_data_##index,      \
 		      &driver_config_##index, POST_KERNEL, 50, NULL);                              \
                                                                                                    \
-	USBH_DEFINE_CLASS(usbh_msc_data_##index, &usbh_class_api,                                  \
-			  (void *)DEVICE_GET(usbh_msc_##index), usbh_uvc_filters);
+	USBH_DEFINE_CLASS(usbh_msc_data_##index, &usbh_msc_api,                                    \
+			  (void *)DEVICE_GET(usbh_msc_##index), usbh_msc_filters);
 
 LISTIFY(CONFIG_USBH_MSC_INSTANCES_COUNT, USBH_DEVICE_DEFINE, (;), _)

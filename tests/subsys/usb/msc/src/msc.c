@@ -45,8 +45,11 @@ USBH_CONTROLLER_DEFINE(test_uhs_ctx, DEVICE_DT_GET(DT_NODELABEL(zephyr_uhc0)));
 
 /* USB Host controller context pointer for convenience */
 struct usbh_context *const uhs_ctx = &test_uhs_ctx;
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk0), okay) ||                                            \
+	DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk1), okay)
 /* USB Device controller context pointer for convenience */
 static struct usbd_context *test_usbd = NULL;
+#endif
 
 /* Test data to be written to files */
 static uint8_t const lorem_ipsum_buffer[] =
@@ -121,11 +124,14 @@ static void suite_shutdown(void *f)
 {
 	int result = 0;
 
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk0), okay) ||                                            \
+	DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk1), okay)
 	result = usbd_disable(test_usbd);
 	zassert_ok(result, "Failed to disable device support");
 
 	result = usbd_shutdown(test_usbd);
 	zassert_ok(result, "Failed to shutdown device support");
+#endif
 
 	result = usbh_disable(uhs_ctx);
 	zassert_ok(result, "Failed to disable USB host");
