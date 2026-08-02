@@ -307,6 +307,386 @@
 				 <&clkc CLKC_CORE R8A78000_CLK_SGASYNCD16_PERW_BUS>;
 		};
 
+		ssi0: ssi@ec549000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec549000 0x34>,
+			      <0xec540000 0xa004>,
+			      <0xec100000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x7c>,
+			       <&audio_dmac0 1 0x7d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 513 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI00>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi1: ssi@ec559000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec559000 0x34>,
+			      <0xec550000 0xa004>,
+			      <0xec108000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x6c>,
+			       <&audio_dmac0 1 0x6d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 514 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI01>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi2: ssi@ec569000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec569000 0x34>,
+			      <0xec560000 0xa004>,
+			      <0xec110000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x5c>,
+			       <&audio_dmac0 1 0x5d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 515 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI02>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi3: ssi@ec579000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec579000 0x34>,
+			      <0xec570000 0xa004>,
+			      <0xec118000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x4c>,
+			       <&audio_dmac0 1 0x4d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI03>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi4: ssi@ec589000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec589000 0x34>,
+			      <0xec580000 0xa004>,
+			      <0xec120000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x3c>,
+			       <&audio_dmac0 1 0x3d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 517 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI04>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi5: ssi@ec599000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec599000 0x34>,
+			      <0xec590000 0xa004>,
+			      <0xec128000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x2c>,
+			       <&audio_dmac0 1 0x2d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 518 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI05>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi6: ssi@ec5a9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec5a9000 0x34>,
+			      <0xec5a0000 0xa004>,
+			      <0xec130000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x2a>,
+			       <&audio_dmac0 1 0x2b>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 519 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI06>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi7: ssi@ec5b9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec5b9000 0x34>,
+			      <0xec5b0000 0xa004>,
+			      <0xec138000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x28>,
+			       <&audio_dmac0 1 0x29>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 520 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI07>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi8: ssi@ec5c9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec5c9000 0x34>,
+			      <0xec5c0000 0xa004>,
+			      <0xec140000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x26>,
+			       <&audio_dmac0 1 0x27>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 521 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI08>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi9: ssi@ec5d9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xec5d9000 0x34>,
+			      <0xec5d0000 0xa004>,
+			      <0xec148000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac0 0 0x24>,
+			       <&audio_dmac0 1 0x25>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 522 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI09>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+				 <&adg0 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi10: ssi@ed549000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed549000 0x34>,
+			      <0xed540000 0xa004>,
+			      <0xed100000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x7c>,
+			       <&audio_dmac2 1 0x7d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 523 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI10>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi11: ssi@ed559000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed559000 0x34>,
+			      <0xed550000 0xa004>,
+			      <0xed108000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x6c>,
+			       <&audio_dmac2 1 0x6d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 524 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI11>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi12: ssi@ed569000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed569000 0x34>,
+			      <0xed560000 0xa004>,
+			      <0xed110000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x5c>,
+			       <&audio_dmac2 1 0x5d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 525 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI12>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi13: ssi@ed579000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed579000 0x34>,
+			      <0xed570000 0xa004>,
+			      <0xed118000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x4c>,
+			       <&audio_dmac2 1 0x4d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 526 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI13>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi14: ssi@ed589000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed589000 0x34>,
+			      <0xed580000 0xa004>,
+			      <0xed120000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x3c>,
+			       <&audio_dmac2 1 0x3d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 527 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI14>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi15: ssi@ed599000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed599000 0x34>,
+			      <0xed590000 0xa004>,
+			      <0xed128000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x2c>,
+			       <&audio_dmac2 1 0x2d>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 528 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI15>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi16: ssi@ed5a9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed5a9000 0x34>,
+			      <0xed5a0000 0xa004>,
+			      <0xed130000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x2a>,
+			       <&audio_dmac2 1 0x2b>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 529 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI16>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi17: ssi@ed5b9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed5b9000 0x34>,
+			      <0xed5b0000 0xa004>,
+			      <0xed138000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x28>,
+			       <&audio_dmac2 1 0x29>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 530 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI17>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi18: ssi@ed5c9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed5c9000 0x34>,
+			      <0xed5c0000 0xa004>,
+			      <0xed140000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x26>,
+			       <&audio_dmac2 1 0x27>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 531 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI18>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		ssi19: ssi@ed5d9000 {
+			compatible = "renesas,rcar-i2s-ssi";
+			reg = <0xed5d9000 0x34>,
+			      <0xed5d0000 0xa004>,
+			      <0xed148000 0x7004>;
+			reg-names = "ssi", "ssiu", "ssip";
+			dmas = <&audio_dmac2 0 0x24>,
+			       <&audio_dmac2 1 0x25>;
+			dma-names = "rx", "tx";
+			interrupts = <GIC_SPI 532 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI19>,
+				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+				 <&adg1 ADG_CLKSRC(BRGA)>;
+			clock-names = "ssi", "ssi-domain", "audio-clk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		mdio0: mdio@c9b9e000 {
 			compatible = "renesas,rcar-rsw3-mdio";
 			reg = <0xc9b9e000 0x1000>,
