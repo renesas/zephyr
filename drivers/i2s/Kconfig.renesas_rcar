@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config I2S_RENESAS_RCAR_SSI
+	bool "Renesas R-Car I2S SSI"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_I2S_SSI_ENABLED
+	help
+	  Enable Renesas R-Car I2S Driver.
+
+if I2S_RENESAS_RCAR_SSI
+
+config I2S_RENESAS_RCAR_SSI_DMA
+	bool "Renesas R-Car I2S SSI DMA"
+	default y
+	depends on DMA
+	select DMA_RENESAS_RCAR
+	help
+	  Enable DMA support for R-Car I2S Driver
+
+config I2S_RENESAS_RCAR_SSI_RX_BLOCK_COUNT
+	int "RX queue length"
+	default 4
+
+config I2S_RENESAS_RCAR_SSI_TX_BLOCK_COUNT
+	int "TX queue length"
+	default 4
+
+endif #I2S_RENESAS_RCAR_SSI
