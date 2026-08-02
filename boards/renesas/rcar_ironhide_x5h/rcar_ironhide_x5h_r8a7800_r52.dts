@@ -80,6 +80,11 @@
 		led1 = &led2;
 		sw0 = &button1;
 	};
+
+	zephyr,user {
+		audio-codec-gpios = <&gpio6 21 GPIO_ACTIVE_LOW>;
+		audio-codec-dir = "out";
+	};
 };
 
 &mdio4 {
@@ -96,6 +101,10 @@
 };
 
 &gpio0 {
+	status = "okay";
+};
+
+&gpio6 {
 	status = "okay";
 };
 
@@ -118,7 +127,18 @@
 &i2c6 {
 	pinctrl-0 = <&i2c6_sda_default &i2c6_scl_default>;
 	pinctrl-names = "default";
+	clock-frequency = <I2C_BITRATE_FAST>;
 	status = "okay";
+
+	audio_codec: ak4619@10 {
+		compatible = "asahi-kasei,ak4619";
+		reg = <0x10>;
+		status = "okay";
+		pdn-gpios = <&gpio6 20 GPIO_ACTIVE_HIGH>;
+		adc1-l-input-mode = "pseudo-differential";
+		adc1-r-input-mode = "pseudo-differential";
+		mclk = <&adg0 ADG_CLKOUT(0)>;
+	};
 };
 
 &audio_clk_a {
@@ -138,6 +158,21 @@
 			    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
 	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
 	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
+};
+
+&audio_dmac0 {
+	status = "okay";
+};
+
+&ssi5 {
+	pinctrl-0 = <&audio_clka_default &audio0_clkout0_default
+		     &ssi5_sck_default &ssi5_ws_default &ssi5_sd_default>;
+	pinctrl-names = "default";
+	clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI05>,
+		 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+		 <&adg0 ADG_CLKSRC(BRGA)>;
+	clock-names = "ssi", "ssi-domain", "audio-clk";
+	status = "okay";
 };
 
 &mp_phy {

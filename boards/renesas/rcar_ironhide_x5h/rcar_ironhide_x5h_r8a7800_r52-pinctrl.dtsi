@@ -15,6 +15,18 @@
 		pin = <PIN_HRX1 FUNC_RX1>;
 	};
 
+	ssi5_ws_default: ssi5_ws_default {
+		pin = <PIN_SSI5_WS FUNC_SSI5_WS>;
+	};
+
+	ssi5_sd_default: ssi5_sd_default {
+		pin = <PIN_SSI5_SD FUNC_SSI5_SD>;
+	};
+
+	ssi5_sck_default: ssi5_sck_default {
+		pin = <PIN_SSI5_SCK FUNC_SSI5_SCK>;
+	};
+
 	/* I2C */
 	i2c5_sda_default: i2c5_sda_default {
 		pin = <PIN_SDA5 FUNC_SDA5>;
