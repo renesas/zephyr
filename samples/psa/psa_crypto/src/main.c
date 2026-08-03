@@ -229,7 +229,7 @@ int ecc_operation(void)
 			 PSA_KEY_TYPE_ECC_KEY_PAIR_WRAPPED(PSA_ECC_FAMILY_SECP_R1)
 #else
 			 PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1)
-#endif /* CONFIG_MBEDTLS_ALT */
+#endif /* CONFIG_MBEDTLS_CUSTOM */
 	);
 	psa_set_key_bits(&attributes, ECC_256_BIT_LENGTH);
 	psa_set_key_lifetime(&attributes, PSA_KEY_LIFETIME_VOLATILE);
@@ -335,7 +335,7 @@ int rsa_operation(void)
 			 PSA_KEY_TYPE_RSA_KEY_PAIR_WRAPPED
 #else
 			 PSA_KEY_TYPE_RSA_KEY_PAIR
-#endif /* CONFIG_MBEDTLS_ALT */
+#endif /* CONFIG_MBEDTLS_CUSTOM */
 	);
 
 	psa_set_key_bits(&attributes, RSA_2048_BIT_LENGTH);

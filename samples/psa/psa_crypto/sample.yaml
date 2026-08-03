@@ -9,7 +9,7 @@ tests:
   sample.psa_crypto:
     filter: CONFIG_MBEDTLS_BUILTIN
   sample.psa_crypto.alternative:
-    filter: CONFIG_MBEDTLS_ALT
+    filter: CONFIG_MBEDTLS_CUSTOM
     platform_allow:
       - ek_rx74m
-    extra_args: EXTRA_CONF_FILE=mbedtls_alt.conf
+    extra_args: EXTRA_CONF_FILE=mbedtls_custom.conf
