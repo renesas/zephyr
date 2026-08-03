@@ -32,7 +32,6 @@ if MBEDTLS
 
 choice MBEDTLS_IMPLEMENTATION
 	prompt "Select implementation"
-	default MBEDTLS_CUSTOM if RX74M
 	default MBEDTLS_BUILTIN
 
 config MBEDTLS_BUILTIN
