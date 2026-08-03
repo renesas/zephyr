@@ -131,6 +131,16 @@ static int mram_renesas_rx_erase(const struct device *dev, off_t offset, size_t 
 		return -EINVAL;
 	}
 
+	/* R_MRAM_Erase() operates on whole erase blocks; offset and size must
+	 * both be aligned to the block size or the FSP HAL is given a bogus
+	 * block address/count and can hang waiting on a completion event that
+	 * never arrives.
+	 */
+	if ((offset % mram_config->erase_block_size) != 0 ||
+	    (size % mram_config->erase_block_size) != 0) {
+		return -EINVAL;
+	}
+
 	block_num = DIV_ROUND_UP(size, mram_config->erase_block_size);
 
 	k_mutex_lock(&ctrl_data->code_mram_mtx, K_FOREVER);
