@@ -134,6 +134,7 @@ config ICACHE_LINE_SIZE
 
 config RX_DCACHE_FORCE_WRITE_THROUGH
 	bool "Force RX data cache into write-through mode"
+	default y
 	depends on DCACHE
 	help
 	  By default the RX data cache operates in write-back mode with write

@@ -220,7 +220,7 @@ static void rx_mpu_add_ram_regions(struct rx_mpu_map *map)
 	 */
 	if ((uintptr_t)__ramfunc_end > (uintptr_t)__ramfunc_start) {
 		map_region_set(map, (uintptr_t)__ramfunc_start, (uintptr_t)__ramfunc_end,
-			       RX_MPU_ACCESS_P_RWX_U_RX, RX_MPU_CACHE_ALL_ENABLED);
+			       RX_MPU_ACCESS_P_RWX_U_RX, RX_MPU_CACHE_ICACHE_EN_DCACHE_WT);
 	}
 #endif /* CONFIG_ARCH_HAS_RAMFUNC_SUPPORT */
 }
@@ -232,7 +232,7 @@ static void rx_mpu_add_ram_regions(struct rx_mpu_map *map)
  * carries them. This is the "configure memory via DTS macro" path.
  *
  * Supported generic attributes (see dt-bindings/memory-attr/memory-attr.h):
- *   DT_MEM_CACHEABLE    -> instruction + data cache enabled (write-back)
+ *   DT_MEM_CACHEABLE    -> instruction + data cache enabled (write-through)
  *   (absent)            -> cache disabled (e.g. DMA buffers, MMIO RAM)
  *   DT_MEM_NON_VOLATILE -> read/execute only in user mode (flash-like)
  *   (absent)            -> read/write in user mode
@@ -258,7 +258,7 @@ static void rx_mpu_configure_regions_from_dt(struct rx_mpu_map *map)
 			continue;
 		}
 
-		cache_attr = (dt_attr & DT_MEM_CACHEABLE) ? RX_MPU_CACHE_ALL_ENABLED
+		cache_attr = (dt_attr & DT_MEM_CACHEABLE) ? RX_MPU_CACHE_ICACHE_EN_DCACHE_WT
 							  : RX_MPU_CACHE_ALL_DISABLED;
 		access = (dt_attr & DT_MEM_NON_VOLATILE) ? RX_MPU_FLASH_ACCESS
 							 : RX_MPU_ACCESS_P_RWX_U_RW;
@@ -285,7 +285,7 @@ void rx_mpu_init(void)
 	 * This region exists solely to restrict user mode to read/execute only.
 	 */
 	map_region_set(&rx_mpu_map_fg_kernel, FLASH_BASE, FLASH_SIZE, RX_MPU_FLASH_ACCESS,
-		       RX_MPU_CACHE_ALL_ENABLED);
+		       RX_MPU_CACHE_ICACHE_EN_DCACHE_WT);
 
 	/* Override MPBAC cacheable background for any nocache window in SRAM. */
 	rx_mpu_add_ram_regions(&rx_mpu_map_fg_kernel);
@@ -356,7 +356,7 @@ int arch_mem_domain_partition_add(struct k_mem_domain *domain, uint32_t partitio
 	}
 
 	ret = map_region_set(&domain->arch.mpu_map, partition->start, end_addr,
-			     (uint8_t)partition->attr, RX_MPU_CACHE_ALL_ENABLED);
+			     (uint8_t)partition->attr, RX_MPU_CACHE_ICACHE_EN_DCACHE_WT);
 	if (ret < 0) {
 		return ret; /* -ENOMEM: out of MPU regions */
 	}
@@ -407,7 +407,7 @@ int arch_mem_domain_thread_add(struct k_thread *thread)
 	 */
 	if ((thread->base.user_options & K_USER) != 0) {
 		ret = map_region_set(&domain->arch.mpu_map, stack_start, stack_end,
-				     RX_MPU_ACCESS_P_RWX_U_RW, RX_MPU_CACHE_ALL_ENABLED);
+				     RX_MPU_ACCESS_P_RWX_U_RW, RX_MPU_CACHE_ICACHE_EN_DCACHE_WT);
 		ret = (ret < 0) ? ret : 0;
 	}
 
@@ -486,7 +486,7 @@ void rx_user_stack_perms(struct k_thread *thread)
 		     thread->stack_info.size - thread->stack_info.delta);
 
 	ret = map_region_set(thread->arch.mpu_map, stack_start, stack_end, RX_MPU_ACCESS_P_RWX_U_RW,
-			     RX_MPU_CACHE_ALL_ENABLED);
+			     RX_MPU_CACHE_ICACHE_EN_DCACHE_WT);
 	__ASSERT_NO_MSG(ret >= 0);
 	ARG_UNUSED(ret);
 
