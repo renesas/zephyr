@@ -5,6 +5,8 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/cache.h>
+#include <zephyr/device.h>
 #include <zephyr/sys/sys_io.h>
 #include <stdint.h>
 
@@ -94,4 +96,12 @@ void soc_early_init_hook(void)
 		LOG_ERR("Failed to turn on RSW3 power domains");
 	}
 #endif
+	/* Enable instruction cache */
+	sys_cache_instr_enable();
+
+	/* Enable data cache */
+	sys_cache_data_enable();
+
+	barrier_dsync_fence_full();
+	barrier_isync_fence_full();
 }
