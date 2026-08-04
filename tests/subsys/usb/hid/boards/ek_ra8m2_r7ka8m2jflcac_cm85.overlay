@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	usbh_hid: usbh-hid {
+		compatible = "zephyr,usbh-hid";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		any_hid_device: hid-device@ffffffff {
+			compatible = "zephyr,usbh-hid-device";
+			reg = <0xffffffff>;
+			match-class;
+			in-idle-rate-ms = <0 0>;
+		};
+	};
+
+	hid_keyboard: hid_dev_0 {
+		compatible = "zephyr,hid-device";
+		label = "HID0";
+		protocol-code = "keyboard";
+		in-report-size = <64>;
+		in-polling-period-us = <1000>;
+		out-report-size = <64>;
+		out-polling-period-us = <1000>;
+	};
+};
