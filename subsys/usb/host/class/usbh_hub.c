@@ -5,6 +5,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/init.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/usb/usbh.h>
@@ -18,11 +19,25 @@
 
 LOG_MODULE_REGISTER(usbh_hub, CONFIG_USBH_HUB_LOG_LEVEL);
 
+/* Time the port reset signalling is driven, the specification requires
+ * 10-20ms, default to 20ms for the worst case scenario.
+ */
+#define HUB_PORT_RESET_DELAY_MS 20
+
 static struct {
 	uint8_t total_hubs;
 	sys_slist_t hub_list;
 	struct k_mutex lock;
 } hub_mgr;
+
+/*
+ * All hubs share a single workqueue thread. Hub status handling and downstream
+ * device enumeration run to completion on it, which serializes enumeration
+ * across the whole topology so that only one device at a time is in the
+ * default state and answers to address 0.
+ */
+static K_KERNEL_STACK_DEFINE(hub_stack, CONFIG_USBH_HUB_STACK_SIZE);
+static struct k_work_q hub_work_q;
 
 static int hub_interrupt_in_cb(struct usb_device *const dev,
 			       struct uhc_transfer *const xfer);
@@ -132,104 +147,6 @@ static struct usbh_hub_data *const find_hub_by_udev(const struct usb_device *con
 	return NULL;
 }
 
-static void hub_process_data(struct usbh_hub_data *const hub_data)
-{
-	struct usb_hub_status *hub_sts;
-	struct usb_hub_port *port;
-	uint16_t hub_status;
-	uint16_t hub_change;
-	uint8_t scheduled_ports = 0;
-	uint8_t port_index;
-	int ret;
-
-	k_mutex_lock(&hub_data->lock, K_FOREVER);
-
-	if (!hub_data->connected) {
-		k_mutex_unlock(&hub_data->lock);
-		return;
-	}
-
-	if (hub_data->state != HUB_STATE_OPERATIONAL) {
-		LOG_DBG("Hub level %d not operational yet, deferring interrupt",
-			hub_data->udev->level);
-
-		k_mutex_unlock(&hub_data->lock);
-		if (!hub_data->int_active) {
-			ret = hub_start_interrupt(hub_data);
-			if (ret != 0) {
-				LOG_ERR("Failed to start interrupt monitoring: %d", ret);
-			}
-		}
-
-		return;
-	}
-
-	for (port_index = 0; port_index <= hub_data->port_count; ++port_index) {
-		if (((0x01U << (port_index & 0x07U)) &
-		     (hub_data->int_buffer[port_index >> 3U])) == 0) {
-			continue;
-		}
-
-		/* hub port change */
-		if (port_index != 0) {
-			port = &hub_data->port_list[port_index - 1];
-
-			LOG_DBG("Hub level %d port %d status changed, starting processing",
-				hub_data->udev->level, port_index);
-			hub_data->pending_ports++;
-			scheduled_ports++;
-			k_work_reschedule(&port->port_work, K_NO_WAIT);
-			continue;
-		}
-
-		/* hub change */
-		hub_sts = &hub_data->status;
-		LOG_INF("Hub level %d status changed, processing",
-			hub_data->udev->level);
-		ret = usbh_req_get_hub_status(hub_data->udev,
-					      &hub_status,
-					      &hub_change);
-		if (ret != 0) {
-			LOG_ERR("Failed to get hub status: %d", ret);
-			continue;
-		}
-
-		hub_sts->wHubStatus = hub_status;
-		hub_sts->wHubChange = hub_change;
-
-		LOG_DBG("Hub status: 0x%04x, change: 0x%04x", hub_sts->wHubStatus,
-			hub_sts->wHubChange);
-
-		if ((hub_sts->wHubChange & USB_HUB_CHANGE_LOCAL_POWER) != 0) {
-			LOG_WRN("Hub local power status changed");
-			ret = usbh_req_clear_hcfs_c_hub_local_power(
-				hub_data->udev);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear hub local power feature: %d", ret);
-			}
-		}
-
-		if ((hub_sts->wHubChange & USB_HUB_CHANGE_OVER_CURRENT) != 0) {
-			LOG_ERR("Hub over-current detected!");
-			ret = usbh_req_clear_hcfs_c_hub_over_current(
-				hub_data->udev);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear hub over-current feature: %d",
-					ret);
-			}
-		}
-	}
-
-	k_mutex_unlock(&hub_data->lock);
-
-	if (scheduled_ports == 0 && !hub_data->int_active && hub_data->connected) {
-		ret = hub_start_interrupt(hub_data);
-		if (ret != 0) {
-			LOG_ERR("Failed to start interrupt monitoring: %d", ret);
-		}
-	}
-}
-
 static int hub_interrupt_in_cb(struct usb_device *const dev,
 			       struct uhc_transfer *const xfer)
 {
@@ -262,7 +179,7 @@ static int hub_interrupt_in_cb(struct usb_device *const dev,
 
 	k_mutex_unlock(&hub_data->lock);
 
-	k_work_submit(&hub_data->hub_work);
+	k_work_submit_to_queue(&hub_work_q, &hub_data->hub_work);
 
 	net_buf_unref(buf);
 	usbh_xfer_free(hub_data->udev, xfer);
@@ -324,12 +241,11 @@ static void hub_recursive_disconnect(struct usbh_hub_data *const hub_data)
 
 	k_mutex_lock(&hub_data->lock, K_FOREVER);
 	hub_data->int_active = false;
-	hub_data->pending_ports = 0;
 	k_mutex_unlock(&hub_data->lock);
 
 	for (uint8_t i = 0; i < hub_data->port_count; i++) {
 		if (hub_data->port_list) {
-			k_work_cancel_delayable(&hub_data->port_list[i].port_work);
+			hub_data->port_list[i].enum_pending = false;
 			if (hub_data->port_list[i].udev != NULL) {
 				port_udev = hub_data->port_list[i].udev;
 				hub_data->port_list[i].udev = NULL;
@@ -384,107 +300,231 @@ static int enumerate_port_device(struct usbh_hub_data *hub_data,
 	return 0;
 }
 
-static void hub_port_complete_processing(struct usbh_hub_data *hub_data,
-					 struct usb_hub_port *port_instance,
-					 uint8_t port_num)
+static void hub_handle_hub_change(struct usbh_hub_data *const hub_data)
 {
-	bool should_restart = false;
+	struct usb_hub_status *const hub_sts = &hub_data->status;
+	uint16_t hub_status;
+	uint16_t hub_change;
 	int ret;
 
-	if (port_instance != NULL &&
-	    port_instance->state != PORT_STATE_DISABLED) {
-		port_instance->reset_count = CONFIG_USBH_HUB_PORT_RESET_TIMES;
+	ret = usbh_req_get_hub_status(hub_data->udev, &hub_status, &hub_change);
+	if (ret != 0) {
+		LOG_ERR("Failed to get hub status: %d", ret);
+		return;
 	}
 
-	LOG_DBG("Port %d processing completed", port_num);
+	hub_sts->wHubStatus = hub_status;
+	hub_sts->wHubChange = hub_change;
 
-	k_mutex_lock(&hub_data->lock, K_FOREVER);
-	if (hub_data->pending_ports > 0) {
-		hub_data->pending_ports--;
-		if (hub_data->pending_ports == 0 &&
-		    !hub_data->int_active &&
-		    hub_data->connected) {
-			should_restart = true;
+	LOG_DBG("Hub status: 0x%04x, change: 0x%04x", hub_sts->wHubStatus, hub_sts->wHubChange);
+
+	if ((hub_sts->wHubChange & USB_HUB_CHANGE_LOCAL_POWER) != 0) {
+		LOG_WRN("Hub local power status changed");
+		ret = usbh_req_clear_hcfs_c_hub_local_power(hub_data->udev);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear hub local power feature: %d", ret);
 		}
 	}
-	k_mutex_unlock(&hub_data->lock);
 
-	if (should_restart) {
-		ret = hub_start_interrupt(hub_data);
+	if ((hub_sts->wHubChange & USB_HUB_CHANGE_OVER_CURRENT) != 0) {
+		LOG_ERR("Hub over-current detected!");
+		ret = usbh_req_clear_hcfs_c_hub_over_current(hub_data->udev);
 		if (ret != 0) {
-			LOG_ERR("Failed to restart interrupt monitoring: %d", ret);
+			LOG_ERR("Failed to clear hub over-current feature: %d", ret);
 		}
 	}
 }
 
-static void hub_port_process(struct k_work *work)
+/*
+ * Phase 1: fully drain a port's status change using hub class requests only
+ * (GET_PORT_STATUS / CLEAR_FEATURE). This decides whether the port needs to
+ * be reset and enumerated, but never issues a general USB request itself -
+ * that happens later, one port at a time, in hub_port_process().
+ */
+static void hub_port_handle_change(struct usbh_hub_data *const hub_data,
+				   struct usb_hub_port *const port_instance)
 {
-	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
-	struct usb_hub_port *port_instance =
-		CONTAINER_OF(dwork, struct usb_hub_port, port_work);
-	struct usbh_hub_data *const hub_data = port_instance->hub;
 	struct usb_hub_port_status port_sts;
 	struct usb_device *udev;
-	bool process_complete = false;
+	const uint8_t port_num = port_instance->num;
 	uint16_t port_status;
 	uint16_t port_change;
-	uint8_t port_num;
 	int ret;
 
-	port_num = port_instance->num;
-
-	k_mutex_lock(&hub_data->lock, K_FOREVER);
-
-	if (!hub_data->connected) {
-		if (hub_data->pending_ports > 0) {
-			hub_data->pending_ports--;
-		}
-		k_mutex_unlock(&hub_data->lock);
+	ret = usbh_req_get_port_status(hub_data->udev, port_num, &port_status, &port_change);
+	if (ret != 0) {
+		LOG_ERR("Failed to get port status: %d", ret);
 		return;
 	}
 
-	k_mutex_unlock(&hub_data->lock);
+	port_sts.wPortStatus = port_status;
+	port_sts.wPortChange = port_change;
+	LOG_DBG("Port %d status: wPortStatus=0x%04x, wPortChange=0x%04x", port_num,
+		port_sts.wPortStatus, port_sts.wPortChange);
 
-	LOG_DBG("Processing port %d, state=%d", port_num, port_instance->state);
+	if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_CONNECTION) != 0) {
+		ret = usbh_req_clear_hcfs_c_pconnection(hub_data->udev, port_num);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear port connection change: %d", ret);
+		}
+		LOG_DBG("Port %d: Cleared connection change bit", port_num);
 
-	switch (port_instance->state) {
-	case PORT_STATE_POWERED_OFF:
-		LOG_DBG("Port %d is powered off", port_num);
-		process_complete = true;
-		goto exit_processing;
-
-	case PORT_STATE_NOT_CONFIGURED:
-		LOG_ERR("Port %d in NOT_CONFIGURED state unexpectedly", port_num);
-		process_complete = true;
-		goto exit_processing;
-
-	case PORT_STATE_DISCONNECTED: {
-		LOG_DBG("Port %d: Getting port status", port_num);
+		/* Re-read to get the settled state after the connection change. */
 		ret = usbh_req_get_port_status(hub_data->udev, port_num,
 					       &port_status, &port_change);
 		if (ret != 0) {
-			LOG_ERR("Failed to get port status: %d", ret);
-			goto error_recovery;
+			LOG_ERR("Failed to get port connection status: %d", ret);
+			return;
 		}
 
 		port_sts.wPortStatus = port_status;
 		port_sts.wPortChange = port_change;
-		LOG_DBG("Port %d status: wPortStatus=0x%04x, wPortChange=0x%04x", port_num,
-			port_sts.wPortStatus, port_sts.wPortChange);
+	}
 
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_CONNECTION) != 0) {
-			ret = usbh_req_clear_hcfs_c_pconnection(hub_data->udev,
-								port_num);
+	if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_ENABLE) != 0) {
+		ret = usbh_req_clear_hcfs_c_penable(hub_data->udev, port_num);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear enable change: %d", ret);
+		}
+	}
+
+	if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_SUSPEND) != 0) {
+		LOG_DBG("Port %d suspend change detected", port_num);
+		ret = usbh_req_clear_hcfs_c_psuspend(hub_data->udev, port_num);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear suspend change: %d", ret);
+		}
+	}
+
+	if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) != 0) {
+		LOG_DBG("Port %d reset change detected", port_num);
+		ret = usbh_req_clear_hcfs_c_preset(hub_data->udev, port_num);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear reset change: %d", ret);
+		}
+	}
+
+	if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_OVER_CURRENT) != 0) {
+		LOG_WRN("Port %d over-current detected", port_num);
+		ret = usbh_req_clear_hcfs_c_pover_current(hub_data->udev, port_num);
+		if (ret != 0) {
+			LOG_ERR("Failed to clear over-current change: %d", ret);
+		}
+		port_instance->state = PORT_STATE_DISABLED;
+		port_instance->enum_pending = false;
+		return;
+	}
+
+	if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
+		LOG_DBG("Port %d disconnected", port_num);
+		if (port_instance->udev != NULL) {
+			udev = port_instance->udev;
+			port_instance->udev = NULL;
+			usbh_device_disconnect(hub_data->uhs_ctx, udev);
+		}
+		port_instance->state = PORT_STATE_DISCONNECTED;
+		port_instance->enum_pending = false;
+		return;
+	}
+
+	if (port_instance->udev != NULL &&
+	    (port_sts.wPortStatus & USB_HUB_PORT_STATUS_ENABLE) != 0) {
+		LOG_DBG("Port %d device still active", port_num);
+		port_instance->state = PORT_STATE_ENABLED;
+		port_instance->enum_pending = false;
+		return;
+	}
+
+	if (port_instance->udev != NULL) {
+		/* Port dropped out of the enabled state; tear down and re-enumerate. */
+		udev = port_instance->udev;
+		port_instance->udev = NULL;
+		usbh_device_disconnect(hub_data->uhs_ctx, udev);
+	}
+
+	LOG_INF("Device connected to port %d, scheduling reset and enumeration", port_num);
+	port_instance->state = PORT_STATE_DISABLED;
+	port_instance->reset_count = CONFIG_USBH_HUB_PORT_RESET_TIMES;
+	port_instance->enum_pending = true;
+}
+
+/*
+ * Phase 2: reset and enumerate a single downstream device. Entered only for
+ * ports flagged PORT_STATE_DISABLED + enum_pending by hub_port_handle_change().
+ * Mixes hub class requests (reset) with the general USB requests issued by
+ * enumerate_port_device(), and runs to completion for one port before the
+ * next port is attempted, so at most one device is ever in the default state.
+ */
+static int hub_port_process(struct usbh_hub_data *const hub_data,
+			    struct usb_hub_port *const port_instance)
+{
+	struct usb_hub_port_status port_sts;
+	struct usb_device *udev;
+	const uint8_t port_num = port_instance->num;
+	uint16_t port_status;
+	uint16_t port_change;
+	int ret;
+
+	LOG_DBG("Port %d: starting reset/enumeration", port_num);
+
+	while (hub_data->connected) {
+		switch (port_instance->state) {
+		case PORT_STATE_DISABLED:
+			if (port_instance->reset_count == 0) {
+				LOG_ERR("Port %d reset retry count exhausted, giving up",
+					port_num);
+				return -EIO;
+			}
+
+			ret = usbh_req_set_hcfs_prst(hub_data->udev, port_num);
 			if (ret != 0) {
-				LOG_ERR("Failed to clear port connection change: %d", ret);
+				LOG_ERR("Failed to reset port: %d", ret);
 				goto error_recovery;
 			}
-			LOG_DBG("Port %d: Cleared connection change bit", port_num);
+
+			port_instance->reset_count--;
+			port_instance->state = PORT_STATE_RESETTING;
+			k_sleep(K_MSEC(HUB_PORT_RESET_DELAY_MS));
+			continue;
+
+		case PORT_STATE_RESETTING:
+			ret = usbh_req_get_port_status(hub_data->udev, port_num,
+						       &port_status, &port_change);
+			if (ret != 0) {
+				LOG_ERR("Failed to get port status for reset check: %d", ret);
+				goto error_recovery;
+			}
+
+			port_sts.wPortStatus = port_status;
+			port_sts.wPortChange = port_change;
+
+			/* reset is not completed */
+			if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) == 0) {
+				if (port_instance->reset_count == 0) {
+					LOG_ERR("Port %d reset max retries exceeded", port_num);
+					return -EIO;
+				}
+
+				LOG_WRN("Port %d reset timeout, retrying (%d left)",
+					port_num, port_instance->reset_count);
+				port_instance->state = PORT_STATE_DISABLED;
+				k_sleep(K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
+				continue;
+			}
+
+			LOG_DBG("Port %d reset completed", port_num);
+
+			ret = usbh_req_clear_hcfs_c_preset(hub_data->udev, port_num);
+			if (ret != 0) {
+				LOG_ERR("Failed to clear reset feature: %d", ret);
+				goto error_recovery;
+			}
+			LOG_DBG("Port %d: Cleared reset change bit", port_num);
 
 			ret = usbh_req_get_port_status(hub_data->udev, port_num,
 						       &port_status, &port_change);
 			if (ret != 0) {
-				LOG_ERR("Failed to get port connection status: %d", ret);
+				LOG_ERR("Failed to get port status after reset: %d", ret);
 				goto error_recovery;
 			}
 
@@ -492,352 +532,140 @@ static void hub_port_process(struct k_work *work)
 			port_sts.wPortChange = port_change;
 
 			if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
+				LOG_WRN("Port %d device disconnected during reset", port_num);
 				port_instance->state = PORT_STATE_DISCONNECTED;
-				process_complete = true;
-				goto exit_processing;
-			}
-
-			LOG_DBG("Port %d connection confirmed, moving to disabled then resetting",
-				port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-		} else if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) != 0) {
-			LOG_INF("Device connected to port %d, moving to disabled", port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-		} else {
-			if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_ENABLE) != 0) {
-				ret = usbh_req_clear_hcfs_c_penable(
-					hub_data->udev, port_num);
-				if (ret != 0) {
-					LOG_ERR("Failed to clear enable change: %d", ret);
-				}
-			}
-
-			if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_SUSPEND) != 0) {
-				LOG_DBG("Port %d suspend change detected", port_num);
-				ret = usbh_req_clear_hcfs_c_psuspend(
-					hub_data->udev, port_num);
-				if (ret != 0) {
-					LOG_ERR("Failed to clear suspend change: %d", ret);
-				}
-			}
-
-			if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_OVER_CURRENT) != 0) {
-				LOG_WRN("Port %d over-current detected", port_num);
-				ret = usbh_req_clear_hcfs_c_pover_current(
-					hub_data->udev, port_num);
-				if (ret != 0) {
-					LOG_ERR("Failed to clear over-current change: %d", ret);
-				}
-			}
-
-			if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) != 0) {
-				LOG_DBG("Port %d reset change detected", port_num);
-				ret = usbh_req_clear_hcfs_c_preset(
-					hub_data->udev, port_num);
-				if (ret != 0) {
-					LOG_ERR("Failed to clear reset change: %d", ret);
-				}
-			}
-
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		if (port_instance->state != PORT_STATE_DISABLED) {
-			process_complete = true;
-			goto exit_processing;
-		}
-	}
-
-	case PORT_STATE_DISABLED: {
-		ret = usbh_req_get_port_status(hub_data->udev, port_num,
-					       &port_status, &port_change);
-		if (ret != 0) {
-			LOG_ERR("Failed to get port status: %d", ret);
-			goto error_recovery;
-		}
-
-		port_sts.wPortStatus = port_status;
-		port_sts.wPortChange = port_change;
-
-		if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
-			LOG_DBG("Port %d device disconnected during disabled state", port_num);
-			port_instance->state = PORT_STATE_DISCONNECTED;
-			goto process_disconnection;
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_ENABLE) != 0) {
-			ret = usbh_req_clear_hcfs_c_penable(hub_data->udev,
-							    port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear enable change: %d", ret);
-			}
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_SUSPEND) != 0) {
-			LOG_DBG("Port %d suspend change detected", port_num);
-			ret = usbh_req_clear_hcfs_c_psuspend(hub_data->udev,
-							     port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear suspend change: %d", ret);
-			}
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_OVER_CURRENT) != 0) {
-			LOG_WRN("Port %d over-current detected", port_num);
-			ret = usbh_req_clear_hcfs_c_pover_current(
-				hub_data->udev, port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear over-current change: %d", ret);
-			}
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) != 0) {
-			LOG_DBG("Port %d reset change detected in disabled state", port_num);
-			ret = usbh_req_clear_hcfs_c_preset(hub_data->udev,
-							   port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear reset change: %d", ret);
-			}
-		}
-
-		if (port_instance->reset_count == 0) {
-			LOG_ERR("Port %d reset retry count exhausted, giving up", port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		ret = usbh_req_set_hcfs_prst(hub_data->udev, port_num);
-		if (ret != 0) {
-			LOG_ERR("Failed to reset port: %d", ret);
-			goto error_recovery;
-		}
-
-		port_instance->reset_count--;
-
-		port_instance->state = PORT_STATE_RESETTING;
-		/* specification requires 10-20ms，Default is 20ms for the worst case scenario. */
-		k_work_reschedule(&port_instance->port_work, K_MSEC(20));
-		return;
-	}
-
-	case PORT_STATE_RESETTING: {
-		ret = usbh_req_get_port_status(hub_data->udev, port_num,
-					       &port_status, &port_change);
-		if (ret != 0) {
-			LOG_ERR("Failed to get port status for reset check: %d", ret);
-			goto error_recovery;
-		}
-
-		port_sts.wPortStatus = port_status;
-		port_sts.wPortChange = port_change;
-
-		/* reset is not completed */
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) == 0) {
-			if (port_instance->reset_count > 0) {
-				LOG_WRN("Port %d reset timeout, retrying (%d left)",
-					port_num, port_instance->reset_count);
-				port_instance->state = PORT_STATE_DISABLED;
-				k_work_reschedule(&port_instance->port_work,
-					K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
-				return;
-			}
-
-			LOG_ERR("Port %d reset max retries exceeded", port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		LOG_DBG("Port %d reset completed", port_num);
-
-		ret = usbh_req_clear_hcfs_c_preset(hub_data->udev, port_num);
-		if (ret != 0) {
-			LOG_ERR("Failed to clear reset feature: %d", ret);
-			goto error_recovery;
-		}
-		LOG_DBG("Port %d: Cleared reset change bit", port_num);
-
-		ret = usbh_req_get_port_status(hub_data->udev, port_num,
-					       &port_status, &port_change);
-		if (ret != 0) {
-			LOG_ERR("Failed to get port status after reset: %d", ret);
-			goto error_recovery;
-		}
-
-		port_sts.wPortStatus = port_status;
-		port_sts.wPortChange = port_change;
-
-		if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
-			LOG_WRN("Port %d device disconnected during reset", port_num);
-			port_instance->state = PORT_STATE_DISCONNECTED;
-			goto process_disconnection;
-		}
-
-		if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_ENABLE) == 0) {
-			LOG_WRN("Port %d not enabled after reset", port_num);
-
-			if (port_instance->reset_count > 0) {
-				LOG_WRN("Port %d retrying reset (%d left)",
-					port_num, port_instance->reset_count);
-				port_instance->state = PORT_STATE_DISABLED;
-				k_work_reschedule(&port_instance->port_work,
-						K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
-				return;
-			}
-
-			LOG_ERR("Port %d max reset retries exceeded", port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		ret = enumerate_port_device(hub_data, port_instance, port_num, &port_sts);
-		if (ret != 0) {
-			if (port_instance->reset_count > 0) {
-				LOG_WRN("Port %d enumeration failed, retrying reset (%d left)",
-					port_num, port_instance->reset_count);
-				port_instance->state = PORT_STATE_DISABLED;
-				k_work_reschedule(&port_instance->port_work,
-						K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
-				return;
-			}
-
-			LOG_ERR("Port %d enumeration max retries exceeded", port_num);
-			port_instance->state = PORT_STATE_DISABLED;
-			process_complete = true;
-			goto exit_processing;
-		}
-
-		port_instance->state = PORT_STATE_ENABLED;
-		process_complete = true;
-		port_instance->reset_count = CONFIG_USBH_HUB_PORT_RESET_TIMES;
-		goto exit_processing;
-	}
-
-	case PORT_STATE_ENABLED: {
-		ret = usbh_req_get_port_status(hub_data->udev, port_num,
-					       &port_status, &port_change);
-		if (ret != 0) {
-			LOG_ERR("Failed to get port status: %d", ret);
-			goto error_recovery;
-		}
-
-		port_sts.wPortStatus = port_status;
-		port_sts.wPortChange = port_change;
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_CONNECTION) != 0) {
-			ret = usbh_req_clear_hcfs_c_pconnection(
-				hub_data->udev, port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear connection change: %d", ret);
-			}
-
-			if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
-				port_instance->state = PORT_STATE_DISCONNECTED;
-				goto process_disconnection;
-			}
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_ENABLE) != 0) {
-			ret = usbh_req_clear_hcfs_c_penable(
-				hub_data->udev, port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear enable change: %d", ret);
+				return -ENODEV;
 			}
 
 			if ((port_sts.wPortStatus & USB_HUB_PORT_STATUS_ENABLE) == 0) {
-				LOG_WRN("Port %d disabled due to error", port_num);
+				if (port_instance->reset_count == 0) {
+					LOG_ERR("Port %d max reset retries exceeded", port_num);
+					return -EIO;
+				}
+
+				LOG_WRN("Port %d not enabled after reset, retrying (%d left)",
+					port_num, port_instance->reset_count);
 				port_instance->state = PORT_STATE_DISABLED;
+				k_sleep(K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
+				continue;
 			}
-		}
 
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_SUSPEND) != 0) {
-			LOG_DBG("Port %d suspend change detected", port_num);
-			ret = usbh_req_clear_hcfs_c_psuspend(
-				hub_data->udev, port_num);
+			ret = enumerate_port_device(hub_data, port_instance, port_num,
+						    &port_sts);
 			if (ret != 0) {
-				LOG_ERR("Failed to clear suspend change: %d", ret);
+				if (port_instance->reset_count == 0) {
+					LOG_ERR("Port %d enumeration max retries exceeded",
+						port_num);
+					return ret;
+				}
+
+				LOG_WRN("Port %d enumeration failed, retrying reset (%d left)",
+					port_num, port_instance->reset_count);
+				port_instance->state = PORT_STATE_DISABLED;
+				k_sleep(K_MSEC(CONFIG_USBH_HUB_ENUM_RETRY_DELAY_MS));
+				continue;
 			}
+
+			port_instance->state = PORT_STATE_ENABLED;
+			port_instance->reset_count = CONFIG_USBH_HUB_PORT_RESET_TIMES;
+			return 0;
+
+		default:
+			LOG_ERR("Port %d in unsupported state: %d", port_num,
+				port_instance->state);
+			return -EINVAL;
 		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_OVER_CURRENT) != 0) {
-			LOG_WRN("Port %d over-current detected", port_num);
-			ret = usbh_req_clear_hcfs_c_pover_current(
-				hub_data->udev, port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear over-current change: %d", ret);
-			}
-			port_instance->state = PORT_STATE_DISABLED;
-		}
-
-		if ((port_sts.wPortChange & USB_HUB_PORT_CHANGE_RESET) != 0) {
-			LOG_DBG("Port %d reset change detected in enabled state", port_num);
-			ret = usbh_req_clear_hcfs_c_preset(
-				hub_data->udev, port_num);
-			if (ret != 0) {
-				LOG_ERR("Failed to clear reset change: %d", ret);
-			}
-		}
-
-		process_complete = true;
-		goto exit_processing;
-	}
-
-	default:
-		LOG_ERR("Port %d in unsupported state: %d", port_num, port_instance->state);
-		goto error_recovery;
-	}
-
-process_disconnection:
-	if (port_instance->udev != NULL) {
-		LOG_DBG("Device disconnected from Hub level %d port %d",
-			hub_data->udev->level, port_num);
-
-		udev = port_instance->udev;
-		port_instance->udev = NULL;
-		port_instance->state = PORT_STATE_DISCONNECTED;
-		usbh_device_disconnect(hub_data->uhs_ctx, udev);
-	} else {
-		port_instance->state = PORT_STATE_DISCONNECTED;
-	}
-	process_complete = true;
-
-exit_processing:
-	if (process_complete) {
-		hub_port_complete_processing(hub_data, port_instance, port_num);
-	}
-	return;
 
 error_recovery:
-	if (port_instance == NULL) {
-		LOG_ERR("Port instance is NULL in error recovery");
-		return;
-	}
+		if (port_instance->reset_count == 0) {
+			LOG_ERR("Port %d max retries exceeded, moving to disabled", port_num);
+			port_instance->state = PORT_STATE_DISABLED;
+			return -EIO;
+		}
 
-	if (port_instance->reset_count > 0) {
 		port_instance->reset_count--;
 		if (port_instance->udev != NULL) {
 			udev = port_instance->udev;
 			port_instance->udev = NULL;
 			usbh_device_disconnect(hub_data->uhs_ctx, udev);
 		}
-		port_instance->state = PORT_STATE_DISCONNECTED;
 
 		LOG_WRN("Port %d error recovery, %d retries left", port_num,
 			port_instance->reset_count);
-		k_work_reschedule(&port_instance->port_work,
-				  K_MSEC(CONFIG_USBH_HUB_ERROR_RECOVERY_DELAY_MS));
+		k_sleep(K_MSEC(CONFIG_USBH_HUB_ERROR_RECOVERY_DELAY_MS));
+
+		ret = usbh_req_get_port_status(hub_data->udev, port_num,
+					       &port_status, &port_change);
+		if (ret != 0 || (port_status & USB_HUB_PORT_STATUS_CONNECTION) == 0) {
+			port_instance->state = PORT_STATE_DISCONNECTED;
+			return -ENODEV;
+		}
+
+		port_instance->state = PORT_STATE_DISABLED;
+	}
+
+	return -ENODEV;
+}
+
+/*
+ * Handle one interrupt IN report: drain every pending hub/port status change
+ * with hub class requests (phase 1), then reset and enumerate the downstream
+ * devices flagged by that pass, one at a time, with general USB requests
+ * (phase 2). Keeping the phases separate guarantees every port's change bits
+ * are cleared before any device is put through reset, and that only a single
+ * device is ever in the default state answering to address 0.
+ */
+static void hub_process_status_events(struct usbh_hub_data *const hub_data)
+{
+	uint8_t port_index;
+	int ret;
+
+	k_mutex_lock(&hub_data->lock, K_FOREVER);
+
+	if (!hub_data->connected) {
+		k_mutex_unlock(&hub_data->lock);
 		return;
 	}
 
-	LOG_ERR("Port %d max retries exceeded, moving to disabled", port_num);
-	port_instance->state = PORT_STATE_DISABLED;
-	process_complete = true;
-	goto exit_processing;
+	for (port_index = 0; port_index <= hub_data->port_count; ++port_index) {
+		if (((0x01U << (port_index & 0x07U)) &
+		     (hub_data->int_buffer[port_index >> 3U])) == 0) {
+			continue;
+		}
+
+		if (port_index == 0) {
+			LOG_INF("Hub level %d status changed, processing",
+				hub_data->udev->level);
+			hub_handle_hub_change(hub_data);
+		} else {
+			LOG_DBG("Hub level %d port %d status changed, processing",
+				hub_data->udev->level, port_index);
+			hub_port_handle_change(hub_data, &hub_data->port_list[port_index - 1]);
+		}
+	}
+
+	memset(hub_data->int_buffer, 0, sizeof(hub_data->int_buffer));
+
+	k_mutex_unlock(&hub_data->lock);
+
+	for (port_index = 0; port_index < hub_data->port_count; ++port_index) {
+		struct usb_hub_port *const port_instance = &hub_data->port_list[port_index];
+
+		if (!port_instance->enum_pending) {
+			continue;
+		}
+
+		port_instance->enum_pending = false;
+
+		if (!hub_data->connected) {
+			break;
+		}
+
+		ret = hub_port_process(hub_data, port_instance);
+		if (ret != 0) {
+			LOG_DBG("Port %d enumeration finished with %d", port_instance->num, ret);
+		}
+	}
 }
 
 static void hub_process(struct k_work *work)
@@ -858,8 +686,8 @@ static void hub_process(struct k_work *work)
 
 	if (hub_data->state == HUB_STATE_OPERATIONAL) {
 		k_mutex_unlock(&hub_data->lock);
-		hub_process_data(hub_data);
-		return;
+		hub_process_status_events(hub_data);
+		goto rearm_interrupt;
 	}
 
 	if (hub_data->state != HUB_STATE_INIT) {
@@ -921,7 +749,7 @@ static void hub_process(struct k_work *work)
 		hub_data->port_list[i].reset_count = CONFIG_USBH_HUB_PORT_RESET_TIMES;
 		hub_data->port_list[i].state = PORT_STATE_POWERED_OFF;
 		hub_data->port_list[i].num = i + 1;
-		k_work_init_delayable(&hub_data->port_list[i].port_work, hub_port_process);
+		hub_data->port_list[i].enum_pending = false;
 	}
 
 	for (uint8_t i = 0; i < hub_data->port_count; i++) {
@@ -948,7 +776,8 @@ static void hub_process(struct k_work *work)
 
 	k_mutex_unlock(&hub_data->lock);
 
-	if (!hub_data->int_active && hub_data->connected) {
+rearm_interrupt:
+	if (hub_data->connected && !hub_data->int_active) {
 		ret = hub_start_interrupt(hub_data);
 		if (ret != 0) {
 			LOG_ERR("Failed to start interrupt monitoring: %d", ret);
@@ -1050,7 +879,7 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 	hub_mgr.total_hubs++;
 	k_mutex_unlock(&hub_mgr.lock);
 
-	k_work_submit(&hub_data->hub_work);
+	k_work_submit_to_queue(&hub_work_q, &hub_data->hub_work);
 
 	return 0;
 }
@@ -1071,19 +900,12 @@ static int usbh_hub_removed(struct usbh_class_data *const cdata)
 
 	k_mutex_lock(&hub_data->lock, K_FOREVER);
 	hub_data->connected = false;
-	hub_data->pending_ports = 0;
 	k_mutex_unlock(&hub_data->lock);
 
 	/* Recursively disconnect all child hubs and devices */
 	hub_recursive_disconnect(hub_data);
 
 	k_work_cancel(&hub_data->hub_work);
-
-	for (uint8_t i = 0; i < hub_data->port_count; i++) {
-		if (hub_data->port_list) {
-			k_work_cancel_delayable(&hub_data->port_list[i].port_work);
-		}
-	}
 
 	k_mutex_lock(&hub_data->lock, K_FOREVER);
 	if (hub_data->interrupt_transfer != NULL && hub_data->int_active) {
@@ -1154,6 +976,17 @@ static int usbh_hub_init(struct usbh_class_data *const c_data)
 
 	return 0;
 }
+
+static int usbh_hub_init_wq(void)
+{
+	k_work_queue_init(&hub_work_q);
+	k_work_queue_start(&hub_work_q, hub_stack, K_KERNEL_STACK_SIZEOF(hub_stack),
+			   CONFIG_SYSTEM_WORKQUEUE_PRIORITY, NULL);
+	k_thread_name_set(k_work_queue_thread_get(&hub_work_q), "usbh_hub_wq");
+
+	return 0;
+}
+SYS_INIT(usbh_hub_init_wq, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
 
 static struct usbh_class_filter hub_filters[] = {
 	{

@@ -21,10 +21,13 @@ enum usbh_hub_state {
 struct usb_hub_port {
 	struct usb_device *udev;
 	struct usbh_hub_data *hub;
-	struct k_work_delayable port_work;
 	enum usbh_port_state state;
 	uint8_t reset_count;
 	uint8_t num;
+	/* Set when the status change phase found a device waiting to be reset
+	 * and enumerated by the enumeration phase.
+	 */
+	bool enum_pending;
 };
 
 struct usbh_hub_data {
@@ -45,7 +48,6 @@ struct usbh_hub_data {
 	struct usb_hub_status status;
 	uint8_t int_buffer[USBH_HUB_INT_BUFFER_SIZE];
 	enum usbh_hub_state state;
-	uint8_t pending_ports;
 	uint8_t port_count;
 	bool int_active;
 	bool connected;
