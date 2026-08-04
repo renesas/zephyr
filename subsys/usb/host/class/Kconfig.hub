@@ -25,6 +25,14 @@ config USBH_HUB_MAX_LEVELS
 	  between the host and any device. USB specification allows up to five
 	  non-root hubs per path, which means the deepest path can include 5 hubs.
 
+config USBH_HUB_STACK_SIZE
+	int "USB host hub workqueue stack size"
+	default 2048
+	help
+	  Stack size of the shared USB host hub workqueue thread. This thread
+	  runs hub status handling and downstream device enumeration, including
+	  the class driver probe, so it needs sufficient headroom.
+
 config USBH_HUB_PORT_RESET_TIMES
 	int "Hub port reset retry count"
 	default 3
