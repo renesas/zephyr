@@ -8,3 +8,5 @@ rsource "Kconfig.uvc"
 rsource "Kconfig.hub"
 rsource "Kconfig.cdc_acm"
 rsource "hid/Kconfig"
+rsource "Kconfig.dfu"
+
