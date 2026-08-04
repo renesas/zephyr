@@ -101,3 +101,38 @@ Sample shell interaction
      iSerial                         3
      bNumConfigurations              1
    uart:~$
+
+
+Sample DFU interaction
+======================
+
+The USB host shell sample includes commands for Device Firmware Upgrade (DFU) operations when interacting with attached USB devices.
+
+.. note::
+   DFU shell support depends on :kconfig:option:`CONFIG_USBH_DFU_CLASS` being enabled.
+
+   For all DFU commands below:
+
+   * **1st argument** (``<addr>``): USB Device address on the USB bus, usually 1.
+   * **2nd argument** (``<alt>``): Alternate function setting number, usually 0.
+
+Entering DFU Mode
+-----------------
+
+To switch a device from DFU-Runtime mode to DFU mode, use the following command:
+
+.. code-block:: console
+
+   usbh device dfurt_enter_dfu 1
+
+
+Firmware Upload and Download
+----------------------------
+
+Once the device is in DFU mode, you can upload (read) or download (write) firmware data:
+
+.. code-block:: console
+
+   usbh device dfu_upload 1 0
+
+   usbh device dfu_dnload 1 0 "Text to dowload to DFU device"
