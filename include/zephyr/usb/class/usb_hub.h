@@ -1,11 +1,13 @@
 /*
  * Copyright (c) 2022 Emerson Electric Co.
  * SPDX-FileCopyrightText: Copyright 2026 NXP
+ * SPDX-FileCopyrightText: Copyright 2026 NXP
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * @file
+ * @brief USB Hub Class public header
  * @brief USB Hub Class public header
  */
 
@@ -67,33 +69,48 @@
 /** Hub local power change feature selector. */
 #define USB_HCFS_C_HUB_LOCAL_POWER	0x00
 /** Hub over-current change feature selector. */
+/** Hub over-current change feature selector. */
 #define USB_HCFS_C_HUB_OVER_CURRENT	0x01
+/** Port connection feature selector. */
 /** Port connection feature selector. */
 #define USB_HCFS_PORT_CONNECTION	0x00
 /** Port enable feature selector. */
+/** Port enable feature selector. */
 #define USB_HCFS_PORT_ENABLE		0x01
+/** Port suspend feature selector. */
 /** Port suspend feature selector. */
 #define USB_HCFS_PORT_SUSPEND		0x02
 /** Port over-current feature selector. */
+/** Port over-current feature selector. */
 #define USB_HCFS_PORT_OVER_CURRENT	0x03
+/** Port reset feature selector. */
 /** Port reset feature selector. */
 #define USB_HCFS_PORT_RESET		0x04
 /** Port power feature selector. */
+/** Port power feature selector. */
 #define USB_HCFS_PORT_POWER		0x08
+/** Port low speed feature selector. */
 /** Port low speed feature selector. */
 #define USB_HCFS_PORT_LOW_SPEED		0x09
 /** Port connection change feature selector. */
+/** Port connection change feature selector. */
 #define USB_HCFS_C_PORT_CONNECTION	0x10
+/** Port enable change feature selector. */
 /** Port enable change feature selector. */
 #define USB_HCFS_C_PORT_ENABLE		0x11
 /** Port suspend change feature selector. */
+/** Port suspend change feature selector. */
 #define USB_HCFS_C_PORT_SUSPEND		0x12
+/** Port over-current change feature selector. */
 /** Port over-current change feature selector. */
 #define USB_HCFS_C_PORT_OVER_CURRENT	0x13
 /** Port reset change feature selector. */
+/** Port reset change feature selector. */
 #define USB_HCFS_C_PORT_RESET		0x14
 /** Port test feature selector. */
+/** Port test feature selector. */
 #define USB_HCFS_PORT_TEST		0x15
+/** Port indicator feature selector. */
 /** Port indicator feature selector. */
 #define USB_HCFS_PORT_INDICATOR		0x16
 /** @} */
