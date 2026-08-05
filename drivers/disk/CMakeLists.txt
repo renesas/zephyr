@@ -15,4 +15,8 @@ zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_MEMC_RAM memc_ramdisk.c)
 zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_RAM ramdisk.c)
 zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_VIRTIO_BLK virtio_blk.c)
 zephyr_library_sources_ifdef(CONFIG_SDMMC_STM32 sdmmc_stm32.c)
+zephyr_library_sources_ifdef(CONFIG_USBH_MSC_CLASS usbh_disk.c)
 # zephyr-keep-sorted-stop
+
+zephyr_library_include_directories_ifdef(CONFIG_USBH_MSC_CLASS
+                                        ${ZEPHYR_BASE}/subsys/usb/host/class)
