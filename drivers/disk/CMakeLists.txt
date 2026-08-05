@@ -15,6 +15,10 @@ zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_FTL ftl_dhara.c)
 zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_LOOPBACK loopback_disk.c)
 zephyr_library_sources_ifdef(CONFIG_DISK_DRIVER_RAM ramdisk.c)
 zephyr_library_sources_ifdef(CONFIG_SDMMC_STM32 sdmmc_stm32.c)
+zephyr_library_sources_ifdef(CONFIG_USBH_MSC_CLASS usbh_disk.c)
 # zephyr-keep-sorted-stop
+
+zephyr_library_include_directories_ifdef(CONFIG_USBH_MSC_CLASS
+					 ${ZEPHYR_BASE}/subsys/usb/host/class)
 
 endif()

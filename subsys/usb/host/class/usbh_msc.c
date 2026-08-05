@@ -15,13 +15,13 @@
 #include <zephyr/drivers/usb/udc.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
-#include <zephyr/drivers/disk.h>
 
 #include "msc.h"
 #include "usbh_class.h"
 #include "usbh_desc.h"
 #include "usbh_ch9.h"
 #include "usbh_device.h"
+#include "usbh_msc.h"
 
 LOG_MODULE_REGISTER(usbh_msc, CONFIG_USBH_MSC_LOG_LEVEL);
 
@@ -33,8 +33,6 @@ LOG_MODULE_REGISTER(usbh_msc, CONFIG_USBH_MSC_LOG_LEVEL);
 #define CBW_COMMAND_BLOCK_MAX_LENGTH          16u
 /* Timeout for any SCSI request */
 #define SCSI_REQ_TIMEOUT                      5000u
-/* USB<n>_<lun> */
-#define DISK_NAME_LENGTH                      (8u + (CONFIG_USBH_MSC_MAX_SUPPORTED_LUN / 10u) + 1u)
 /* Max sense data returned by a Request Sense command */
 #define SCSI_MAX_SENSE_DATA                   18u
 /* Code for the current sense data */
@@ -108,55 +106,6 @@ struct driver_config {
 	uint8_t driver_index;
 };
 
-struct driver_data;
-
-/* Data structure for each logical unit */
-struct lun_data {
-	/* Pointer back to the original driver data */
-	struct driver_data *driver_data;
-	/* Logical unit index */
-	uint8_t index;
-	/* Mountpoint for the Disk Access API */
-	char disk_name[DISK_NAME_LENGTH];
-	/* Disk access structure */
-	struct disk_info disk;
-	/* Wether the drive is read-only or writeable */
-	bool write_protect;
-	/* Address of the last block on the drive */
-	uint32_t last_logical_block_address;
-	/* Block size */
-	uint32_t block_length_in_bytes;
-	/* Unit state; whether initialization was successful, if the medium is actually connected
-	 */
-	enum {
-		UNIT_STATE_NOT_READY,
-		UNIT_STATE_READY,
-		UNIT_STATE_NO_MEDIUM,
-		UNIT_STATE_ERROR,
-	} unit_state;
-};
-
-struct driver_data {
-	/* Connected usb device */
-	struct usb_device *udev;
-	/* Mutual exclusion lock */
-	struct k_mutex lock;
-	/* Sync semaphore for waiting on asynchronous operations */
-	struct k_sem sync;
-	/* Bulk IN endpoint address */
-	const struct usb_ep_descriptor *in_bulk_ep;
-	/* Bulk OUT endpoint address */
-	const struct usb_ep_descriptor *out_bulk_ep;
-	/* Index of the last logical unit */
-	uint8_t max_logical_unit;
-	/* Information about each logical unit on the drive */
-	struct lun_data lun_data[CONFIG_USBH_MSC_MAX_SUPPORTED_LUN];
-	/* Index of the target interface */
-	uint8_t target_iface;
-	/* Tag given back as is to identify the response */
-	uint32_t tag;
-};
-
 static int reset_recovery(struct driver_data *driver_data);
 static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t endpoint);
 
@@ -225,24 +174,6 @@ static inline uint8_t get_endpoint_for_direction(struct driver_data *driver_data
 		return driver_data->out_bulk_ep->bEndpointAddress;
 	} else {
 		return driver_data->in_bulk_ep->bEndpointAddress;
-	}
-}
-
-/*
- * Convert the unit state to an errno code.
- */
-static inline int unit_state_to_errno(struct lun_data *lun_data)
-{
-	switch (lun_data->unit_state) {
-	case UNIT_STATE_READY: {
-		return 0;
-	}
-	case UNIT_STATE_NO_MEDIUM: {
-		return -ENOMEDIUM;
-	}
-	default: {
-		return -EIO;
-	}
 	}
 }
 
@@ -813,7 +744,7 @@ static int mode_sense_10(struct driver_data *driver_data, uint8_t lun_index)
 /*
  * Flush the device's caches.
  */
-static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
+int usbh_msc_synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	uint8_t const command_block[10u] = {
@@ -873,7 +804,7 @@ static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 /*
  * Read a number of blocks from a logical unit.
  */
-static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
+int usbh_msc_read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
 		       uint16_t block_count, uint8_t *buffer)
 {
 	int result = 0;
@@ -930,7 +861,7 @@ static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint3
 /*
  * Write a number of blocks to a logical unit.
  */
-static int write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
+int usbh_msc_write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
 			uint16_t block_count, uint8_t const *buffer)
 {
 	int result = 0;
@@ -1150,14 +1081,6 @@ static int scan_interface_endpoints(struct driver_data *driver_data, uint8_t ifa
 }
 
 /*
- * Retrieve the containing `struct lun_data` from a `disk` field pointer.
- */
-static inline struct lun_data *get_lun_data_from_disk(struct disk_info *disk)
-{
-	return CONTAINER_OF(disk, struct lun_data, disk);
-}
-
-/*
  * Fetch medatada (write protect status, capacity) for the specified unit.
  */
 static int retrieve_unit_metadata(struct driver_data *driver_data, uint8_t lun_index)
@@ -1193,7 +1116,7 @@ static int retrieve_unit_metadata(struct driver_data *driver_data, uint8_t lun_i
 /*
  * Attempt to initialize a unit
  */
-static int initialize_unit(struct driver_data *driver_data, uint8_t lun_index)
+int usbh_msc_initialize_unit(struct driver_data *driver_data, uint8_t lun_index)
 {
 	int result = 0;
 	struct lun_data *lun_data = &driver_data->lun_data[lun_index];
@@ -1226,177 +1149,6 @@ static int initialize_unit(struct driver_data *driver_data, uint8_t lun_index)
 
 	return result;
 }
-
-static int disk_access_status(struct disk_info *disk)
-{
-	struct lun_data *lun_data = get_lun_data_from_disk(disk);
-	struct driver_data *driver_data = lun_data->driver_data;
-	int result = 0;
-
-	k_mutex_lock(&driver_data->lock, K_FOREVER);
-
-	switch (lun_data->unit_state) {
-	case UNIT_STATE_NO_MEDIUM: {
-		result = DISK_STATUS_NOMEDIA;
-		break;
-	}
-	case UNIT_STATE_READY: {
-		if (lun_data->write_protect) {
-			result = DISK_STATUS_WR_PROTECT;
-		}
-		/* If the disk is registered the drive has been probed and it's ready */
-		else {
-			result = DISK_STATUS_OK;
-		}
-		break;
-	}
-	default: {
-		result = DISK_STATUS_UNINIT;
-		break;
-	}
-	}
-
-	k_mutex_unlock(&driver_data->lock);
-
-	return result;
-}
-
-static int disk_access_read(struct disk_info *disk, uint8_t *data_buf, uint32_t start_sector,
-			    uint32_t num_sector)
-{
-	struct lun_data *lun_data = get_lun_data_from_disk(disk);
-	struct driver_data *driver_data = lun_data->driver_data;
-	int result = 0;
-
-	k_mutex_lock(&driver_data->lock, K_FOREVER);
-	if (start_sector + num_sector > lun_data->last_logical_block_address + 1) {
-		k_mutex_unlock(&driver_data->lock);
-		return -EINVAL;
-	}
-
-	if (lun_data->unit_state == UNIT_STATE_READY) {
-		result = read_blocks(driver_data, lun_data->index, start_sector, num_sector,
-				     data_buf);
-	} else {
-		result = unit_state_to_errno(lun_data);
-	}
-	k_mutex_unlock(&driver_data->lock);
-
-	return result;
-}
-
-static int disk_access_write(struct disk_info *disk, const uint8_t *data_buf, uint32_t start_sector,
-			     uint32_t num_sector)
-{
-	struct lun_data *lun_data = get_lun_data_from_disk(disk);
-	struct driver_data *driver_data = lun_data->driver_data;
-	int result = 0;
-
-	k_mutex_lock(&driver_data->lock, K_FOREVER);
-	if (start_sector + num_sector > lun_data->last_logical_block_address + 1) {
-		k_mutex_unlock(&driver_data->lock);
-		return -EINVAL;
-	}
-
-	if (lun_data->unit_state == UNIT_STATE_READY) {
-		result = write_blocks(driver_data, lun_data->index, start_sector, num_sector,
-				      data_buf);
-	} else {
-		result = unit_state_to_errno(lun_data);
-	}
-	k_mutex_unlock(&driver_data->lock);
-
-	return result;
-}
-
-static int disk_access_erase(struct disk_info *disk, uint32_t start_sector, uint32_t num_sector)
-{
-	ARG_UNUSED(disk);
-	ARG_UNUSED(start_sector);
-	ARG_UNUSED(num_sector);
-	/* Erasing doesn't make sense in the context of USB drives, it should be handled by
-	 * the device's own firmware */
-	return -ENOTSUP;
-}
-
-static int disk_access_ioctl(struct disk_info *disk, uint8_t cmd, void *buff)
-{
-	struct lun_data *lun_data = get_lun_data_from_disk(disk);
-	struct driver_data *driver_data = lun_data->driver_data;
-	int result = 0;
-
-	k_mutex_lock(&driver_data->lock, K_FOREVER);
-	switch (cmd) {
-	case DISK_IOCTL_GET_SECTOR_COUNT: {
-		if (lun_data->unit_state == UNIT_STATE_READY) {
-			*(uint32_t *)buff = lun_data->last_logical_block_address + 1;
-		} else {
-			result = unit_state_to_errno(lun_data);
-		}
-		break;
-	}
-	case DISK_IOCTL_GET_SECTOR_SIZE: {
-		if (lun_data->unit_state == UNIT_STATE_READY) {
-			*(uint32_t *)buff = lun_data->block_length_in_bytes;
-		} else {
-			result = unit_state_to_errno(lun_data);
-		}
-		break;
-	}
-	case DISK_IOCTL_CTRL_SYNC: {
-		if (lun_data->unit_state == UNIT_STATE_READY) {
-#ifndef CONFIG_USBH_MSC_IGNORE_SYNC
-			result = synchronize_cache(driver_data, lun_data->index);
-#endif /* CONFIG_USBH_MSC_IGNORE_SYNC */
-		} else {
-			result = unit_state_to_errno(lun_data);
-		}
-		break;
-	}
-	case DISK_IOCTL_CTRL_DEINIT: {
-		break;
-	}
-	case DISK_IOCTL_CTRL_INIT: {
-		LOG_DBG("Init IOCTL");
-		switch (lun_data->unit_state) {
-		case UNIT_STATE_READY: {
-			/* Unit is ready and responsive */
-			break;
-		}
-		default: {
-			/* Unit was not ready; retry */
-			result = initialize_unit(driver_data, lun_data->index);
-			break;
-		}
-		}
-		break;
-	}
-	default: {
-		result = -ENOTSUP;
-		break;
-	}
-	}
-	k_mutex_unlock(&driver_data->lock);
-
-	return result;
-}
-
-static int disk_access_init(struct disk_info *disk)
-{
-	return disk_access_ioctl(disk, DISK_IOCTL_CTRL_INIT, NULL);
-}
-
-/*
- * Disk access vtable
- */
-static const struct disk_operations disk_operations = {
-	.init = disk_access_init,
-	.status = disk_access_status,
-	.read = disk_access_read,
-	.write = disk_access_write,
-	.erase = disk_access_erase,
-	.ioctl = disk_access_ioctl,
-};
 
 /*
  * Initialize the MSC host class driver.
@@ -1473,21 +1225,11 @@ static int usbh_msc_probe(struct usbh_class_data *const c_data, struct usb_devic
 	for (size_t lun_index = 0; lun_index <= driver_data->max_logical_unit &&
 				   lun_index < CONFIG_USBH_MSC_MAX_SUPPORTED_LUN;
 	     lun_index++) {
-		struct lun_data *lun_data = &driver_data->lun_data[lun_index];
-
-		initialize_unit(driver_data, lun_index);
-
-		/* Populate other unit data */
-		lun_data->disk.dev = dev;
-		lun_data->disk.ops = &disk_operations;
-		snprintf(lun_data->disk_name, sizeof(lun_data->disk_name), "USB%i_%zu",
-			 driver_config->driver_index, lun_index);
-		lun_data->disk.name = lun_data->disk_name;
-		lun_data->index = lun_index;
-		lun_data->driver_data = driver_data;
+		usbh_msc_initialize_unit(driver_data, lun_index);
 
 		/* Register the unit as an accessible disk */
-		result = disk_access_register(&lun_data->disk);
+		result = usbh_msc_disk_register(driver_data, dev, driver_config->driver_index,
+						lun_index);
 		if (result != 0) {
 			LOG_ERR("Unable to register disk access driver: %i", result);
 			goto error_cleanup;
@@ -1515,7 +1257,7 @@ static int usbh_msc_remove(struct usbh_class_data *const c_data)
 	for (size_t lun_index = 0; lun_index <= driver_data->max_logical_unit &&
 				   lun_index < CONFIG_USBH_MSC_MAX_SUPPORTED_LUN;
 	     lun_index++) {
-		disk_access_unregister(&driver_data->lun_data[lun_index].disk);
+		usbh_msc_disk_unregister(&driver_data->lun_data[lun_index]);
 	}
 
 	driver_data->in_bulk_ep = NULL;
