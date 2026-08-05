@@ -1,0 +1,46 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config SOC_SERIES_RX74N
+	select RX
+	select CPU_RXV3E
+	select CPU_HAS_FPU
+	select CPU_HAS_FPU_DOUBLE_PRECISION
+	select XIP
+	select CLOCK_CONTROL_RENESAS_RX_CGC if CLOCK_CONTROL
+	select HAS_RENESAS_RX_FSP
+	select SOC_EARLY_INIT_HOOK
+	select SOC_PREP_HOOK
+	select CLOCK_CONTROL
+	select CLOCK_CONTROL_FIXED_RATE_CLOCK
+	select CPU_HAS_MPU
+	select CPU_HAS_RX_MPU
+	select RX_MPU
+
+config RX74N_LRAM0_NS
+	bool "Use LRAM0 via its non-secure CPU alias (0x00000000)"
+	default n
+	help
+	  When enabled, CPSCU.LRMSABAR0 is cleared in soc_prep_hook() so that
+	  the entire LRAM0 is accessible through the non-secure CPU alias at
+	  0x00000000 before arch_data_copy() copies the .itcm section there.
+
+	  Use this when a pre-built binary library must execute from the fixed
+	  address 0x00000000.
+
+	  The board DTS (or an application overlay) must also redirect the
+	  zephyr,itcm chosen node to the itcm_ns alias:
+	    &itcm   { status = "disabled"; };
+	    &itcm_ns { status = "okay"; };
+	    / { chosen { zephyr,itcm = &itcm_ns; }; };
+
+	  Enabling both itcm and itcm_ns simultaneously is caught by a
+	  BUILD_ASSERT in soc.c — they alias the same physical LRAM0.
+
+config SOC_RX74N_SKIP_OSPI_CLOCK_SETUP
+	bool "Skip OSPI clock frequency configuration in system initialization"
+	default n
+	help
+	  With this option, the OSPI clock frequency is not set during system
+	  initialization. This is required when the OSPI flash is used as the
+	  boot source

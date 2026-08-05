@@ -23,3 +23,6 @@ family:
       - name: rx74m
         socs:
           - name: r5k574mcb4ae
+      - name: rx74n
+        socs:
+          - name: r5k574ncb4ae
