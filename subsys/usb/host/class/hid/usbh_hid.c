@@ -74,12 +74,11 @@ struct driver_data {
 		uint8_t id;
 		uint8_t data[CONFIG_USBH_HID_MAX_INPUT_REPORT_SIZE];
 	} previous_reports[CONFIG_USBH_HID_REPORT_MAX_VARIANTS];
-#else
+#endif
 	/* Callback to be invoked with input data */
 	usbh_hid_report_cb_t input_cb;
 	/* User data */
 	void *user_data;
-#endif
 };
 
 static int req_interrupt_input(struct device const *dev);
@@ -88,8 +87,8 @@ static int driver_set_idle_rate(struct device const *dev, uint8_t report_id,
 				uint16_t idle_period_ms);
 static int driver_set_protocol(struct device const *dev, uint8_t protocol_code);
 
-/**
- * @brief Check whether the connected device is a keyboard
+/*
+ * Check whether the connected device is a keyboard
  */
 static inline bool is_keyboard(struct driver_data *const driver_data)
 {
@@ -98,8 +97,8 @@ static inline bool is_keyboard(struct driver_data *const driver_data)
 	return interface->bInterfaceProtocol == HID_BOOT_IFACE_CODE_KEYBOARD;
 }
 
-/**
- * @brief Check whether the connected device is a mouse
+/*
+ * Check whether the connected device is a mouse
  */
 static inline bool is_mouse(struct driver_data *const driver_data)
 {
@@ -155,16 +154,8 @@ static const uint16_t hid_button_to_input_map[] = {
 	INPUT_BTN_5, INPUT_BTN_6, INPUT_BTN_7, INPUT_BTN_8, INPUT_BTN_9,
 };
 
-/**
- * @brief Forward an HID key or button press to the input subsystem
- *
- * @param dev         Pointer to the device for which the event is reported
- * @param map_length  Length of the transformation map
- * @param map         Transformation map between usage IDs and input event codes
- * @param map_base    Starting point of the usage IDs
- * @param usage_id    Usage ID to report
- * @param value       Event value
- * @param sync        Event sync
+/*
+ * Forward an HID key or button press to the input subsystem
  */
 static void report_event(struct device const *dev, size_t map_length,
 			 uint16_t const map[map_length], uint16_t map_base, uint8_t usage_id,
@@ -191,13 +182,8 @@ static void report_event(struct device const *dev, size_t map_length,
 	input_report_key(dev, map[input_index], value, sync, K_FOREVER);
 }
 
-/**
- * @brief Forward an HID key press to the input subsystem
- *
- * @param dev         Pointer to the device for which the event is reported
- * @param usage_id    Usage ID to report
- * @param value       Event value
- * @param sync        Event sync
+/*
+ * Forward an HID key press to the input subsystem
  */
 static void report_key(struct device const *dev, uint8_t usage_id, bool value, bool sync)
 {
@@ -205,13 +191,8 @@ static void report_key(struct device const *dev, uint8_t usage_id, bool value, b
 		     hid_key_to_input_map, HID_KEY_A, usage_id, value, sync);
 }
 
-/**
- * @brief Forward an HID modifier key press to the input subsystem
- *
- * @param dev         Pointer to the device for which the event is reported
- * @param usage_id    Usage ID to report
- * @param value       Event value
- * @param sync        Event sync
+/*
+ * Forward an HID modifier key press to the input subsystem
  */
 static void report_modifier_key(struct device const *dev, uint8_t usage_id, bool value, bool sync)
 {
@@ -220,13 +201,8 @@ static void report_modifier_key(struct device const *dev, uint8_t usage_id, bool
 		     value, sync);
 }
 
-/**
- * @brief Forward an HID button press to the input subsystem
- *
- * @param dev         Pointer to the device for which the event is reported
- * @param usage_id    Usage ID to report
- * @param value       Event value
- * @param sync        Event sync
+/*
+ * Forward an HID button press to the input subsystem
  */
 static void report_button(struct device const *dev, uint8_t usage_id, bool value, bool sync)
 {
@@ -234,14 +210,9 @@ static void report_button(struct device const *dev, uint8_t usage_id, bool value
 		     hid_button_to_input_map, HID_BTN_1, usage_id, value, sync);
 }
 
-/**
- * @brief Get a pointer to the buffer where the previous report is stored
- *
- * @param driver_data  Pointer to driver data structure
- * @param report_id    Report ID of the required report
- *
- * @return 0 on success, negative errno value on failure.
- * @retval -ENOMEM if there are no buffers avaialble for the provided report ID
+/*
+ * Get a pointer to the buffer where the previous report is stored
+ * returns -ENOMEM if there are no buffers avaialble for the provided report ID
  */
 static int get_previous_report_buffer(struct driver_data const *driver_data, uint8_t report_id)
 {
@@ -264,15 +235,8 @@ static int get_previous_report_buffer(struct driver_data const *driver_data, uin
 	return result;
 }
 
-/**
- * @brief Checks wether a key was previously pressed and now not anymore
- *
- * @param prev_value_ptr  Pointer to the previous report
- * @param value_ptr       Pointer to the current report
- * @param prev_key_index  Index of the previously pressed key in the report
- * @param count		  Number of keys in the report
- *
- * @return boolean
+/*
+ * Checks whether a key was previously pressed and now not anymore
  */
 static bool was_array_key_released(uint8_t const *prev_value_ptr, uint8_t const *value_ptr,
 				   size_t prev_key_index, size_t count)
@@ -298,15 +262,8 @@ static bool was_array_key_released(uint8_t const *prev_value_ptr, uint8_t const 
 	return released;
 }
 
-/**
- * @brief Report keys from an array report field
- *
- * @param dev             Pointer to the device structure
- * @param prev_value_ptr  Pointer to the previous report
- * @param value_ptr       Pointer to the current report
- * @param bit_shift       Shift from value_ptr[0] for values that are not byte aligned
- * @param count		  Number of keys in the report
- *
+/*
+ * Report keys from an array report field
  */
 static void report_array_keys(struct device const *dev, uint8_t const *prev_value_ptr,
 			      uint8_t const *value_ptr, size_t bit_shift, size_t count)
@@ -327,15 +284,8 @@ static void report_array_keys(struct device const *dev, uint8_t const *prev_valu
 	}
 }
 
-/**
- * @brief Report a key from a variable report field
- *
- * @param dev             Pointer to the device structure
- * @param prev_value_ptr  Pointer to the previous report
- * @param value_ptr       Pointer to the current report
- * @param key_position    Bit position of the specified key
- * @param usage_id	  Usage ID of the key
- *
+/*
+ * Report a key from a variable report field
  */
 static void report_variable_key(struct device const *dev, uint8_t const *prev_value_ptr,
 				uint8_t const *value_ptr, size_t key_position, uint16_t usage_id)
@@ -354,15 +304,8 @@ static void report_variable_key(struct device const *dev, uint8_t const *prev_va
 	}
 }
 
-/**
- * @brief Report a button from a variable report field
- *
- * @param dev              Pointer to the device structure
- * @param prev_value_ptr   Pointer to the previous report
- * @param value_ptr        Pointer to the current report
- * @param button_position  Bit position of the specified button
- * @param usage_id	   Usage ID of the button
- *
+/*
+ * Report a button from a variable report field
  */
 static void report_variable_button(struct device const *dev, uint8_t const *prev_value_ptr,
 				   uint8_t const *value_ptr, size_t button_position,
@@ -382,17 +325,8 @@ static void report_variable_button(struct device const *dev, uint8_t const *prev
 	}
 }
 
-/**
- * @brief Report events from a report field
- *
- * @param field        Pointer to the report field structure
- * @param report_id    Report ID of the current report
- * @param data         Raw report
- * @param value_index  Starting index of the field value in the report
- * @param user_data    User data pointer
- *
- * @return 0 on success, negative errno value on failure.
- *
+/*
+ * Report events from a report field
  */
 static int report_events(struct usbh_hid_report_field const *field, uint8_t report_id,
 			 uint8_t const *data, size_t bit_index, void *user_data)
@@ -480,15 +414,8 @@ static int report_events(struct usbh_hid_report_field const *field, uint8_t repo
 }
 #endif
 
-/**
- * @brief Manage an input report
- *
- * @param driver_config  Pointer to the driver configuration structure
- * @param driver_data    Pointer to the driver data structure
- * @param data_length    Length of the raw report
- * @param data           Raw report
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Manage an input report
  *
  */
 static int handle_input_report(struct driver_config const *driver_config,
@@ -597,23 +524,19 @@ static int handle_input_report(struct driver_config const *driver_config,
 	/* Update the previous report buffer */
 	memcpy(&driver_data->previous_reports[previous_report_index].data, data, input_size);
 	driver_data->previous_reports[previous_report_index].id = report_id;
-#else
+#endif
+
+	/* If specified invoke the user provided callback */
 	if (driver_data->input_cb) {
 		usbh_hid_report_input_iterate(&driver_data->report, data_length, data,
 					      driver_data->input_cb, driver_data->user_data);
 	}
-#endif
 
 	return 0;
 }
 
-/**
- * @brief Clear an endpoint, re-enabling it
- *
- * @param driver_data  Pointer to the driver data structure
- * @param endpoint     Target endpoint address
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Clear an endpoint, re-enabling it
  */
 static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t endpoint)
 {
@@ -625,14 +548,8 @@ static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t 
 			      USB_SFS_ENDPOINT_HALT, endpoint, 0, NULL);
 }
 
-/**
- * @brief Callback on completion of input interrupt requests
- *
- * @param udev  Pointer to the USB device structure
- * @param xfer  Pointer to USB host transfer structure
- *
- * @return 0 on success, negative errno value on failure.
- *
+/*
+ * Callback on completion of input interrupt requests
  */
 static int input_interrupt_transfer_cb(struct usb_device *const udev,
 				       struct uhc_transfer *const xfer)
@@ -658,7 +575,7 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 		}
 	}
 	/* Endpoint halt condition to be cleared */
-	else if (xfer->err == -ENOTSUP) {
+	else if (xfer->err == -EPIPE) {
 		LOG_DBG("Endpoint in stalled, clearing and retrying...");
 		result = clear_feature_endpoint_halt(driver_data,
 						     driver_data->input_ep->bEndpointAddress);
@@ -666,6 +583,9 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 			LOG_ERR("Could not restore input endpoint: %i", result);
 			goto error_cleanup;
 		}
+	}
+	/* Request was cancelled, nothing to do */
+	else if (xfer->err == -ECONNRESET) {
 	}
 	/* Continue with the error */
 	else {
@@ -694,12 +614,8 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Enqueue an interrupt input request, kickstarting a periodic update
- *
- * @param dev  Pointer to device structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Enqueue an interrupt input request, kickstarting a periodic update
  */
 static int req_interrupt_input(struct device const *dev)
 {
@@ -729,17 +645,8 @@ static int req_interrupt_input(struct device const *dev)
 	return 0;
 }
 
-/**
- * @brief Enqueue a request for an interface descriptor
- *
- * @param udev   Pointer to the USB device structure
- * @param type   Descriptor type
- * @param index  Descriptor index
- * @param id     Interface id
- * @param len    Payload length
- * @param buf    Payload buffer
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Enqueue a request for an interface descriptor
  */
 static int req_iface_desc(struct usb_device *const udev, uint8_t const type, uint8_t const index,
 			  uint16_t const id, uint16_t const len, struct net_buf *const buf)
@@ -752,18 +659,8 @@ static int req_iface_desc(struct usb_device *const udev, uint8_t const type, uin
 	return usbh_req_setup(udev, bmRequestType, bRequest, wValue, id, len, buf);
 }
 
-/**
- * @brief Enqueue a HID class request
- *
- * @param udev         Pointer to the USB device structure
- * @param iface        Target interface
- * @param direction    Request direction (host->device or device->host)
- * @param request      Request code
- * @param value        Request value
- * @param data_length  Payload length
- * @param buf          Payload buffer
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Enqueue a HID class request
  */
 static int hid_class_request(struct usb_device *const udev, uint8_t const iface,
 			     uint8_t const direction, uint8_t const request, uint16_t const value,
@@ -775,14 +672,8 @@ static int hid_class_request(struct usb_device *const udev, uint8_t const iface,
 	return usbh_req_setup(udev, bmRequestType, request, value, iface, data_length, buf);
 }
 
-/**
- * @brief Analyze the various descriptors of the USB device interface
- *
- * @param driver_config  Pointer to the driver configuration structure
- * @param driver_data    Pointer to the driver data structure
- * @param iface          Target interface
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Analyze the various descriptors of the USB device interface
  */
 static int scan_descriptors(struct driver_config const *driver_config,
 			    struct driver_data *const driver_data, uint8_t const iface)
@@ -868,12 +759,8 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Initialize the HID host class driver
- *
- * @param c_data  Pointer to the usb class data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Initialize the HID host class driver
  */
 static int usbh_class_init(struct usbh_class_data *const c_data)
 {
@@ -901,13 +788,8 @@ static int usbh_class_init(struct usbh_class_data *const c_data)
 	return 0;
 }
 
-/**
- * @brief Probe the USB class driver after a device has been found
- *
- * @param c_data  Pointer to the usb class data structure
- * @param udev    Pointer to the usb device structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Probe the USB class driver after a device has been found
  */
 static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_device *const udev,
 			    uint8_t iface)
@@ -975,7 +857,7 @@ static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_dev
 		uint16_t idle_period_ms = driver_config->idle_rates_ms[idle_rate_index * 2u + 1u];
 
 		result = driver_set_idle_rate(dev, report_id, idle_period_ms);
-		if (result == -ENOTSUP) {
+		if (result == -EPIPE) {
 			/* Set idle not supported, can ignore */
 		}
 		/* Other error */
@@ -998,12 +880,8 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief Remove the USB class driver on disconnection
- *
- * @param c_data  Pointer to the usb class data structure
- *
- * @return 0 on success, negative errno value on failure.
+/*
+ * Remove the USB class driver on disconnection
  */
 static int usbh_class_remove(struct usbh_class_data *const c_data)
 {
@@ -1034,8 +912,8 @@ static int usbh_class_remove(struct usbh_class_data *const c_data)
 	return 0;
 }
 
-/**
- * @brief USB Host class API vtable
+/*
+ * USB Host class API vtable
  */
 static __maybe_unused struct usbh_class_api usbh_class_api = {
 	.init = usbh_class_init,
@@ -1043,8 +921,8 @@ static __maybe_unused struct usbh_class_api usbh_class_api = {
 	.removed = usbh_class_remove,
 };
 
-/**
- * @brief USB Host class filters
+/*
+ * USB Host class filters
  */
 static __maybe_unused struct usbh_class_filter const generic_hid_filters[] = {
 	{
@@ -1080,17 +958,11 @@ static __maybe_unused struct usbh_class_filter const generic_hid_filters[] = {
 	{0u},
 };
 
-/**
- * @brief Synchronization callback to wait for completion of asynchronous transfers
- *
+/*
+ * Synchronization callback to wait for completion of asynchronous transfers
  * Should be passed to `usbh_xfer_alloc_with_buf` or `usbh_xfer_alloc` before queuing the
  * transfer, to then block on `driver_data->sync` in order to wait for completion. This
  * function only gives way to the semaphore; it doesn't analyze or deallocate anything.
- *
- * @param udev Pointer to the connected USB device structure
- * @param xfer Pointer to completed transfer structure
- *
- * @return 0
  */
 static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
@@ -1100,28 +972,30 @@ static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfe
 		LOG_DBG("Request finished %p, err %d, sem %i", xfer, xfer->err,
 			k_sem_count_get(&driver_data->sync));
 	}
+	/* If the transfer was cancelled we deallocate it here */
+	else if (xfer->err == -ECONNRESET) {
+		LOG_INF("Transfer %p cancelled", (void *)xfer);
+		usbh_xfer_free(udev, xfer);
+
+		return 0;
+	}
+
 	k_sem_give(&driver_data->sync);
 
 	return 0;
 }
 
-/**
- * @brief Block on `driver_data->sync` waiting for the `sync_cb` callback
- *
+/*
+ * Block on `driver_data->sync` waiting for the `sync_cb` callback
  * This function waits for the last transfer enqueued with `sync_cb` as completion to be
  * done. If it actually completes it returns the error code; in the event of a timeout it
  * makes sure the transfer is no longer pending.
- *
- * @param driver_data  Pointer to the driver data structure
- * @param xfer         Pointer to the transfer structure
- *
- * @return 0 on success, negative errno value on failure.
  */
 static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *xfer)
 {
-	if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
-		int result = 0;
+	int result = 0;
 
+	if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
 		LOG_ERR("Timeout");
 
 		result = usbh_xfer_dequeue(driver_data->udev, xfer);
@@ -1142,10 +1016,18 @@ static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *x
 		else {
 		}
 
+		/* The USB host driver may still need to work with the transfer, so we leave it to
+		 * the callback to deallocate it.
+		 */
+
 		return -ETIMEDOUT;
+	} else {
+		/* The transfer was successful, store the result and free it */
+		result = xfer->err;
+		usbh_xfer_free(driver_data->udev, xfer);
 	}
 
-	return xfer->err;
+	return result;
 }
 
 static int driver_get_report_descriptor(struct device const *dev, struct usbh_hid_report *report)
@@ -1260,9 +1142,8 @@ static int driver_set_report(struct device const *dev, enum usbh_hid_report_fiel
 			goto error_cleanup;
 		}
 
-		/* Wait for completion */
+		/* Wait for completion, deallocation handled automatically */
 		result = wait_for_sync(driver_data, xfer);
-		usbh_xfer_free(driver_data->udev, xfer);
 	}
 	/* No interrupt OUT endpoint, fall back to a control request */
 	else {
@@ -1342,7 +1223,6 @@ static int driver_stop_input_reports(struct device const *dev)
 	return result;
 }
 
-#ifndef CONFIG_USBH_HID_ROUTE_TO_INPUT
 static int driver_set_input_callback(struct device const *dev, usbh_hid_report_cb_t callback,
 				     void *user_data)
 {
@@ -1357,7 +1237,6 @@ static int driver_set_input_callback(struct device const *dev, usbh_hid_report_c
 
 	return 0;
 }
-#endif
 
 static bool has_report_id(struct usbh_hid_report const *report, uint8_t report_id)
 {
@@ -1405,7 +1284,7 @@ static int driver_set_idle_rate(struct device const *dev, uint8_t report_id,
 				   USB_REQTYPE_DIR_TO_DEVICE, USB_HID_SET_IDLE,
 				   ((idle_period_ms / 4u) << 8u) | report_id, 0, NULL);
 	/* Set idle not supported, can ignore */
-	if (result == -ENOTSUP) {
+	if (result == -EPIPE) {
 		LOG_INF("HID does not support SET_IDLE");
 		goto error_cleanup;
 	}
@@ -1450,7 +1329,7 @@ static int driver_get_idle_rate(struct device const *dev, uint8_t report_id,
 	result = hid_class_request(driver_data->udev, driver_data->target_iface,
 				   USB_REQTYPE_DIR_TO_HOST, USB_HID_GET_IDLE, report_id, 1, buf);
 	/* Set idle not supported, can ignore */
-	if (result == -ENOTSUP) {
+	if (result == -EPIPE) {
 		LOG_INF("HID does not support GET_IDLE");
 		goto error_cleanup;
 	}
@@ -1557,8 +1436,8 @@ error_cleanup:
 	return result;
 }
 
-/**
- * @brief USB Host HID driver API vtable
+/*
+ * USB Host HID driver API vtable
  */
 DEVICE_API(usbh_hid, driver_api) = {
 	.get_report_descriptor = driver_get_report_descriptor,
@@ -1570,9 +1449,7 @@ DEVICE_API(usbh_hid, driver_api) = {
 	.get_idle_rate = driver_get_idle_rate,
 	.set_protocol = driver_set_protocol,
 	.get_protocol = driver_get_protocol,
-#ifndef CONFIG_USBH_HID_ROUTE_TO_INPUT
 	.set_input_callback = driver_set_input_callback,
-#endif
 };
 
 #define USBH_DEVICE_DEFINE(index)                                                                    \
@@ -1594,7 +1471,7 @@ DEVICE_API(usbh_hid, driver_api) = {
 			.pid = DT_INST_REG_ADDR(index) & 0xFFFFu,                                  \
 		},                                                                                 \
 		{0u},                                                                              \
-	};)       , ()                                                                             \
+	};), ()                                                                                    \
 	) \
                                                                                                      \
 	USBH_DEFINE_CLASS(usbh_hid_data_##index, &usbh_class_api,                                    \

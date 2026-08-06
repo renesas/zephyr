@@ -206,8 +206,7 @@ typedef int (*usbh_hid_report_cb_t)(struct usbh_hid_report_field const *field, u
  * @retval -EINVAL If parameters or the descriptor are invalid
  * @retval -ENOMEM If the statically available resources are not sufficient
  */
-int usbh_hid_report_parse(struct usbh_hid_report *report, size_t data_length,
-			  uint8_t const data[data_length]);
+int usbh_hid_report_parse(struct usbh_hid_report *report, size_t data_length, uint8_t const *data);
 
 /**
  * @brief Check if the report field contains usages from the specified page
@@ -230,16 +229,17 @@ bool usbh_hid_report_match_usage_page(struct usbh_hid_report_field const *field,
  * the former with the information found in the latter and invokes `callback` on cach
  * input item.
  *
- * @param report Report descriptor
- * @param data_length Length of the report
- * @param data Report as transmitted by the device
- * @param callback Function invoked on every field
+ * @param report       Report descriptor
+ * @param data_length  Length of the report
+ * @param data         Report as transmitted by the device
+ * @param callback     Function invoked on every field
+ * @param user_data    User pointer provided to the callback
  *
  * @retval 0 If successful.
  * @retval -EINVAL If parameters are invalid
  */
 int usbh_hid_report_input_iterate(struct usbh_hid_report const *report, size_t data_length,
-				  uint8_t const data[data_length], usbh_hid_report_cb_t callback,
+				  uint8_t const *data, usbh_hid_report_cb_t callback,
 				  void *user_data);
 
 /**
@@ -279,7 +279,7 @@ bool usbh_hid_report_field_contains_usage_id(struct usbh_hid_report_field const 
  * @details This function is a dual to `hid_report_field_contains_usage_id`, as it returns
  * the usage ID of the item in position `field_index`.
  *
- * @param report Report descriptor
+ * @param field       Field structure
  * @param field_index Index of the field of which the usage ID is required
  *
  * @return The usage ID (0 if the index was out of bounds)
@@ -355,8 +355,8 @@ typedef int (*usbh_hid_stop_input_reports_t)(struct device const *dev);
 /**
  * @brief Reads the report descriptor of the device
  *
- * @param dev          Pointer to the device
- * @param report[out]  Pointer to the report structure to fill
+ * @param      dev     Pointer to the device
+ * @param[out] report  Pointer to the report structure to fill
  *
  * @return 0 on success, negative errno value on failure.
  */
@@ -366,11 +366,11 @@ typedef int (*usbh_hid_get_report_descriptor_t)(struct device const *dev,
 /**
  * @brief Reads a report from the device
  *
- * @param dev          Pointer to the device
- * @param type         Report type
- * @param report_id    Report ID (0 if not relevant)
- * @param length       Output buffer length (should be inquired from the report descriptor)
- * @param buffer[out]  Output buffer
+ * @param      dev        Pointer to the device
+ * @param      type       Report type
+ * @param      report_id  Report ID (0 if not relevant)
+ * @param      length     Output buffer length (should be inquired from the report descriptor)
+ * @param[out] buffer     Output buffer
  *
  * @return 0 on success, negative errno value on failure.
  */
@@ -389,8 +389,7 @@ typedef int (*usbh_hid_get_report_t)(struct device const *dev, enum usbh_hid_rep
  * @return 0 on success, negative errno value on failure.
  */
 typedef int (*usbh_hid_set_report_t)(struct device const *dev, enum usbh_hid_report_field_type type,
-				     uint8_t report_id, size_t data_length,
-				     uint8_t const data[data_length]);
+				     uint8_t report_id, size_t data_length, uint8_t const *data);
 
 /**
  * @brief Registers a callback to be invoked on input report

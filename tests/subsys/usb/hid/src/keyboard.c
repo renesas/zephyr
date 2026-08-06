@@ -21,9 +21,12 @@ LOG_MODULE_REGISTER(usbh_test_hid, LOG_LEVEL_INF);
 #define MAX_EVENTS 16
 
 struct usbh_hid_keyboard_suite_fixture {
-	size_t expected_event_index;
+	size_t expected_events_index;
 	struct input_event expected_events[MAX_EVENTS];
-	struct k_sem sync;
+	size_t expected_usages_index;
+	uint8_t expected_usages[MAX_EVENTS];
+	struct k_sem input_sync;
+	struct k_sem report_sync;
 };
 
 static struct device const *hid_dev = DEVICE_DT_GET(DT_NODELABEL(hid_keyboard));
@@ -40,7 +43,8 @@ static void *suite_setup(void)
 {
 	int result = 0;
 
-	k_sem_init(&fixture.sync, 0, 1);
+	k_sem_init(&fixture.input_sync, 0, 1);
+	k_sem_init(&fixture.report_sync, 0, 1);
 
 	result = usbh_init(uhs_ctx);
 	zassert_ok(result, "Failed to initialize USB host");
@@ -88,15 +92,11 @@ static void suite_shutdown(void *f)
 	result = usbd_shutdown(test_usbd);
 	zassert_ok(result, "Failed to shutdown device support");
 
-	LOG_INF("Device support disabled");
-
 	result = usbh_disable(uhs_ctx);
 	zassert_ok(result, "Failed to disable USB host");
 
 	result = usbh_shutdown(uhs_ctx);
 	zassert_ok(result, "Failed to shutdown host support");
-
-	LOG_INF("Host controller disabled");
 }
 
 ZTEST_SUITE(usbh_hid_keyboard_suite, NULL, suite_setup, NULL, NULL, suite_shutdown);
@@ -161,20 +161,93 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_idle)
 	zassert_equal(idle_period_ms, 0u, "Wrong idle rate");
 }
 
+int input_report_cb(struct usbh_hid_report_field const *field, uint8_t report_id,
+		    uint8_t const *data, size_t bit_index, void *user_data)
+{
+	size_t value_index = bit_index / 8;
+	uint8_t const *value_ptr = &data[value_index];
+	struct usbh_hid_keyboard_suite_fixture *fixture_ptr = user_data;
+
+	zassert_equal(fixture_ptr, &fixture, "Invalid user data");
+
+	if (usbh_hid_report_match_usage_page(field, HID_USAGE_GEN_KEYBOARD)) {
+		/* Array data, each non-zero key is a usage id */
+		if (USBH_HID_REPORT_DATA_IS_ARRAY(field->flags) && field->size == 8) {
+			for (size_t key_index = 0; key_index < field->count; key_index++) {
+				uint8_t usage_id = value_ptr[key_index];
+
+				if (usage_id != 0) {
+					uint16_t expected_usage =
+						fixture_ptr->expected_usages
+							[fixture_ptr->expected_usages_index];
+
+					zassert_equal(usage_id, expected_usage,
+						      "Invalid usage: expected 0x%X, found 0x%X",
+						      expected_usage, usage_id);
+					fixture_ptr->expected_usages_index++;
+
+					if (fixture_ptr->expected_usages
+						    [fixture_ptr->expected_usages_index] == 0) {
+						k_sem_give(&fixture_ptr->report_sync);
+					}
+				}
+			}
+		} else if (USBH_HID_REPORT_DATA_IS_VARIABLE(field->flags) && field->size == 1u) {
+			/* Variable data, a bitset where the position indicates the usage id */
+			for (size_t key_position = 0; key_position < field->count; key_position++) {
+				size_t key_index = key_position / 8;
+				size_t key_shift = key_position % 8;
+				uint16_t usage_id = usbh_hid_report_field_get_usage_id_by_index(
+					field, key_position);
+
+				if ((value_ptr[key_index] & (1 << key_shift)) > 0) {
+					uint16_t expected_usage =
+						fixture_ptr->expected_usages
+							[fixture_ptr->expected_usages_index];
+
+					zassert_equal(usage_id, expected_usage,
+						      "Invalid usage: expected 0x%X, found 0x%X",
+						      expected_usage, usage_id);
+					fixture_ptr->expected_usages_index++;
+
+					if (fixture_ptr->expected_usages
+						    [fixture_ptr->expected_usages_index] == 0) {
+						k_sem_give(&fixture_ptr->report_sync);
+					}
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
 ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_single_keys)
 {
+	uint8_t control_usage = 0xE0;
+	const uint8_t x_usage = 0x1B;
+	int result = 0;
+
+	result = usbh_hid_set_input_callback(usbh_hid_dev, input_report_cb, &fixture);
+	zassert_ok(result);
+
 	{
 		/* X button press */
-		uint8_t report[] = {0, 0, 0x1B, 0, 0, 0, 0, 0};
+		uint8_t report[] = {0, 0, x_usage, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_X;
 		fixture.expected_events[0].value = 1;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+		fixture.expected_usages[0] = x_usage;
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+		k_sem_take(&fixture.report_sync, K_FOREVER);
 	}
 
 	{
@@ -182,13 +255,19 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_single_keys)
 		uint8_t report[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_X;
 		fixture.expected_events[0].value = 0;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+
+		/* No usages, no semaphore give */
+		zassert_not_ok(k_sem_take(&fixture.report_sync, K_MSEC(100)));
 	}
 
 	{
@@ -196,13 +275,18 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_single_keys)
 		uint8_t report[] = {1, 0, 0, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_LEFTCTRL;
 		fixture.expected_events[0].value = 1;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+		fixture.expected_usages[0] = control_usage;
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+		k_sem_take(&fixture.report_sync, K_FOREVER);
 	}
 
 	{
@@ -210,24 +294,38 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_single_keys)
 		uint8_t report[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_LEFTCTRL;
 		fixture.expected_events[0].value = 0;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+
+		/* No usages, no semaphore give */
+		zassert_not_ok(k_sem_take(&fixture.report_sync, K_MSEC(100)));
 	}
 }
 
 ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 {
+	uint8_t control_usage = 0xE0;
+	const uint8_t x_usage = 0x1B;
+	const uint8_t y_usage = 0x1C;
+	int result = 0;
+
+	result = usbh_hid_set_input_callback(usbh_hid_dev, input_report_cb, &fixture);
+	zassert_ok(result);
+
 	{
 		/* Left control, X and Y press */
-		uint8_t report[] = {1, 0, 0x1B, 0x1C, 0, 0, 0, 0};
+		uint8_t report[] = {1, 0, x_usage, y_usage, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_LEFTCTRL;
 		fixture.expected_events[0].value = 1;
@@ -240,8 +338,15 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		fixture.expected_events[2].code = INPUT_KEY_Y;
 		fixture.expected_events[2].value = 1;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+		fixture.expected_usages[0] = control_usage;
+		fixture.expected_usages[1] = x_usage;
+		fixture.expected_usages[2] = y_usage;
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+		k_sem_take(&fixture.report_sync, K_FOREVER);
 	}
 
 	{
@@ -249,7 +354,7 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		uint8_t report[] = {1, 0, 0x1C, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_LEFTCTRL;
 		fixture.expected_events[0].value = 1;
@@ -262,8 +367,14 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		fixture.expected_events[2].code = INPUT_KEY_X;
 		fixture.expected_events[2].value = 0;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+		fixture.expected_usages[0] = control_usage;
+		fixture.expected_usages[1] = y_usage;
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+		k_sem_take(&fixture.report_sync, K_FOREVER);
 	}
 
 	{
@@ -271,7 +382,7 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		uint8_t report[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 		memset(fixture.expected_events, 0, sizeof(fixture.expected_events));
-		fixture.expected_event_index = 0;
+		fixture.expected_events_index = 0;
 		fixture.expected_events[0].type = INPUT_EV_KEY;
 		fixture.expected_events[0].code = INPUT_KEY_LEFTCTRL;
 		fixture.expected_events[0].value = 0;
@@ -280,24 +391,30 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 		fixture.expected_events[1].code = INPUT_KEY_Y;
 		fixture.expected_events[1].value = 0;
 
+		fixture.expected_usages_index = 0;
+		memset(fixture.expected_usages, 0, sizeof(fixture.expected_usages));
+
 		hid_device_submit_report(hid_dev, sizeof(report), report);
-		k_sem_take(&fixture.sync, K_FOREVER);
+		k_sem_take(&fixture.input_sync, K_FOREVER);
+
+		/* No usages, no semaphore give */
+		zassert_not_ok(k_sem_take(&fixture.report_sync, K_MSEC(100)));
 	}
 }
 
 static void verify_input_cb(struct input_event *evt, void *user_data)
 {
-	zassert_equal(fixture.expected_events[fixture.expected_event_index].type, evt->type,
+	zassert_equal(fixture.expected_events[fixture.expected_events_index].type, evt->type,
 		      "Wrong input event type");
-	zassert_equal(fixture.expected_events[fixture.expected_event_index].code, evt->code,
+	zassert_equal(fixture.expected_events[fixture.expected_events_index].code, evt->code,
 		      "Wrong input event code");
-	zassert_equal(fixture.expected_events[fixture.expected_event_index].value, evt->value,
+	zassert_equal(fixture.expected_events[fixture.expected_events_index].value, evt->value,
 		      "Wrong input event value");
 
-	fixture.expected_event_index++;
+	fixture.expected_events_index++;
 
-	if (fixture.expected_events[fixture.expected_event_index].type == 0u) {
-		k_sem_give(&fixture.sync);
+	if (fixture.expected_events[fixture.expected_events_index].type == 0u) {
+		k_sem_give(&fixture.input_sync);
 	}
 }
 

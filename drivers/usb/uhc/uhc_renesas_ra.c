@@ -291,12 +291,12 @@ static int uhc_renesas_ra_event_xfer_complete(const struct device *dev, usbh_eve
 
 	switch (hal_evt->complete.result) {
 	case USB_XFER_RESULT_STALLED:
-		uhc_xfer_return(dev, priv->last_xfer, -ENOTSUP);
+		uhc_xfer_return(dev, priv->last_xfer, -EPIPE);
 		ret = -EAGAIN;
 		break;
 	case USB_XFER_RESULT_TIMEOUT:
 	case USB_XFER_RESULT_FAILED:
-		uhc_xfer_return(dev, priv->last_xfer, -EPIPE);
+		uhc_xfer_return(dev, priv->last_xfer, -EIO);
 		ret = -EAGAIN;
 		break;
 	case USB_XFER_RESULT_SUCCESS: {

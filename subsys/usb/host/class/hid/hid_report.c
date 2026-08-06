@@ -211,8 +211,7 @@ static int parse_field(struct context *context, enum usbh_hid_report_field_type 
 static int get_report_boundaries(struct usbh_hid_report const *report, uint8_t report_id,
 				 size_t *start_index, size_t *end_index);
 
-int usbh_hid_report_parse(struct usbh_hid_report *report, size_t data_length,
-			  uint8_t const data[data_length])
+int usbh_hid_report_parse(struct usbh_hid_report *report, size_t data_length, uint8_t const *data)
 {
 	int result = 0;
 	/* Initialize the context */
@@ -492,7 +491,7 @@ int usbh_hid_report_get_input_size(struct usbh_hid_report const *report, uint8_t
 }
 
 int usbh_hid_report_input_iterate(struct usbh_hid_report const *report, size_t data_length,
-				  uint8_t const data[data_length], usbh_hid_report_cb_t callback,
+				  uint8_t const *data, usbh_hid_report_cb_t callback,
 				  void *user_data)
 {
 	size_t data_bit_position = 0;
