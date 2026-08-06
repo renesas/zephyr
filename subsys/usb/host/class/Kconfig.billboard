@@ -1,0 +1,21 @@
+config USBH_BILLBOARD_CLASS
+				bool "USB Vendor billboard Class support [EXPERIMENTAL]"
+				select EXPERIMENTAL
+				help
+				  USB Host billboard Class implementation.
+
+if USBH_BILLBOARD_CLASS
+
+config USBH_BILLBOARD_INSTANCES_COUNT
+				int "Number of BILLBOARD instances"
+				default 4
+				help
+				  Number of instances of this USB class
+
+module = USBH_BILLBOARD
+module-str = usbh billboard
+default-count = 1
+source "subsys/logging/Kconfig.template.log_config"
+source "subsys/usb/common/Kconfig.template.instances_count"
+
+endif # USBH_BILLBOARD_CLASS

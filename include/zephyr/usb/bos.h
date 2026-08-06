@@ -46,7 +46,17 @@ enum usb_bos_capability_types {
 	USB_BOS_CAPABILITY_EXTENSION = 0x02,
 	/** Platform-specific capability (e.g., WebUSB, MS OS). */
 	USB_BOS_CAPABILITY_PLATFORM = 0x05,
+	/** Billboard capability */
+	USB_BOS_CAPABILITY_BILLBOARD = 0x0D,
+	/** Billboard Ex capability */
+	USB_BOS_CAPABILITY_BILLBOARD_EX = 0x0F,
 };
+
+struct usb_bos_capability_header {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	uint8_t bDevCapabilityType;
+} __packed;
 
 /**
  * BOS USB 2.0 extension capability descriptor
