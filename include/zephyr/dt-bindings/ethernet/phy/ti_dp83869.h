@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_ETHERNET_PHY_TI_DP83869_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_ETHERNET_PHY_TI_DP83869_H_
+
+/* PHY CTRL bits */
+#define DP83869_FIFO_DEPTH_4B_NIB 0x01U
+
+/* Operation mode */
+#define DP83869_OP_MODE_RGMII_COPPER_ETHERNET 0
+#define DP83869_OP_MODE_SGMII_COPPER_ETHERNET 6
+
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_ETHERNET_PHY_TI_DP83869_H_ */
