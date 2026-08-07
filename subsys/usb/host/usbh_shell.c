@@ -1198,6 +1198,38 @@ static int cmd_usbh_disable(const struct shell *sh,
 	return err;
 }
 
+static int cmd_usbh_shutdown(const struct shell *sh,
+			     size_t argc, char **argv)
+{
+	struct usbh_context *uhs_ctx;
+	int err;
+
+	uhs_ctx = get_uhs_ctx_or_error(sh);
+	if (uhs_ctx == NULL) {
+		return -ENODEV;
+	}
+
+	err = usbh_shutdown(uhs_ctx);
+
+	if (err == -EBUSY) {
+		shell_error(sh,
+			    "host: USB host is still enabled; "
+			    "run 'usbh disable' first");
+	} else if (err == -EALREADY) {
+		shell_error(sh,
+			    "host: USB host is already shutdown");
+	} else if (err) {
+		shell_error(sh,
+			    "host: Failed to shutdown USB host support: %d",
+			    err);
+	} else {
+		shell_print(sh,
+			    "host: USB host completely shutdown");
+	}
+
+	return err;
+}
+
 static int cmd_select(const struct shell *sh, size_t argc, char **argv)
 {
 	STRUCT_SECTION_FOREACH(usbh_context, ctx) {
@@ -1450,6 +1482,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_usbh_cmds,
 		      cmd_usbh_enable, 1, 0),
 	SHELL_CMD_ARG(disable, NULL, "[none]",
 		      cmd_usbh_disable, 1, 0),
+  	SHELL_CMD_ARG(shutdown, NULL,
+		      "[none] completely shuts down USB host support",
+		      cmd_usbh_shutdown, 1, 0),
 	SHELL_CMD_ARG(bus, &bus_cmds, "Bus commands",
 		      NULL, 1, 0),
 	SHELL_CMD_ARG(device, &device_cmds, "Device commands",
