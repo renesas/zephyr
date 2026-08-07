@@ -550,6 +550,9 @@ static int hub_port_process(struct usbh_hub_data *const hub_data,
 				continue;
 			}
 
+			/* Sleep 10ms for downstream device stable after reset */
+			k_msleep(10);
+
 			ret = enumerate_port_device(hub_data, port_instance, port_num,
 						    &port_sts);
 			if (ret != 0) {
