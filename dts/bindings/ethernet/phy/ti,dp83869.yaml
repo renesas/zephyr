@@ -1,0 +1,80 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  TI DP83869 Ethernet PHY device
+
+  Example usage:
+    #include <zephyr/dt-bindings/ethernet/phy/ti_dp83869.h>
+
+    phy@2 {
+        compatible = "ti,dp83869";
+        reg = <2>;
+        ti,op-mode = <DP83869_OP_MODE_SGMII_COPPER_ETHERNET>;
+        status = "okay";
+    };
+
+compatible: "ti,dp83869"
+
+include: ethernet-phy-common.yaml
+
+properties:
+  ti,op-mode:
+    type: int
+    description: |
+      Operational mode for the PHY.
+
+      If not specified, the device will use HW strap to set operation mode.
+
+      Currently supported modes:
+        0: DP83869_OP_MODE_RGMII_COPPER_ETHERNET
+        6: DP83869_OP_MODE_SGMII_COPPER_ETHERNET
+    enum:
+      - 0
+      - 6
+
+  ti,rx-internal-delay-ps:
+    type: int
+    description: |
+      RX internal delay, in picoseconds, for RGMII mode.
+      If not specified, the driver does not modify the RX internal delay setting.
+      The DP83869 reset value for the RGMII RX internal delay is 2000ps.
+      A value of 0 disables the RX internal delay.
+    enum: [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750]
+
+  ti,tx-internal-delay-ps:
+    type: int
+    description: |
+      TX internal delay, in picoseconds, for RGMII mode.
+      If not specified, the driver does not modify the TX internal delay setting.
+      The DP83869 reset value for the RGMII TX internal delay is 2000ps.
+      A value of 0 disables the TX internal delay.
+    enum: [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750]
+
+  ti,rx-fifo-depth:
+    type: string
+    description: |
+      Receive FIFO depth.
+      If not specified, the driver does not modify the RX FIFO depth setting.
+      The DP83869 reset value for the RX FIFO depth is 4 bytes/nibbles (B/NIB).
+    enum:
+      - "3b-nib"
+      - "4b-nib"
+      - "6b-nib"
+      - "8b-nib"
+
+  ti,tx-fifo-depth:
+    type: string
+    description: |
+      Transmit FIFO depth.
+      If not specified, the driver does not modify the TX FIFO depth setting.
+      The DP83869 reset value for the TX FIFO depth is 4 bytes/nibbles (B/NIB).
+    enum:
+      - "3b-nib"
+      - "4b-nib"
+      - "6b-nib"
+      - "8b-nib"
+
+  default-speeds:
+    default: ["10BASE Half-Duplex", "10BASE Full-Duplex", "100BASE Half-Duplex",
+              "100BASE Full-Duplex", "1000BASE Half-Duplex", "1000BASE Full-Duplex"]
