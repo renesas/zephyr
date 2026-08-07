@@ -9,6 +9,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "rcar_ironhide_x5h_r8a7800_r52-pinctrl.dtsi"
+#include <zephyr/dt-bindings/ethernet/phy/ti_dp83869.h>
 #include <freq.h>
 
 / {
@@ -84,7 +85,14 @@
 &mdio4 {
 	pinctrl-0 = <&rsw3_etha4_mdc_default &rsw3_etha4_mdio_default>;
 	pinctrl-names = "default";
-	status = "okay";
+	status = "disabled";
+
+	phy2: ethernet-phy@2 {
+		compatible = "ti,dp83869";
+		reg = <2>;
+		ti,op-mode = <DP83869_OP_MODE_SGMII_COPPER_ETHERNET>;
+		status = "disabled";
+	};
 };
 
 &gpio0 {
