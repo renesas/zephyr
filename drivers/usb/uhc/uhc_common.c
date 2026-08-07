@@ -317,6 +317,9 @@ int uhc_disable(const struct device *dev)
 		goto uhc_disable_error;
 	}
 
+	/* The root port is disabled. Remove any attached devices. */
+	(void)uhc_submit_event(dev, UHC_EVT_DEV_REMOVED, 0);
+
 	ret = api->disable(dev);
 	atomic_clear_bit(&data->status, UHC_STATUS_ENABLED);
 
@@ -380,6 +383,9 @@ int uhc_shutdown(const struct device *dev)
 
 	ret = api->shutdown(dev);
 	atomic_clear_bit(&data->status, UHC_STATUS_INITIALIZED);
+
+	/* The root port is disabled. Remove any attached devices. */
+	(void)uhc_submit_event(dev, UHC_EVT_DEV_REMOVED, 0);
 
 uhc_shutdown_error:
 	api->unlock(dev);
