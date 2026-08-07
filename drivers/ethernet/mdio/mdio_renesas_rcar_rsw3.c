@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/mdio.h>
 #include <zephyr/net/mdio.h>
@@ -67,6 +69,8 @@ LOG_MODULE_REGISTER(renesas_rcar_rsw3_mdio, CONFIG_MDIO_LOG_LEVEL);
 #define RCDC_RCD BIT(16)
 
 /* RMAC registers define */
+#define RSW3_MDC_HZ        2500000U
+#define MPIC_PSMHT_DEFAULT 0x06U
 #define MPIC_PSMHT_MASK    GENMASK(27, 24)
 #define MPIC_PSMCS_LO_MASK GENMASK(22, 16)
 #define MPIC_PSMCS_HI_MASK GENMASK(15, 13)
@@ -101,6 +105,8 @@ enum rsw3_etha_mode {
 struct renesas_rcar_rsw3_mdio_config {
 	DEVICE_MMIO_ROM; /* Must be first */
 	const struct pinctrl_dev_config *pcfg;
+	const struct device *clock_dev;
+	struct rcar_cpg_clk mdc_clk;
 	uint8_t channel;
 };
 
@@ -123,6 +129,41 @@ static inline void rsw3_update_bits32(mem_addr_t addr, uint32_t mask, uint32_t v
 	tmp &= ~mask;
 	tmp |= val & mask;
 	sys_write32(tmp, addr);
+}
+
+static int rsw3_get_clock_rate(const struct device *dev, uint32_t *rate)
+{
+	const struct renesas_rcar_rsw3_mdio_config *config = dev->config;
+	int ret;
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("Clock control device is not ready");
+		return -ENODEV;
+	}
+
+	ret = clock_control_get_rate(config->clock_dev, (clock_control_subsys_t)&config->mdc_clk,
+				     rate);
+	if (ret) {
+		return ret;
+	}
+
+	if (*rate == 0U) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static uint32_t rsw3_mpic_psmcs(uint32_t rate)
+{
+	uint32_t psmcs;
+
+	psmcs = DIV_ROUND_CLOSEST(rate, RSW3_MDC_HZ * 2U);
+	if (psmcs != 0U) {
+		psmcs--;
+	}
+
+	return psmcs;
 }
 
 /**
@@ -433,6 +474,7 @@ static int renesas_rcar_rsw3_mdio_init(const struct device *dev)
 {
 	const struct renesas_rcar_rsw3_mdio_config *config = dev->config;
 	struct renesas_rcar_rsw3_mdio_data *data = dev->data;
+	uint32_t rate;
 	int ret;
 
 	/* Configure dt provided device signals when available */
@@ -463,10 +505,16 @@ static int renesas_rcar_rsw3_mdio_init(const struct device *dev)
 	/* Clear MPIC value */
 	sys_write32(0x0, DEVICE_MMIO_GET(dev) + MPIC);
 
+	ret = rsw3_get_clock_rate(dev, &rate);
+	if (ret) {
+		return ret;
+	}
+
 	/* Enable and configure MDC clock */
 	rsw3_update_bits32(DEVICE_MMIO_GET(dev) + MPIC,
-			  MPIC_PSMCS_LO_MASK | MPIC_PSMCS_HI_MASK | MPIC_PSMHT_MASK,
-			  MPIC_PSMCS_PREP(0x8e) | FIELD_PREP(MPIC_PSMHT_MASK, 0x6));
+			   MPIC_PSMCS_LO_MASK | MPIC_PSMCS_HI_MASK | MPIC_PSMHT_MASK,
+			   MPIC_PSMCS_PREP(rsw3_mpic_psmcs(rate)) |
+				   FIELD_PREP(MPIC_PSMHT_MASK, MPIC_PSMHT_DEFAULT));
 
 	ret = rsw3_etha_change_mode(dev, EAMC_OPC_OPERATION);
 	if (ret) {
@@ -493,6 +541,9 @@ static DEVICE_API(mdio, renesas_rcar_rsw3_mdio_api) = {
 	static const struct renesas_rcar_rsw3_mdio_config renesas_rcar_rsw3_mdio_config_##inst = { \
 		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(inst)),                                           \
 		.channel = DT_INST_PROP(inst, channel),                                            \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(inst)),                             \
+		.mdc_clk.module = DT_INST_CLOCKS_CELL_BY_IDX(inst, 0, module),                     \
+		.mdc_clk.domain = DT_INST_CLOCKS_CELL_BY_IDX(inst, 0, domain),                     \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),                                      \
 	};                                                                                         \
                                                                                                    \

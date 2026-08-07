@@ -14,6 +14,9 @@ properties:
   reg-names:
     required: true
 
+  clocks:
+    required: true
+
   channel:
     type: int
     required: true

@@ -307,6 +307,7 @@
 			reg = <0xc9b9e000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
+			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
 			channel = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -318,6 +319,7 @@
 			reg = <0xc9ba0000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
+			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
 			channel = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -329,6 +331,7 @@
 			reg = <0xc9ba2000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
+			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
 			channel = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -340,6 +343,7 @@
 			reg = <0xc9ba4000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
+			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
 			channel = <3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -351,6 +355,7 @@
 			reg = <0xc9ba6000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
+			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
 			channel = <4>;
 			#address-cells = <1>;
 			#size-cells = <0>;
