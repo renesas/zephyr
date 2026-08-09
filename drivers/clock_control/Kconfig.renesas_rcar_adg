@@ -6,6 +6,7 @@ config CLOCK_CONTROL_RENESAS_RCAR_ADG
 	default y
 	depends on SOC_FAMILY_RENESAS_RCAR
 	depends on DT_HAS_RENESAS_RCAR_ADG_ENABLED
+	depends on I2S || AUDIO
 	help
 	  Enable support for Renesas R-Car ADG clock control driver.
 
