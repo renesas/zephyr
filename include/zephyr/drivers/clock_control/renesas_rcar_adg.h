@@ -7,6 +7,7 @@
 #ifndef ZEPHYR_INCLUDE_DRIVERS_CLOCK_CONTROL_RENESAS_RCAR_ADG_H_
 #define ZEPHYR_INCLUDE_DRIVERS_CLOCK_CONTROL_RENESAS_RCAR_ADG_H_
 
+#include <zephyr/device.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 
@@ -229,7 +230,7 @@ struct i2s_rcar_adg_clk_rate {
 
 /* Device tree derived configuration of an ADG instance */
 struct clock_control_renesas_adg_cfg {
-	uint32_t base;                                /* Base address of the ADG registers */
+	DEVICE_MMIO_ROM;                              /* ADG register region, must be first */
 	struct rcar_adg_clock_config dev_pclk;        /* ADG module clock, gates register access */
 	struct rcar_adg_clock_config dev_s0d4;        /* S0D4 internal clock control instance */
 	struct rcar_adg_clock_config dev_s0d1;        /* S0D1 internal clock control instance */
@@ -239,6 +240,7 @@ struct clock_control_renesas_adg_cfg {
 
 /* Run time state of an ADG instance */
 struct clock_control_renesas_adg_data {
+	DEVICE_MMIO_RAM;              /* ADG register region, must be first */
 	uint32_t brg_rate[2];         /* Current BRGA/BRGB output rates */
 	uint32_t avbcounter8_rate[8]; /* Current avb_counter8 channel output rates */
 	uint32_t clkout_src[4];       /* Clock source routed to each AUDIO_CLKOUT pin */

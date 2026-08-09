@@ -757,9 +757,6 @@
 	};
 
 	clocks: clocks {
-		#address-cells = <1>;
-		#size-cells = <1>;
-
 		audio_clk_a: audio-clk-a {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;

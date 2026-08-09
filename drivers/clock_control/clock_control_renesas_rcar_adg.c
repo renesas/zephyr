@@ -45,8 +45,7 @@ static enum clock_control_status rcar_adg_clksrc_get_status(const struct device 
 static uint32_t rcar_adg_clksrc_get_rate(const struct device *dev, uint32_t clksrc);
 static int rcar_adg_clksrc_set_rate(const struct device *dev, uint32_t clksrc, uint32_t rate);
 
-static uint32_t rcar_adg_brg_clkin_get_rate(const struct clock_control_renesas_adg_cfg *config,
-					    uint8_t brg_unit);
+static uint32_t rcar_adg_brg_clkin_get_rate(const struct device *dev, uint8_t brg_unit);
 static int rcar_adg_brg_set_rate(const struct device *dev, uint8_t brg_unit, uint32_t rate);
 
 static int rcar_adg_avbcounter8_set_rate(const struct device *dev, uint8_t avbcounter8_unit,
@@ -69,7 +68,6 @@ static int rcar_adg_avbcounter8_set_rate(const struct device *dev, uint8_t avbco
  */
 static int rcar_adg_clksrc_enable(const struct device *dev, uint32_t clksrc, bool enable)
 {
-	const struct clock_control_renesas_adg_cfg *config = dev->config;
 	int ret = 0;
 
 	switch (clksrc) {
@@ -85,7 +83,7 @@ static int rcar_adg_clksrc_enable(const struct device *dev, uint32_t clksrc, boo
 	case RCAR_ADG_AUDIO_AVB5:
 	case RCAR_ADG_AUDIO_AVB6:
 	case RCAR_ADG_AUDIO_AVB7: {
-		uint32_t reg = sys_read32(config->base + ADG_AVB_CLK_CONFIG_OFFSET);
+		uint32_t reg = sys_read32(DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_CONFIG_OFFSET);
 
 		if (enable) {
 			reg |= BIT(clksrc - RCAR_ADG_AUDIO_AVB0);
@@ -93,7 +91,7 @@ static int rcar_adg_clksrc_enable(const struct device *dev, uint32_t clksrc, boo
 			reg &= ~BIT(clksrc - RCAR_ADG_AUDIO_AVB0);
 		}
 
-		sys_write32(reg, config->base + ADG_AVB_CLK_CONFIG_OFFSET);
+		sys_write32(reg, DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_CONFIG_OFFSET);
 		ret = 0;
 		break;
 	}
@@ -118,8 +116,6 @@ static int rcar_adg_clksrc_enable(const struct device *dev, uint32_t clksrc, boo
 static enum clock_control_status rcar_adg_clksrc_get_status(const struct device *dev,
 							    uint32_t clksrc)
 {
-	const struct clock_control_renesas_adg_cfg *config = dev->config;
-
 	switch (clksrc) {
 	case RCAR_ADG_AUDIO_BRGA:
 	case RCAR_ADG_AUDIO_BRGB:
@@ -132,7 +128,7 @@ static enum clock_control_status rcar_adg_clksrc_get_status(const struct device 
 	case RCAR_ADG_AUDIO_AVB5:
 	case RCAR_ADG_AUDIO_AVB6:
 	case RCAR_ADG_AUDIO_AVB7:
-		if ((sys_read32(config->base + ADG_AVB_CLK_CONFIG_OFFSET) &
+		if ((sys_read32(DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_CONFIG_OFFSET) &
 		     BIT(clksrc - RCAR_ADG_AUDIO_AVB0)) != 0U) {
 			return CLOCK_CONTROL_STATUS_ON;
 		} else {
@@ -217,15 +213,15 @@ static int rcar_adg_clksrc_set_rate(const struct device *dev, uint32_t clksrc, u
  * Reads the clock select field of the unit from BRGCKR and returns the rate of the selected
  * input, as recorded in the clkin_src_rate table.
  *
- * @param config ADG device configuration
+ * @param dev ADG device
  * @param brg_unit BRGA or BRGB
  *
  * @return input rate in Hz, 0 for an invalid unit or an unknown selection
  */
-static uint32_t rcar_adg_brg_clkin_get_rate(const struct clock_control_renesas_adg_cfg *config,
-					    uint8_t brg_unit)
+static uint32_t rcar_adg_brg_clkin_get_rate(const struct device *dev, uint8_t brg_unit)
 {
-	uint32_t brgckr = sys_read32(config->base + ADG_BRGCKR_OFFSET);
+	const struct clock_control_renesas_adg_cfg *config = dev->config;
+	uint32_t brgckr = sys_read32(DEVICE_MMIO_GET(dev) + ADG_BRGCKR_OFFSET);
 	uint32_t sel;
 
 	if (brg_unit == BRGA) {
@@ -268,20 +264,19 @@ static uint32_t rcar_adg_brg_clkin_get_rate(const struct clock_control_renesas_a
  */
 static int rcar_adg_brg_set_rate(const struct device *dev, uint8_t brg_unit, uint32_t rate)
 {
-	const struct clock_control_renesas_adg_cfg *config = dev->config;
 	struct clock_control_renesas_adg_data *data = dev->data;
 	static const uint32_t cks_field[] = {0, 1, 2, 3};
 	uint32_t brg_reg = 0U;
 
 	if (brg_unit == BRGA) {
-		brg_reg = config->base + ADG_BRRA_OFFSET;
+		brg_reg = DEVICE_MMIO_GET(dev) + ADG_BRRA_OFFSET;
 	} else if (brg_unit == BRGB) {
-		brg_reg = config->base + ADG_BRRB_OFFSET;
+		brg_reg = DEVICE_MMIO_GET(dev) + ADG_BRRB_OFFSET;
 	} else {
 		return -ENOTSUP;
 	}
 
-	uint32_t brg_clksrc_hz = rcar_adg_brg_clkin_get_rate(config, brg_unit);
+	uint32_t brg_clksrc_hz = rcar_adg_brg_clkin_get_rate(dev, brg_unit);
 
 	if (brg_clksrc_hz == 0 || rate == 0) {
 		return -ENOTSUP;
@@ -398,7 +393,7 @@ static int rcar_adg_avbcounter8_set_rate(const struct device *dev, uint8_t avbco
 
 	reg_val |= (fractional_field << ADG_AVB_CLK_DIV_FRACTIONAL_POS) &
 		   ADG_AVB_CLK_DIV_FRACTIONAL_MSK;
-	sys_write32(reg_val, config->base + ADG_AVB_CLK_DIVx_OFFSET(avbcounter8_unit));
+	sys_write32(reg_val, DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_DIVx_OFFSET(avbcounter8_unit));
 
 	data->avbcounter8_rate[avbcounter8_unit] =
 		(uint32_t)(((uint64_t)avbcounter8_clksrc_hz * 32) /
@@ -686,6 +681,8 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 	struct clock_control_renesas_adg_data *data = dev->data;
 	int ret = 0;
 
+	DEVICE_MMIO_MAP(dev, K_MEM_CACHE_NONE);
+
 	k_mutex_init(&data->lock);
 
 	/* Enable clock for ADG and its internal clock */
@@ -732,8 +729,8 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 		return ret;
 	}
 
-	uint32_t avbckr_val = sys_read32(config->base + ADG_AVBCKR_OFFSET);
-	uint32_t brgckr_val = sys_read32(config->base + ADG_BRGCKR_OFFSET);
+	uint32_t avbckr_val = sys_read32(DEVICE_MMIO_GET(dev) + ADG_AVBCKR_OFFSET);
+	uint32_t brgckr_val = sys_read32(DEVICE_MMIO_GET(dev) + ADG_BRGCKR_OFFSET);
 	bool uses_brga = false;
 	bool uses_brgb = false;
 
@@ -806,29 +803,29 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 		return -EINVAL;
 	}
 
-	sys_write32(avbckr_val, config->base + ADG_AVBCKR_OFFSET);
-	sys_write32(brgckr_val, config->base + ADG_BRGCKR_OFFSET);
+	sys_write32(avbckr_val, DEVICE_MMIO_GET(dev) + ADG_AVBCKR_OFFSET);
+	sys_write32(brgckr_val, DEVICE_MMIO_GET(dev) + ADG_BRGCKR_OFFSET);
 
 	/* Initialize data struct */
 	/* BRGA */
-	uint32_t reg = sys_read32(config->base + ADG_BRRA_OFFSET);
+	uint32_t reg = sys_read32(DEVICE_MMIO_GET(dev) + ADG_BRRA_OFFSET);
 	int aclk_ratio = FIELD_GET(ADG_BRRx_CKS_MSK, reg);
 	int brr_ratio = FIELD_GET(ADG_BRRx_BRRx_MSK, reg);
 
-	data->brg_rate[BRGA] = rcar_adg_brg_clkin_get_rate(config, BRGA) /
-			       ADG_BRG_DIV_RATIO(aclk_ratio, brr_ratio);
+	data->brg_rate[BRGA] =
+		rcar_adg_brg_clkin_get_rate(dev, BRGA) / ADG_BRG_DIV_RATIO(aclk_ratio, brr_ratio);
 
 	/* BRGB */
-	reg = sys_read32(config->base + ADG_BRRB_OFFSET);
+	reg = sys_read32(DEVICE_MMIO_GET(dev) + ADG_BRRB_OFFSET);
 	aclk_ratio = FIELD_GET(ADG_BRRx_CKS_MSK, reg);
 	brr_ratio = FIELD_GET(ADG_BRRx_BRRx_MSK, reg);
-	data->brg_rate[BRGB] = rcar_adg_brg_clkin_get_rate(config, BRGB) /
-			       ADG_BRG_DIV_RATIO(aclk_ratio, brr_ratio);
+	data->brg_rate[BRGB] =
+		rcar_adg_brg_clkin_get_rate(dev, BRGB) / ADG_BRG_DIV_RATIO(aclk_ratio, brr_ratio);
 
 	/* avb_counter8 */
-	reg = sys_read32(config->base + ADG_AVB_CLK_CONFIG_OFFSET);
+	reg = sys_read32(DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_CONFIG_OFFSET);
 	reg |= ADG_AVB_CLK_CONFIG_DIV_EN_COM_MSK;
-	sys_write32(reg, config->base + ADG_AVB_CLK_CONFIG_OFFSET);
+	sys_write32(reg, DEVICE_MMIO_GET(dev) + ADG_AVB_CLK_CONFIG_OFFSET);
 
 	memset(data->avbcounter8_rate, 0, sizeof(data->avbcounter8_rate));
 
@@ -836,7 +833,7 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 	uint32_t tim_en = ADG_TIM_EN_BRGB_TIM_EN_MSK | ADG_TIM_EN_BRGA_TIM_EN_MSK |
 			  ADG_TIM_EN_AUDIO_CLKC_TIM_EN_MSK | ADG_TIM_EN_AUDIO_CLKB_TIM_EN_MSK |
 			  ADG_TIM_EN_AUDIO_CLKA_TIM_EN_MSK;
-	sys_write32(tim_en, config->base + ADG_TIM_EN_OFFSET);
+	sys_write32(tim_en, DEVICE_MMIO_GET(dev) + ADG_TIM_EN_OFFSET);
 
 	return 0;
 }
@@ -872,7 +869,7 @@ static DEVICE_API(clock_control, clock_control_renesas_rcar_adg_api) = {
 	};                                                                                         \
                                                                                                    \
 	static const struct clock_control_renesas_adg_cfg adg_cfg_##node_id = {                    \
-		.base = DT_INST_REG_ADDR(node_id),                                                 \
+		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(node_id)),                                        \
 		.clkin_src_rate = &clkin_src_rate##node_id,                                        \
 		.dev_pclk = RCAR_ADG_CLOCK_DEFINE(node_id, pclk),                                  \
 		.dev_s0d4 = RCAR_ADG_CLOCK_DEFINE(node_id, s0d4),                                  \
