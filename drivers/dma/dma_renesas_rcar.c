@@ -552,7 +552,7 @@ static int dma_renesas_rcar_init(const struct device *dev)
 }
 
 #define DMA_RENESAS_RCAR_ISR(channel_num, dma_num)                                                 \
-	static void dma_rcar_isr##channel_num(const struct device *dev)                            \
+	static void dma_rcar_isr##dma_num##channel_num(const struct device *dev)                   \
 	{                                                                                          \
 		volatile uint32_t mintsta =                                                        \
 			*(uint32_t *)(DT_INST_REG_ADDR_BY_NAME(dma_num, intsta) +                  \
@@ -575,7 +575,7 @@ static int dma_renesas_rcar_init(const struct device *dev)
 	COND_CODE_1(DT_INST_IRQ_HAS_NAME(dma_num, ch##channel_num),                                \
 		    (IRQ_CONNECT(DT_INST_IRQ_BY_NAME(dma_num, ch##channel_num, irq),               \
 				 DT_INST_IRQ_BY_NAME(dma_num, ch##channel_num, priority),          \
-				 dma_rcar_isr##channel_num,                                        \
+				 dma_rcar_isr##dma_num##channel_num,                               \
 				 DEVICE_DT_INST_GET(dma_num), 0);                                  \
 		     irq_enable(DT_INST_IRQ_BY_NAME(dma_num, ch##channel_num, irq));), ())
 
