@@ -604,7 +604,7 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 
 error_cleanup:
 	/* Finally free the request */
-	if (xfer->buf) {
+	if (xfer->buf != NULL) {
 		usbh_xfer_buf_free(driver_data->udev, xfer->buf);
 	}
 	usbh_xfer_free(driver_data->udev, xfer);
@@ -877,6 +877,7 @@ static int usbh_class_probe(struct usbh_class_data *const c_data, struct usb_dev
 
 error_cleanup:
 	k_mutex_unlock(&driver_data->lock);
+
 	return result;
 }
 
@@ -1162,7 +1163,10 @@ static int driver_set_report(struct device const *dev, enum usbh_hid_report_fiel
 	}
 
 error_cleanup:
-	usbh_xfer_buf_free(driver_data->udev, buf);
+	if (buf != NULL) {
+		usbh_xfer_buf_free(driver_data->udev, buf);
+	}
+
 	k_mutex_unlock(&driver_data->lock);
 
 	return result;
@@ -1342,7 +1346,9 @@ static int driver_get_idle_rate(struct device const *dev, uint8_t report_id,
 	*idle_period_ms = buf->data[0] * 4;
 
 error_cleanup:
-	usbh_xfer_buf_free(driver_data->udev, buf);
+	if (buf != NULL) {
+		usbh_xfer_buf_free(driver_data->udev, buf);
+	}
 
 	k_mutex_unlock(&driver_data->lock);
 
@@ -1430,7 +1436,10 @@ static int driver_get_protocol(struct device const *dev, uint8_t *protocol_code)
 	*protocol_code = buf->data[0];
 
 error_cleanup:
-	usbh_xfer_buf_free(driver_data->udev, buf);
+	if (buf != NULL) {
+		usbh_xfer_buf_free(driver_data->udev, buf);
+	}
+
 	k_mutex_unlock(&driver_data->lock);
 
 	return result;

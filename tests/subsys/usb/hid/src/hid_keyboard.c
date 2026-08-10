@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string.h>
+
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -17,6 +19,8 @@ static const uint8_t hid_report_desc[] = HID_KEYBOARD_REPORT_DESC();
 
 static uint32_t kb_duration;
 static uint8_t report_value;
+/* 0 for a successful (dummy) Get Report reply, a negative errno to make the device stall */
+static int get_report_error;
 
 static void kb_iface_ready(const struct device *dev, const bool ready)
 {
@@ -25,7 +29,16 @@ static void kb_iface_ready(const struct device *dev, const bool ready)
 static int kb_get_report(const struct device *dev, const uint8_t type, const uint8_t id,
 			 const uint16_t len, uint8_t *const buf)
 {
-	return 0;
+	if (get_report_error != 0) {
+		return get_report_error;
+	}
+
+	/* A real device would fill `buf` with the current value of the requested report;
+	 * a dummy, zeroed one is enough to exercise a successful transfer.
+	 */
+	memset(buf, 0, len);
+
+	return len;
 }
 
 static int kb_set_report(const struct device *dev, const uint8_t type, const uint8_t id,
@@ -90,4 +103,14 @@ int hid_keyboard_register(void)
 uint8_t hid_keyboard_get_report_value(void)
 {
 	return report_value;
+}
+
+void hid_keyboard_set_get_report_error(int error)
+{
+	get_report_error = error;
+}
+
+void hid_keyboard_set_idle_supported(bool supported)
+{
+	kb_ops.set_idle = supported ? kb_set_idle : NULL;
 }

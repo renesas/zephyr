@@ -640,7 +640,7 @@ static int parse_main_item(struct context *context)
 	context->local_state.string_minimum = 0;
 	context->local_state.string_maximum = 0;
 
-	return 0;
+	return result;
 }
 
 static int parse_global_item(struct context *context)
@@ -978,6 +978,14 @@ static int check_size(struct context *context)
 	enum item_data_size item_size = ITEM_SIZE(context->data[context->cursor]);
 	/* Value to actual size conversion */
 	size_t sizes[] = {1, 2, 3, 5};
+
+	if (item_size >= ARRAY_SIZE(sizes)) {
+		return -EINVAL;
+	}
+
+	if (context->cursor + sizes[item_size] > context->data_length) {
+		return -EINVAL;
+	}
 
 	return sizes[item_size];
 }

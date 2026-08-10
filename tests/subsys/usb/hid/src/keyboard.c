@@ -402,6 +402,101 @@ ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_input_multiple_keys)
 	}
 }
 
+/*
+ * The following tests exercise error paths of the usbh_hid public API by making the emulated
+ * keyboard give an invalid or unsupported response to the host's request.
+ */
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_get_report_descriptor_invalid_args)
+{
+	int result = usbh_hid_get_report_descriptor(usbh_hid_dev, NULL);
+
+	zassert_equal(-EINVAL, result, "A NULL report pointer should be rejected");
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_get_report)
+{
+	uint8_t buffer[8] = {0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu};
+	int result = 0;
+
+	hid_keyboard_set_get_report_error(0);
+	result =
+		usbh_hid_get_report(usbh_hid_dev, HID_REPORT_TYPE_INPUT, 0, sizeof(buffer), buffer);
+	zassert_ok(result, "Unable to get report");
+	for (size_t i = 0; i < sizeof(buffer); i++) {
+		zassert_equal(0, buffer[i], "Wrong report content");
+	}
+
+	/* The device rejects the request; this should surface as a stalled transfer */
+	hid_keyboard_set_get_report_error(-EIO);
+	result =
+		usbh_hid_get_report(usbh_hid_dev, HID_REPORT_TYPE_INPUT, 0, sizeof(buffer), buffer);
+	zassert_equal(-EPIPE, result, "A rejected Get Report should be surfaced as a stall");
+
+	hid_keyboard_set_get_report_error(0);
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_idle_invalid_report_id)
+{
+	int result = 0;
+	uint16_t idle_period_ms = 0;
+
+	/* This device's report descriptor declares no report variants,
+	 * so any ID but 0 is invalid.
+	 */
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0x7Fu, 100u);
+	zassert_equal(-EINVAL, result, "Nonexistend report ID not rejected");
+
+	result = usbh_hid_get_idle_rate(usbh_hid_dev, 0x7Fu, &idle_period_ms);
+	zassert_equal(-EINVAL, result, "Nonexistend report ID not rejected");
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_idle_not_supported)
+{
+	int result = 0;
+
+	hid_keyboard_set_idle_supported(false);
+
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 100u);
+	zassert_equal(-EPIPE, result, "Unsupported SET_IDLE operation didn't stall");
+
+	hid_keyboard_set_idle_supported(true);
+
+	result = usbh_hid_set_idle_rate(usbh_hid_dev, 0, 0u);
+	zassert_ok(result, "Failed to restore the idle rate");
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_protocol_invalid_code)
+{
+	int result = 0;
+	uint8_t protocol_code = 0;
+
+	result = usbh_hid_set_protocol(usbh_hid_dev, HID_PROTOCOL_REPORT);
+	zassert_ok(result, "Unable to set protocol");
+
+	/* Only HID_PROTOCOL_BOOT (0) and HID_PROTOCOL_REPORT (1) are valid */
+	result = usbh_hid_set_protocol(usbh_hid_dev, 2u);
+	zassert_equal(-EPIPE, result, "An out-of-range protocol code should be rejected");
+
+	/* The device should still be reporting the last protocol it actually accepted */
+	result = usbh_hid_get_protocol(usbh_hid_dev, &protocol_code);
+	zassert_ok(result, "Unable to get protocol");
+	zassert_equal(protocol_code, HID_PROTOCOL_REPORT, "Wrong protocol");
+}
+
+ZTEST(usbh_hid_keyboard_suite, test_usbh_hid_keyboard_set_report_invalid_args)
+{
+	uint8_t const report[] = {0x00u};
+	int result = 0;
+
+	result = usbh_hid_set_report(usbh_hid_dev, HID_REPORT_TYPE_OUTPUT, 0, 0, NULL);
+	zassert_equal(-EINVAL, result, "NULL report was accepted");
+
+	result = usbh_hid_set_report(usbh_hid_dev, HID_REPORT_TYPE_OUTPUT, 0, 0, report);
+	zassert_equal(-EINVAL, result, "Zero-length report was accepted");
+}
+#endif
+
 static void verify_input_cb(struct input_event *evt, void *user_data)
 {
 	zassert_equal(fixture.expected_events[fixture.expected_events_index].type, evt->type,

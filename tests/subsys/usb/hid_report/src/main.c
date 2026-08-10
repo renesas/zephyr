@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <errno.h>
 #include <zephyr/ztest.h>
 #include <zephyr/usb/class/hid.h>
 #include <zephyr/usb/class/usbh_hid.h>
@@ -127,7 +128,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 	};
 
 	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
-	zassert_equal(0, result, "Could not parse report descriptor");
+
+	zassert_ok(result, "Could not parse report descriptor");
 
 	/* Collections */
 	zassert_equal(6u, report->num_collections,
@@ -233,7 +235,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse1_report)
 		      report->fields[field_index].usage_minimum, "Wrong field usage ID");
 	zassert_equal(HID_USAGE_ID(HID_USAGE_GEN_BUTTON, 0x10),
 		      report->fields[field_index].usage_maximum, "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(1, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -318,7 +320,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	};
 
 	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
-	zassert_equal(0, result, "Could not parse the report descriptor");
+
+	zassert_ok(result, "Could not parse the report descriptor");
 
 	/* Collections */
 	zassert_equal(2u, report->num_collections,
@@ -363,7 +366,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 		      report->fields[field_index].usage_minimum, "Wrong field usage ID");
 	zassert_equal(HID_USAGE_ID(HID_USAGE_GEN_BUTTON, 0x5),
 		      report->fields[field_index].usage_maximum, "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(1, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -432,7 +435,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse2_report)
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
 	zassert_equal(HID_USAGE_ID(0xFF00, 0x20), report->fields[field_index].usages[0u],
 		      "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(255, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -483,7 +486,8 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	};
 
 	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
-	zassert_equal(0, result);
+
+	zassert_ok(result, "Could not parse HID report");
 
 	/* Collections */
 	zassert_equal(3u, report->num_collections,
@@ -545,7 +549,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
 	zassert_equal(HID_USAGE_ID(0xFFB5, 0x2), report->fields[field_index].usages[0],
 		      "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(255, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -560,7 +564,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 	zassert_equal(8u, report->fields[field_index].size, "Wrong field report size");
 	zassert_equal(HID_USAGE_ID(0xFFB5, 0x02), report->fields[field_index].usages[0u],
 		      "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(255, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -577,7 +581,7 @@ ZTEST_F(hid_report_suite, test_hid_mouse3_report)
 		      report->fields[field_index].usage_minimum, "Wrong field usage ID");
 	zassert_equal(HID_USAGE_ID(HID_USAGE_GEN_BUTTON, 0x08),
 		      report->fields[field_index].usage_maximum, "Wrong field usage ID");
-	zassert_equal(0, report->fields[field_index].logical_minimum,
+	zassert_equal(0u, report->fields[field_index].logical_minimum,
 		      "Wrong field logical minimum");
 	zassert_equal(1, report->fields[field_index].logical_maximum,
 		      "Wrong field logical maximum");
@@ -682,7 +686,8 @@ ZTEST_F(hid_report_suite, test_hid_gamepad_parsing)
 	};
 
 	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
-	zassert_equal(0, result);
+
+	zassert_ok(result, "Could not parse report descriptor");
 
 	/* Collections */
 	zassert_equal(1u, report->num_collections,
@@ -817,7 +822,8 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	};
 
 	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
-	zassert_equal(0, result, "Could not parse report descriptor");
+
+	zassert_ok(result, "Could not parse report descriptor");
 
 	/* Collections */
 	zassert_equal(1u, report->num_collections,
@@ -908,4 +914,318 @@ ZTEST_F(hid_report_suite, test_hid_keyboard_report)
 	zassert_equal(HID_USAGE_GEN_DESKTOP_KEYBOARD_LEFT_CTRL, test_values.values[0u]);
 	/* Second button */
 	zassert_equal(0x1Bu, test_values.values[1u]);
+}
+
+/*
+ * The following tests feed `usbh_hid_report_parse` (and, where relevant, the report
+ * inspection APIs) with malformed input and verify that an error is returned instead of the
+ * data being silently accepted or misparsed.
+ */
+
+ZTEST_F(hid_report_suite, test_hid_report_error_reserved_item_type)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Short item with type field set to the reserved value 0b11 */
+	uint8_t const report_data[] = {0x0Cu};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "Reserved item type was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_truncated_long_item)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Long item marker with no size/tag bytes following it */
+	uint8_t const report_data[] = {0xFEu};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "Truncated long item header was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_unknown_global_tag)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Global item, tag 0xC: not one of the defined global item tags */
+	uint8_t const report_data[] = {0xC4u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "Unknown global item tag was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_unknown_local_tag)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Local item, tag 0x6: not one of the defined local item tags */
+	uint8_t const report_data[] = {0x68u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "Unknown local item tag was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_unknown_main_tag)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Main item, tag 0xD: not one of the defined main item tags */
+	uint8_t const report_data[] = {0xD0u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "Unknown main item tag was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_report_id_zero)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Report ID 0 is reserved and must never be used */
+	uint8_t const report_data[] = {0x85u, 0x00u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "A report ID of 0 was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_report_id_after_fields)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* An Input field is declared before any Report ID item, then a Report ID item
+	 * appears; the field would belong to no report variant
+	 */
+	uint8_t const report_data[] = {
+		0x75u, 0x08u, /* Report Size 8 */
+		0x95u, 0x01u, /* Report Count 1 */
+		0x81u, 0x02u, /* Input (Data,Var,Abs) */
+		0x85u, 0x01u, /* Report ID 1 */
+	};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "A report ID declared after unconditional fields was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_too_many_report_variants)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* One more Report ID item than CONFIG_USBH_HID_REPORT_MAX_VARIANTS supports */
+	uint8_t report_data[2u * (CONFIG_USBH_HID_REPORT_MAX_VARIANTS + 1)];
+
+	for (size_t i = 0; i < CONFIG_USBH_HID_REPORT_MAX_VARIANTS + 1; i++) {
+		report_data[2u * i] = 0x85u;
+		report_data[2u * i + 1u] = (uint8_t)(i + 1u);
+	}
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_equal(-ENOMEM, result,
+		      "Exceeding the maximum number of report variants did not fail");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_too_many_collections)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* One more unclosed Collection than CONFIG_USBH_HID_REPORT_MAX_COLLECTIONS supports */
+	uint8_t report_data[2u * (CONFIG_USBH_HID_REPORT_MAX_COLLECTIONS + 1)];
+
+	for (size_t i = 0; i < CONFIG_USBH_HID_REPORT_MAX_COLLECTIONS + 1; i++) {
+		report_data[2u * i] = 0xA1u;
+		report_data[2u * i + 1u] = 0x00u; /* Physical */
+	}
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_equal(-ENOMEM, result, "Exceeding the maximum number of collections did not fail");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_collection_missing_type)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Collection item with no data, so no collection type can be read */
+	uint8_t const report_data[] = {0xA0u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "A collection item with no type was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_mismatched_collection_end)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* End Collection with no matching Collection item */
+	uint8_t const report_data[] = {0xC0u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result < 0, "A mismatched End Collection was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_too_many_usages)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* One more Usage item than CONFIG_USBH_HID_REPORT_MAX_USAGES supports */
+	uint8_t report_data[2u * (CONFIG_USBH_HID_REPORT_MAX_USAGES + 1)];
+
+	for (size_t i = 0; i < CONFIG_USBH_HID_REPORT_MAX_USAGES + 1; i++) {
+		report_data[2u * i] = 0x09u;
+		report_data[2u * i + 1u] = (uint8_t)(i + 1u);
+	}
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_equal(-ENOMEM, result, "Exceeding the maximum number of usages did not fail");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_zero_size_usage_id)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Usage item with no data, so no usage ID can be read */
+	uint8_t const report_data[] = {0x08u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "A zero sized usage ID was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_too_many_fields)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* One more Input field than CONFIG_USBH_HID_REPORT_MAX_FIELDS supports */
+	uint8_t report_data[4u + (CONFIG_USBH_HID_REPORT_MAX_FIELDS + 1)];
+
+	report_data[0] = 0x75u; /* Report Size 1 */
+	report_data[1] = 0x01u;
+	report_data[2] = 0x95u; /* Report Count 1 */
+	report_data[3] = 0x01u;
+	for (size_t i = 0; i < CONFIG_USBH_HID_REPORT_MAX_FIELDS + 1; i++) {
+		report_data[4u + i] = 0x80u; /* Input */
+	}
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_equal(-ENOMEM, result, "Exceeding the maximum number of fields should fail");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_too_many_pushed_states)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* One more Push item than CONFIG_USBH_HID_REPORT_MAX_STATE_STACK supports */
+	uint8_t report_data[CONFIG_USBH_HID_REPORT_MAX_STATE_STACK + 1];
+
+	for (size_t i = 0; i < CONFIG_USBH_HID_REPORT_MAX_STATE_STACK + 1; i++) {
+		report_data[i] = 0xA4u;
+	}
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_equal(-ENOMEM, result,
+		      "Exceeding the maximum global state stack depth should fail");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_mismatched_pop)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Pop with no matching Push item */
+	uint8_t const report_data[] = {0xB4u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_not_ok(result, "A mismatched Pop should was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_item_exceeds_descriptor_length)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	/* Report Size item declaring a 4-byte value, but only 1 byte of value is claimed to be
+	 * part of the descriptor. The extra bytes are real, allocated memory (so a defective
+	 * parser reading past the declared length doesn't fault), they are just not supposed to
+	 * be part of the descriptor being parsed.
+	 */
+	uint8_t const report_data[] = {0x77u, 0xAAu, 0xBBu, 0xCCu, 0xDDu};
+	size_t const declared_length = 2u;
+
+	int result = usbh_hid_report_parse(report, declared_length, report_data);
+
+	zassert_not_ok(
+		result,
+		"An item whose declared value size exceeds the descriptor length was be accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_input_iterate_null_args)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	struct hid_test_values test_values = {};
+	uint8_t const report_data[] = {
+		0x75u, 0x08u, /* Report Size 8 */
+		0x95u, 0x01u, /* Report Count 1 */
+		0x81u, 0x02u, /* Input (Data,Var,Abs) */
+	};
+	uint8_t const data[] = {0x00u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_ok(result, "Could not parse report descriptor");
+
+	result = usbh_hid_report_input_iterate(NULL, sizeof(data), data, field_inspector,
+					       &test_values);
+	zassert_equal(-EINVAL, result, "A NULL report was accepted");
+
+	result = usbh_hid_report_input_iterate(report, sizeof(data), NULL, field_inspector,
+					       &test_values);
+	zassert_equal(-EINVAL, result, "A NULL data buffer was accepted");
+
+	result = usbh_hid_report_input_iterate(report, sizeof(data), data, NULL, &test_values);
+	zassert_equal(-EINVAL, result, "A NULL callback was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_input_iterate_insufficient_data)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	struct hid_test_values test_values = {};
+	/* A single 16-bit input field, requiring 2 bytes of report data */
+	uint8_t const report_data[] = {
+		0x75u, 0x10u, /* Report Size 16 */
+		0x95u, 0x01u, /* Report Count 1 */
+		0x81u, 0x02u, /* Input (Data,Var,Abs) */
+	};
+	/* Only 1 byte provided, but the field needs 2 */
+	uint8_t const data[] = {0x00u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_ok(result, "Could not parse report descriptor");
+
+	result = usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					       &test_values);
+	zassert_equal(-EINVAL, result,
+		      "Data shorter than the report's declared fields was accepted");
+}
+
+ZTEST_F(hid_report_suite, test_hid_report_error_unknown_report_id)
+{
+	struct usbh_hid_report *report = &fixture->report;
+	struct hid_test_values test_values = {};
+	/* Two report variants, IDs 1 and 2 */
+	uint8_t const report_data[] = {
+		0x85u, 0x01u, /* Report ID 1 */
+		0x75u, 0x08u, /* Report Size 8 */
+		0x95u, 0x01u, /* Report Count 1 */
+		0x81u, 0x02u, /* Input (Data,Var,Abs) */
+		0x85u, 0x02u, /* Report ID 2 */
+		0x81u, 0x02u, /* Input (Data,Var,Abs) */
+	};
+	/* Report ID 0x99 does not exist in the descriptor above */
+	uint8_t const data[] = {0x99u, 0x00u};
+
+	int result = usbh_hid_report_parse(report, sizeof(report_data), report_data);
+
+	zassert_ok(result, "Could not parse report descriptor");
+
+	result = usbh_hid_report_get_input_size(report, 0x99u);
+	zassert_equal(-EINVAL, result, "An unknown report ID was accepted");
+
+	result = usbh_hid_report_input_iterate(report, sizeof(data), data, field_inspector,
+					       &test_values);
+	zassert_equal(-EINVAL, result, "An unknown report ID was accepted");
 }
