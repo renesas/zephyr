@@ -90,12 +90,14 @@ static void *suite_setup(void)
 
 	result = usbh_enable(uhs_ctx);
 	zassert_ok(result, "Failed to enable USB host");
-
-	result = uhc_bus_reset(uhs_ctx->dev);
-	zassert_ok(result, "Failed to signal bus reset");
+	k_msleep(500);
 
 	result = uhc_bus_resume(uhs_ctx->dev);
 	zassert_ok(result, "Failed to signal bus resume");
+	k_msleep(500);
+
+	result = uhc_bus_reset(uhs_ctx->dev);
+	zassert_ok(result, "Failed to signal bus reset");
 
 	result = uhc_sof_enable(uhs_ctx->dev);
 	zassert_ok(result, "Failed to enable SoF generator");
@@ -113,9 +115,9 @@ static void *suite_setup(void)
 	result = usbd_enable(test_usbd);
 	zassert_ok(result, "Failed to enable device support");
 
-	/* Allow the host time to reset the device. */
-	k_msleep(2000);
 #endif
+	/* Allow the host time to reset the device. */
+	k_msleep(1000);
 
 	return NULL;
 }
@@ -142,23 +144,15 @@ static void suite_shutdown(void *f)
 
 ZTEST_SUITE(usbh_msc_suite, NULL, suite_setup, NULL, NULL, suite_shutdown);
 
-/**
- * @brief Initialize a disk
- *
- * @param name         Disk name
- * @param mount_point  Mount point path
- * @param mp           Mount point data
+/*
+ * Initialize a disk
  */
-static void initialize_disk(char const *name, char const *mount_point, struct fs_mount_t *mp)
+static void initialize_disk(const char *name, const char *mount_point, struct fs_mount_t *mp)
 {
 	int result = 0;
 	unsigned int attempts = 0;
 
 	do {
-		uint64_t memory_size_mb;
-		uint32_t block_count;
-		uint32_t block_size;
-
 		result = disk_access_ioctl(name, DISK_IOCTL_CTRL_INIT, NULL);
 		/* The disk may not be mounted yet, give it some time */
 		if (result != 0) {
@@ -167,18 +161,6 @@ static void initialize_disk(char const *name, char const *mount_point, struct fs
 			k_msleep(1000);
 			continue;
 		}
-
-		/* Check unit metadata */
-		result = disk_access_ioctl(name, DISK_IOCTL_GET_SECTOR_COUNT, &block_count);
-		zassert_ok(result, "Unable to get sector count");
-
-		result = disk_access_ioctl(name, DISK_IOCTL_GET_SECTOR_SIZE, &block_size);
-		zassert_ok(result, "Unable to get sector size");
-
-		memory_size_mb = (uint64_t)block_count * block_size;
-
-		result = disk_access_ioctl(name, DISK_IOCTL_CTRL_DEINIT, NULL);
-		zassert_ok(result, "Unable to deinit");
 	} while (result != 0);
 
 	zassert_equal(result, 0);
@@ -189,10 +171,37 @@ static void initialize_disk(char const *name, char const *mount_point, struct fs
 	zassert_ok(result, "Unable to mount");
 }
 
-/**
- * @brief Create a bunch of files to be later read
- *
- * @param base_path The base path starting from which the files should be created
+/*
+ * Check unit metadata
+ */
+static void check_metadata(const char *name, uint32_t block_count, uint32_t block_size)
+{
+	uint64_t memory_size_mb = 0u;
+	uint32_t actual_block_count = 0u;
+	uint32_t actual_block_size = 0u;
+	uint32_t actual_erase_block_size = 0u;
+	int result = 0;
+
+	/* IOCTL not supported for MSC devices */
+	result = disk_access_ioctl(name, DISK_IOCTL_GET_ERASE_BLOCK_SZ, &actual_erase_block_size);
+	zassert_equal(result, -ENOTSUP);
+
+	result = disk_access_ioctl(name, DISK_IOCTL_GET_SECTOR_COUNT, &actual_block_count);
+	zassert_ok(result, "Unable to get sector count");
+	zassert_equal(actual_block_count, block_count, "Wrong block count: expected %lu, found %lu",
+		      block_count, actual_block_count);
+
+	result = disk_access_ioctl(name, DISK_IOCTL_GET_SECTOR_SIZE, &actual_block_size);
+	zassert_ok(result, "Unable to get sector size");
+	zassert_equal(actual_block_size, block_size, "Wrong block size: expected %lu, found %lu",
+		      block_size, actual_block_size);
+
+	zassert_equal(memory_size_mb,
+		      (uint64_t)(actual_block_count * actual_block_size) / 1000000ul);
+}
+
+/*
+ * Create a bunch of files to be later read
  */
 static void write_files(const char *base_path)
 {
@@ -241,10 +250,8 @@ static void write_files(const char *base_path)
 	}
 }
 
-/**
- * @brief Verify the content of the previously created files
- *
- * @param path The base path where the files should be found
+/*
+ * Verify the content of the previously created files
  */
 static void check_files(const char *path)
 {
@@ -298,6 +305,7 @@ ZTEST(usbh_msc_suite, test_usbh_msc_lun_1)
 	};
 
 	initialize_disk(DISK_DRIVE_NAME_0, DISK_MOUNT_PT_0, &mp);
+	check_metadata(DISK_DRIVE_NAME_0, 1024, 512);
 	write_files(DISK_MOUNT_PT_0);
 	check_files(DISK_MOUNT_PT_0 "/" SOME_DIR_NAME);
 	fs_unmount(&mp);
@@ -313,6 +321,7 @@ ZTEST(usbh_msc_suite, test_usbh_msc_lun_2)
 	};
 
 	initialize_disk(DISK_DRIVE_NAME_1, DISK_MOUNT_PT_1, &mp);
+	check_metadata(DISK_DRIVE_NAME_1, 512, 1024);
 	write_files(DISK_MOUNT_PT_1);
 	check_files(DISK_MOUNT_PT_1 "/" SOME_DIR_NAME);
 	fs_unmount(&mp);

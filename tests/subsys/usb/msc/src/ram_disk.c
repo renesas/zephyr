@@ -44,7 +44,7 @@ static void setup_disk(char const *mnt_point, struct fs_mount_t *fs_mnt, FATFS *
 	mp->mnt_point = mnt_point;
 
 	result = fs_mount(mp);
-	zassert_ok(result, "Failed to mount filesystem");
+	zassert_ok(result, "Failed to mount filesystem: %i", result);
 }
 
 void ram_disk_setup(void)

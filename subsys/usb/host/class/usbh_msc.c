@@ -69,7 +69,7 @@ struct scsi_cbw {
 	/* Size of the attached command block data */
 	size_t command_block_length;
 	/* Command block data */
-	uint8_t const *command_block;
+	const uint8_t *command_block;
 	/* Data phase transfer length */
 	size_t data_transfer_length;
 };
@@ -168,13 +168,20 @@ static int clear_feature_endpoint_halt(struct driver_data *driver_data, uint8_t 
  */
 static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfer)
 {
-	ARG_UNUSED(udev);
 	struct driver_data *driver_data = xfer->priv;
 
 	if (xfer->err != 0) {
 		LOG_DBG("Request finished %p, err %d, sem %i", xfer, xfer->err,
 			k_sem_count_get(&driver_data->sync));
 	}
+	/* If the transfer was cancelled we deallocate it here */
+	else if (xfer->err == -ECONNRESET) {
+		LOG_INF("Transfer %p cancelled", (void *)xfer);
+		usbh_xfer_free(udev, xfer);
+
+		return 0;
+	}
+
 	k_sem_give(&driver_data->sync);
 
 	return 0;
@@ -188,9 +195,9 @@ static int sync_cb(struct usb_device *const udev, struct uhc_transfer *const xfe
  */
 static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *xfer)
 {
-	if (k_sem_take(&driver_data->sync, K_MSEC(SCSI_REQ_TIMEOUT)) != 0) {
-		int result = 0;
+	int result = 0;
 
+	if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
 		LOG_ERR("Timeout");
 
 		result = usbh_xfer_dequeue(driver_data->udev, xfer);
@@ -198,7 +205,7 @@ static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *x
 		 * done and the callback on its way. */
 		if (result == -EALREADY) {
 			/* Take the semaphore again to be sure that the callback is done */
-			if (k_sem_take(&driver_data->sync, K_MSEC(SCSI_REQ_TIMEOUT)) != 0) {
+			if (k_sem_take(&driver_data->sync, K_MSEC(100u)) != 0) {
 				/* Should not happen */
 				LOG_ERR("Double timeout");
 			}
@@ -207,11 +214,22 @@ static int wait_for_sync(struct driver_data *driver_data, struct uhc_transfer *x
 		else if (result != 0) {
 			LOG_ERR("Failed to cancel transfer");
 		}
+		/* Dequeue succeeded, do nothing */
+		else {
+		}
+
+		/* The USB host driver may still need to work with the transfer, so we leave it to
+		 * the callback to deallocate it.
+		 */
 
 		return -ETIMEDOUT;
+	} else {
+		/* The transfer was successful, store the result and free it */
+		result = xfer->err;
+		usbh_xfer_free(driver_data->udev, xfer);
 	}
 
-	return xfer->err;
+	return result;
 }
 
 /*
@@ -276,10 +294,11 @@ static int scsi_transfer_data(struct driver_data *driver_data, size_t data_lengt
 	result = usbh_xfer_enqueue(driver_data->udev, xfer);
 	if (result != 0) {
 		LOG_ERR("Unable to enqueue the transfer: %i", result);
+		usbh_xfer_free(driver_data->udev, xfer);
 		goto error_cleanup;
 	}
 
-	/* Wait for completion */
+	/* Wait for completion, deallocation handled automatically */
 	result = wait_for_sync(driver_data, xfer);
 	if (result != 0) {
 		goto error_cleanup;
@@ -296,7 +315,6 @@ static int scsi_transfer_data(struct driver_data *driver_data, size_t data_lengt
 error_cleanup:
 	/* Done with the buffer and transfer */
 	usbh_xfer_buf_free(driver_data->udev, xfer->buf);
-	usbh_xfer_free(driver_data->udev, xfer);
 	return result;
 }
 
@@ -311,7 +329,7 @@ static int scsi_read_status(struct driver_data *driver_data, struct scsi_csw *cs
 
 	result = scsi_transfer_data(driver_data, sizeof(buffer), buffer, SCSI_DIRECTION_DATA_IN);
 	/* Stall, clear in endpoint and retry once */
-	if (result == -ENOTSUP) {
+	if (result == -EPIPE) {
 		LOG_DBG("CSW stalled, clearing endpoint and retrying...");
 		result = clear_feature_endpoint_halt(driver_data,
 						     driver_data->in_bulk_ep->bEndpointAddress);
@@ -406,14 +424,15 @@ static int scsi_command(struct driver_data *driver_data, struct scsi_cbw cbw)
 	result = usbh_xfer_enqueue(driver_data->udev, xfer);
 	if (result != 0) {
 		LOG_ERR("Unable to enqueue the transfer: %i", result);
+		usbh_xfer_free(driver_data->udev, xfer);
 		goto error_cleanup;
 	}
 
+	/* Wait for completion, deallocation handled automatically */
 	result = wait_for_sync(driver_data, xfer);
 
 error_cleanup:
 	usbh_xfer_buf_free(driver_data->udev, xfer->buf);
-	usbh_xfer_free(driver_data->udev, xfer);
 	return result;
 }
 
@@ -461,7 +480,7 @@ static int scsi_transaction(struct driver_data *driver_data, struct scsi_cbw cbw
 						    cbw.direction);
 			/* The device stalled the transaction; it's a valid response, we should just
 			 * clear the endpoint and continue with the status to check what happened */
-			if (result == -ENOTSUP) {
+			if (result == -EPIPE) {
 				/* Pick the target endpoint */
 				uint8_t endpoint_address =
 					get_endpoint_for_direction(driver_data, cbw.direction);
@@ -486,6 +505,7 @@ static int scsi_transaction(struct driver_data *driver_data, struct scsi_cbw cbw
 
 		/* Wrong tag */
 		if (csw.tag != driver_data->tag) {
+			result = -EIO;
 			LOG_ERR("Mismatching CBW and CSW tags: 0x%04X vs 0x%04X", driver_data->tag,
 				csw.tag);
 			continue;
@@ -548,6 +568,8 @@ static int scsi_request_sense(struct driver_data *driver_data, struct scsi_sense
 		.command_block = command_block,
 		.data_transfer_length = sizeof(buffer),
 	};
+	/* We need data up to the 14th byte */
+	const size_t required_sense_data = 14u;
 
 	result = scsi_transaction(driver_data, cbw, buffer, true);
 
@@ -556,17 +578,17 @@ static int scsi_request_sense(struct driver_data *driver_data, struct scsi_sense
 		return result;
 	}
 	/* Not enough data */
-	else if (result < 14) {
+	else if (result < required_sense_data) {
 		LOG_ERR("Not enough sense data: %i", result);
 		return -EIO;
 	}
 
 	/* See SPC document, section 4.4 */
-	sense_data->valid = (buffer[0] & 0x80) > 0;
-	sense_data->response_code = buffer[0] & 0x7F;
-	sense_data->sense_key = buffer[2] & 0xF;
-	sense_data->additional_sense_code = buffer[12];
-	sense_data->additional_sense_code_qualifier = buffer[13];
+	sense_data->valid = (buffer[0u] & 0x80u) > 0u;
+	sense_data->response_code = buffer[0u] & 0x7Fu;
+	sense_data->sense_key = buffer[2u] & 0xFu;
+	sense_data->additional_sense_code = buffer[12u];
+	sense_data->additional_sense_code_qualifier = buffer[13u];
 
 	return 0;
 }
@@ -729,6 +751,8 @@ static int mode_sense_6(struct driver_data *driver_data, uint8_t lun_index)
 		SCSI_MODE_SENSE_DATA_LENGTH & 0xFFu, /* Data length */
 		0u,
 	};
+	/* We need data up to the 4th byte */
+	const size_t required_sense_data = 4u;
 
 	struct scsi_cbw cbw = {
 		.lun = lun_index,
@@ -750,7 +774,7 @@ static int mode_sense_6(struct driver_data *driver_data, uint8_t lun_index)
 		return result;
 	}
 	/* Not enough data */
-	else if (result < 4) {
+	else if (result < required_sense_data) {
 		LOG_ERR("Not enough mode data: %i", result);
 		return -EIO;
 	}
@@ -866,7 +890,7 @@ static int synchronize_cache(struct driver_data *driver_data, uint8_t lun_index)
 		}
 	}
 
-	return 0;
+	return result;
 }
 #endif /* CONFIG_USBH_MSC_IGNORE_SYNC */
 
@@ -931,7 +955,7 @@ static int read_blocks(struct driver_data *driver_data, uint8_t lun_index, uint3
  * Write a number of blocks to a logical unit.
  */
 static int write_blocks(struct driver_data *driver_data, uint8_t lun_index, uint32_t lba,
-			uint16_t block_count, uint8_t const *buffer)
+			uint16_t block_count, const uint8_t *buffer)
 {
 	int result = 0;
 	uint32_t transfer_length =
@@ -1002,7 +1026,7 @@ static int get_max_lun(struct driver_data *driver_data)
 	result = usbh_req_setup(driver_data->udev, bmRequestType, GET_MAX_LUN, 0,
 				driver_data->target_iface, 1, buf);
 	/* A stalled GET_MAX_LUN request shall be interpreted as a unique unit */
-	if (result == -ENOTSUP) {
+	if (result == -EPIPE) {
 		driver_data->max_logical_unit = 0;
 		result = 0;
 	}
@@ -1121,19 +1145,23 @@ static int scan_interface_endpoints(struct driver_data *driver_data, uint8_t ifa
 			if (desc->bDescriptorType == USB_DESC_ENDPOINT) {
 				ep_desc = (const void *)desc;
 
-				/* Input bulk endpoint */
-				if (USB_EP_DIR_IS_IN(ep_desc->bEndpointAddress) &&
-				    driver_data->in_bulk_ep == NULL) {
-					LOG_DBG("Input bulk endpoint: 0x%02X",
-						ep_desc->bEndpointAddress);
-					driver_data->in_bulk_ep = ep_desc;
-				}
-				/* Output bulk endpoint */
-				else if (USB_EP_DIR_IS_OUT(ep_desc->bEndpointAddress) &&
-					 driver_data->out_bulk_ep == NULL) {
-					LOG_DBG("Output bulk endpoint: 0x%02X",
-						ep_desc->bEndpointAddress);
-					driver_data->out_bulk_ep = ep_desc;
+				/* Only pick bulk endpoints */
+				if ((ep_desc->bmAttributes & USB_EP_TRANSFER_TYPE_MASK) ==
+				    USB_EP_TYPE_BULK) {
+					/* Input bulk endpoint */
+					if (USB_EP_DIR_IS_IN(ep_desc->bEndpointAddress) &&
+					    driver_data->in_bulk_ep == NULL) {
+						LOG_DBG("Input bulk endpoint: 0x%02X",
+							ep_desc->bEndpointAddress);
+						driver_data->in_bulk_ep = ep_desc;
+					}
+					/* Output bulk endpoint */
+					else if (USB_EP_DIR_IS_OUT(ep_desc->bEndpointAddress) &&
+						 driver_data->out_bulk_ep == NULL) {
+						LOG_DBG("Output bulk endpoint: 0x%02X",
+							ep_desc->bEndpointAddress);
+						driver_data->out_bulk_ep = ep_desc;
+					}
 				}
 
 				ep_count++;
@@ -1268,6 +1296,12 @@ static int disk_access_read(struct disk_info *disk, uint8_t *data_buf, uint32_t 
 	struct driver_data *driver_data = lun_data->driver_data;
 	int result = 0;
 
+	if (num_sector > 0xFFFF) {
+		LOG_ERR("Cannot read more than 65535 sectors, and %" PRIu32 " were requested",
+			num_sector);
+		return -EINVAL;
+	}
+
 	k_mutex_lock(&driver_data->lock, K_FOREVER);
 	if (start_sector + num_sector > lun_data->last_logical_block_address + 1) {
 		k_mutex_unlock(&driver_data->lock);
@@ -1291,6 +1325,12 @@ static int disk_access_write(struct disk_info *disk, const uint8_t *data_buf, ui
 	struct lun_data *lun_data = get_lun_data_from_disk(disk);
 	struct driver_data *driver_data = lun_data->driver_data;
 	int result = 0;
+
+	if (num_sector > 0xFFFF) {
+		LOG_ERR("Cannot write more than 65535 sectors, and %" PRIu32 " were requested",
+			num_sector);
+		return -EINVAL;
+	}
 
 	k_mutex_lock(&driver_data->lock, K_FOREVER);
 	if (start_sector + num_sector > lun_data->last_logical_block_address + 1) {
@@ -1422,7 +1462,7 @@ static int usbh_msc_probe(struct usbh_class_data *const c_data, struct usb_devic
 {
 	const struct device *dev = c_data->priv;
 	struct driver_data *driver_data = (void *)dev->data;
-	struct driver_config const *driver_config = (void *)dev->config;
+	const struct driver_config *driver_config = (void *)dev->config;
 	int result;
 
 	LOG_INF("MSC device connected");
@@ -1449,7 +1489,7 @@ static int usbh_msc_probe(struct usbh_class_data *const c_data, struct usb_devic
 	}
 
 	/* Fetch bulk endpoints */
-	result = scan_interface_endpoints(driver_data, iface);
+	result = scan_interface_endpoints(driver_data, driver_data->target_iface);
 	if (result != 0) {
 		LOG_ERR("Failed to scan endpoints: %d", result);
 		goto error_cleanup;
