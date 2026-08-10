@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		i2s-codec = &ssi5;
+	};
+};
+
+&gpio6 {
+	status = "okay";
+};
+
+&i2c6 {
+	status = "okay";
+};
+
+&ssi5 {
+	status = "okay";
+};

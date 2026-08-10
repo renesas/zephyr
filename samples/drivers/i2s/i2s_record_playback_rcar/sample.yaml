@@ -1,0 +1,12 @@
+sample:
+  name: codec record playback rcar
+tests:
+  sample.drivers.i2s.record_playback.rcar:
+    tags: i2s
+    platform_allow:
+      - rcar_ironhide_x5h/r8a7800/r52
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "Starting I2S record-playback sample"
