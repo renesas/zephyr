@@ -3,4 +3,4 @@ tests:
     tags:
       - drivers
       - pinctrl
-    platform_allow: rcar_ironhide_x5h/r8a7800/r52
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52

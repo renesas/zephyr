@@ -7,7 +7,7 @@
 #include <arm/armv8-r.dtsi>
 #include <zephyr/dt-bindings/dt-util.h>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
-#include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
+#include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <mem.h>
 

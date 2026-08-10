@@ -19,7 +19,7 @@ an external link partner. The suite covers:
 
 Supported Boards
 *****************
-- rcar_ironhide_x5h/r8a7800/r52
+- rcar_ironhide_x5h/r8a78000/r52
 
 Building and Running
 *********************
@@ -29,5 +29,5 @@ and is run on real hardware.
 
 .. code-block:: console
 
-   west build -b rcar_ironhide_x5h/r8a7800/r52 tests/boards/renesas/rcar/x5h/tsnes_loopback
+   west build -b rcar_ironhide_x5h/r8a78000/r52 tests/boards/renesas/rcar/x5h/tsnes_loopback
    west flash

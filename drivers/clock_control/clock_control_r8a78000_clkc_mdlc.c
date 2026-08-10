@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT renesas_r8a7800_clkc_mdlc
+#define DT_DRV_COMPAT renesas_r8a78000_clkc_mdlc
 
 #include <errno.h>
 #include <zephyr/arch/cpu.h>
 #include <zephyr/drivers/clock_control.h>
-#include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
+#include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/drivers/clock_control/renesas_clkc_mdlc.h>
 #include "clock_control_renesas_clkc_mdlc.h"
 #include <zephyr/irq.h>
@@ -22,11 +22,11 @@ LOG_MODULE_DECLARE(clock_control_rcar_clkc_mdlc);
 #define R8A78000_CLKC_COMMON_CLKSTP_BIT 8
 #define R8A78000_CLKC_COMMON_DIV_MASK   GENMASK(5, 0)
 
-struct r8a7800_clkc_mdlc_cfg {
+struct r8a78000_clkc_mdlc_cfg {
 	DEVICE_MMIO_ROM; /* Must be first */
 };
 
-struct r8a7800_clkc_mdlc_data {
+struct r8a78000_clkc_mdlc_data {
 	struct rcar_clkc_mdlc_data cmn; /* Must be first */
 };
 
@@ -165,10 +165,10 @@ static struct clkc_clk_info_table mod_props[] = {
 };
 
 /**
- * @brief Read the current status of an R8A7800 core clock.
+ * @brief Read the current status of an R8A78000 core clock.
  */
 static enum clock_control_status
-r8a7800_clkc_core_clock_get_status(const struct device *dev, struct clkc_clk_info_table *clk_info)
+r8a78000_clkc_core_clock_get_status(const struct device *dev, struct clkc_clk_info_table *clk_info)
 {
 	uint32_t reg;
 
@@ -198,12 +198,12 @@ r8a7800_clkc_core_clock_get_status(const struct device *dev, struct clkc_clk_inf
 }
 
 /**
- * @brief Enable or disable an R8A7800 core clock through its CLKC control register.
+ * @brief Enable or disable an R8A78000 core clock through its CLKC control register.
  */
-static int r8a7800_clkc_core_clock_enabled(const struct device *dev,
-					   struct clkc_clk_info_table *clk_info, bool enable)
+static int r8a78000_clkc_core_clock_enabled(const struct device *dev,
+					    struct clkc_clk_info_table *clk_info, bool enable)
 {
-	struct r8a7800_clkc_mdlc_data *data = dev->data;
+	struct r8a78000_clkc_mdlc_data *data = dev->data;
 	uint32_t region;
 	mem_addr_t reg_addr;
 	mem_addr_t reg_base;
@@ -265,8 +265,8 @@ unlock:
 /**
  * @brief Dispatch a start or stop request to MDLC module clocks or CLKC core clocks.
  */
-static int r8a7800_clkc_mdlc_start_stop(const struct device *dev, clock_control_subsys_t sys,
-					bool enable)
+static int r8a78000_clkc_mdlc_start_stop(const struct device *dev, clock_control_subsys_t sys,
+					 bool enable)
 {
 	struct rcar_clkc *clk = (struct rcar_clkc *)sys;
 	struct clkc_clk_info_table *clk_info;
@@ -283,7 +283,7 @@ static int r8a7800_clkc_mdlc_start_stop(const struct device *dev, clock_control_
 	}
 
 	if (clk->domain == CLKC_MOD) {
-		struct r8a7800_clkc_mdlc_data *data = dev->data;
+		struct r8a78000_clkc_mdlc_data *data = dev->data;
 		k_spinlock_key_t key;
 
 		if (!enable && !(clk_info->capabilities & RCAR_CLKC_CAP_STOP)) {
@@ -296,7 +296,7 @@ static int r8a7800_clkc_mdlc_start_stop(const struct device *dev, clock_control_
 		ret = rcar_mdlc_clock_enabled(clk->module, enable);
 		k_spin_unlock(&data->cmn.lock, key);
 	} else if (clk->domain == CLKC_CORE) {
-		ret = r8a7800_clkc_core_clock_enabled(dev, clk_info, enable);
+		ret = r8a78000_clkc_core_clock_enabled(dev, clk_info, enable);
 	} else {
 		ret = -EINVAL;
 	}
@@ -305,12 +305,12 @@ static int r8a7800_clkc_mdlc_start_stop(const struct device *dev, clock_control_
 }
 
 /**
- * @brief Return the clock status for an R8A7800 module or core clock.
+ * @brief Return the clock status for an R8A78000 module or core clock.
  */
-static enum clock_control_status r8a7800_clkc_mdlc_get_status(const struct device *dev,
-							      clock_control_subsys_t sys)
+static enum clock_control_status r8a78000_clkc_mdlc_get_status(const struct device *dev,
+							       clock_control_subsys_t sys)
 {
-	struct r8a7800_clkc_mdlc_data *data = dev->data;
+	struct r8a78000_clkc_mdlc_data *data = dev->data;
 	struct rcar_clkc *clk = (struct rcar_clkc *)sys;
 	struct clkc_clk_info_table *clk_info;
 	enum clock_control_status status;
@@ -330,7 +330,7 @@ static enum clock_control_status r8a7800_clkc_mdlc_get_status(const struct devic
 	if (clk->domain == CLKC_MOD) {
 		status = rcar_mdlc_clock_get_status(clk->module);
 	} else if (clk->domain == CLKC_CORE) {
-		status = r8a7800_clkc_core_clock_get_status(dev, clk_info);
+		status = r8a78000_clkc_core_clock_get_status(dev, clk_info);
 	} else {
 		status = CLOCK_CONTROL_STATUS_UNKNOWN;
 	}
@@ -341,9 +341,9 @@ static enum clock_control_status r8a7800_clkc_mdlc_get_status(const struct devic
 }
 
 /**
- * @brief Decode an R8A7800 clock divider register field into the effective divider.
+ * @brief Decode an R8A78000 clock divider register field into the effective divider.
  */
-static uint32_t r8a7800_get_div_helper(uint32_t reg_val, uint32_t module)
+static uint32_t r8a78000_get_div_helper(uint32_t reg_val, uint32_t module)
 {
 	switch (module) {
 	case R8A78000_CLK_ADGHD1CK_MP_BUS:
@@ -365,9 +365,9 @@ static uint32_t r8a7800_get_div_helper(uint32_t reg_val, uint32_t module)
 }
 
 /**
- * @brief Validate an R8A7800 effective divider and convert it to the register field value.
+ * @brief Validate an R8A78000 effective divider and convert it to the register field value.
  */
-static int r8a7800_set_rate_helper(uint32_t module, uint32_t *divider, uint32_t *div_mask)
+static int r8a78000_set_rate_helper(uint32_t module, uint32_t *divider, uint32_t *div_mask)
 {
 	uint32_t reg_val;
 
@@ -394,20 +394,20 @@ static int r8a7800_set_rate_helper(uint32_t module, uint32_t *divider, uint32_t 
 	}
 }
 
-static int r8a7800_clkc_mdlc_start(const struct device *dev, clock_control_subsys_t sys)
+static int r8a78000_clkc_mdlc_start(const struct device *dev, clock_control_subsys_t sys)
 {
-	return r8a7800_clkc_mdlc_start_stop(dev, sys, true);
+	return r8a78000_clkc_mdlc_start_stop(dev, sys, true);
 }
 
-static int r8a7800_clkc_mdlc_stop(const struct device *dev, clock_control_subsys_t sys)
+static int r8a78000_clkc_mdlc_stop(const struct device *dev, clock_control_subsys_t sys)
 {
-	return r8a7800_clkc_mdlc_start_stop(dev, sys, false);
+	return r8a78000_clkc_mdlc_start_stop(dev, sys, false);
 }
 
 /**
- * @brief Initialize the R8A7800 CLKC/MDLC device and precompute clock relationships.
+ * @brief Initialize the R8A78000 CLKC/MDLC device and precompute clock relationships.
  */
-static int r8a7800_clkc_mdlc_init(const struct device *dev)
+static int r8a78000_clkc_mdlc_init(const struct device *dev)
 {
 	DEVICE_MMIO_MAP(dev, K_MEM_CACHE_NONE);
 
@@ -416,30 +416,30 @@ static int r8a7800_clkc_mdlc_init(const struct device *dev)
 	return 0;
 }
 
-static DEVICE_API(clock_control, r8a7800_clkc_mdlc_api) = {
-	.on = r8a7800_clkc_mdlc_start,
-	.off = r8a7800_clkc_mdlc_stop,
+static DEVICE_API(clock_control, r8a78000_clkc_mdlc_api) = {
+	.on = r8a78000_clkc_mdlc_start,
+	.off = r8a78000_clkc_mdlc_stop,
 	.get_rate = rcar_clkc_get_rate,
 	.set_rate = rcar_clkc_set_rate,
-	.get_status = r8a7800_clkc_mdlc_get_status,
+	.get_status = r8a78000_clkc_mdlc_get_status,
 };
 
-#define R8A7800_MDLC_INIT(inst)                                                                    \
-	static struct r8a7800_clkc_mdlc_cfg clkc_mdlc##inst##_cfg = {                              \
+#define R8A78000_MDLC_INIT(inst)                                                                   \
+	static struct r8a78000_clkc_mdlc_cfg clkc_mdlc##inst##_cfg = {                             \
 		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(inst)),                                           \
 	};                                                                                         \
                                                                                                    \
-	static struct r8a7800_clkc_mdlc_data clkc_mdlc##inst##_data = {                            \
+	static struct r8a78000_clkc_mdlc_data clkc_mdlc##inst##_data = {                           \
 		.cmn.clk_info_table[CLKC_CORE] = core_props,                                       \
 		.cmn.clk_info_table_size[CLKC_CORE] = ARRAY_SIZE(core_props),                      \
 		.cmn.clk_info_table[CLKC_MOD] = mod_props,                                         \
 		.cmn.clk_info_table_size[CLKC_MOD] = ARRAY_SIZE(mod_props),                        \
-		.cmn.get_div_helper = r8a7800_get_div_helper,                                      \
-		.cmn.set_rate_helper = r8a7800_set_rate_helper,                                    \
+		.cmn.get_div_helper = r8a78000_get_div_helper,                                     \
+		.cmn.set_rate_helper = r8a78000_set_rate_helper,                                   \
 	};                                                                                         \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(inst, &r8a7800_clkc_mdlc_init, NULL, &clkc_mdlc##inst##_data,        \
+	DEVICE_DT_INST_DEFINE(inst, &r8a78000_clkc_mdlc_init, NULL, &clkc_mdlc##inst##_data,       \
 			      &clkc_mdlc##inst##_cfg, PRE_KERNEL_1,                                \
-			      CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &r8a7800_clkc_mdlc_api);
+			      CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &r8a78000_clkc_mdlc_api);
 
-DT_INST_FOREACH_STATUS_OKAY(R8A7800_MDLC_INIT)
+DT_INST_FOREACH_STATUS_OKAY(R8A78000_MDLC_INIT)

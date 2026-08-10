@@ -11,7 +11,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/renesas_clkc_mdlc.h>
-#include <zephyr/dt-bindings/clock/r8a7800_clkc_mdlc.h>
+#include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/sys/util.h>
 
 #define LOG_LEVEL CONFIG_CLOCK_CONTROL_LOG_LEVEL

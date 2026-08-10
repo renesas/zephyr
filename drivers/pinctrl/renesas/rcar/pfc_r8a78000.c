@@ -6,7 +6,7 @@
 
 #include <errno.h>
 #include <pinctrl_soc.h>
-#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a78000.h>
 
 const struct pfc_drive_reg pfc_drive_regs[] = {
 	/* GP0_DRVCTRLx */

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A7800_R52_H_
-#define ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A7800_R52_H_
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A78000_R52_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A78000_R52_H_
 
 /*
  * ============================================================
@@ -128,4 +128,4 @@
  */
 #define DMA_AUDIO_SCU_CMD_DMARS(channel) ((1 - (channel)) * 2 + 0x92)
 
-#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A7800_R52_H_ */
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_DMA_R8A78000_R52_H_ */

@@ -5,10 +5,10 @@
  */
 
 /dts-v1/;
-#include <arm/renesas/rcar/gen5/r8a7800.dtsi>
+#include <arm/renesas/rcar/gen5/r8a78000.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
-#include "rcar_ironhide_x5h_r8a7800_r52-pinctrl.dtsi"
+#include "rcar_ironhide_x5h_r8a78000_r52-pinctrl.dtsi"
 #include <zephyr/dt-bindings/ethernet/phy/ti_dp83869.h>
 #include <freq.h>
 

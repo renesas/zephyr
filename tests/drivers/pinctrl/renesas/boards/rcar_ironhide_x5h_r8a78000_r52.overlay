@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+#include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a78000.h>
 
 / {
 	#address-cells = <1>;

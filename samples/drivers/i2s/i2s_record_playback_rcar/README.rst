@@ -19,7 +19,7 @@ The sample is console driven:
 Requirements
 ************
 
-This sample only supports the ``rcar_ironhide_x5h/r8a7800/r52`` board, which
+This sample only supports the ``rcar_ironhide_x5h/r8a78000/r52`` board, which
 provides the R-Car Gen5 SSI I2S controller wired to an on-board AK4619 codec.
 
 Building and Running
@@ -27,7 +27,7 @@ Building and Running
 
 .. zephyr-app-commands::
    :zephyr-app: samples/drivers/i2s/i2s_record_playback_rcar
-   :board: rcar_ironhide_x5h/r8a7800/r52
+   :board: rcar_ironhide_x5h/r8a78000/r52
    :goals: build flash
    :compact:
 

@@ -9,5 +9,5 @@ common:
 tests:
   boards.renesas.rcar.x5h.tsnes_loopback:
     platform_allow:
-      - rcar_ironhide_x5h/r8a7800/r52
+      - rcar_ironhide_x5h/r8a78000/r52
     harness: ztest

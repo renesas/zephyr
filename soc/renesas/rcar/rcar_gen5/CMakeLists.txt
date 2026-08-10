@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_SOC_R8A7800_R52)
+if(CONFIG_SOC_R8A78000_R52)
   zephyr_sources(r52/soc.c)
   zephyr_linker_sources(SECTIONS sections.ld)
   zephyr_include_directories(r52)

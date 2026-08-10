@@ -3,6 +3,6 @@
 
 if SOC_SERIES_RCAR_GEN5
 
-rsource "Kconfig.defconfig.r8a7800"
+rsource "Kconfig.defconfig.r8a78000"
 
 endif # SOC_SERIES_RCAR_GEN5

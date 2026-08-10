@@ -24,7 +24,7 @@ description: |
        */
 
       /* include pre-defined pins and functions for the SoC used by the board */
-      #include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a7800.h>
+      #include <zephyr/dt-bindings/pinctrl/renesas/pinctrl-r8a78000.h>
 
       &pfc {
         /* configuration for can0 data a tx default state */

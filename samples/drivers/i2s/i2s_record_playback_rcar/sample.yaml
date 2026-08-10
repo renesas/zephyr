@@ -4,7 +4,7 @@ tests:
   sample.drivers.i2s.record_playback.rcar:
     tags: i2s
     platform_allow:
-      - rcar_ironhide_x5h/r8a7800/r52
+      - rcar_ironhide_x5h/r8a78000/r52
     harness: console
     harness_config:
       type: one_line

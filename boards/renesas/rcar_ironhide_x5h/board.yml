@@ -3,4 +3,4 @@ board:
   full_name: R-Car Ironhide X5H
   vendor: renesas
   socs:
-  - name: r8a7800
+  - name: r8a78000

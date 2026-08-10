@@ -66,7 +66,7 @@ endif()
 
 if(CONFIG_CLOCK_CONTROL_RCAR_CLKC_MDLC)
   zephyr_library_sources(clock_control_renesas_clkc_mdlc.c)
-  zephyr_library_sources_ifdef(CONFIG_DT_HAS_RENESAS_R8A7800_CLKC_MDLC_ENABLED clock_control_r8a78000_clkc_mdlc.c)
+  zephyr_library_sources_ifdef(CONFIG_DT_HAS_RENESAS_R8A78000_CLKC_MDLC_ENABLED clock_control_r8a78000_clkc_mdlc.c)
 endif()
 
 # zephyr-keep-sorted-start
