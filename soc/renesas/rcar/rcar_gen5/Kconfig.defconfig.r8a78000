@@ -9,4 +9,18 @@ config NUM_IRQS
 config BUILD_OUTPUT_S19
 	default y
 
+if MDIO
+
+config MDIO_INIT_PRIORITY
+	default 53
+
+endif # MDIO
+
+if ETH_PHY_DRIVER
+
+config PHY_INIT_PRIORITY
+	default 54
+
+endif # "Ethernet PHY Drivers"
+
 endif # SOC_R8A78000_R52
