@@ -91,7 +91,7 @@ static int configure_i2s(struct i2s_config *i2s_cfg, struct audio_codec_cfg *aud
 	audio_cfg->dai_cfg.i2s.word_size = CONFIG_SAMPLE_BIT_WIDTH;
 	audio_cfg->dai_cfg.i2s.channels = CONFIG_NUMBER_OF_CHANNELS;
 	audio_cfg->dai_cfg.i2s.format = I2S_FMT_DATA_FORMAT_I2S;
-	audio_cfg->dai_cfg.i2s.options = I2S_OPT_FRAME_CLK_SLAVE | I2S_OPT_BIT_CLK_SLAVE;
+	audio_cfg->dai_cfg.i2s.options = I2S_OPT_FRAME_CLK_TARGET | I2S_OPT_BIT_CLK_TARGET;
 	audio_cfg->dai_cfg.i2s.frame_clk_freq = CONFIG_SAMPLE_FREQUENCY;
 	audio_cfg->dai_cfg.i2s.mem_slab = &rx_mem_slab;
 	audio_cfg->dai_cfg.i2s.block_size = BLOCK_SIZE;
@@ -112,12 +112,12 @@ static int configure_i2s(struct i2s_config *i2s_cfg, struct audio_codec_cfg *aud
 	 * Use MASTER mode if the MCU generates BCLK/LRCLK.
 	 * If your external codec generates clocks, change this to:
 	 *
-	 *   I2S_OPT_FRAME_CLK_SLAVE | I2S_OPT_BIT_CLK_SLAVE
+	 *   I2S_OPT_FRAME_CLK_TARGET | I2S_OPT_BIT_CLK_TARGET
 	 *
 	 * Many i2s_codec sample boards use master clock from MCU,
 	 * but this depends on your hardware.
 	 */
-	i2s_cfg->options = I2S_OPT_FRAME_CLK_MASTER | I2S_OPT_BIT_CLK_MASTER;
+	i2s_cfg->options = I2S_OPT_FRAME_CLK_CONTROLLER | I2S_OPT_BIT_CLK_CONTROLLER;
 	i2s_cfg->frame_clk_freq = CONFIG_SAMPLE_FREQUENCY;
 	i2s_cfg->mem_slab = &rx_mem_slab;
 	i2s_cfg->block_size = BLOCK_SIZE;

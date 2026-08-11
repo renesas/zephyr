@@ -1290,13 +1290,13 @@ static int i2s_rcar_ssi_configure(const struct device *dev, const struct i2s_con
 		return ret;
 	}
 
-	if (i2s_cfg->options & I2S_OPT_BIT_CLK_SLAVE) {
+	if (i2s_cfg->options & I2S_OPT_BIT_CLK_TARGET) {
 		ssicr &= ~BIT(SSI_SSICR_SCKD_POS);
 	} else {
 		ssicr |= BIT(SSI_SSICR_SCKD_POS);
 	}
 
-	if (i2s_cfg->options & I2S_OPT_FRAME_CLK_SLAVE) {
+	if (i2s_cfg->options & I2S_OPT_FRAME_CLK_TARGET) {
 		ssicr &= ~BIT(SSI_SSICR_SWSD_POS);
 	} else {
 		ssicr |= BIT(SSI_SSICR_SWSD_POS);
