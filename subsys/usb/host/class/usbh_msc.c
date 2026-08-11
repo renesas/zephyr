@@ -617,9 +617,9 @@ static int check_sense(struct driver_data *driver_data, uint8_t lun_index)
 		    sense_data.additional_sense_code == SCSI_SENSE_DATA_ASC_NOT_READY_TO_READY) {
 			result = -EAGAIN;
 		}
-		/* Somehow medium was removed */
+		/* Medium error, may disappear on retry */
 		else if (sense_data.sense_key == SCSI_SENSE_DATA_KEY_MEDIUM_ERROR) {
-			result = -ENOMEDIUM;
+			result = -EIO;
 		} else if (sense_data.additional_sense_code ==
 			   SCSI_SENSE_DATA_ASC_MEDIUM_NOT_PRESENT) {
 			result = -ENOMEDIUM;

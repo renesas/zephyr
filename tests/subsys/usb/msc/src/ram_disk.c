@@ -11,7 +11,14 @@
 
 #include <ff.h>
 
-/* The test case simulates up to two units using RAM */
+/*
+ * The test case simulates up to two units using RAM.
+ *
+ * `USBD_DEFINE_MSC_LUN(id, ...)`'s LUN order (and therefore its device-side bLUN / host-side
+ * "USB0_<n>" index) is the alphabetical order of the resulting `usbd_msc_lun_##id` symbol
+ * (linker SORT_BY_NAME on the `usbd_msc_lun` iterable section), not declaration order. "ram0"
+ * and "ram1" sort as LUN 0 and LUN 1 respectively.
+ */
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk0), okay)
 USBD_DEFINE_MSC_LUN(ram0, "RAM0", "Zephyr", "RAMDisk", "0.00");
 static struct fs_mount_t fs_mnt0;

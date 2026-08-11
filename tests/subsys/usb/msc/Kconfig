@@ -6,7 +6,7 @@ config SYS_CLOCK_TICKS_PER_SEC
 
 config TEST_NUM_LUN
 	int
-	default 2 if BOARD_NATIVE_SIM
+	default 3 if BOARD_NATIVE_SIM
 	default 1
 
 # Source common USB sample options used to initialize new experimental USB

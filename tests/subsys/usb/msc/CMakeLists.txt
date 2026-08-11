@@ -16,5 +16,5 @@ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/usb/host)
 target_sources(app PRIVATE src/msc.c)
 
 if(${BOARD} STREQUAL "native_sim")
-    target_sources(app PRIVATE src/ram_disk.c)
+    target_sources(app PRIVATE src/ram_disk.c src/fault_disk.c)
 endif()

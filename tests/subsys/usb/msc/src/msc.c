@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(test, LOG_LEVEL_INF);
 #include "usbh_desc.h"
 #include "usbh_device.h"
 #include "ram_disk.h"
+#include "fault_disk.h"
 
 /* USB Host controller */
 USBH_CONTROLLER_DEFINE(test_uhs_ctx, DEVICE_DT_GET(DT_NODELABEL(zephyr_uhc0)));
@@ -41,6 +42,11 @@ USBH_CONTROLLER_DEFINE(test_uhs_ctx, DEVICE_DT_GET(DT_NODELABEL(zephyr_uhc0)));
 #if CONFIG_TEST_NUM_LUN > 1
 #define DISK_DRIVE_NAME_1 "USB0_1"
 #define DISK_MOUNT_PT_1   "/" DISK_DRIVE_NAME_1 ":"
+#endif
+
+#if CONFIG_TEST_NUM_LUN > 2
+/* Third logical unit, backed by the fault-injectable disk */
+#define DISK_DRIVE_NAME_FAULT "USB0_2"
 #endif
 
 /* USB Host controller context pointer for convenience */
@@ -105,6 +111,7 @@ static void *suite_setup(void)
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk0), okay) ||                                            \
 	DT_NODE_HAS_STATUS(DT_NODELABEL(ramdisk1), okay)
 	ram_disk_setup();
+	fault_disk_setup();
 
 	test_usbd = sample_usbd_setup_device(NULL);
 	zassert_not_null(test_usbd, "Failed to setup USB device");
@@ -184,7 +191,7 @@ static void check_metadata(const char *name, uint32_t block_count, uint32_t bloc
 
 	/* IOCTL not supported for MSC devices */
 	result = disk_access_ioctl(name, DISK_IOCTL_GET_ERASE_BLOCK_SZ, &actual_erase_block_size);
-	zassert_equal(result, -ENOTSUP);
+	zassert_equal(-ENOTSUP, result, "Erase should not be supported for MSC devices");
 
 	result = disk_access_ioctl(name, DISK_IOCTL_GET_SECTOR_COUNT, &actual_block_count);
 	zassert_ok(result, "Unable to get sector count");
@@ -327,3 +334,161 @@ ZTEST(usbh_msc_suite, test_usbh_msc_lun_2)
 	fs_unmount(&mp);
 }
 #endif
+
+#if CONFIG_TEST_NUM_LUN > 2
+/*
+ * The following tests exercise error paths of the MSC driver's disk_access API, by making the
+ * emulated device (the fault-injectable disk backing the third LUN) give an invalid or
+ * unexpected response to the host's request.
+ */
+
+/*
+ * Wait for the disk to become ready, without mounting a filesystem on it.
+ */
+static void wait_disk_ready(const char *name)
+{
+	int result = 0;
+	unsigned int attempts = 0;
+
+	do {
+		result = disk_access_ioctl(name, DISK_IOCTL_CTRL_INIT, NULL);
+		if (result != 0) {
+			attempts++;
+			zassert_true(attempts < 10, "Timed out waiting for disk");
+			k_msleep(1000);
+			continue;
+		}
+	} while (result != 0);
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_normal_operation)
+{
+	uint8_t write_buffer[512];
+	uint8_t read_buffer[512] = {0u};
+	int result = 0;
+
+	fault_disk_reset();
+	wait_disk_ready(DISK_DRIVE_NAME_FAULT);
+
+	memset(write_buffer, 0xA5, sizeof(write_buffer));
+
+	result = disk_access_write(DISK_DRIVE_NAME_FAULT, write_buffer, 0, 1);
+	zassert_ok(result, "Unable to write");
+
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, read_buffer, 0, 1);
+	zassert_ok(result, "Unable to read");
+
+	zassert_mem_equal(write_buffer, read_buffer, sizeof(write_buffer), "Wrong data read back");
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_oversized_transfer)
+{
+	uint8_t buffer[512];
+	uint32_t sector_count = 0u;
+	int result = 0;
+
+	fault_disk_reset();
+	wait_disk_ready(DISK_DRIVE_NAME_FAULT);
+
+	result = disk_access_ioctl(DISK_DRIVE_NAME_FAULT, DISK_IOCTL_GET_SECTOR_COUNT,
+				   &sector_count);
+	zassert_ok(result, "Unable to get sector count");
+
+	/* Reading or writing past the end of the disk should be rejected */
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, sector_count, 1);
+	zassert_equal(-EINVAL, result, "An out-of-range read should be rejected");
+
+	result = disk_access_write(DISK_DRIVE_NAME_FAULT, buffer, sector_count, 1);
+	zassert_equal(-EINVAL, result, "An out-of-range write should be rejected");
+
+	/* More sectors than fit in a uint16_t should also be rejected */
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, 0, 0x10000);
+	zassert_equal(-EINVAL, result, "A read of more than 65535 sectors should be rejected");
+
+	result = disk_access_write(DISK_DRIVE_NAME_FAULT, buffer, 0, 0x10000);
+	zassert_equal(-EINVAL, result, "A write of more than 65535 sectors should be rejected");
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_erase_not_supported)
+{
+	int result = disk_access_erase(DISK_DRIVE_NAME_FAULT, 0, 1, DISK_ACCESS_ERASE_PHYSICAL);
+
+	zassert_equal(-ENOTSUP, result, "Erase should not be supported for MSC devices");
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_write_error)
+{
+	uint8_t buffer[512] = {0};
+	int result = 0;
+
+	fault_disk_reset();
+	wait_disk_ready(DISK_DRIVE_NAME_FAULT);
+
+	fault_disk_set_write_error(true);
+
+	result = disk_access_write(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_true(result != 0, "A write error from the device should have surfaced");
+
+	fault_disk_set_write_error(false);
+
+	result = disk_access_status(DISK_DRIVE_NAME_FAULT);
+	zassert_equal(DISK_STATUS_OK, result,
+		      "A transient write error should not disable the whole unit");
+
+	result = disk_access_write(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_ok(result, "Unable to write after clearing the fault");
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_read_error)
+{
+	uint8_t buffer[512] = {0};
+	int result = 0;
+
+	fault_disk_reset();
+	wait_disk_ready(DISK_DRIVE_NAME_FAULT);
+
+	fault_disk_set_read_error(true);
+
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_true(result != 0, "A read error from the device should be surfaced");
+
+	fault_disk_set_read_error(false);
+
+	result = disk_access_status(DISK_DRIVE_NAME_FAULT);
+	zassert_equal(DISK_STATUS_OK, result,
+		      "A transient read error should not disable the whole unit");
+
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_ok(result, "Unable to read after clearing the fault");
+}
+
+ZTEST(usbh_msc_suite, test_usbh_msc_fault_disk_medium_removed_and_reinserted)
+{
+	uint8_t buffer[512] = {0};
+	int result = 0;
+
+	fault_disk_reset();
+	wait_disk_ready(DISK_DRIVE_NAME_FAULT);
+
+	/* Simulate the medium being pulled */
+	fault_disk_set_status_override(DISK_STATUS_NOMEDIA);
+
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_equal(-ENOMEDIUM, result, "A missing medium should be reported");
+
+	result = disk_access_status(DISK_DRIVE_NAME_FAULT);
+	zassert_equal(DISK_STATUS_NOMEDIA, result, "Disk status should reflect the missing medium");
+
+	/* Simulate the medium being reinserted */
+	fault_disk_set_status_override(-1);
+
+	result = disk_access_ioctl(DISK_DRIVE_NAME_FAULT, DISK_IOCTL_CTRL_DEINIT, NULL);
+	zassert_ok(result, "Unable to deinitialize the disk");
+
+	result = disk_access_ioctl(DISK_DRIVE_NAME_FAULT, DISK_IOCTL_CTRL_INIT, NULL);
+	zassert_ok(result, "Unable to reinitialize the disk after reinsertion");
+
+	result = disk_access_read(DISK_DRIVE_NAME_FAULT, buffer, 0, 1);
+	zassert_ok(result, "Unable to read after the medium was reinserted");
+}
+#endif /* CONFIG_TEST_NUM_LUN > 2 */
