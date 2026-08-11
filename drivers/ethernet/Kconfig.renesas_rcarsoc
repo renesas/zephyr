@@ -87,7 +87,7 @@ config ETH_RENESAS_RSWITCH3_TIMEOUT
 
 config ETH_RENESAS_RSWITCH3_INIT_PRIORITY
 	int "R-Switch 3 driver init priority"
-	default 75
+	default 55
 	help
 	  Physical port bring-up wires each port's external PHY and PCS
 	  channel device, so this must run after CONFIG_MDIO_INIT_PRIORITY

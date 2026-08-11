@@ -11,6 +11,13 @@ config PHY_RENESAS_PCS
 
 if PHY_RENESAS_PCS
 
+config PHY_RENESAS_PCS_INIT_PRIORITY
+	int "Renesas R-Car Ethernet PCS channel init priority"
+	default 52
+	help
+	  Renesas R-Car Ethernet PCS channel initialization priority.
+	  This must run after the MP-PHY device and before R-Switch 3.
+
 config PHY_RENESAS_PCS_TIMEOUT_US
 	int "Register access timeout (us)"
 	default 100000

@@ -366,8 +366,7 @@ static int pcs_channel_init(const struct device *dev)
 	data->state.speed = 0;
 	data->aneg_on = true;
 
-	ret = clock_control_on(config->clock_dev,
-			       (clock_control_subsys_t)&config->mod_clk);
+	ret = clock_control_on(config->clock_dev, (clock_control_subsys_t)&config->mod_clk);
 	if (ret < 0) {
 		return ret;
 	}
@@ -418,6 +417,7 @@ static DEVICE_API(ethphy, pcs_channel_api) = {
 			},                                                                         \
 	};                                                                                         \
 	DEVICE_DT_INST_DEFINE(n, pcs_channel_init, NULL, &pcs_data_##n, &pcs_config_##n,           \
-			      POST_KERNEL, 56, &pcs_channel_api);
+			      POST_KERNEL, CONFIG_PHY_RENESAS_PCS_INIT_PRIORITY,                   \
+			      &pcs_channel_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PCS_CHANNEL_INIT)

@@ -586,8 +586,6 @@ static int phy_ti_dp83869_init(const struct device *dev)
 		return ret;
 	}
 
-	mdio_bus_enable(config->mdio_dev);
-
 	/* Software reset */
 	ret = phy_ti_dp83869_sw_reset(dev);
 	if (ret < 0) {
