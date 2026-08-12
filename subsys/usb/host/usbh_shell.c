@@ -874,7 +874,7 @@ struct shell_billboard_ctx {
 	struct device const *dev;
 };
 
-void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
+void cmd_billboard_cb(void *cb_arg, const struct usb_bos_capability_header *desc)
 {
 	static const char *const vconn_power[] = {"1W", "1.5W", "2W", "3W",
 						  "4W", "5W",   "6W", "reserved"};
@@ -885,53 +885,71 @@ void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
 	char cstr[64];
 	struct usb_billboard_capability_descriptor *billboard_desc;
 	enum usb_billboard_aum_state aum_state;
-	struct usb_string_descriptor *str_desc;
+	struct usb_string_descriptor *str_desc = NULL;
 	struct shell_billboard_ctx *billboard_ctx = (struct shell_billboard_ctx *)cb_arg;
 
-	/* Accepting USB_BOS_CAPABILITY_BILLBOARD, filter out USB_BOS_CAPABILITY_BILLBOARD_EX */
-	if (desc->bDevCapabilityType != USB_BOS_CAPABILITY_BILLBOARD) {
-		return;
-	}
+	do {
+		/* Accepting USB_BOS_CAPABILITY_BILLBOARD,
+		 * filter out USB_BOS_CAPABILITY_BILLBOARD_EX
+		 */
+		if (desc->bDevCapabilityType != USB_BOS_CAPABILITY_BILLBOARD) {
+			break;
+		}
 
-	billboard_desc = (struct usb_billboard_capability_descriptor *)desc;
-	shell_print(billboard_ctx->sh, "Found billboard descriptor");
+		billboard_desc = (struct usb_billboard_capability_descriptor *)desc;
+		shell_print(billboard_ctx->sh, "Found billboard descriptor");
 
-	if (USBBILLBOARD__VCONN_NOT_NEEDED(billboard_desc->VCONNPower)) {
-		shell_print(billboard_ctx->sh, "VCONN not needed");
-	} else {
-		shell_print(
-			billboard_ctx->sh, "VCONN needs: %s",
-			vconn_power[USB_BILLBOARD_VCONN_GET_NEEDED(billboard_desc->VCONNPower)]);
-	}
+		if (USBBILLBOARD__VCONN_NOT_NEEDED(billboard_desc->VCONNPower)) {
+			shell_print(billboard_ctx->sh, "VCONN not needed");
+		} else {
+			shell_print(billboard_ctx->sh, "VCONN needs: %s",
+				    vconn_power[USB_BILLBOARD_VCONN_GET_NEEDED(
+					    billboard_desc->VCONNPower)]);
+		}
 
-	if (billboard_desc->iAdditionalInfoURL != 0) {
-		usbh_billboard_fetch_string_desc(billboard_ctx->dev,
-						 billboard_desc->iAdditionalInfoURL, &str_desc);
-		strdesc_to_ascii7_string(str_desc, cstr, 64);
-	} else {
-		cstr[0] = '\0';
-	}
-	shell_print(billboard_ctx->sh, "URL: %s", cstr);
+		str_desc = k_malloc(256);
+		if (str_desc == NULL) {
+			shell_error(billboard_ctx->sh, "Cannot allocate memory");
+			break;
+		}
 
-	shell_print(billboard_ctx->sh, "Number of alternate modes: %d",
-		    billboard_desc->bNumberOfAlternateOrUSB4Modes);
-	for (int alt_idx = 0; alt_idx < billboard_desc->bNumberOfAlternateOrUSB4Modes; alt_idx++) {
-		shell_print(billboard_ctx->sh, "Alt index %d:", alt_idx);
-		shell_print(billboard_ctx->sh,
-			    " Supplied vendor ID %x", billboard_desc->aum[alt_idx].wSVID);
-		shell_print(billboard_ctx->sh,
-			    " Alternate mode %d", billboard_desc->aum[alt_idx].bAlternateOrUSB4Mode);
-		if (billboard_desc->aum[alt_idx].iAlternateOrUSB4ModeString != 0) {
-			usbh_billboard_fetch_string_desc(
-				billboard_ctx->dev,
-				billboard_desc->aum[alt_idx].iAlternateOrUSB4ModeString, &str_desc);
+		if (billboard_desc->iAdditionalInfoURL != 0) {
+			usbh_billboard_fetch_string_desc(billboard_ctx->dev,
+							 billboard_desc->iAdditionalInfoURL,
+							 str_desc, 256);
 			strdesc_to_ascii7_string(str_desc, cstr, 64);
 		} else {
 			cstr[0] = '\0';
 		}
-		shell_print(billboard_ctx->sh, " Alternate mode name: %s", cstr);
-		aum_state = USB_BILLBOARD_GET_AUM(billboard_desc->bmConfigured, alt_idx);
-		shell_print(billboard_ctx->sh, " Alternate mode status: %s", aum_state_str[aum_state]);
+		shell_print(billboard_ctx->sh, "URL: %s", cstr);
+
+		shell_print(billboard_ctx->sh, "Number of alternate modes: %d",
+			    billboard_desc->bNumberOfAlternateOrUSB4Modes);
+		for (int alt_idx = 0; alt_idx < billboard_desc->bNumberOfAlternateOrUSB4Modes;
+		     alt_idx++) {
+			shell_print(billboard_ctx->sh, "Alt index %d:", alt_idx);
+			shell_print(billboard_ctx->sh, " Supplied vendor ID %x",
+				    billboard_desc->aum[alt_idx].wSVID);
+			shell_print(billboard_ctx->sh, " Alternate mode %d",
+				    billboard_desc->aum[alt_idx].bAlternateOrUSB4Mode);
+			if (billboard_desc->aum[alt_idx].iAlternateOrUSB4ModeString != 0) {
+				usbh_billboard_fetch_string_desc(
+					billboard_ctx->dev,
+					billboard_desc->aum[alt_idx].iAlternateOrUSB4ModeString,
+					str_desc, 256);
+				strdesc_to_ascii7_string(str_desc, cstr, 64);
+			} else {
+				cstr[0] = '\0';
+			}
+			shell_print(billboard_ctx->sh, " Alternate mode name: %s", cstr);
+			aum_state = USB_BILLBOARD_GET_AUM(billboard_desc->bmConfigured, alt_idx);
+			shell_print(billboard_ctx->sh, " Alternate mode status: %s",
+				    aum_state_str[aum_state]);
+		}
+	} while (0);
+
+	if (str_desc != NULL) {
+		k_free(str_desc);
 	}
 }
 
@@ -965,7 +983,7 @@ static int cmd_billboard(const struct shell *sh,
 
 	billboard_ctx.dev = dev;
 	billboard_ctx.sh = sh;
-	err = usbh_billboard_fetch_and_parse(dev, cmd_billboard_cb, (void *)&billboard_ctx);
+	err = usbh_billboard_parse(dev, cmd_billboard_cb, (void *)&billboard_ctx);
 	if (err) {
 		shell_error(sh, "billboard_fetch_and_parse failed %d", err);
 		return err;

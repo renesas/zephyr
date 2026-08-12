@@ -45,6 +45,10 @@ void usbh_device_free(struct usb_device *const udev)
 	if (udev->cfg_desc != NULL) {
 		k_heap_free(&usb_device_heap, udev->cfg_desc);
 	}
+	if (udev->bos_desc != NULL) {
+		k_heap_free(&usb_device_heap, udev->bos_desc);
+		udev->bos_desc = NULL;
+	}
 
 	k_mem_slab_free(&usb_device_slab, (void *)udev);
 }
@@ -527,6 +531,31 @@ void usbh_device_disconnect(struct usbh_context *ctx, struct usb_device *udev)
 	LOG_DBG("Device removed");
 }
 
+int usbh_device_fetch_bos_desc(struct usb_device *const udev)
+{
+	struct usb_bos_descriptor bos_desc;
+	int ret;
+
+	ret = usbh_req_desc_bos(udev, sizeof(bos_desc), &bos_desc);
+	if (ret) {
+		return ret;
+	}
+
+	udev->bos_desc = k_heap_alloc(&usb_device_heap, bos_desc.wTotalLength, K_NO_WAIT);
+	if (udev->bos_desc == NULL) {
+		return -ENOMEM;
+	}
+
+	ret = usbh_req_desc_bos(udev, bos_desc.wTotalLength, udev->bos_desc);
+	if (ret) {
+		k_heap_free(&usb_device_heap, udev->bos_desc);
+		udev->bos_desc = NULL;
+		return ret;
+	}
+
+	return 0;
+}
+
 int usbh_device_init(struct usb_device *const udev)
 {
 	struct usbh_context *const uhs_ctx = udev->ctx;
@@ -572,6 +601,11 @@ int usbh_device_init(struct usb_device *const udev)
 	if (err) {
 		LOG_ERR("Failed to read device descriptor");
 		goto error;
+	}
+
+	if (sys_le16_to_cpu(udev->dev_desc.bcdUSB) >= 0x0201U) {
+		/* BOS descriptor is not mandatory, do not fail on error */
+		(void)usbh_device_fetch_bos_desc(udev);
 	}
 
 	if (!udev->dev_desc.bNumConfigurations) {

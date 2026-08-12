@@ -130,15 +130,20 @@ struct test_cb_ctx {
 	bool matched_altmode_string;
 };
 
-void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
+void cmd_billboard_cb(void *cb_arg, const struct usb_bos_capability_header *desc)
 {
 	char cstr[64];
 	struct usb_billboard_capability_descriptor *billboard_desc;
-	struct usb_string_descriptor *str_desc;
+	struct usb_string_descriptor *str_desc = NULL;
 	struct test_cb_ctx *test_cb_ctx = (struct test_cb_ctx *)cb_arg;
 	int result;
 
 	do {
+		str_desc = k_malloc(256);
+		if (str_desc == NULL) {
+			break;
+		}
+
 		/* Filter only USB_BOS_CAPABILITY_BILLBOARD */
 		if (desc->bDevCapabilityType != USB_BOS_CAPABILITY_BILLBOARD) {
 			break;
@@ -154,7 +159,7 @@ void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
 
 		/* Fetch URL string according to iAdditionalInfoURL string index */
 		result = usbh_billboard_fetch_string_desc(
-			test_cb_ctx->dev, billboard_desc->iAdditionalInfoURL, &str_desc);
+			test_cb_ctx->dev, billboard_desc->iAdditionalInfoURL, str_desc, 256);
 		if (result) {
 			break;
 		}
@@ -174,7 +179,7 @@ void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
 		 */
 
 		/* Retrieve supported languages in the device. Should be 0x0409 */
-		result = usbh_billboard_fetch_langs_desc(test_cb_ctx->dev, &str_desc);
+		result = usbh_billboard_fetch_langs_desc(test_cb_ctx->dev, str_desc, 256);
 		if (result || ((uint16_t *)(&str_desc->bString))[0] != USB_LANG_ENGLISH_USA) {
 			break;
 		}
@@ -197,7 +202,7 @@ void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
 			}
 			result = usbh_billboard_fetch_string_desc(
 				test_cb_ctx->dev, billboard_desc->aum[i].iAlternateOrUSB4ModeString,
-				&str_desc);
+				str_desc, 256);
 			if (result) {
 				break;
 			}
@@ -209,6 +214,10 @@ void cmd_billboard_cb(void *cb_arg, struct usb_bos_capability_header *desc)
 			test_cb_ctx->matched_altmode_string = true;
 		}
 	} while (0);
+
+	if (str_desc != NULL) {
+		k_free(str_desc);
+	}
 }
 
 ZTEST(billboard_host_test, billboard)
@@ -223,7 +232,7 @@ ZTEST(billboard_host_test, billboard)
 	/* Try several times, the billboard driver may not be probed yet */
 	result = -EAGAIN;
 	for (int i = 0; (i < 7) && (result == -EAGAIN); i++) {
-		result = usbh_billboard_fetch_and_parse(dev, cmd_billboard_cb, &test_cb_ctx);
+		result = usbh_billboard_parse(dev, cmd_billboard_cb, &test_cb_ctx);
 		/* Device was not probed yet */
 		if (result == -EAGAIN) {
 			k_msleep(100);

@@ -23,7 +23,8 @@ extern "C" {
  * @param cap_header    Pointer to capability
  *
  */
-typedef void (*usbh_billboard_cb_t)(void *cb_arg, struct usb_bos_capability_header *cap_header);
+typedef void (*usbh_billboard_cb_t)(void *cb_arg,
+				    const struct usb_bos_capability_header *cap_header);
 
 /**
  * @brief Fetches BOS and parse billboard capabilities descriptors
@@ -34,8 +35,8 @@ typedef void (*usbh_billboard_cb_t)(void *cb_arg, struct usb_bos_capability_head
  *
  * @return 0 on success, negative errno value on failure.
  */
-typedef int (*usbh_billboard_fetch_and_parse_t)(struct device const *dev,
-						usbh_billboard_cb_t billboard_cb, void *cb_arg);
+typedef int (*usbh_billboard_parse_t)(struct device const *dev, usbh_billboard_cb_t billboard_cb,
+				      void *cb_arg);
 
 /**
  * @brief Fetches string descriptors
@@ -47,7 +48,7 @@ typedef int (*usbh_billboard_fetch_and_parse_t)(struct device const *dev,
  * @return 0 on success, negative errno value on failure.
  */
 typedef int (*usbh_billboard_fetch_string_t)(struct device const *dev, uint8_t str_idx,
-					     struct usb_string_descriptor **str_desc);
+					     struct usb_string_descriptor *str_desc, size_t len);
 
 /**
  * @brief Fetches the supported languages from the device
@@ -58,7 +59,7 @@ typedef int (*usbh_billboard_fetch_string_t)(struct device const *dev, uint8_t s
  * @return 0 on success, negative errno value on failure.
  */
 typedef int (*usbh_billboard_fetch_langs_t)(struct device const *dev,
-					    struct usb_string_descriptor **str_desc);
+					    struct usb_string_descriptor *str_desc, size_t len);
 
 /**
  * @brief Changes the language used for fetching string descriptors
@@ -72,9 +73,9 @@ typedef int (*usbh_billboard_use_lang_t)(struct device const *dev, uint16_t lang
 
 __subsystem struct usbh_billboard_driver_api {
 	/**
-	 * @driver_ops_mandatory @copybrief usbh_billboard_fetch_and_parse
+	 * @driver_ops_mandatory @copybrief usbh_billboard_parse
 	 */
-	usbh_billboard_fetch_and_parse_t fetch_and_parse;
+	usbh_billboard_parse_t parse;
 	/**
 	 * @driver_ops_mandatory @copybrief usbh_billboard_fetch_string_desc
 	 */
@@ -98,19 +99,18 @@ __subsystem struct usbh_billboard_driver_api {
  *
  * @return 0 on success, negative errno value on failure.
  */
-__syscall int usbh_billboard_fetch_and_parse(struct device const *dev,
-					     usbh_billboard_cb_t billboard_cb, void *cb_arg);
+__syscall int usbh_billboard_parse(struct device const *dev, usbh_billboard_cb_t billboard_cb,
+				   void *cb_arg);
 
-static inline int z_impl_usbh_billboard_fetch_and_parse(struct device const *dev,
-							usbh_billboard_cb_t billboard_cb,
-							void *cb_arg)
+static inline int z_impl_usbh_billboard_parse(struct device const *dev,
+					      usbh_billboard_cb_t billboard_cb, void *cb_arg)
 {
 	struct usbh_billboard_driver_api const *api = DEVICE_API_GET(usbh_billboard, dev);
 
-	if (api->fetch_and_parse == NULL) {
+	if (api->parse == NULL) {
 		return -ENOSYS;
 	}
-	return api->fetch_and_parse(dev, billboard_cb, cb_arg);
+	return api->parse(dev, billboard_cb, cb_arg);
 }
 
 /**
@@ -119,21 +119,23 @@ static inline int z_impl_usbh_billboard_fetch_and_parse(struct device const *dev
  * @param dev           Pointer to the device
  * @param str_idx       String descriptor index
  * @param str_desc      Output argument, double pointer to string descriptor
+ * @param len           Length of string descriptor
  *
  * @return 0 on success, negative errno value on failure.
  */
 __syscall int usbh_billboard_fetch_string_desc(struct device const *dev, uint8_t str_idx,
-					       struct usb_string_descriptor **str_desc);
+					       struct usb_string_descriptor *str_desc, size_t len);
 
 static inline int z_impl_usbh_billboard_fetch_string_desc(struct device const *dev, uint8_t str_idx,
-							  struct usb_string_descriptor **str_desc)
+							  struct usb_string_descriptor *str_desc,
+							  size_t len)
 {
 	struct usbh_billboard_driver_api const *api = DEVICE_API_GET(usbh_billboard, dev);
 
 	if (api->fetch_string == NULL) {
 		return -ENOSYS;
 	}
-	return api->fetch_string(dev, str_idx, str_desc);
+	return api->fetch_string(dev, str_idx, str_desc, len);
 }
 
 /**
@@ -141,21 +143,23 @@ static inline int z_impl_usbh_billboard_fetch_string_desc(struct device const *d
  *
  * @param dev           Pointer to the device
  * @param str_desc      Output argument, double pointer to string descriptor
+ * @param len           Length of string descriptor
  *
  * @return 0 on success, negative errno value on failure.
  */
 __syscall int usbh_billboard_fetch_langs_desc(struct device const *dev,
-					      struct usb_string_descriptor **str_desc);
+					      struct usb_string_descriptor *str_desc, size_t len);
 
 static inline int z_impl_usbh_billboard_fetch_langs_desc(struct device const *dev,
-							 struct usb_string_descriptor **str_desc)
+							 struct usb_string_descriptor *str_desc,
+							 size_t len)
 {
 	struct usbh_billboard_driver_api const *api = DEVICE_API_GET(usbh_billboard, dev);
 
 	if (api->fetch_langs == NULL) {
 		return -ENOSYS;
 	}
-	return api->fetch_langs(dev, str_desc);
+	return api->fetch_langs(dev, str_desc, len);
 }
 
 /**

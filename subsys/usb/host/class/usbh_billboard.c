@@ -46,8 +46,6 @@ struct usbh_billboard_drv_data {
 	uint16_t iface;
 	/* Language code used for String descriptor requests */
 	uint16_t lang_code;
-	/* Preallocated buffer for String descriptor requests */
-	struct net_buf *string_netbuf;
 };
 
 /**
@@ -97,9 +95,6 @@ static int usbh_billboard_class_probe(struct usbh_class_data *const c_data,
 	/* Using English language as default one */
 	drv_data->lang_code = USB_LANG_ENGLISH_USA;
 
-	/* Shared string_netbuf, allocated on first string descriptor request */
-	drv_data->string_netbuf = NULL;
-
 	if (result == 0) {
 		drv_data->probed = true;
 	}
@@ -126,91 +121,11 @@ static int usbh_billboard_class_removed(struct usbh_class_data *const c_data)
 		return result;
 	}
 
-	if (drv_data->string_netbuf != NULL) {
-		usbh_xfer_buf_free(drv_data->udev, drv_data->string_netbuf);
-		drv_data->string_netbuf = NULL;
-	}
-
 	drv_data->udev = NULL;
 	drv_data->probed = false;
 	k_mutex_unlock(&drv_data->lock);
 
 	LOG_DBG("Billboard device was removed\n");
-
-	return result;
-}
-
-/**
- * @brief Fetches the BOS descriptor. Memory is allocated internally and the caller is responsible
- * for freeing it
- *
- * @param drv_data        Pointer to driver data
- * @param bos_netbuf      Output argument, double pointer net_buf, filled internally
- *
- * @return 0 on success, negative errno value on failure.
- */
-static int usbh_billboard_fetch_bos(struct usbh_billboard_drv_data *drv_data,
-				    struct net_buf **bos_netbuf)
-{
-	struct usb_bos_descriptor *bos_desc;
-	struct net_buf *header_netbuf = NULL;
-	struct net_buf *data_netbuf = NULL;
-	int result = 0;
-
-	do {
-		header_netbuf = usbh_xfer_buf_alloc(drv_data->udev, sizeof(*bos_desc));
-		if (header_netbuf == NULL) {
-			LOG_ERR("Cannot allocate memory for BOS header");
-			result = -ENOMEM;
-			break;
-		}
-
-		result = usbh_req_desc(drv_data->udev, USB_DESC_BOS, 0, 0, sizeof(*bos_desc),
-				       header_netbuf);
-		if (result != 0) {
-			LOG_ERR("Cannot request BOS header");
-			result = -EFAULT;
-			break;
-		}
-
-		/* Hypotetical situation when malicious device send back 0 length packet */
-		bos_desc = (struct usb_bos_descriptor *)header_netbuf->data;
-		if (unlikely(bos_desc == NULL)) {
-			result = -EFAULT;
-			break;
-		}
-
-		data_netbuf = usbh_xfer_buf_alloc(drv_data->udev, bos_desc->wTotalLength);
-		if (data_netbuf == NULL) {
-			LOG_ERR("Cannot allocate memory for BOS");
-			result = -ENOMEM;
-			break;
-		}
-
-		result = usbh_req_desc(drv_data->udev, USB_DESC_BOS, 0, 0, bos_desc->wTotalLength,
-				       data_netbuf);
-		if (result != 0) {
-			LOG_ERR("Cannot request BOS");
-			result = -EFAULT;
-			break;
-		}
-
-		/* Hypotetical situation when malicious device send back 0 length packet */
-		if (unlikely(data_netbuf->data == NULL)) {
-			result = -EFAULT;
-			break;
-		}
-	} while (0);
-
-	if (header_netbuf != NULL) {
-		usbh_xfer_buf_free(drv_data->udev, header_netbuf);
-	}
-
-	if (result == 0) {
-		*bos_netbuf = data_netbuf;
-	} else if (data_netbuf != NULL) {
-		usbh_xfer_buf_free(drv_data->udev, data_netbuf);
-	}
 
 	return result;
 }
@@ -225,14 +140,12 @@ static int usbh_billboard_fetch_bos(struct usbh_billboard_drv_data *drv_data,
  *
  * @return 0 on success, negative errno value on failure.
  */
-static int usbh_billboard_fetch_and_parse_api(struct device const *dev,
-					      usbh_billboard_cb_t billboard_cb, void *cb_arg)
+static int usbh_billboard_parse_api(struct device const *dev, usbh_billboard_cb_t billboard_cb,
+				    void *cb_arg)
 {
 	struct usbh_billboard_drv_data *drv_data;
-	struct usb_bos_capability_header *cap_header;
-	const struct usb_desc_header *desc;
-	struct net_buf *bos_netbuf = NULL;
-	struct usb_bos_descriptor *bos_desc = NULL;
+	const struct usb_bos_capability_header *cap_header;
+	const struct usb_bos_descriptor *bos_desc = NULL;
 	int result = 0;
 
 	if (dev == NULL || billboard_cb == NULL) {
@@ -253,38 +166,17 @@ static int usbh_billboard_fetch_and_parse_api(struct device const *dev,
 			break;
 		}
 
-		result = usbh_billboard_fetch_bos(drv_data, &bos_netbuf);
-		if (result) {
+		bos_desc = usbh_desc_get_bos(drv_data->udev);
+		if (bos_desc == NULL) {
 			break;
 		}
 
-		bos_desc = (struct usb_bos_descriptor *)bos_netbuf->data;
-		desc = (struct usb_desc_header *)bos_netbuf->data;
-		for (int i = 0; i < bos_desc->bNumDeviceCaps; i++) {
-			desc = usbh_desc_get_next(desc);
-			if (desc == NULL) {
-				LOG_ERR("Number of capability descriptor is less than "
-					"'bNumDeviceCaps'");
-				result = -EFAULT;
-				break;
-			}
-
-			cap_header = (struct usb_bos_capability_header *)desc;
-			if (cap_header->bDescriptorType != USB_DESC_DEVICE_CAPABILITY) {
-				continue;
-			}
-
-			/* Invoke callback on billboard_capability and aum_capability_descriptor */
-			if ((cap_header->bDevCapabilityType == USB_BOS_CAPABILITY_BILLBOARD) ||
-			    (cap_header->bDevCapabilityType == USB_BOS_CAPABILITY_BILLBOARD_EX)) {
-				billboard_cb(cb_arg, cap_header);
-			}
+		cap_header = usbh_desc_get_next_capability(bos_desc, bos_desc,
+							   USB_BOS_CAPABILITY_BILLBOARD);
+		if (cap_header) {
+			billboard_cb(cb_arg, cap_header);
 		}
 	} while (0);
-
-	if (bos_netbuf != NULL) {
-		usbh_xfer_buf_free(drv_data->udev, bos_netbuf);
-	}
 
 	k_mutex_unlock(&drv_data->lock);
 
@@ -292,96 +184,49 @@ static int usbh_billboard_fetch_and_parse_api(struct device const *dev,
 }
 
 /**
- * @brief Allocates a shared net_buf for string descriptors if it has not been allocated yet
+ * @brief Perform full request to get string descriptor
  *
- * @param drv_data        Pointer to driver data
+ * @param udev           Pointer to USB device
+ * @param len            String descriptor length
+ * @param str_desc       Output argument, pointer to string descriptor
+ * @param str_id         String descriptor index
+ * @param lang_code      Language code
  *
  * @return 0 on success, negative errno value on failure.
  */
-static int usbh_billboard_alloc_string_netbuf(struct usbh_billboard_drv_data *drv_data)
+static int usbh_billboard_string_wrapper(struct usb_device *udev, size_t len,
+					 struct usb_string_descriptor *const str_desc,
+					 uint8_t str_id, uint16_t lang_code)
 {
-	/* Allocated and re-used ad hoc */
-	if (drv_data->string_netbuf == NULL) {
-		drv_data->string_netbuf = usbh_xfer_buf_alloc(drv_data->udev, MAX_STRDESC_LEN);
-		if (drv_data->string_netbuf == NULL) {
-			LOG_ERR("Cannot allocate string netbuffer");
-			return -ENOMEM;
-		}
+	struct usb_string_descriptor str_hdr;
+	int ret = 0;
+
+	/* Request header */
+	ret = usbh_req_desc_string(udev, 2, &str_hdr, str_id, lang_code);
+	if (ret) {
+		return ret;
+	}
+	len = MIN(str_hdr.bLength, len);
+	/* Full request, respecting length constraint */
+	ret = usbh_req_desc_string(udev, len, str_desc, str_id, lang_code);
+	if (ret) {
+		return ret;
 	}
 
 	return 0;
 }
 
 /**
- * @brief Fetch string descriptor
- *
- * @param drv_data        Pointer to driver data
- * @param str_idx         String index
- * @param lang_code       Language code
- * @param str_desc        Output argumnet, double pointer to string descriptor
- *
- * @return 0 on success, negative errno value on failure.
- */
-static int usbh_billboard_fetch_string_desc_internal(struct usbh_billboard_drv_data *drv_data,
-						     uint8_t str_idx, uint16_t lang_code,
-						     struct usb_string_descriptor **str_desc)
-{
-	struct usb_string_descriptor *tmp_str_desc;
-	uint8_t str_desc_len;
-	int result = 0;
-
-	do {
-		result = usbh_billboard_alloc_string_netbuf(drv_data);
-		if (result) {
-			break;
-		}
-
-		/* Phase 1 - retrieve the string descriptor length */
-		net_buf_reset(drv_data->string_netbuf);
-		result = usbh_req_desc(drv_data->udev, USB_DESC_STRING, str_idx, lang_code, 2,
-				       drv_data->string_netbuf);
-		if (result) {
-			LOG_ERR("Cannot request string desc %d, phase 1", str_idx);
-			break;
-		}
-
-		tmp_str_desc = (struct usb_string_descriptor *)drv_data->string_netbuf->data;
-		if (unlikely(tmp_str_desc == NULL)) {
-			result = -EFAULT;
-			break;
-		}
-		str_desc_len = tmp_str_desc->bLength;
-
-		/* Phase 2 - request the full string descriptor */
-		net_buf_reset(drv_data->string_netbuf);
-		result = usbh_req_desc(drv_data->udev, USB_DESC_STRING, str_idx, lang_code,
-				       str_desc_len, drv_data->string_netbuf);
-		if (result) {
-			LOG_ERR("Cannot request string desc %d, phase 2", str_idx);
-			break;
-		}
-
-		if (drv_data->string_netbuf->data == NULL) {
-			result = -EFAULT;
-			break;
-		}
-		*str_desc = (struct usb_string_descriptor *)drv_data->string_netbuf->data;
-	} while (0);
-
-	return result;
-}
-
-/**
  * @brief Fetch string descriptor based on string ID
  *
  * @param drv_data        Pointer to driver data
- * @param str_idx         String index
- * @param str_desc        Output argumnet, double pointer to string descriptor
+ * @param str_id          String index
+ * @param str_desc        Output argument, pointer to string descriptor
  *
  * @return 0 on success, negative errno value on failure.
  */
-static int usbh_billboard_fetch_string_desc_api(struct device const *dev, uint8_t str_idx,
-						struct usb_string_descriptor **str_desc)
+static int usbh_billboard_fetch_string_desc_api(struct device const *dev, uint8_t str_id,
+						struct usb_string_descriptor *str_desc, size_t len)
 {
 	struct usbh_billboard_drv_data *drv_data;
 	int result = 0;
@@ -397,10 +242,10 @@ static int usbh_billboard_fetch_string_desc_api(struct device const *dev, uint8_
 		if (result) {
 			break;
 		}
-		result = usbh_billboard_fetch_string_desc_internal(drv_data, str_idx,
-								  drv_data->lang_code, str_desc);
+		result = usbh_billboard_string_wrapper(drv_data->udev, len, str_desc, str_id,
+						       drv_data->lang_code);
 		k_mutex_unlock(&drv_data->lock);
-	} while(0);
+	} while (0);
 
 	return result;
 }
@@ -409,12 +254,12 @@ static int usbh_billboard_fetch_string_desc_api(struct device const *dev, uint8_
  * @brief Fetches available languages from the device
  *
  * @param drv_data        Pointer to driver data
- * @param str_desc        Output argument, double pointer to string descriptor
+ * @param str_desc        Output argument, pointer to string descriptor
  *
  * @return 0 on success, negative errno value on failure.
  */
 static int usbh_billboard_fetch_langs_desc_api(struct device const *dev,
-					       struct usb_string_descriptor **str_desc)
+					       struct usb_string_descriptor *str_desc, size_t len)
 {
 	struct usbh_billboard_drv_data *drv_data;
 	int result = 0;
@@ -430,7 +275,7 @@ static int usbh_billboard_fetch_langs_desc_api(struct device const *dev,
 		if (result) {
 			break;
 		}
-		result = usbh_billboard_fetch_string_desc_internal(drv_data, 0, 0, str_desc);
+		result = usbh_billboard_string_wrapper(drv_data->udev, len, str_desc, 0, 0);
 		k_mutex_unlock(&drv_data->lock);
 	} while (0);
 
@@ -448,7 +293,7 @@ static int usbh_billboard_fetch_langs_desc_api(struct device const *dev,
 static int usbh_billboard_use_lang_api(struct device const *dev, uint16_t lang_code)
 {
 	struct usbh_billboard_drv_data *drv_data;
-	struct usb_string_descriptor *str_desc;
+	struct usb_string_descriptor *str_desc = NULL;
 	size_t lang_count, i;
 	int result = 0;
 
@@ -463,13 +308,17 @@ static int usbh_billboard_use_lang_api(struct device const *dev, uint16_t lang_c
 	}
 
 	do {
-		result = usbh_billboard_fetch_string_desc_internal(drv_data, 0, 0, &str_desc);
+		str_desc = k_malloc(256);
+		if (str_desc == NULL) {
+			break;
+		}
+
+		result = usbh_billboard_string_wrapper(drv_data->udev, 256, str_desc, 0, 0);
 		if (result) {
 			break;
 		}
 
 		result = -ENOTSUP;
-		str_desc = (struct usb_string_descriptor *)drv_data->string_netbuf->data;
 		lang_count = str_desc->bLength / 2;
 
 		/* Search for requested 'lang_code' in device response */
@@ -481,6 +330,11 @@ static int usbh_billboard_use_lang_api(struct device const *dev, uint16_t lang_c
 			}
 		}
 	} while (0);
+
+	if (str_desc != NULL) {
+		k_free(str_desc);
+	}
+
 	k_mutex_unlock(&drv_data->lock);
 
 	return result;
@@ -490,7 +344,7 @@ static int usbh_billboard_use_lang_api(struct device const *dev, uint16_t lang_c
  * @brief USB Host Billboard driver table
  */
 DEVICE_API(usbh_billboard, usbh_billboard_api) = {
-	.fetch_and_parse = usbh_billboard_fetch_and_parse_api,
+	.parse = usbh_billboard_parse_api,
 	.fetch_string = usbh_billboard_fetch_string_desc_api,
 	.fetch_langs = usbh_billboard_fetch_langs_desc_api,
 	.use_lang = usbh_billboard_use_lang_api,
