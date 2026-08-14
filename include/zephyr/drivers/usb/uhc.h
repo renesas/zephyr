@@ -96,6 +96,14 @@ struct usb_device {
 	struct usb_host_ep ep_out[16];
 	/** Pointers to device IN endpoints */
 	struct usb_host_ep ep_in[16];
+	/** Pointer to the hub to which this device is connected */
+	struct usb_device *hub;
+	/** Device's hub Think Time */
+	uint16_t tt;
+	/** Device's hub port */
+	uint8_t hub_port;
+	/** Device's level (root device = 0) */
+	uint8_t level;
 };
 
 /**
@@ -334,6 +342,10 @@ static inline int uhc_bus_reset(const struct device *dev)
 
 	api->lock(dev);
 	ret = api->bus_reset(dev);
+	/* Enforce reset recovery time 10 ms (TRSTRCY) */
+	if (ret == 0) {
+		k_sleep(K_MSEC(10));
+	}
 	api->unlock(dev);
 
 	return ret;
