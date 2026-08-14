@@ -291,9 +291,11 @@ static int uhc_renesas_ra_event_xfer_complete(const struct device *dev, usbh_eve
 
 	switch (hal_evt->complete.result) {
 	case USB_XFER_RESULT_STALLED:
+		uhc_xfer_return(dev, priv->last_xfer, -EPIPE);
+		ret = -EAGAIN;
 	case USB_XFER_RESULT_TIMEOUT:
 	case USB_XFER_RESULT_FAILED:
-		uhc_xfer_return(dev, priv->last_xfer, -EPIPE);
+		uhc_xfer_return(dev, priv->last_xfer, -EIO);
 		ret = -EAGAIN;
 		break;
 	case USB_XFER_RESULT_SUCCESS: {
@@ -426,6 +428,11 @@ static int uhc_renesas_ra_ep_dequeue(const struct device *dev, struct uhc_transf
 	if (last_xfer != xfer) {
 		sys_dlist_remove(&xfer->node);
 		uhc_xfer_free(dev, xfer);
+	}
+
+	if (last_xfer == NULL) {
+		/* The previous transfer has already been fired */
+		return -EALREADY;
 	}
 
 	err = R_USBH_XferAbort(&priv->uhc_ctrl, last_xfer->udev->addr, last_xfer->ep);

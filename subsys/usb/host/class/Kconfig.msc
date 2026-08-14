@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: Copyright 2026 Renesas, Embedd
+# SPDX-License-Identifier: Apache-2.0
+
+config USBH_MSC_CLASS
+	bool "USB host Mass Storage Class support [EXPERIMENTAL]"
+	select EXPERIMENTAL
+	select DISK_ACCESS
+	help
+	  USB Mass Storage Class (MSC) implementation.
+
+if USBH_MSC_CLASS
+
+config USBH_MSC_INSTANCES_COUNT
+	int "Number of HOST MSC instances"
+	default 4
+	help
+	  Number of instances of this USB class
+
+config USBH_MSC_TEST_UNIT_READY_ATTEMPTS
+	int "Number of attempts for unit ready command"
+	default 5
+	help
+	  Before an MSC device can be used it must be tested for readyness. It may respond
+	  negatively, and this is the amount of attempts the test is repeated for before failing.
+
+config USBH_MSC_RECOVERY_ATTEMPTS
+	int "Number of recovery attempts in case of error"
+	default 5
+	help
+	  A SCSI transaction may fail due to USB protocol issues (hardware disturbances, device
+	  refuses to comply); in this case a reset is required. This is the number of times the host
+	  driver attempts to reset communication and retry the transaction before failing.
+
+config USBH_MSC_MAX_SUPPORTED_LUN
+	int "Maximum number of logical units supported by the driver"
+	default 4
+	help
+	  An MSC device may expose more than one drive in its interface. They are advertised as LUN
+	  (Logical UNits) when the device is first connected and each one should result in a
+	  different mount point. This configuration parameter specifies how many the driver can
+	  handle for each device.
+
+config USBH_MSC_IGNORE_SYNC
+	bool "Do not attempt to sync data from the device's caches"
+	default y
+	help
+	  A lot of cheap MSC devices don't support the SYNCHRONIZE CACHE command; this option skips
+	  it.
+
+module = USBH_MSC
+module-str = usbh msc
+default-count = 1
+source "subsys/logging/Kconfig.template.log_config"
+source "subsys/usb/common/Kconfig.template.instances_count"
+
+endif # USBH_MSC_CLASS
