@@ -90,12 +90,22 @@ struct usb_device {
 	uint8_t addr;
 	/** Pointer to actual device configuration descriptor */
 	void *cfg_desc;
+	/** Pointer to BOS descriptor */
+	void *bos_desc;
 	/** Pointers to device interfaces */
 	struct usb_host_interface ifaces[UHC_INTERFACES_MAX + 1];
 	/** Pointers to device OUT endpoints */
 	struct usb_host_ep ep_out[16];
 	/** Pointers to device IN endpoints */
 	struct usb_host_ep ep_in[16];
+	/** Pointer to the hub to which this device is connected */
+	struct usb_device *hub;
+	/** Device's hub Think Time */
+	uint16_t tt;
+	/** Device's hub port */
+	uint8_t hub_port;
+	/** Device's level (root device = 0) */
+	uint8_t level;
 };
 
 /**
@@ -334,6 +344,9 @@ static inline int uhc_bus_reset(const struct device *dev)
 
 	api->lock(dev);
 	ret = api->bus_reset(dev);
+	if (ret == 0) {
+		k_sleep(K_MSEC(10));
+	}
 	api->unlock(dev);
 
 	return ret;

@@ -311,3 +311,44 @@ int usbh_req_set_hcfs_prst(struct usb_device *const udev,
 			      bmRequestType, bRequest, wValue, wIndex, 0,
 			      NULL);
 }
+
+int usbh_req_desc_bos(struct usb_device *udev, size_t len,
+		      struct usb_bos_descriptor *const bos_desc)
+{
+	struct net_buf *netbuf;
+	int ret;
+
+	netbuf = usbh_xfer_buf_alloc(udev, len);
+	if (netbuf == NULL) {
+		return -ENOMEM;
+	}
+	ret = usbh_req_desc(udev, USB_DESC_BOS, 0, 0, len, netbuf);
+	if (ret == 0) {
+		memcpy(bos_desc, netbuf->data, len);
+		bos_desc->wTotalLength = sys_le16_to_cpu(bos_desc->wTotalLength);
+	}
+	usbh_xfer_buf_free(udev, netbuf);
+
+	return ret;
+}
+
+int usbh_req_desc_string(struct usb_device *udev, size_t len,
+			 struct usb_string_descriptor *const str_desc, uint8_t str_id,
+			 uint16_t lang_code)
+{
+	struct net_buf *netbuf;
+	int ret = 0;
+
+	netbuf = usbh_xfer_buf_alloc(udev, len);
+	if (netbuf == NULL) {
+		return -ENOMEM;
+	}
+	ret = usbh_req_desc(udev, USB_DESC_STRING, str_id, lang_code, len, netbuf);
+	if (ret == 0) {
+		memcpy(str_desc, netbuf->data, len);
+		str_desc->bLength = sys_le16_to_cpu(str_desc->bLength);
+	}
+	usbh_xfer_buf_free(udev, netbuf);
+
+	return ret;
+}

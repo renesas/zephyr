@@ -503,14 +503,40 @@ struct usb_association_descriptor {
 #define USB_BCC_CDC_CONTROL		0x02
 /** HID device class. */
 #define USB_BCC_HID			0x03
+/** Physical device class */
+#define USB_BCC_PHYSICAL		0x05
+/** Image device class */
+#define USB_BCC_IMAGE			0x06
+/** Printer device class */
+#define USB_BCC_PRINTER			0x07
 /** Mass storage device class. */
 #define USB_BCC_MASS_STORAGE		0x08
+/** HUB device class. */
+#define USB_BCC_HUB			0x09
 /** CDC data device class. */
 #define USB_BCC_CDC_DATA		0x0A
+/** Smart card device class. */
+#define USB_BCC_SMART_CARD		0x0B
+/** Content security device class. */
+#define USB_BCC_SECURITY		0x0D
 /** Video device class. */
 #define USB_BCC_VIDEO			0x0E
+/** Healthcare device class. */
+#define USB_BCC_HEALTHCARE		0x0F
+/** Audio/Video device class. */
+#define USB_BCC_AUDIO_VIDEO		0x10
+/** Billboard device class. */
+#define USB_BCC_BILLBOARD		0x11
+/** USB-C Bridge device class. */
+#define USB_BCC_USBC_BRIDGE		0x12
+/** USB Bulk display device class. */
+#define USB_BCC_BULK_DISPLAY		0x13
 /** MCTP device class. */
 #define USB_BCC_MCTP			0x14
+/** I3C device class. */
+#define USB_BCC_I3C			0x3C
+/** Diagnostic device class. */
+#define USB_BCC_DIAGNOSTIC		0xDC
 /** Wireless controller device class. */
 #define USB_BCC_WIRELESS_CONTROLLER	0xE0
 /** Miscellaneous device class. */
@@ -760,6 +786,34 @@ struct usb_association_descriptor {
 	 ((tpl) > 2048) ? ((tpl) % 3 == 0) :		\
 	 ((tpl) > 1024) ? ((tpl) % 2 == 0) :		\
 	 ((tpl) >= 0))
+
+/**
+ * @brief Simple function to retrieve ASCII c-string from string_descriptor
+ *
+ * @param str_desc Pointer to input string descriptor
+ * @param str_desc Pointer to output c-string
+ * @param str_desc Max capacity of c-string
+ *
+ * @return 0 on success, negative value on error
+ */
+static ALWAYS_INLINE int strdesc_to_ascii7_string(struct usb_string_descriptor *str_desc,
+						 char *cstr, size_t cstr_len)
+{
+	uint8_t utf16_len, cstr_pos, strdesc_pos;
+
+	if ((str_desc == NULL) || (cstr == NULL) || (cstr_len < 2)) {
+		return -EINVAL;
+	}
+
+	utf16_len = str_desc->bLength;
+	for (cstr_pos = 0, strdesc_pos = 2; (strdesc_pos < utf16_len) && (cstr_pos + 1 < cstr_len);
+	     strdesc_pos += 2, cstr_pos++) {
+		cstr[cstr_pos] = ((uint8_t *)str_desc)[strdesc_pos];
+	}
+	cstr[cstr_pos] = '\0';
+
+	return 0;
+}
 
 #ifdef __cplusplus
 }
