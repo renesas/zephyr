@@ -9,6 +9,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/dma.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/cache.h>
 #include <stdint.h>
@@ -16,6 +18,7 @@
 #include "dma_renesas_rcar.h"
 #include "dmac_ctrl_common.h"
 #include "dmac_reg.h"
+#include <zephyr/pm/device.h>
 
 LOG_MODULE_REGISTER(dma_renesas_rcar, CONFIG_DMA_LOG_LEVEL);
 
@@ -39,14 +42,18 @@ struct dma_renesas_rcar_channel_data {
 };
 
 struct dma_renesas_rcar_data {
-	DEVICE_MMIO_NAMED_RAM(channel_reg);
+	DEVICE_MMIO_NAMED_RAM(channel_base);
+	DEVICE_MMIO_NAMED_RAM(public_base);
 	struct dma_context context;
 	struct dma_renesas_rcar_channel_data *channel_data;
 };
 
 struct dma_renesas_rcar_config {
-	DEVICE_MMIO_NAMED_ROM(channel_reg);
+	DEVICE_MMIO_NAMED_ROM(channel_base);
+	DEVICE_MMIO_NAMED_ROM(public_base);
 	const struct device *dev;
+	const struct device *mod_clock_dev;
+	rcar_clk_t mod_clk;
 	const uint32_t number_of_channels;
 	enum dmac_type type;
 	DMAC_t dmac_instance;
@@ -55,12 +62,12 @@ struct dma_renesas_rcar_config {
 
 static uint32_t dma_rcar_read(const struct device *dev, uint32_t offs)
 {
-	return sys_read32(DEVICE_MMIO_NAMED_GET(dev, channel_reg) + offs);
+	return sys_read32(DEVICE_MMIO_NAMED_GET(dev, channel_base) + offs);
 }
 
 static void dma_rcar_write(const struct device *dev, uint32_t offs, uint32_t value)
 {
-	sys_write32(value, DEVICE_MMIO_NAMED_GET(dev, channel_reg) + offs);
+	sys_write32(value, DEVICE_MMIO_NAMED_GET(dev, channel_base) + offs);
 }
 
 static inline int dma_rcar_interrupt_get_status(const struct dma_renesas_rcar_config *cfg,
@@ -88,8 +95,7 @@ static inline int dma_rcar_interrupt_get_status(const struct dma_renesas_rcar_co
 	value = R_RTDMAC_Get_RDMCHCR(cfg->dmac_instance, channel);
 	if ((value & DRV_RTDMAC_REG_RDMCHCR_TE) != 0) {
 		R_RTDMAC_Clear_RDMCHCR_TE(cfg->dmac_instance, channel);
-		if (DRV_RTDMAC_REG_RDMCHCR_DPM_REP !=
-			(value & DRV_RTDMAC_REG_RDMCHCR_DPM)) {
+		if (DRV_RTDMAC_REG_RDMCHCR_DPM_REP != (value & DRV_RTDMAC_REG_RDMCHCR_DPM)) {
 			R_RTDMAC_Clear_RDMCHCR_DE(cfg->dmac_instance, channel);
 			data->channel_data[channel].status.busy = false;
 			data->channel_data[channel].state = DMA_CONFIGURED;
@@ -100,8 +106,7 @@ static inline int dma_rcar_interrupt_get_status(const struct dma_renesas_rcar_co
 	/* Check DSE Interrupt */
 	if ((value & DRV_RTDMAC_REG_RDMCHCR_DSE) != 0) {
 		R_RTDMAC_Clear_RDMCHCR_DSE(cfg->dmac_instance, channel);
-		if (DRV_RTDMAC_REG_RDMCHCR_DPM_READ ==
-			(value & DRV_RTDMAC_REG_RDMCHCR_DPM)) {
+		if (DRV_RTDMAC_REG_RDMCHCR_DPM_READ == (value & DRV_RTDMAC_REG_RDMCHCR_DPM)) {
 			R_RTDMAC_Get_RDMDPCR(cfg->dmac_instance, channel);
 		}
 		return DMA_STATUS_COMPLETE;
@@ -532,23 +537,84 @@ static DEVICE_API(dma, dma_renesas_rcar_driver_api) = {
 	.chan_release = dma_renesas_rcar_chan_release,
 };
 
+static int dma_renesas_rcar_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	int ret = 0;
+	uint16_t dmor = 0;
+	uint32_t chcr_val = 0;
+	const struct dma_renesas_rcar_config *cfg = dev->config;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		LOG_DBG("DMA RESUME");
+
+		if (cfg->mod_clock_dev != NULL) {
+			ret = clock_control_on(cfg->mod_clock_dev, RCAR_CLOCK_SUBSYS(cfg->mod_clk));
+			if (ret != 0) {
+				LOG_ERR("Failed to turn on DMA clock");
+				return ret;
+			}
+		}
+
+		/* Enable DMA Controller */
+		ret = R_DMAC_RcarDmacCtrlInit(cfg->dmac_instance, DRV_RTDMAC_PRIO_FIX);
+		if (ret != 0) {
+			return -EIO;
+		}
+		break;
+	case PM_DEVICE_ACTION_SUSPEND:
+		LOG_DBG("DMA SUSPEND");
+		/* Check if there are any channel busy */
+		for (uint32_t i = 0; i < cfg->number_of_channels; i++) {
+			chcr_val = dma_rcar_read(dev, RCAR_DMA_CHCR + i * RCAR_CHANNEL_OFFSET);
+			if ((chcr_val & RCAR_DMA_CHCR_CHANNEL_ENABLE) != 0) {
+				return -EBUSY;
+			}
+		}
+
+		/* Switch off DMA Controller */
+		dmor = sys_read16(DEVICE_MMIO_NAMED_GET(dev, public_base) + RCAR_DMA_OR);
+		dmor &= ~(RCAR_DMA_MASTER_ENABLE);
+		sys_write16(dmor, DEVICE_MMIO_NAMED_GET(dev, public_base) + RCAR_DMA_OR);
+
+		if (cfg->mod_clock_dev != NULL) {
+			ret = clock_control_off(cfg->mod_clock_dev,
+						RCAR_CLOCK_SUBSYS(cfg->mod_clk));
+			if (ret != 0) {
+				LOG_ERR("Failed to turn off DMA clock");
+				/* Restore DMAC Enable status */
+				dmor = sys_read16(DEVICE_MMIO_NAMED_GET(dev, public_base) +
+						  RCAR_DMA_OR);
+				dmor |= RCAR_DMA_MASTER_ENABLE;
+				sys_write16(dmor,
+					    DEVICE_MMIO_NAMED_GET(dev, public_base) + RCAR_DMA_OR);
+				return ret;
+			}
+		}
+
+		break;
+	case PM_DEVICE_ACTION_TURN_ON:
+		break;
+	case PM_DEVICE_ACTION_TURN_OFF:
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
 static int dma_renesas_rcar_init(const struct device *dev)
 {
 	const struct dma_renesas_rcar_config *cfg = dev->config;
-	uint16_t ret;
 
-	DEVICE_MMIO_NAMED_MAP(dev, channel_reg, K_MEM_CACHE_NONE);
+	DEVICE_MMIO_NAMED_MAP(dev, channel_base, K_MEM_CACHE_NONE);
+	DEVICE_MMIO_NAMED_MAP(dev, public_base, K_MEM_CACHE_NONE);
 
 	/* Configure DMA-related interrupts */
 	cfg->irq_configure();
 
-	/* Enable DMA Controller */
-	ret = R_DMAC_RcarDmacCtrlInit(cfg->dmac_instance, DRV_RTDMAC_PRIO_FIX);
-	if (ret != 0) {
-		return -EIO;
-	}
-
-	return 0;
+	return pm_device_driver_init(dev, dma_renesas_rcar_pm_action);
 }
 
 #define DMA_RENESAS_RCAR_ISR(channel_num, dma_num)                                                 \
@@ -582,18 +648,30 @@ static int dma_renesas_rcar_init(const struct device *dev)
 #define DMA_RCAR_IRQ_CONFIG(index)                                                                 \
 	LISTIFY(DT_INST_PROP(index, dma_channels), DMA_RENESAS_RCAR_IRQ_CONFIGURE, (;), index);
 
+#define DMA_RCAR_MODULE_CLOCK_GET(index)                                                           \
+	COND_CODE_1(DT_INST_CLOCKS_HAS_NAME(index, mod_clk),                                       \
+	(                                                                                          \
+		.mod_clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(index, mod_clk)),       \
+		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_NAME(index, mod_clk)                        \
+	),                                                                                         \
+	(                                                                                          \
+		.mod_clock_dev = NULL,                                                             \
+		.mod_clk = {.clk = 0}                                                              \
+	))
+
 #define DMA_RENESAS_RCAR_INIT(index)                                                               \
                                                                                                    \
 	DMA_RENESAS_RCAR_ISR_DEFINE(index)                                                         \
                                                                                                    \
-	static void dma_renesas_rcar_irq_config_##index(void)                                      \
-	{                                                                                          \
-		DMA_RCAR_IRQ_CONFIG(index)                                                         \
-	}                                                                                          \
+	static void dma_renesas_rcar_irq_config_##index(void){DMA_RCAR_IRQ_CONFIG(index)}          \
+                                                                                                   \
+	PM_DEVICE_DT_INST_DEFINE(index, dma_renesas_rcar_pm_action);                               \
                                                                                                    \
 	static const struct dma_renesas_rcar_config dma_rcar_config##index = {                     \
 		.dev = DEVICE_DT_INST_GET(index),                                                  \
-		DEVICE_MMIO_NAMED_ROM_INIT(channel_reg, DT_DRV_INST(index)),                       \
+		DMA_RCAR_MODULE_CLOCK_GET(index),                                                  \
+		DEVICE_MMIO_NAMED_ROM_INIT_BY_NAME(channel_base, DT_DRV_INST(index)),              \
+		DEVICE_MMIO_NAMED_ROM_INIT_BY_NAME(public_base, DT_DRV_INST(index)),               \
 		.number_of_channels = DT_INST_PROP(index, dma_channels),                           \
 		.type = DT_INST_ENUM_IDX(index, dma_type),                                         \
 		.dmac_instance = DMAC_INSTANCE(DT_INST_STRING_UPPER_TOKEN(index, dma_type),        \
@@ -616,8 +694,8 @@ static int dma_renesas_rcar_init(const struct device *dev)
 		.channel_data = dma_rcar_channel_data##index,                                      \
 	};                                                                                         \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(index, dma_renesas_rcar_init, NULL, &dma_rcar_data##index,           \
-			      &dma_rcar_config##index, PRE_KERNEL_1, CONFIG_DMA_INIT_PRIORITY,     \
-			      &dma_renesas_rcar_driver_api);
+	DEVICE_DT_INST_DEFINE(index, dma_renesas_rcar_init, PM_DEVICE_DT_INST_GET(index),          \
+			      &dma_rcar_data##index, &dma_rcar_config##index, PRE_KERNEL_1,        \
+			      CONFIG_DMA_INIT_PRIORITY, &dma_renesas_rcar_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(DMA_RENESAS_RCAR_INIT)
