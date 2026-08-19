@@ -762,9 +762,10 @@
 			canfd0: canfd0 {
 				compatible = "renesas,rh850-canfd";
 				channel = <0>;
-				interrupts = <107 1>, <106 1>, <108 1>;
-				interrupt-names = "rxi", "eri", "txi";
-				interrupt-parent = <&intc2>;
+				interrupts-extended = <&canfderi_ored0>,
+						      <&canfdrxi_ored0>,
+						      <&canfdtxi_ored0>;
+				interrupt-names = "eri", "rxi", "txi";
 				clock-frequency = <80000000>;
 				status = "disabled";
 			};
