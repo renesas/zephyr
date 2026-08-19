@@ -23,6 +23,39 @@
 		};
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		scmi_shmem0: memory@c1060200 {
+			compatible = "arm,scmi-shmem";
+			reg = <0xc1060200 0x100>;
+		};
+	};
+
+	firmware {
+		scmi {
+			compatible = "arm,scmi";
+			shmem = <&scmi_shmem0>;
+			mboxes = <&mfis_scp 0>;
+			mbox-names = "tx";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_pd: protocol@11 {
+				compatible = "arm,scmi-power";
+				reg = <0x11>;
+				#power-domain-cells = <1>;
+			};
+
+			scmi_system: protocol@12 {
+				compatible = "arm,scmi-system";
+				reg = <0x12>;
+			};
+		};
+	};
+
 	soc {
 		interrupt-parent = <&gic>;
 

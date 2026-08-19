@@ -9,6 +9,184 @@
 #include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 
 / {
+	power-domains {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/*
+		 * SCMI power domain IDs exported by the R-Car X5H V1 SCP firmware.
+		 * These IDs index g_scmi_pd_config_table[] and are unrelated to the
+		 * MDLC-local PDID values described by the hardware manual.
+		 */
+		vio0_pd: power-domain@4 {
+			compatible = "arm,scmi-power-domain";
+			reg = <4>;
+			#power-domain-cells = <0>;
+		};
+
+		vio1_pd: power-domain@5 {
+			compatible = "arm,scmi-power-domain";
+			reg = <5>;
+			#power-domain-cells = <0>;
+		};
+
+		vio2_pd: power-domain@6 {
+			compatible = "arm,scmi-power-domain";
+			reg = <6>;
+			#power-domain-cells = <0>;
+		};
+
+		vio3_pd: power-domain@7 {
+			compatible = "arm,scmi-power-domain";
+			reg = <7>;
+			#power-domain-cells = <0>;
+		};
+
+		vio4_pd: power-domain@b {
+			compatible = "arm,scmi-power-domain";
+			reg = <11>;
+			#power-domain-cells = <0>;
+		};
+
+		im0_pd: power-domain@23 {
+			compatible = "arm,scmi-power-domain";
+			reg = <35>;
+			#power-domain-cells = <0>;
+		};
+
+		im1_pd: power-domain@24 {
+			compatible = "arm,scmi-power-domain";
+			reg = <36>;
+			#power-domain-cells = <0>;
+		};
+
+		im2_pd: power-domain@25 {
+			compatible = "arm,scmi-power-domain";
+			reg = <37>;
+			#power-domain-cells = <0>;
+		};
+
+		im3_pd: power-domain@26 {
+			compatible = "arm,scmi-power-domain";
+			reg = <38>;
+			#power-domain-cells = <0>;
+		};
+
+		dsp0_pd: power-domain@3d {
+			compatible = "arm,scmi-power-domain";
+			reg = <61>;
+			#power-domain-cells = <0>;
+		};
+
+		dsp1_pd: power-domain@4b {
+			compatible = "arm,scmi-power-domain";
+			reg = <75>;
+			#power-domain-cells = <0>;
+		};
+
+		dsp2_pd: power-domain@2b {
+			compatible = "arm,scmi-power-domain";
+			reg = <43>;
+			#power-domain-cells = <0>;
+		};
+
+		dsp3_pd: power-domain@2c {
+			compatible = "arm,scmi-power-domain";
+			reg = <44>;
+			#power-domain-cells = <0>;
+		};
+
+		dsp4_pd: power-domain@2d {
+			compatible = "arm,scmi-power-domain";
+			reg = <45>;
+			#power-domain-cells = <0>;
+		};
+
+		npu0_pd: power-domain@3c {
+			compatible = "arm,scmi-power-domain";
+			reg = <60>;
+			#power-domain-cells = <0>;
+		};
+
+		npu1_pd: power-domain@4a {
+			compatible = "arm,scmi-power-domain";
+			reg = <74>;
+			#power-domain-cells = <0>;
+		};
+
+		vcn_pd: power-domain@1 {
+			compatible = "arm,scmi-power-domain";
+			reg = <1>;
+			#power-domain-cells = <0>;
+		};
+
+		vcs_pd: power-domain@3 {
+			compatible = "arm,scmi-power-domain";
+			reg = <3>;
+			#power-domain-cells = <0>;
+		};
+
+		dp0_pd: power-domain@8 {
+			compatible = "arm,scmi-power-domain";
+			reg = <8>;
+			#power-domain-cells = <0>;
+		};
+
+		dp1_pd: power-domain@9 {
+			compatible = "arm,scmi-power-domain";
+			reg = <9>;
+			#power-domain-cells = <0>;
+		};
+
+		dp2_pd: power-domain@a {
+			compatible = "arm,scmi-power-domain";
+			reg = <10>;
+			#power-domain-cells = <0>;
+		};
+
+		pci4_pd: power-domain@e {
+			compatible = "arm,scmi-power-domain";
+			reg = <14>;
+			#power-domain-cells = <0>;
+		};
+
+		rsw_pd: power-domain@f {
+			compatible = "arm,scmi-power-domain";
+			reg = <15>;
+			#power-domain-cells = <0>;
+		};
+
+		usb_pd: power-domain@10 {
+			compatible = "arm,scmi-power-domain";
+			reg = <16>;
+			#power-domain-cells = <0>;
+		};
+
+		mpp0_pd: power-domain@11 {
+			compatible = "arm,scmi-power-domain";
+			reg = <17>;
+			#power-domain-cells = <0>;
+		};
+
+		mpp1_pd: power-domain@12 {
+			compatible = "arm,scmi-power-domain";
+			reg = <18>;
+			#power-domain-cells = <0>;
+		};
+
+		mpp2_pd: power-domain@13 {
+			compatible = "arm,scmi-power-domain";
+			reg = <19>;
+			#power-domain-cells = <0>;
+		};
+
+		mpp3_pd: power-domain@14 {
+			compatible = "arm,scmi-power-domain";
+			reg = <20>;
+			#power-domain-cells = <0>;
+		};
+	};
+
 	soc {
 		pfc: pin-controller@c1080000 {
 			compatible = "renesas,rcar-pfc-x5h";
