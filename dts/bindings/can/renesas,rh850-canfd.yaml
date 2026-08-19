@@ -8,9 +8,6 @@ compatible: "renesas,rh850-canfd"
 include: [can-fd-controller.yaml, pinctrl-device.yaml]
 
 properties:
-  interrupts:
-    required: true
-
   channel:
     type: int
     required: true
