@@ -102,7 +102,14 @@ struct can_renesas_rh850_data {
 	void *tx_usr_data;
 	struct can_renesas_rh850_filter *rx_filter;
 	can_bit_timing_cfg_t data_timing;
-
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+	/* INT SEL controller for TXI interrupt */
+	const struct device *txi_ctrl;
+	/* INT SEL controller for RXI interrupt */
+	const struct device *rxi_ctrl;
+	/* INT SEL controller for ERI interrupt */
+	const struct device *eri_ctrl;
+#endif
 	canfd_instance_ctrl_t *fsp_ctrl;
 	can_cfg_t *fsp_cfg;
 };
@@ -112,6 +119,13 @@ extern BSP_INTERRUPT_ATTRIBUTE void canfd_global_error_isr(void);
 extern BSP_INTERRUPT_ATTRIBUTE void canfd_rx_fifo_isr(void);
 extern BSP_INTERRUPT_ATTRIBUTE void canfd_rx_common_fifo_isr(void);
 extern BSP_INTERRUPT_ATTRIBUTE void canfd_channel_tx_isr(void);
+
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+static void canfd_rh850_txi_isr_cb(void *arg);
+static void canfd_rh850_rxi_isr_cb(void *arg);
+static void canfd_rh850_eri_isr_cb(void *arg);
+static int canfd_rh850_irq_init(const struct device *dev);
+#endif
 
 static inline int can_renesas_rh850_apply_default_config(const struct device *dev);
 
@@ -894,8 +908,106 @@ static int can_renesas_rh850_init(const struct device *dev)
 		return -EIO;
 	}
 
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+	ret = canfd_rh850_irq_init(dev);
+	if (ret < 0) {
+		cfg->fsp_api->close(data->fsp_ctrl);
+		LOG_ERR("%s: RH850 canfd driver initial interrupt is fail: %d", dev->name, ret);
+		return ret;
+	}
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
+
 	return 0;
 }
+
+#ifdef CONFIG_RENESAS_RH850_INTIF_ORED
+static int canfd_rh850_irq_init(const struct device *dev)
+{
+	struct can_renesas_rh850_data *data = dev->data;
+	canfd_extended_cfg_t *canfd_config_extend =
+				(canfd_extended_cfg_t *)(data->fsp_cfg->p_extend);
+	int err;
+
+	if (canfd_config_extend->tx_ored_int != BSP_ORED_CANFD_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(
+			data->txi_ctrl,
+			canfd_config_extend->tx_ored_int,
+			canfd_rh850_txi_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("TXI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->txi_ctrl,
+			canfd_config_extend->tx_ored_int,
+			data->fsp_cfg->ipl,
+			true);
+	}
+
+	if (canfd_config_extend->rx_ored_int != BSP_ORED_CANFD_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(
+			data->rxi_ctrl,
+			canfd_config_extend->rx_ored_int,
+			canfd_rh850_rxi_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("RXI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->rxi_ctrl,
+			canfd_config_extend->rx_ored_int,
+			data->fsp_cfg->ipl,
+			true);
+	}
+
+	if (canfd_config_extend->err_ored_int != BSP_ORED_CANFD_DISABLE) {
+		err = intc_rh850_intif_ored_set_callback(
+			data->eri_ctrl,
+			canfd_config_extend->err_ored_int,
+			canfd_rh850_eri_isr_cb, (void *)dev);
+
+		if (err) {
+			LOG_ERR("ERI set callback failed");
+			return -EIO;
+		}
+
+		/* Only enable INTIF ORed interrupts after callbacks are set at least once,
+		 * otherwise the INTIF ORed source will be masked
+		 */
+		intc_rh850_intif_ored_set_enabled(data->eri_ctrl,
+			canfd_config_extend->err_ored_int,
+			data->fsp_cfg->ipl,
+			true);
+	}
+	return 0;
+}
+
+static void canfd_rh850_txi_isr_cb(void *arg)
+{
+	ARG_UNUSED(arg);
+	canfd_channel_tx_isr();
+}
+
+static void canfd_rh850_rxi_isr_cb(void *arg)
+{
+	ARG_UNUSED(arg);
+	canfd_rx_common_fifo_isr();
+}
+
+static void canfd_rh850_eri_isr_cb(void *arg)
+{
+	ARG_UNUSED(arg);
+	canfd_channel_error_isr();
+}
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
 
 static DEVICE_API(can, can_renesas_rh850_driver_api) = {
 	.get_capabilities = can_renesas_rh850_get_capabilities,
@@ -921,6 +1033,100 @@ static DEVICE_API(can, can_renesas_rh850_driver_api) = {
 	.timing_data_max = CAN_RENESAS_RH850_TIMING_DATA_MAX,
 #endif /* CONFIG_CAN_FD_MODE */
 };
+
+#if CONFIG_RENESAS_RH850_INTIF_ORED
+/* Macro definition to canfd driver get irq number and ipl value */
+#define CANFD_IRQ_GET(inst, type) \
+			COND_CODE_1( \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type),  \
+									renesas_rh850_intc), \
+				(DT_INST_IRQ_BY_NAME(inst, type, irq)), \
+				(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), irq)))
+
+#define CANFD_IPL_GET(inst, type) \
+			COND_CODE_1( \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), \
+									renesas_rh850_intc), \
+				(DT_INST_IRQ_BY_NAME(inst, type, priority)), \
+				(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), priority)))
+
+#define _CANFD_TXI_IRQ_IS_ORED(n, channel)  BSP_ORED_TRANSMIT_CANFD_CH##n##_ORED##channel
+#define CANFD_TXI_IRQ_IS_ORED(n, channel)   _CANFD_TXI_IRQ_IS_ORED(n, channel)
+#define _CANFD_RXI_IRQ_IS_ORED(n, channel)  BSP_ORED_FIFO_CANFD_CH##n##_ORED##channel
+#define CANFD_RXI_IRQ_IS_ORED(n, channel)   _CANFD_RXI_IRQ_IS_ORED(n, channel)
+#define _CANFD_ERI_IRQ_IS_ORED(n, channel)  BSP_ORED_ERROR_CANFD_CH##n##_ORED##channel
+#define CANFD_ERI_IRQ_IS_ORED(n, channel)   _CANFD_ERI_IRQ_IS_ORED(n, channel)
+
+/* Get the ORed interrupt channel associated with the specified IRQ source. */
+#define CANFD_ORED_CHAN_GET(n, type)        DT_PROP(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(n), type), \
+											channel)
+/* macro definition for ORed CANFD TX interrupt */
+#define CANFD_TXI_ORED_INFO(inst) \
+	COND_CODE_1( \
+	DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), txi), \
+						renesas_rh850_intc), \
+	(BSP_ORED_CANFD_DISABLE), \
+	(CANFD_TXI_IRQ_IS_ORED(DT_INST_PROP(inst, channel), CANFD_ORED_CHAN_GET(inst, txi))))
+#define CANFD_RXI_ORED_INFO(inst) \
+	COND_CODE_1( \
+	DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), rxi), \
+						renesas_rh850_intc), \
+	(BSP_ORED_CANFD_DISABLE), \
+	(CANFD_RXI_IRQ_IS_ORED(DT_INST_PROP(inst, channel), CANFD_ORED_CHAN_GET(inst, rxi))))
+#define CANFD_ERI_ORED_INFO(inst) \
+	COND_CODE_1( \
+	DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), eri), \
+						renesas_rh850_intc), \
+	(BSP_ORED_CANFD_DISABLE), \
+	(CANFD_ERI_IRQ_IS_ORED(DT_INST_PROP(inst, channel), CANFD_ORED_CHAN_GET(inst, eri))))
+
+#define CANFD_RH850_ORED_CONFIG(n)              \
+	.tx_ored_int = CANFD_TXI_ORED_INFO(n),                   \
+	.rx_ored_int = CANFD_RXI_ORED_INFO(n),                       \
+	.err_ored_int = CANFD_ERI_ORED_INFO(n),
+
+#define CAN_RENESAS_RH850_CHANNEL_IRQ_INIT(index)
+/*
+ * Get the interrupt controller device associated with the specified CANFD
+ * interrupt source. Returns NULL when the interrupt is managed by the
+ * RH850 INTC driver since no external interrupt control device is required.
+ */
+#define CANFD_CTRL_GET(inst, type)                   \
+			COND_CODE_1(                           \
+				DT_NODE_HAS_COMPAT(                          \
+					DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type), \
+						renesas_rh850_intc),                          \
+					(NULL),                          \
+					(DEVICE_DT_GET(                          \
+						DT_IRQ_INTC_BY_NAME(DT_DRV_INST(inst), type))))
+/* Macro for initializing interrupt control data */
+#define CANFD_RH850_INT_CTRL_INIT(n) \
+			.txi_ctrl = CANFD_CTRL_GET(n, txi),            \
+			.rxi_ctrl = CANFD_CTRL_GET(n, rxi),            \
+			.eri_ctrl = CANFD_CTRL_GET(n, eri),
+#else /* CONFIG_RENESAS_RH850_INTIF_ORED */
+#define CANFD_RH850_ORED_CONFIG(n)
+#define CAN_RENESAS_RH850_CHANNEL_IRQ_INIT(index)                                                  \
+	{                                                                                          \
+		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, rxi, irq),                                  \
+			DT_INST_IRQ_BY_NAME(index, rxi, priority), canfd_rx_common_fifo_isr,   \
+			NULL, 0);                                                              \
+		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, txi, irq),                                  \
+			DT_INST_IRQ_BY_NAME(index, txi, priority), canfd_channel_tx_isr, NULL, \
+			0);                                                                    \
+		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, eri, irq),                                  \
+			DT_INST_IRQ_BY_NAME(index, eri, priority), canfd_channel_error_isr,    \
+			NULL, 0);                                                              \
+                                                                                                   \
+		irq_enable(DT_INST_IRQ_BY_NAME(index, rxi, irq));                                  \
+		irq_enable(DT_INST_IRQ_BY_NAME(index, txi, irq));                                  \
+		irq_enable(DT_INST_IRQ_BY_NAME(index, eri, irq));                                  \
+	}
+#define CANFD_RH850_INT_CTRL_INIT(n)
+/* Macro definition to canfd driver get irq number and ipl value */
+#define CANFD_IRQ_GET(inst, type) DT_INST_IRQ_BY_NAME(inst, type, irq)
+#define CANFD_IPL_GET(inst, type) DT_INST_IRQ_BY_NAME(inst, type, priority)
+#endif /* CONFIG_RENESAS_RH850_INTIF_ORED */
 
 #define CAN_RENESAS_RH850_GLOBAL_IRQ_INIT()                                                        \
 	IRQ_CONNECT(DT_IRQ_BY_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),      \
@@ -949,39 +1155,22 @@ DEVICE_DT_DEFINE(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),
 		can_renesas_rh850_global_init, NULL, NULL, NULL, PRE_KERNEL_2,
 		CONFIG_CAN_INIT_PRIORITY, NULL)
 
-#define CAN_RENESAS_RH850_CHANNEL_IRQ_INIT(index)                                                  \
-	{                                                                                          \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, rxi, irq),                                  \
-			DT_INST_IRQ_BY_NAME(index, rxi, priority), canfd_rx_common_fifo_isr,   \
-			NULL, 0);                                                              \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, txi, irq),                                  \
-			DT_INST_IRQ_BY_NAME(index, txi, priority), canfd_channel_tx_isr, NULL, \
-			0);                                                                    \
-		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, eri, irq),                                  \
-			DT_INST_IRQ_BY_NAME(index, eri, priority), canfd_channel_error_isr,    \
-			NULL, 0);                                                              \
-                                                                                                   \
-		irq_enable(DT_INST_IRQ_BY_NAME(index, rxi, irq));                                  \
-		irq_enable(DT_INST_IRQ_BY_NAME(index, txi, irq));                                  \
-		irq_enable(DT_INST_IRQ_BY_NAME(index, eri, irq));                                  \
-	}
-#if (BSP_FEATURE_DEVICE_HAS_ORED_IRQ)
-#define CAN_RENESAS_RH850_INIT(index)                                                              \
-	PINCTRL_DT_INST_DEFINE(index);                                                             \
-	static canfd_global_cfg_t g_canfd_global_cfg = {                                           \
-		.global_interrupts = CANFD_CFG_GLOBAL_ERR_SOURCES,                                 \
-		.global_config = (CANFD_CFG_TX_PRIORITY | CANFD_CFG_DLC_CHECK |                    \
-				CANFD_CFD_CLOCK_SOURCE | CANFD_CFG_FD_OVERFLOW),                 \
-		.rx_mb_config = (CANFD_CFG_RXMB_NUMBER |                                           \
-				(CANFD_CFG_RXMB_SIZE << R_CANFD0_CFDRMNB_RMPLS_Pos)),             \
-		.global_err_ipl =                                                                  \
+#define CAN_RENESAS_RH850_INIT(index)                                                  \
+	PINCTRL_DT_INST_DEFINE(index);                                                     \
+	static canfd_global_cfg_t g_canfd_global_cfg = {                                   \
+		.global_interrupts = CANFD_CFG_GLOBAL_ERR_SOURCES,                             \
+		.global_config = (CANFD_CFG_TX_PRIORITY | CANFD_CFG_DLC_CHECK |                \
+				CANFD_CFD_CLOCK_SOURCE | CANFD_CFG_FD_OVERFLOW),                   \
+		.rx_mb_config = (CANFD_CFG_RXMB_NUMBER |                                       \
+				(CANFD_CFG_RXMB_SIZE << R_CANFD0_CFDRMNB_RMPLS_Pos)),              \
+		.global_err_ipl =                                                              \
 			DT_IRQ_BY_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),  \
-				g_err, priority),                                           \
-		.rx_fifo_ipl =                                                                     \
+				g_err, priority),                                                  \
+		.rx_fifo_ipl =                                                                 \
 			DT_IRQ_BY_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),  \
-				g_recc, priority),                                          \
-		.rx_fifo_config =                                                                  \
-			{                                                                          \
+				g_recc, priority),                                                 \
+		.rx_fifo_config =                                                          \
+			{                                                                      \
 				CANFD_CFG_RXFIFO_DEFAULT(0),                                       \
 				CANFD_CFG_RXFIFO_DEFAULT(1),                                       \
 				CANFD_CFG_RXFIFO_DEFAULT(2),                                       \
@@ -990,24 +1179,24 @@ DEVICE_DT_DEFINE(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),
 				CANFD_CFG_RXFIFO_DEFAULT(5),                                       \
 				CANFD_CFG_RXFIFO_DEFAULT(6),                                       \
 				CANFD_CFG_RXFIFO_DEFAULT(7),                                       \
-			},                                                                         \
-		.p_canfd_reg = (void *)DT_REG_ADDR(DT_INST_PARENT(index)),                         \
-		.unit = 0,                                                                         \
-		.afl_rule_num =                                                                    \
-			{                                                                          \
+			},                                                                     \
+		.p_canfd_reg = (void *)DT_REG_ADDR(DT_INST_PARENT(index)),                 \
+		.unit = 0,                                                                 \
+		.afl_rule_num =                                                            \
+			{                                                                      \
 				128,                                                               \
-			},                                                                         \
-		.rx_fifo_irq = DT_IRQ_BY_NAME(                                                     \
-			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),   \
-		.err_glb_irq = DT_IRQ_BY_NAME(                                                     \
-			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),   \
-	};                                                                                         \
-	static canfd_afl_entry_t p_canfd_ch##index##_afl[DT_INST_PROP(index, rx_max_filters)];     \
-	struct can_renesas_rh850_filter                                                            \
+			},                                                                     \
+		.rx_fifo_irq = DT_IRQ_BY_NAME(                                             \
+			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),  \
+		.err_glb_irq = DT_IRQ_BY_NAME(                                                \
+			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),  \
+	};                                                                                \
+	static canfd_afl_entry_t p_canfd_ch##index##_afl[DT_INST_PROP(index, rx_max_filters)]; \
+	struct can_renesas_rh850_filter                                                        \
 		can_renesas_rh850_rx_filter##index[DT_INST_PROP(index, rx_max_filters)];           \
-	static can_bit_timing_cfg_t g_canfd_ch##index##_bit_timing_cfg;                            \
-	uint32_t clock_subsys##index = 80000000;                                                   \
-	static const struct can_renesas_rh850_cfg can_renesas_rh850_cfg##index = {                 \
+	static can_bit_timing_cfg_t g_canfd_ch##index##_bit_timing_cfg;                        \
+	uint32_t clock_subsys##index = 80000000;                                               \
+	static const struct can_renesas_rh850_cfg can_renesas_rh850_cfg##index = {             \
 		.common = CAN_DT_DRIVER_CONFIG_INST_GET(index, 0, 8000000),                        \
 		.global_dev = DEVICE_DT_GET(DT_INST_PARENT(index)),                                \
 		.pin_config = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                               \
@@ -1016,133 +1205,44 @@ DEVICE_DT_DEFINE(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),
 		.clock_dev = NULL,                                                                 \
 		.clock_subsys = (clock_control_subsys_t)(&clock_subsys##index),                    \
 		.clock_ext_rate = DT_PROP_OR(DT_NODELABEL(can_clk), clock_frequency, 0),           \
-	};                                                                                         \
-	static canfd_instance_ctrl_t g_canfd_ch##index##_ctrl;                                     \
-	static canfd_extended_cfg_t g_canfd_ch##index##_extend_cfg = {                             \
+	};                                                                                     \
+	static canfd_instance_ctrl_t g_canfd_ch##index##_ctrl;                                 \
+	static canfd_extended_cfg_t g_canfd_ch##index##_extend_cfg = {                         \
 		.p_afl = p_canfd_ch##index##_afl,                                                  \
 		.txmb_txi_enable = CANFD_CFG_TXMB_TXI_ENABLE,                                      \
 		.error_interrupts = 0U,                                                            \
 		.p_global_cfg = &g_canfd_global_cfg,                                               \
-		.tx_ored_int = BSP_ORED_TRANSMIT_CANFD_CH0_ORED0,                                  \
-		.rx_ored_int = BSP_ORED_FIFO_CANFD_CH0_ORED0,                                      \
-		.err_ored_int = BSP_ORED_ERROR_CANFD_CH0_ORED0,                                    \
-	};                                                                                         \
-	static can_cfg_t g_canfd_ch##index##cfg = {                                                \
+		CANFD_RH850_ORED_CONFIG(index)                                                     \
+	};                                                                                     \
+	static can_cfg_t g_canfd_ch##index##cfg = {                                            \
 		.channel = DT_INST_PROP(index, channel),                                           \
-		.ipl = DT_INST_IRQ_BY_NAME(index, eri, priority),                                  \
-		.error_irq = DT_INST_IRQ_BY_NAME(index, eri, irq),                                 \
-		.rx_irq = DT_INST_IRQ_BY_NAME(index, rxi, irq),                                    \
-		.tx_irq = DT_INST_IRQ_BY_NAME(index, txi, irq),                                    \
+		.ipl = CANFD_IPL_GET(index, eri),                                                  \
+		.error_irq = CANFD_IRQ_GET(index, eri),                                            \
+		.rx_irq = CANFD_IRQ_GET(index, rxi),                                               \
+		.tx_irq = CANFD_IRQ_GET(index, txi),                                               \
 		.p_extend = &g_canfd_ch##index##_extend_cfg,                                       \
 		.p_bit_timing = &g_canfd_ch##index##_bit_timing_cfg,                               \
 		.p_context = DEVICE_DT_INST_GET(index),                                            \
 		.p_callback = can_renesas_rh850_fsp_cb,                                            \
-	};                                                                                         \
-	static struct can_renesas_rh850_data can_renesas_rh850_data##index = {                     \
+	};                                                                                     \
+	static struct can_renesas_rh850_data can_renesas_rh850_data##index = {                 \
 		.fsp_ctrl = &g_canfd_ch##index##_ctrl,                                             \
 		.fsp_cfg = &g_canfd_ch##index##cfg,                                                \
 		.rx_filter = can_renesas_rh850_rx_filter##index,                                   \
-	};                                                                                         \
-	static int can_renesas_rh850_init##index(const struct device *dev)                         \
-	{                                                                                          \
+		CANFD_RH850_INT_CTRL_INIT(index)                                                   \
+	};                                                                                     \
+	static int can_renesas_rh850_init##index(const struct device *dev)                     \
+	{                                                                                      \
 		const struct device *global_canfd = DEVICE_DT_GET(DT_INST_PARENT(index));          \
 		if (!device_is_ready(global_canfd)) {                                              \
 			return -EIO;                                                               \
 		}                                                                                  \
 		CAN_RENESAS_RH850_CHANNEL_IRQ_INIT(index)                                          \
 		return can_renesas_rh850_init(dev);                                                \
-	}                                                                                          \
-	CAN_DEVICE_DT_INST_DEFINE(index, can_renesas_rh850_init##index, NULL,                      \
+	}                                                                                      \
+	CAN_DEVICE_DT_INST_DEFINE(index, can_renesas_rh850_init##index, NULL,                  \
 				&can_renesas_rh850_data##index, &can_renesas_rh850_cfg##index,   \
 				POST_KERNEL, CONFIG_CAN_INIT_PRIORITY,                           \
 				&can_renesas_rh850_driver_api);
-#else
-#define CAN_RENESAS_RH850_INIT(index)                                                              \
-	PINCTRL_DT_INST_DEFINE(index);                                                             \
-	static canfd_global_cfg_t g_canfd_global_cfg = {                                           \
-		.global_interrupts = CANFD_CFG_GLOBAL_ERR_SOURCES,                                 \
-		.global_config = (CANFD_CFG_TX_PRIORITY | CANFD_CFG_DLC_CHECK |                    \
-				CANFD_CFD_CLOCK_SOURCE | CANFD_CFG_FD_OVERFLOW),                 \
-		.rx_mb_config = (CANFD_CFG_RXMB_NUMBER |                                           \
-				(CANFD_CFG_RXMB_SIZE << R_CANFD0_CFDRMNB_RMPLS_Pos)),             \
-		.global_err_ipl =                                                                  \
-			DT_IRQ_BY_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),  \
-				g_err, priority),                                           \
-		.rx_fifo_ipl =                                                                     \
-			DT_IRQ_BY_NAME(DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global),  \
-				g_recc, priority),                                          \
-		.rx_fifo_config =                                                                  \
-			{                                                                          \
-				CANFD_CFG_RXFIFO_DEFAULT(0),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(1),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(2),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(3),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(4),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(5),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(6),                                       \
-				CANFD_CFG_RXFIFO_DEFAULT(7),                                       \
-			},                                                                         \
-		.p_canfd_reg = (void *)DT_REG_ADDR(DT_INST_PARENT(index)),                         \
-		.unit = 0,                                                                         \
-		.afl_rule_num =                                                                    \
-			{                                                                          \
-				128,                                                               \
-			},                                                                         \
-		.rx_fifo_irq = DT_IRQ_BY_NAME(                                                     \
-			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),   \
-		.err_glb_irq = DT_IRQ_BY_NAME(                                                     \
-			DT_COMPAT_GET_ANY_STATUS_OKAY(renesas_rh850_canfd_global), g_recc, irq),   \
-	};                                                                                         \
-	static canfd_afl_entry_t p_canfd_ch##index##_afl[DT_INST_PROP(index, rx_max_filters)];     \
-	struct can_renesas_rh850_filter                                                            \
-		can_renesas_rh850_rx_filter##index[DT_INST_PROP(index, rx_max_filters)];           \
-	static can_bit_timing_cfg_t g_canfd_ch##index##_bit_timing_cfg;                            \
-	uint32_t clock_subsys##index = 80000000;                                                   \
-	static const struct can_renesas_rh850_cfg can_renesas_rh850_cfg##index = {                 \
-		.common = CAN_DT_DRIVER_CONFIG_INST_GET(index, 0, 8000000),                        \
-		.global_dev = DEVICE_DT_GET(DT_INST_PARENT(index)),                                \
-		.pin_config = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                               \
-		.rx_filter_num = DT_INST_PROP(index, rx_max_filters),                              \
-		.fsp_api = &g_can_on_canfd,                                                        \
-		.clock_dev = NULL,                                                                 \
-		.clock_subsys = (clock_control_subsys_t)(&clock_subsys##index),                    \
-		.clock_ext_rate = DT_PROP_OR(DT_NODELABEL(can_clk), clock_frequency, 0),           \
-	};                                                                                         \
-	static canfd_instance_ctrl_t g_canfd_ch##index##_ctrl;                                     \
-	static canfd_extended_cfg_t g_canfd_ch##index##_extend_cfg = {                             \
-		.p_afl = p_canfd_ch##index##_afl,                                                  \
-		.txmb_txi_enable = CANFD_CFG_TXMB_TXI_ENABLE,                                      \
-		.error_interrupts = 0U,                                                            \
-		.p_global_cfg = &g_canfd_global_cfg,                                               \
-	};                                                                                         \
-	static can_cfg_t g_canfd_ch##index##cfg = {                                                \
-		.channel = DT_INST_PROP(index, channel),                                           \
-		.ipl = DT_INST_IRQ_BY_NAME(index, eri, priority),                                  \
-		.error_irq = DT_INST_IRQ_BY_NAME(index, eri, irq),                                 \
-		.rx_irq = DT_INST_IRQ_BY_NAME(index, rxi, irq),                                    \
-		.tx_irq = DT_INST_IRQ_BY_NAME(index, txi, irq),                                    \
-		.p_extend = &g_canfd_ch##index##_extend_cfg,                                       \
-		.p_bit_timing = &g_canfd_ch##index##_bit_timing_cfg,                               \
-		.p_context = DEVICE_DT_INST_GET(index),                                            \
-		.p_callback = can_renesas_rh850_fsp_cb,                                            \
-	};                                                                                         \
-	static struct can_renesas_rh850_data can_renesas_rh850_data##index = {                     \
-		.fsp_ctrl = &g_canfd_ch##index##_ctrl,                                             \
-		.fsp_cfg = &g_canfd_ch##index##cfg,                                                \
-		.rx_filter = can_renesas_rh850_rx_filter##index,                                   \
-	};                                                                                         \
-	static int can_renesas_rh850_init##index(const struct device *dev)                         \
-	{                                                                                          \
-		const struct device *global_canfd = DEVICE_DT_GET(DT_INST_PARENT(index));          \
-		if (!device_is_ready(global_canfd)) {                                              \
-			return -EIO;                                                               \
-		}                                                                                  \
-		CAN_RENESAS_RH850_CHANNEL_IRQ_INIT(index)                                          \
-		return can_renesas_rh850_init(dev);                                                \
-	}                                                                                          \
-	CAN_DEVICE_DT_INST_DEFINE(index, can_renesas_rh850_init##index, NULL,                      \
-				&can_renesas_rh850_data##index, &can_renesas_rh850_cfg##index,   \
-				POST_KERNEL, CONFIG_CAN_INIT_PRIORITY,                           \
-				&can_renesas_rh850_driver_api);
-#endif
+
 DT_INST_FOREACH_STATUS_OKAY(CAN_RENESAS_RH850_INIT)
