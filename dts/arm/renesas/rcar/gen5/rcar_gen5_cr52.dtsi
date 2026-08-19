@@ -249,7 +249,7 @@
 			reg = <0xec700000 0x10000>,
 			      <0xec720000 0x1000>,
 			      <0x18a08328 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <0>;
 			dma-channels = <16>;
 			dma-type = "Audio-DMAC";
@@ -262,7 +262,7 @@
 			reg = <0xec710000 0x10000>,
 			      <0xec721000 0x1000>,
 			      <0x18a08348 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <1>;
 			dma-channels = <16>;
 			dma-type = "Audio-DMAC";
@@ -275,7 +275,7 @@
 			reg = <0xed700000 0x10000>,
 			      <0xed720000 0x1000>,
 			      <0x18a08368 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <2>;
 			dma-channels = <16>;
 			dma-type = "Audio-DMAC";
@@ -288,7 +288,7 @@
 			reg = <0xed710000 0x10000>,
 			      <0xed721000 0x1000>,
 			      <0x18a08388 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <3>;
 			dma-channels = <16>;
 			dma-type = "Audio-DMAC";
@@ -301,7 +301,7 @@
 			reg = <0x18900000 0x10000>,
 			      <0x19438000 0x1000>,
 			      <0x18a083c8 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <0>;
 			dma-channels = <16>;
 			dma-type = "RT-DMAC";
@@ -314,7 +314,7 @@
 			reg = <0x18910000 0x10000>,
 			      <0x19439000 0x1000>,
 			      <0x18a083e8 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <1>;
 			dma-channels = <16>;
 			dma-type = "RT-DMAC";
@@ -327,7 +327,7 @@
 			reg = <0x18920000 0x10000>,
 			      <0x1943a000 0x1000>,
 			      <0x18a08408 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <2>;
 			dma-channels = <16>;
 			dma-type = "RT-DMAC";
@@ -340,7 +340,7 @@
 			reg = <0x18930000 0x10000>,
 			      <0x1943b000 0x1000>,
 			      <0x18a08428 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <3>;
 			dma-channels = <16>;
 			dma-type = "RT-DMAC";
@@ -354,7 +354,7 @@
 			reg = <0xc0900000 0x10000>,
 			      <0xc0940000 0x1000>,
 			      <0x18a08468 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <0>;
 			dma-channels = <16>;
 			dma-type = "SYS-DMAC";
@@ -368,7 +368,7 @@
 			reg = <0xc0480000 0x10000>,
 			      <0xc05c4000 0x1000>,
 			      <0x18a08488 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <1>;
 			dma-channels = <16>;
 			dma-type = "SYS-DMAC";
@@ -382,7 +382,7 @@
 			reg = <0xc0490000 0x10000>,
 			      <0xc05c5000 0x1000>,
 			      <0x18a084a8 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <2>;
 			dma-channels = <16>;
 			dma-type = "SYS-DMAC";
@@ -396,7 +396,7 @@
 			reg = <0xc04a0000 0x10000>,
 			      <0xc05c6000 0x1000>,
 			      <0x18a084c8 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <3>;
 			dma-channels = <16>;
 			dma-type = "SYS-DMAC";
@@ -409,7 +409,7 @@
 			reg = <0xc11a0000 0x10000>,
 			      <0xc11e8000 0x1000>,
 			      <0x18a08c64 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <0>;
 			dma-channels = <16>;
 			dma-type = "SCP-DMAC";
@@ -422,7 +422,7 @@
 			reg = <0xc11b0000 0x10000>,
 			      <0xc11e9000 0x1000>,
 			      <0x18a08c8c 0x20>;
-			reg-names = "channel", "public", "intsta";
+			reg-names = "channel_base", "public_base", "intsta";
 			channel = <1>;
 			dma-channels = <16>;
 			dma-type = "SCP-DMAC";
@@ -434,7 +434,7 @@
 			compatible = "renesas,rcar-dma";
 			reg = <0x189c0000 0x10000>,
 			      <0x1943c000 0x1000>;
-			reg-names = "channel", "public";
+			reg-names = "channel_base", "public_base";
 			channel = <0>;
 			dma-channels = <16>;
 			dma-type = "RTT-DMAC";
@@ -446,7 +446,7 @@
 			compatible = "renesas,rcar-dma";
 			reg = <0x189d0000 0x10000>,
 			      <0x1943d000 0x1000>;
-			reg-names = "channel", "public";
+			reg-names = "channel_base", "public_base";
 			channel = <1>;
 			dma-channels = <16>;
 			dma-type = "RTT-DMAC";

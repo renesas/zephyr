@@ -343,6 +343,8 @@
 				     <GIC_SPI 249 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "ch0", "ch2", "ch4", "ch6",
 					  "ch8", "ch10", "ch12", "ch14";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RTDM0>;
+			clock-names = "mod-clk";
 		};
 
 		rt_dmac1: dma@18910000 {
@@ -356,6 +358,8 @@
 				     <GIC_SPI 257 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "ch0", "ch2", "ch4", "ch6",
 					  "ch8", "ch10", "ch12", "ch14";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RTDM1>;
+			clock-names = "mod-clk";
 		};
 
 		rt_dmac2: dma@18920000 {
@@ -369,6 +373,8 @@
 				     <GIC_SPI 265 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "ch0", "ch2", "ch4", "ch6",
 					  "ch8", "ch10", "ch12", "ch14";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RTDM2>;
+			clock-names = "mod-clk";
 		};
 
 		rt_dmac3: dma@18930000 {
@@ -382,6 +388,8 @@
 				     <GIC_SPI 273 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "ch0", "ch2", "ch4", "ch6",
 					  "ch8", "ch10", "ch12", "ch14";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RTDM3>;
+			clock-names = "mod-clk";
 		};
 
 		sys_dmac00: dma@c0900000 {
