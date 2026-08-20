@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/kernel.h>
+#include <zephyr/linker/linker-defs.h>
+#include <zephyr/arch/arm/mpu/arm_mpu_mem_cfg.h>
+
+#define DEVICE_0_REGION_START 0x18800000U
+#define DEVICE_0_REGION_END   0x38000000U
+#define DEVICE_1_REGION_START 0xC0000000U
+#define DEVICE_1_REGION_END   0xFFFFFFC0U
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ethuram))
+#define ETHURAM_NODE DT_NODELABEL(ethuram)
+
+BUILD_ASSERT(!DT_SAME_NODE(ETHURAM_NODE, DT_CHOSEN(zephyr_sram)),
+	     "Ethernet URAM cannot be located in Zephyr system RAM.");
+BUILD_ASSERT((DT_REG_ADDR(ETHURAM_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0 &&
+		     (DT_REG_SIZE(ETHURAM_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0,
+	     "ETHURAM base and size must be MPU-region aligned");
+#endif /* ethuram enabled */
+
+static const struct arm_mpu_region mpu_regions[] = {
+	MPU_REGION_ENTRY("SRAM_TEXT", (uintptr_t)__rom_region_start,
+			 REGION_RAM_TEXT_ATTR((uintptr_t)__rodata_region_start)),
+
+	MPU_REGION_ENTRY("SRAM_RODATA", (uintptr_t)__rodata_region_start,
+			 REGION_RAM_RO_ATTR((uintptr_t)__rodata_region_end)),
+
+	MPU_REGION_ENTRY("SRAM_DATA", (uintptr_t)__rom_region_end,
+			 REGION_RAM_ATTR((uintptr_t)__kernel_ram_end)),
+
+	MPU_REGION_ENTRY("DEVICE_0", DEVICE_0_REGION_START,
+			 REGION_DEVICE_ATTR(DEVICE_0_REGION_END)),
+
+	MPU_REGION_ENTRY("DEVICE_1", DEVICE_1_REGION_START,
+			 REGION_DEVICE_ATTR(DEVICE_1_REGION_END)),
+
+#if defined(ETHURAM_NODE)
+	MPU_REGION_ENTRY(
+		"ETHURAM", DT_REG_ADDR(ETHURAM_NODE),
+		REGION_RAM_NOCACHE_ATTR(DT_REG_ADDR(ETHURAM_NODE) + DT_REG_SIZE(ETHURAM_NODE))),
+#endif
+};
+
+const struct arm_mpu_config mpu_config = {
+	.num_regions = ARRAY_SIZE(mpu_regions),
+	.mpu_regions = mpu_regions,
+};
