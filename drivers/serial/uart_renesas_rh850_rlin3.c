@@ -458,27 +458,108 @@ static void uart_rh850_rlin3_event_handler(uart_callback_args_t *p_args)
 	}
 }
 
-#define UART_RH850_RLIN3_IRQ_CONFIG_INIT(n)                                                        \
-	IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN, (	\
-	.txi_trigger_reg = (uint16_t volatile *) (DT_REG_ADDR_BY_NAME(	\
-		DT_IRQ_INTC(DT_INST_PARENT(n)), EIC)				\
-		+ 2*DT_IRQ_BY_NAME(DT_INST_PARENT(n), txi, irq)),)	\
-	)
+#ifdef CONFIG_RENESAS_RH850_INTIF_INTSEL
+/* Macro definition to uart rh850 rlin3 driver get irq number and ipl value */
+#define UART_RH850_RLIN3_IRQ_GET(inst, type) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(inst), type),   \
+							renesas_rh850_intif_intsel), \
+		(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(inst), type), irq)), \
+		(DT_IRQ_BY_NAME(DT_INST_PARENT(inst), type, irq)))
+#define UART_RH850_RLIN3_IPL_GET(inst, type) \
+			COND_CODE_1( \
+			DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(inst), type),  \
+								renesas_rh850_intif_intsel), \
+			(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(inst), type), priority)), \
+			(DT_IRQ_BY_NAME(DT_INST_PARENT(inst), type, priority)))
 
+/* INTSEL support:
+ * When RLIN3 interrupts are routed through RH850 INTSEL mux nodes
+ * (interrupts-extended), generate the corresponding BSP_INTSEL
+ * configuration used by the interrupt interface driver.
+ */
+#define _UART_RH850_RLIN3_RXI_IRQ_IS_INTSEL(rlin3_unit, mux_channel)  \
+						BSP_INTSEL_RLIN3##rlin3_unit##_MUX##mux_channel
+#define UART_RH850_RLIN3_RXI_IRQ_IS_INTSEL(rlin3_unit, mux_channel)   \
+				_UART_RH850_RLIN3_RXI_IRQ_IS_INTSEL(rlin3_unit, mux_channel)
+#define UART_RH850_RLIN3_MUX_CHAN_GET(n)        DT_PROP(DT_IRQ_INTC(DT_INST_PARENT(n)), channel)
+#define UART_RH850_RLIN3_CHAN_GET(n)            DT_PROP(DT_DRV_INST(n), channel)
+#define UART_RH850_RLIN3_INFO(n) \
+		COND_CODE_1( \
+		DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), rxi), \
+							renesas_rh850_intif_intsel), \
+		(UART_RH850_RLIN3_RXI_IRQ_IS_INTSEL(UART_RH850_RLIN3_CHAN_GET(n), \
+							UART_RH850_RLIN3_MUX_CHAN_GET(n))),  \
+		(BSP_INTSEL_DISABLED))
+#define UART_RH850_RLIN3_INTSEL_CONFIG(n)       .intsel_irq_cfg = UART_RH850_RLIN3_INFO(n),
+#else /* CONFIG_RENESAS_RH850_INTIF_INTSEL */
+/* Macro definition to uart rh850 rlin3 driver get irq number and ipl value */
+#define UART_RH850_RLIN3_IRQ_GET(inst, type) DT_IRQ_BY_NAME(DT_INST_PARENT(inst), type, irq)
+#define UART_RH850_RLIN3_IPL_GET(inst, type) DT_IRQ_BY_NAME(DT_INST_PARENT(inst), type, priority)
+#define UART_RH850_RLIN3_INTSEL_CONFIG(n)
+#endif /* CONFIG_RENESAS_RH850_INTIF_INTSEL */
+
+/* Configure txi_trigger_reg*/
+#define UART_TXI_IS_INTSEL(n)   DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), txi), \
+								renesas_rh850_intif_intsel)
+#define UART_TXI_EIC_BASE_INTSEL_MUX(n)     DT_REG_ADDR_BY_NAME(                   \
+						DT_PHANDLE(DT_PARENT(DT_IRQ_INTC_BY_NAME(  \
+						DT_INST_PARENT(n), txi)), interrupt_parent), EIC) +\
+						(2 * UART_RH850_RLIN3_IRQ_GET(n, txi))
+#define UART_TXI_EIC_BASE_INTC2(n)  DT_REG_ADDR_BY_NAME(                       \
+				DT_IRQ_INTC(DT_INST_PARENT(n)), EIC) + \
+				(2 * UART_RH850_RLIN3_IRQ_GET(n, txi))
+#define UART_TXI_TRIGGER_ADDR(n)    COND_CODE_1(UART_TXI_IS_INTSEL(n),             \
+				(UART_TXI_EIC_BASE_INTSEL_MUX(n)),     \
+				(UART_TXI_EIC_BASE_INTC2(n)))
+#define UART_RH850_RLIN3_IRQ_CONFIG_INIT(n)                                        \
+	.txi_trigger_reg = (uint16_t volatile *) IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN, (    \
+							(UART_TXI_TRIGGER_ADDR(n)),))
+
+/* Connect and enable a UART interrupt defined directly in the RLIN3 node */
 #define UART_RH850_IRQ_CONNECT(n, irq_name, isr)                                                   \
 	IRQ_CONNECT(DT_IRQ_BY_NAME(DT_INST_PARENT(n), irq_name, irq),                              \
-		    DT_IRQ_BY_NAME(DT_INST_PARENT(n), irq_name, priority), isr,                    \
-		    DEVICE_DT_INST_GET(n), 0);                                                     \
+		    DT_IRQ_BY_NAME(DT_INST_PARENT(n), irq_name, priority),     \
+			isr,                                                       \
+		    DEVICE_DT_INST_GET(n),                                     \
+			0);                                                        \
 	irq_enable(DT_IRQ_BY_NAME(DT_INST_PARENT(n), irq_name, irq));
-
-#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
-#define UART_RH850_RLIN3_IRQ_INIT(n)                                                               \
+#define UART_RH850_RLIN3_IRQ_CONNECT(n)                                \
 	UART_RH850_IRQ_CONNECT(n, eri, uart_rh850_rlin3_eri_isr);                                  \
 	UART_RH850_IRQ_CONNECT(n, txi, uart_rh850_rlin3_txi_isr);                                  \
 	UART_RH850_IRQ_CONNECT(n, rxi, uart_rh850_rlin3_rxi_isr);
-#else
-#define UART_RH850_RLIN3_IRQ_INIT(n) UART_RH850_IRQ_CONNECT(n, rxi, uart_rh850_rlin3_rxi_isr);
-#endif
+
+/* Connect and enable a UART interrupt routed through an INTSEL MUX node */
+#define UART_RH850_IRQ_CONNECT_MUX(n, irq_name, isr)                            \
+	IRQ_CONNECT(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), irq_name), irq),  \
+		   DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), irq_name), priority),  \
+		   isr,                                                                 \
+		   DEVICE_DT_INST_GET(n),                                               \
+		   0);                                                                  \
+	irq_enable(DT_IRQ(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), irq_name), irq));
+#define UART_RH850_RLIN3_IRQ_MUX_CONNECT(n)                                     \
+			UART_RH850_IRQ_CONNECT_MUX(n, eri, uart_rh850_rlin3_eri_isr);       \
+			UART_RH850_IRQ_CONNECT_MUX(n, txi, uart_rh850_rlin3_txi_isr);       \
+			UART_RH850_IRQ_CONNECT_MUX(n, rxi, uart_rh850_rlin3_rxi_isr);
+
+/* Macro for UART_RH850_RLIN3_IRQ_INIT */
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+#define UART_RH850_RLIN3_IRQ_INIT(n)                                            \
+			COND_CODE_1(                                                        \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC(DT_INST_PARENT(n)),              \
+				renesas_rh850_intif_intsel),                                    \
+				(UART_RH850_RLIN3_IRQ_MUX_CONNECT(n)),                          \
+				(UART_RH850_RLIN3_IRQ_CONNECT(n))                               \
+			)
+#else   /* CONFIG_UART_INTERRUPT_DRIVEN */
+#define UART_RH850_RLIN3_IRQ_INIT(n)                                            \
+			COND_CODE_1(                                                        \
+				DT_NODE_HAS_COMPAT(DT_IRQ_INTC_BY_NAME(DT_INST_PARENT(n), rxi), \
+				renesas_rh850_intif_intsel),                                    \
+				(UART_RH850_IRQ_CONNECT_MUX(n, rxi, uart_rh850_rlin3_rxi_isr);),\
+				(UART_RH850_IRQ_CONNECT(n, rxi, uart_rh850_rlin3_rxi_isr);)     \
+			)
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 #define UART_RH850_INIT(n)                                                                         \
 	PINCTRL_DT_DEFINE(DT_INST_PARENT(n));                                                      \
@@ -497,6 +578,7 @@ static void uart_rh850_rlin3_event_handler(uart_callback_args_t *p_args)
 		.baudrate_max_err_percent = 5,                                                     \
 		.p_baud_setting = &g_uart##n##_baud_setting,                                       \
 		.timing_select = UART_COMPLETION,                                                  \
+		UART_RH850_RLIN3_INTSEL_CONFIG(n)                                                  \
 	};                                                                                         \
                                                                                                    \
 	static uart_cfg_t g_uart##n##_cfg = {                                                      \
@@ -504,12 +586,12 @@ static void uart_rh850_rlin3_event_handler(uart_callback_args_t *p_args)
 		.p_extend = &g_uart##n##_cfg_extend,                                               \
 		.p_transfer_tx = NULL,                                                             \
 		.p_transfer_rx = NULL,                                                             \
-		.rxi_ipl = DT_IRQ_BY_NAME(DT_INST_PARENT(n), rxi, priority),                       \
-		.txi_ipl = DT_IRQ_BY_NAME(DT_INST_PARENT(n), txi, priority),                       \
-		.eri_ipl = DT_IRQ_BY_NAME(DT_INST_PARENT(n), eri, priority),                       \
-		.rxi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(n), rxi, irq),                            \
-		.txi_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(n), txi, irq),                            \
-		.eri_irq = DT_IRQ_BY_NAME(DT_INST_PARENT(n), eri, irq),                            \
+		.rxi_ipl = UART_RH850_RLIN3_IPL_GET(n, rxi),                                       \
+		.txi_ipl = UART_RH850_RLIN3_IPL_GET(n, txi),                                       \
+		.eri_ipl = UART_RH850_RLIN3_IPL_GET(n, eri),                                       \
+		.rxi_irq = UART_RH850_RLIN3_IRQ_GET(n, rxi),                                       \
+		.txi_irq = UART_RH850_RLIN3_IRQ_GET(n, txi),                                       \
+		.eri_irq = UART_RH850_RLIN3_IRQ_GET(n, eri),                                       \
 		.p_callback = uart_rh850_rlin3_event_handler,                                      \
 		.p_context = (void *)DEVICE_DT_INST_GET(n),                                        \
 	};                                                                                         \
