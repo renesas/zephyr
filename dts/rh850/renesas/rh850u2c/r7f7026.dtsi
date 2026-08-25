@@ -1131,6 +1131,32 @@
 			channel = <2>;
 			status = "disabled";
 		};
+
+		ssif0: i2s@ffd8f800 {
+			compatible = "renesas,rh850-i2s-ssif";
+			reg = <0xffd8f800 0x3c>;
+			interrupts = <309 1>, <310 1>, <311 1>;
+			interrupt-names = "ssi_txi", "ssi_rxi", "ssi_inti";
+			interrupt-parent = <&intc2>;
+			channel = <0>;
+			clocks = <&cgc RH850_PCLK(SSIF, 0, PCLK)>;
+			clock-names = "pclk";
+			full-duplex;
+			status = "disabled";
+		};
+
+		ssif1: i2s@ffd76000 {
+			compatible = "renesas,rh850-i2s-ssif";
+			reg = <0xffd76000 0x3c>;
+			interrupts = <312 1>, <313 1>, <314 1>;
+			interrupt-names = "ssi_txi", "ssi_rxi", "ssi_inti";
+			interrupt-parent = <&intc2>;
+			channel = <1>;
+			clocks = <&cgc RH850_PCLK(SSIF, 1, PCLK)>;
+			clock-names = "pclk";
+			full-duplex;
+			status = "disabled";
+		};
 	};
 
 	/* External CAN clock - to be overridden by boards that provide it */
