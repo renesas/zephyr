@@ -31,6 +31,7 @@
 		watchdog0 = &wdtb0;
 		pwm-led0 = &pwm_led_0;
 		pwm-led1 = &pwm_led_1;
+		i2s0 = &ssif0;
 	};
 
 	leds {
@@ -248,6 +249,18 @@
 
 &iic2 {
 	pinctrl-0 = <&iic2_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ssif0 {
+	pinctrl-0 = <&ssif0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ssif1 {
+	pinctrl-0 = <&ssif1_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };

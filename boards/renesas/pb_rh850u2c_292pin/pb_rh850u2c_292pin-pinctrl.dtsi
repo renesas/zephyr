@@ -151,4 +151,36 @@
 			drive-open-drain;
 		};
 	};
+
+	ssif0_default: ssif0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_21, 0, ALT_OUT12)>,
+				<RH850_PSEL(PORT_21, 1, ALT_OUT8)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 0, ALT_IN14)>,
+				<RH850_PSEL(PORT_20, 12, ALT_IN15)>,
+				<RH850_PSEL(PORT_21, 3, ALT_OUT15)>;
+			drive-strength = "medium";
+		};
+	};
+
+	ssif1_default: ssif1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_17, 4, ALT_IN15)>,
+				<RH850_PSEL(PORT_17, 5, ALT_IN15)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 0, ALT_IN14)>,
+				<RH850_PSEL(PORT_17, 2, ALT_IN14)>,
+				<RH850_PSEL(PORT_17, 3, ALT_OUT15)>;
+			drive-strength = "medium";
+		};
+	};
 };
