@@ -60,16 +60,21 @@
 #define MP_PHY_CMNCNT1_PCI1_EN(ch) (0x02 << ((ch) * 8))
 
 /* Channel resistor and clock bits for MP_PHY_CMNCNT2 register */
-#define MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(channel) BIT(channel * 4 + 16)
-#define MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(channel) BIT(channel * 4 + 17)
+#define MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(ch) BIT(ch * 4 + 16)
+#define MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(ch) BIT(ch * 4 + 17)
 #define MP_PHY_CMNCNT2_RES_DEFAULT_SETTING                                                         \
 	(MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(0) | MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(0) |                 \
 	 MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(1) | MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(1) |                 \
 	 MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(2) | MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(2) |                 \
 	 MP_PHY_CMNCNT2_RES_REQ_NO_SHARE(3) | MP_PHY_CMNCNT2_RES_ACK_NO_SHARE(3))
 
-#define MP_PHY_CMNCNT2_CLK_USE_PAD(channel)   BIT(channel * 4)
-#define MP_PHY_CMNCNT2_REPEAT_CLK_EN(channel) BIT(channel * 4 + 1)
+#define MP_PHY_CMNCNT2_CLK_USE_PAD(ch)   BIT(ch * 4)
+#define MP_PHY_CMNCNT2_REPEAT_CLK_EN(ch) BIT(ch * 4 + 1)
+
+/* SRAM offsets */
+#define MP_PHY_SRAM_BASE_OFFSET    0x10000
+#define MP_PHY_SRAM_CHANNEL_OFFSET 0x20000
+#define MP_PHY_SRAM_OFFSET(ch)     MP_PHY_SRAM_BASE_OFFSET + (ch) * MP_PHY_SRAM_CHANNEL_OFFSET
 
 /* PCS0REG5 register mask and values for each channel */
 #define MP_PHY_PCS0REG5_CH(ch) (0x03 << (24 + (ch) * 2))
@@ -97,7 +102,7 @@
 	(BOOTLOAD_BYPASS_MODE | SRAM_BYPASS_MODE | SRAM_EXT_LD_DONE | SRAM_INIT_DONE)
 
 /* PXSRAMCNT Interface values for each interface mode */
-#define MP_PHY_PXSRAMCNT_ETH (BOOTLOAD_BYPASS_MODE | SRAM_BYPASS_MODE)
+#define MP_PHY_PXSRAMCNT_ETH 0x00
 #define MP_PHY_PXSRAMCNT_USB (MP_PHY_PXSRAMCNT_BYPASS | MP_PHY_PXSRAMCNT_BIT3)
 #define MP_PHY_PXSRAMCNT_PCI (BOOTLOAD_BYPASS_MODE | SRAM_BYPASS_MODE)
 
@@ -175,6 +180,9 @@ struct mp_phy_renesas_rcar_data {
 	DEVICE_MMIO_NAMED_RAM(reg_base);
 };
 
+extern const uint8_t mpphy_firmware[];
+extern const size_t mpphy_firmware_size;
+
 static inline uint32_t mp_phy_renesas_rcar_read(const struct device *dev, uint32_t offs)
 {
 	return sys_read32(DEVICE_MMIO_NAMED_GET(dev, reg_base) + offs);
@@ -184,6 +192,12 @@ static inline void mp_phy_renesas_rcar_write(const struct device *dev, uint32_t 
 					     uint32_t value)
 {
 	sys_write32(value, DEVICE_MMIO_NAMED_GET(dev, reg_base) + offs);
+}
+
+static inline void mp_phy_renesas_rcar_sram_write(const struct device *dev, uint32_t offs,
+						  uint16_t value)
+{
+	sys_write16(value, DEVICE_MMIO_NAMED_GET(dev, reg_base) + offs);
 }
 
 static void mp_phy_renesas_rcar_update_bits(const struct device *dev, uint32_t offs, uint32_t mask,
@@ -214,8 +228,21 @@ static int mp_phy_renesas_rcar_wait_bits(const struct device *dev, uint32_t offs
 	return -ETIME;
 }
 
+static void mp_phy_update_firmware(const struct device *dev, uint32_t channel_id)
+{
+	uint16_t data;
+
+	for (int i = 0; i < mpphy_firmware_size; i += 2) {
+		data = mpphy_firmware[i];
+		data |= mpphy_firmware[i + 1] << 8;
+		mp_phy_renesas_rcar_sram_write(dev, MP_PHY_SRAM_OFFSET(channel_id) + i, data);
+	}
+}
+
 static int mp_phy_init_ethernet(const struct device *dev, uint32_t channel_id)
 {
+	mp_phy_update_firmware(dev, channel_id);
+
 	mp_phy_renesas_rcar_write(dev, MP_PHY_PXRXCNT(channel_id), MP_PHY_PXRXCNT_RESET_VAL);
 	mp_phy_renesas_rcar_update_bits(dev, MP_PHY_PXREFCLK(channel_id), MP_PHY_PXREFCLK_VAL_ETH,
 					MP_PHY_PXREFCLK_VAL_ETH);
@@ -227,7 +254,7 @@ static int mp_phy_init_ethernet(const struct device *dev, uint32_t channel_id)
 	return 0;
 }
 
-static int mp_phy_power_on(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
+int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
 {
 	int ret;
 
@@ -247,7 +274,7 @@ static int mp_phy_power_on(const struct device *dev, struct mp_phy_renesas_rcar_
 	return 0;
 }
 
-int mp_phy_renesas_rcar_enable(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
+int mp_phy_renesas_rcar_prepare(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
 {
 	const struct mp_phy_renesas_rcar_config *config = dev->config;
 	uint8_t if_type;
@@ -283,11 +310,6 @@ int mp_phy_renesas_rcar_enable(const struct device *dev, struct mp_phy_renesas_r
 		return -EINVAL;
 	}
 
-	ret = mp_phy_power_on(dev, phy_cfg);
-	if (ret < 0) {
-		return ret;
-	}
-
 	return 0;
 }
 
@@ -307,7 +329,7 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 	/* Power ON the MP-PHYs, keep the reset asserted */
 	for (uint32_t i = 0; i < config->num_mod_clk; i++) {
 		int ret = clock_control_on(config->clock_dev,
-					(clock_control_subsys_t)&config->p_mod_clk[i]);
+					   (clock_control_subsys_t)&config->p_mod_clk[i]);
 		if (ret < 0) {
 			return ret;
 		}
@@ -349,6 +371,13 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 
 		/* Set SRAM boot mode */
 		mp_phy_renesas_rcar_write(dev, MP_PHY_PXSRAMCNT(i), sramcnt[i]);
+
+		/* Update RAM context when using as ETH */
+		if (config->chan_cfg[i].if_type == MP_PHY_IF_ETHERNET) {
+			mp_phy_renesas_rcar_write(dev, MP_PHY_CHAN_BASE(i) + MP_PHY_CNTXTE_OFFSET,
+						  MP_PHY_CNTXTE_ETH);
+			mp_phy_renesas_rcar_write(dev, MP_PHY_PXCNTXT1(i), MP_PHY_CNTXT1_ETH);
+		}
 
 		/* Release the reset */
 		mp_phy_renesas_rcar_update_bits(dev, MP_PHY_PXTEST(i), MP_PHY_PXTEST_BIT,

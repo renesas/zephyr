@@ -19,6 +19,7 @@ struct mp_phy_renesas_rcar_cfg {
 	enum mp_phy_renesas_rcar_type type;
 };
 
-int mp_phy_renesas_rcar_enable(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg);
+int mp_phy_renesas_rcar_prepare(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg);
+int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg);
 
 #endif /* ZEPHYR_DRIVERS_MISC_RENESAS_RCAR_MP_PHY_H_ */
