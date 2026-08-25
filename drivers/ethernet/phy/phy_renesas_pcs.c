@@ -91,7 +91,8 @@ static int pcs_init_ram(const struct device *dev)
 
 	pcs_write32(dev, 0x026c, 0x180, 0x03);
 
-	ret = mp_phy_renesas_rcar_enable(config->mpphy_dev, config->phy_cfg);
+	/* Power on MP-PHY */
+	ret = mp_phy_renesas_rcar_power_on(config->mpphy_dev, config->phy_cfg);
 	k_busy_wait(1100);
 	if (ret) {
 		return ret;
@@ -109,10 +110,9 @@ static int pcs_common_setting(const struct device *dev)
 		pcs_write32(dev, 0x001c, 0x300, 0x0001);
 		pcs_write32(dev, 0x0000, 0x380, 0x2000);
 		pcs_write32(dev, 0x0000, 0x1f00, 0x0140);
-		pcs_write32(dev, 0x0258, 0x180, 0x0018);
-		pcs_write32(dev, 0x01dc, 0x180, 0x000d);
-		pcs_write32(dev, 0x00f8, 0x180, 0x0016);
-		pcs_write32(dev, 0x0248, 0x180, 0x0016);
+
+		pcs_write32(dev, 0x00f8, 0x180, 0x0019);
+		pcs_write32(dev, 0x0248, 0x180, 0x001e);
 
 		pcs_write32(dev, 0x0000, 0x300, 0x0c40);
 		ret = pcs_reg_wait(dev, 0x0040, 0x380, GENMASK(4, 2), 0x06 << 2);
@@ -186,14 +186,10 @@ static int pcs_chan_setting(const struct device *dev)
 		pcs_write32(dev, 0x0000, 0x1f80, 0x2200);
 		pcs_write32(dev, 0x0000, 0x1f00, 0x3140);
 
-		k_busy_wait(1100);
-
 		ret = pcs_reg_wait(dev, 0x0008, 0x1f80, BIT(0), 0x01);
 		if (ret) {
 			return ret;
 		}
-
-		pcs_write32(dev, 0x0008, 0x1f80, 0x0000);
 
 		return 0;
 	}
@@ -372,6 +368,12 @@ static int pcs_channel_init(const struct device *dev)
 	}
 
 	k_busy_wait(CONFIG_PHY_RENESAS_PCS_TIMEOUT_US);
+
+	/* Prepare firmware */
+	ret = mp_phy_renesas_rcar_prepare(config->mpphy_dev, config->phy_cfg);
+	if (ret) {
+		return ret;
+	}
 
 	ret = pcs_init_ram(dev);
 	if (ret) {
