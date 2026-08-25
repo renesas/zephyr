@@ -1,0 +1,41 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 Serial Sound Interface (SSIF) I2S controller
+
+compatible: "renesas,rh850-i2s-ssif"
+
+include: [i2s-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    enum:
+      - "ssi_txi"
+      - "ssi_rxi"
+      - "ssi_inti"
+
+  channel:
+    type: int
+    required: true
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+  clocks:
+    required: true
+
+  clock-names:
+    required: true
+
+  full-duplex:
+    type: boolean
