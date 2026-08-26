@@ -179,6 +179,7 @@ config RX
 	select USE_SWITCH
 	select USE_SWITCH_SUPPORTED
 	select ARCH_HAS_CODE_DATA_RELOCATION
+	select ARCH_SUPPORTS_COREDUMP
 	help
 	  Renesas RX architecture
 
