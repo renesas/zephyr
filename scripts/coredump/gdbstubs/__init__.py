@@ -10,6 +10,7 @@ from gdbstubs.arch.risc_v import GdbStub_RISC_V
 from gdbstubs.arch.x86 import GdbStub_x86
 from gdbstubs.arch.x86_64 import GdbStub_x86_64
 from gdbstubs.arch.xtensa import GdbStub_Xtensa
+from gdbstubs.arch.rx import GdbStub_RX
 
 
 class TgtCode:
@@ -20,6 +21,7 @@ class TgtCode:
     RISC_V = 4
     XTENSA = 5
     ARM64 = 6
+    RX = 7
 
 
 def get_gdbstub(logfile, elffile):
@@ -39,5 +41,7 @@ def get_gdbstub(logfile, elffile):
         stub = GdbStub_Xtensa(logfile=logfile, elffile=elffile)
     elif tgt_code == TgtCode.ARM64:
         stub = GdbStub_ARM64(logfile=logfile, elffile=elffile)
+    elif tgt_code == TgtCode.RX:
+        stub = GdbStub_RX(logfile=logfile, elffile=elffile)
 
     return stub
