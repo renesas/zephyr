@@ -90,7 +90,10 @@ FUNC_NORETURN void arch_system_halt(unsigned int reason)
 {
 	ARG_UNUSED(reason);
 
-	__asm__("brk");
+	(void)arch_irq_lock();
 
-	CODE_UNREACHABLE;
+	for (;;) {
+		/* spin forever */
+
+	}
 }
