@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2c.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	aliases {
+		i2s-tx = &ssif0;
+	};
+};
+
+&pinctrl {
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			/* TAUD0O1 */
+			psels = <RH850_PSEL(PORT_17, 1, ALT_OUT11)>;
+		};
+	};
+};
+
+&ssif0 {
+	pinctrl-0 = <&ssif0_default>;
+	pinctrl-names = "default";
+
+	clocks = <&cgc RH850_PCLK(SSIF, 0, PCLK)>,
+		 <&ssi_internal_clock 0>;
+
+	clock-names = "pclk", "audio-clock";
+
+	status = "okay";
+};
+
+&ssif1 {
+	status = "disabled";
+};
+
+&pwm0_master {
+	status = "okay";
+};
+
+&pwm0_slave {
+	pinctrl-0 = <&pwm0_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	ssi_internal_clock: pwmclock {
+		compatible = "pwm-clock";
+		status = "okay";
+
+		#clock-cells = <1>;
+
+		pwms = <&pwm0_slave
+			1
+			PWM_HZ(11289600)
+			PWM_POLARITY_NORMAL>;
+
+		clock-frequency = <11289600>;
+	};
+};
+
+&pwm1_slave {
+	status = "disabled";
+};

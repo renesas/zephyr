@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2c.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	wm8960_mclk: wm8960_mclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		status = "okay";
+	};
+
+	aliases {
+		i2s-codec-tx = &ssif0;
+	};
+};
+
+&pinctrl {
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			/* TAUD0O1 */
+			psels = <RH850_PSEL(PORT_17, 1, ALT_OUT11)>;
+		};
+	};
+};
+
+&ssif0 {
+	pinctrl-0 = <&ssif0_default>;
+	pinctrl-names = "default";
+
+	clocks = <&cgc RH850_PCLK(SSIF, 0, PCLK)>,
+		 <&ssi_internal_clock 0>;
+
+	clock-names = "pclk", "audio-clock";
+
+	status = "okay";
+};
+
+&iic1 {
+	status = "okay";
+
+	pinctrl-0 = <&iic1_default>;
+	pinctrl-names = "default";
+
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+
+	audio_codec: wm8960@1a {
+		compatible = "wolfson,wm8960";
+		reg = <0x1a>;
+		status = "okay";
+		clocks = <&wm8960_mclk>;
+		clock-names = "mclk";
+	};
+};
+
+&pwm0_slave {
+	pinctrl-0 = <&pwm0_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	ssi_internal_clock: pwmclock {
+		compatible = "pwm-clock";
+		status = "okay";
+
+		#clock-cells = <1>;
+
+		pwms = <&pwm0_slave
+			1
+			PWM_HZ(6153846)
+			PWM_POLARITY_NORMAL>;
+
+		clock-frequency = <6153846>;
+	};
+};
