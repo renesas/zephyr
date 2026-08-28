@@ -237,7 +237,7 @@ manifest:
     - name: hal_renesas
       remote: renesas
       path: modules/hal/renesas
-      revision: wip_ra_usbh
+      revision: wip_ra8m2
       groups:
         - hal
     - name: hal_rpi_pico
