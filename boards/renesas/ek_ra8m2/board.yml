@@ -4,3 +4,6 @@ board:
   vendor: renesas
   socs:
   - name: r7ka8m2jflcac
+    variants:
+    - name: ospi
+      cpucluster: cm85

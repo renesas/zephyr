@@ -14,15 +14,40 @@ config FLASH_RENESAS_RA_OSPI_B
 	select FLASH_JESD216
 	select PINCTRL
 	help
-	  Enable Octal-SPI Nor flash driver for RA series
+	  Enable Octal-SPI Nor flash driver for RA series.
+
+	  If the application (or MCUboot) executes directly out of the
+	  OSPI flash (XIP), also enable CONFIG_CODE_DATA_RELOCATION so
+	  this driver and its underlying FSP HAL are relocated to RAM.
+	  Otherwise the driver's own code would become unreachable the
+	  moment it switches the OSPI_B peripheral out of memory-mapped
+	  mode to issue erase/write/status commands.
 
 if FLASH_RENESAS_RA_OSPI_B
 
-config RENESAS_RA_OSPI_B_HEAP_SIZE
-	int "OSPI_B runtime heap size"
-	default 1024
+DT_CHOSEN_RA_OSPI_FLASH_CTRL := zephyr,flash-controller
+DT_RA_OSPI_FLASH_CTRL_PATH := $(dt_chosen_path,$(DT_CHOSEN_RA_OSPI_FLASH_CTRL))
+
+config FLASH_RENESAS_RA_OSPI_B_XIP
+	bool
+	default y if BOOTLOADER_MCUBOOT && \
+		$(dt_node_has_compat,$(DT_RA_OSPI_FLASH_CTRL_PATH),$(DT_COMPAT_RENESAS_RA_OSPI_B_NOR))
+	select XIP
 	help
-	  Set the size of the runtime heap for OSPI_B driver.
-	  This heap is used for dynamic memory allocation during runtime.
+	  Set when this image is chain-loaded by MCUboot (CONFIG_BOOTLOADER_MCUBOOT
+	  - notably false when *building* MCUboot itself, since that sets
+	  CONFIG_MCUBOOT instead) and its "zephyr,flash-controller" chosen node
+	  is a Renesas OSPI_B NOR flash controller, i.e. this image executes XIP
+	  directly out of the same OSPI flash this driver manages.
+
+	  This gates SoC-level early clock init (see
+	  fsp_cfg/bsp/*/bsp_clock_cfg.h) that must not touch OctaCLK in that
+	  case: doing so this early in boot - before any RAM relocation or
+	  runtime locking this driver does could help - would stop the exact
+	  clock this CPU depends on to keep fetching its own next instruction.
+
+	  MCUboot's own build is deliberately excluded: it still needs OCTACLK
+	  properly configured to talk to the OSPI chip and read/verify/swap the
+	  image slots that live there.
 
 endif

@@ -224,6 +224,24 @@ if(CONFIG_SOC_FLASH_RENESAS_RA_HP)
   zephyr_library_sources_ifdef(CONFIG_FLASH_EX_OP_ENABLED soc_flash_renesas_ra_hp_ex_op.c)
 endif()
 
+if(CONFIG_FLASH_RENESAS_RA_OSPI_B AND CONFIG_CODE_DATA_RELOCATION)
+  if(NOT CONFIG_CODE_DATA_RELOCATION_SRAM)
+    message(FATAL_ERROR
+      "CONFIG_FLASH_RENESAS_RA_OSPI_B with CONFIG_CODE_DATA_RELOCATION also "
+      "requires CONFIG_CODE_DATA_RELOCATION_SRAM=y on ARM MPU targets. "
+      "Without it, the MPU has no static region granting execute permission "
+      "on the relocated RAM text (arch/arm/core/mpu/arm_core_mpu.c), so code "
+      "moved to RAM by this block faults/hangs the moment it's called."
+    )
+  endif()
+  zephyr_code_relocate(FILES ${CMAKE_CURRENT_LIST_DIR}/flash_renesas_ra_ospi_b.c LOCATION RAM)
+  zephyr_code_relocate(FILES ${CMAKE_CURRENT_LIST_DIR}/jesd216.c LOCATION RAM)
+  zephyr_code_relocate(
+    FILES ${ZEPHYR_HAL_RENESAS_MODULE_DIR}/drivers/ra/fsp/src/r_ospi_b/r_ospi_b.c
+    LOCATION RAM
+  )
+endif()
+
 # Do not use prologue and epilogue code that uses library function calls
 zephyr_library_compile_options_ifdef(CONFIG_FLASH_ANDES_QSPI_XIP -mno-save-restore)
 

@@ -9,11 +9,14 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/init.h>
+#include <zephyr/irq.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/drivers/clock_control/renesas_ra_cgc.h>
 #include <zephyr/dt-bindings/flash_controller/ospi.h>
+#include <zephyr/retention/retention.h>
+#include <zephyr/drivers/retained_mem.h>
 #include <r_spi_flash_api.h>
 #include <r_ospi_b.h>
 #include "spi_nor.h"
@@ -22,13 +25,44 @@
 
 LOG_MODULE_REGISTER(flash_renesas_ra_ospi_b, CONFIG_FLASH_LOG_LEVEL);
 
-K_HEAP_DEFINE(ospi_b_heap, CONFIG_RENESAS_RA_OSPI_B_HEAP_SIZE);
-
 /* Flash device timing */
 #define MAX_TIME_ERASE (50000U)
 #define MAX_TIME_WRITE (50U)
 #define MAX_TIME_READ  (5U)
 #define MAX_TIME_WREN  (5U)
+
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+/*
+ * When the application (or MCUboot) executes XIP out of this same OSPI
+ * flash, k_sleep()/k_busy_wait() must not be used inside the erase/write
+ * critical section below: they dispatch into kernel/timer code that is
+ * not relocated to RAM, and that code becomes unreachable the moment the
+ * OSPI_B peripheral leaves memory-mapped mode to run a manual command.
+ * k_us_to_cyc_ceil32() itself expands to the compile-time constant
+ * CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC unless the runtime-rate path is
+ * selected, in which case it calls sys_clock_hw_cycles_per_sec_runtime_get()
+ * which is *not* relocated and would fault - hence the BUILD_ASSERT below.
+ */
+BUILD_ASSERT(!IS_ENABLED(CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME),
+	     "OSPI_B XIP support requires a compile-time-constant system "
+	     "clock rate: CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME would "
+	     "route k_us_to_cyc_ceil32() through a non-relocated helper");
+
+/* __always_inline keeps this loop inside the (relocated) caller instead of
+ * leaving a separate symbol that CONFIG_CODE_DATA_RELOCATION did not move.
+ */
+static __always_inline void flash_ospi_b_xip_safe_wait_us(uint32_t us)
+{
+	uint32_t count = k_us_to_cyc_ceil32(us);
+
+	while (count--) {
+		compiler_barrier();
+	}
+}
+#define FLASH_OSPI_B_POLL_WAIT_US(us) flash_ospi_b_xip_safe_wait_us(us)
+#else
+#define FLASH_OSPI_B_POLL_WAIT_US(us) k_sleep(K_USEC(us))
+#endif
 
 #define SFDP_PARAM_SECTOR_MAP_AVAILABLE    BIT(0)
 #define SFDP_PARAM_4BYTE_ADDR_AVAILABLE    BIT(1)
@@ -42,16 +76,37 @@ K_HEAP_DEFINE(ospi_b_heap, CONFIG_RENESAS_RA_OSPI_B_HEAP_SIZE);
 #define OSPI_B_PRV_COMSTT_PENDING_ACTION_MASK                                                      \
 	(OSPI_B_PRV_COMSTT_MEMACCCH_MASK | OSPI_B_PRV_COMSTT_WRBUFNECH_MASK)
 
+/*
+ * SFDP table buffers below are fixed-size (not heap-allocated) so that
+ * probing stays safe to run while the application executes XIP out of
+ * this same OSPI flash (see CONFIG_CODE_DATA_RELOCATION): the heap
+ * allocator is not relocated to RAM. Sizes for tables whose length is
+ * fixed by the JESD216 spec (or already enforced elsewhere in this
+ * driver) are plain constants; sizes that genuinely vary with the flash
+ * device (region count, sector map) are Kconfig-tunable.
+ */
+#define OSPI_B_BFP_MAX_DWORDS      20 /* JESD216D Basic Flash Parameter table max length */
+#define OSPI_B_PROFILE1_MAX_DWORDS 5  /* JESD216D-01 6.7: xSPI Profile 1.0 table length */
+#define OSPI_B_ADDR_4B_MAX_DWORDS  2  /* JESD216D-01 6.6: 4-Byte Address Instruction table length */
+/* Matches the cap flash_ospi_b_seq_8d_enable() already enforces on octal_8d_len. */
+#define OSPI_B_SEQ_OCTAL_DDR_MAX_DWORDS 8
+
 struct flash_region_info {
 	uint32_t offset;
 	uint32_t size;
 	uint8_t erase_mask;
 };
 
+/*
+ * DT_INST_PROP(0, ...) below hardcodes instance 0: these bounds size fields
+ * of a single shared struct *type*, and this driver's struct definitions
+ * can't vary per DT_INST_FOREACH_STATUS_OKAY() instance. Only correct as
+ * long as a board has a single renesas,ra-ospi-b-nor node.
+ */
 struct flash_regions_layout {
-	struct flash_region_info *regions;
+	struct flash_region_info regions[DT_INST_PROP(0, max_regions)];
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
-	struct flash_pages_layout *layout;
+	struct flash_pages_layout layout[DT_INST_PROP(0, max_regions)];
 #endif
 	size_t region_count;
 };
@@ -59,19 +114,20 @@ struct flash_regions_layout {
 struct flash_sfdp_region {
 	/* SFDP tables populated during probe */
 	struct jesd216_sfdp_header header; /* SFDP header */
-	struct jesd216_param_header *phdr; /* all param headers (sfdp_nph+1 entries) */
-	uint32_t *bfp_buf;                 /* Basic Flash Parameters (dynamic) */
-	uint32_t *pr1_buf;                 /* xSPI Profile 1.0 (dynamic) */
-	uint32_t *addr_4b_buf;             /* 4-Byte Address Instructions (dynamic) */
-	uint32_t *sccr_buf;                /* SCCR map (dynamic, full table) */
-	uint32_t *octal_ddr_buf;           /* Octal DDR enable sequences (dynamic) */
-	uint32_t *smpt_buf;                /* Sector Map Parameter table (dynamic) */
-	uint32_t param_available;          /* bitmask of available param tables */
-	uint8_t pr1_len;                   /* pr1_buf length in DWORDs */
-	uint8_t addr_4b_len;               /* addr_4b_buf length in DWORDs */
-	uint8_t sccr_len;                  /* sccr_buf length in DWORDs */
-	uint8_t octal_ddr_len;             /* octal_ddr_buf length in DWORDs */
-	uint8_t smp_len;                   /* smpt_buf length in DWORDs */
+	/* all param headers (sfdp_nph+1 entries) */
+	struct jesd216_param_header phdr[DT_INST_PROP(0, max_sfdp_param_headers)];
+	uint32_t bfp_buf[OSPI_B_BFP_MAX_DWORDS];                 /* Basic Flash Parameters */
+	uint32_t pr1_buf[OSPI_B_PROFILE1_MAX_DWORDS];            /* xSPI Profile 1.0 */
+	uint32_t addr_4b_buf[OSPI_B_ADDR_4B_MAX_DWORDS];         /* 4-Byte Address Instructions */
+	uint32_t sccr_buf[DT_INST_PROP(0, sccr_max_dwords)];     /* SCCR map (full table) */
+	uint32_t octal_ddr_buf[OSPI_B_SEQ_OCTAL_DDR_MAX_DWORDS]; /* Octal DDR enable sequences */
+	uint32_t smpt_buf[DT_INST_PROP(0, smpt_max_dwords)];     /* Sector Map Parameter table */
+	uint32_t param_available; /* bitmask of available param tables */
+	uint8_t pr1_len;          /* pr1_buf length in DWORDs */
+	uint8_t addr_4b_len;      /* addr_4b_buf length in DWORDs */
+	uint8_t sccr_len;         /* sccr_buf length in DWORDs */
+	uint8_t octal_ddr_len;    /* octal_ddr_buf length in DWORDs */
+	uint8_t smp_len;          /* smpt_buf length in DWORDs */
 };
 
 /* Since some NOR flash devices have incorrect SFDP values, this special require will override them
@@ -98,6 +154,7 @@ struct flash_renesas_ra_ospi_b_data {
 	uint8_t address_mode;
 	struct k_sem sem;
 	uint32_t calib_sector_size;
+	bool xip_warm_attach;
 };
 
 struct flash_renesas_ra_ospi_b_config {
@@ -133,7 +190,7 @@ static int flash_ospi_b_wait_operation(ospi_b_instance_ctrl_t *p_ctrl, uint32_t 
 
 	status.write_in_progress = true;
 	while (status.write_in_progress) {
-		k_sleep(K_USEC(50));
+		FLASH_OSPI_B_POLL_WAIT_US(50);
 		/* Get device status */
 		err = R_OSPI_B_StatusGet(p_ctrl, &status);
 		if (timeout == 0 || err != FSP_SUCCESS) {
@@ -202,7 +259,7 @@ static int flash_ospi_b_write_enable(struct flash_renesas_ra_ospi_b_data *data)
 			break;
 		}
 
-		k_sleep(K_USEC(50));
+		FLASH_OSPI_B_POLL_WAIT_US(50);
 		timeout--;
 	}
 
@@ -220,7 +277,7 @@ static bool flash_ospi_b_is_valid_address(const struct device *dev, off_t offset
 	struct flash_regions_layout *layout = &data->regions_layout;
 	off_t flash_end;
 
-	if (offset < 0 || len == 0 || layout->regions == NULL) {
+	if (offset < 0 || len == 0 || layout->region_count == 0) {
 		return false;
 	}
 
@@ -426,6 +483,9 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 	struct flash_pages_info page_info_start, page_info_end;
 	int ret = 0;
 	bool need_update_protocol = false;
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	unsigned int key;
+#endif
 
 	if (!len) {
 		return 0;
@@ -457,6 +517,16 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 		return ret;
 	}
 
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	/*
+	 * From here until the protocol is restored below, OSPI_B is out of
+	 * memory-mapped mode. If the application is executing out of this
+	 * same flash, no ISR can be allowed to run in that window - its
+	 * handler code may not be reachable.
+	 */
+	key = irq_lock();
+#endif
+
 	if (ospi_b_data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_1S_4S_4S) {
 		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
 		 *
@@ -467,7 +537,8 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
 					      SPI_FLASH_PROTOCOL_1S_1S_1S);
 		if (err != FSP_SUCCESS) {
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 		need_update_protocol = true;
 	}
@@ -543,10 +614,15 @@ static int flash_renesas_ra_ospi_b_erase(const struct device *dev, off_t offset,
 		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
 					      SPI_FLASH_PROTOCOL_1S_4S_4S);
 		if (err != FSP_SUCCESS) {
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 	}
 
+out:
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	irq_unlock(key);
+#endif
 	k_sem_give(&ospi_b_data->sem);
 
 	return ret;
@@ -625,6 +701,9 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 	size_t size;
 	const uint8_t *p_src;
 	bool need_update_protocol = false;
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	unsigned int key;
+#endif
 
 	if (!len) {
 		return 0;
@@ -655,6 +734,16 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		return ret;
 	}
 
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	/*
+	 * From here until the protocol is restored below, OSPI_B is out of
+	 * memory-mapped mode. If the application is executing out of this
+	 * same flash, no ISR can be allowed to run in that window - its
+	 * handler code may not be reachable.
+	 */
+	key = irq_lock();
+#endif
+
 	if (ospi_b_data->ospi_b_ctrl.spi_protocol == SPI_FLASH_PROTOCOL_1S_4S_4S) {
 		/* Quad I/O read mode: use DirectTransfer PP in 1S-1S-1S.
 		 *
@@ -667,7 +756,8 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
 					      SPI_FLASH_PROTOCOL_1S_1S_1S);
 		if (err != FSP_SUCCESS) {
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 		need_update_protocol = true;
 	}
@@ -710,10 +800,15 @@ static int flash_renesas_ra_ospi_b_write(const struct device *dev, off_t offset,
 		err = R_OSPI_B_SpiProtocolSet(&ospi_b_data->ospi_b_ctrl,
 					      SPI_FLASH_PROTOCOL_1S_4S_4S);
 		if (err != FSP_SUCCESS) {
-			return -EIO;
+			ret = -EIO;
+			goto out;
 		}
 	}
 
+out:
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	irq_unlock(key);
+#endif
 	k_sem_give(&ospi_b_data->sem);
 
 	return ret;
@@ -949,7 +1044,7 @@ static int flash_ospi_b_software_reset(struct flash_renesas_ra_ospi_b_data *data
 	/* tRST: device needs time to complete the internal reset before it will
 	 * respond to further commands.
 	 */
-	k_sleep(K_USEC(30));
+	FLASH_OSPI_B_POLL_WAIT_US(30);
 
 	data->ospi_b_command_set_table[0].protocol = SPI_FLASH_PROTOCOL_1S_1S_1S;
 	err = R_OSPI_B_SpiProtocolSet(&data->ospi_b_ctrl, SPI_FLASH_PROTOCOL_1S_1S_1S);
@@ -963,17 +1058,12 @@ static int flash_ospi_b_software_reset(struct flash_renesas_ra_ospi_b_data *data
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
 static int flash_ospi_b_update_page_layout(struct flash_renesas_ra_ospi_b_data *data)
 {
-	struct flash_pages_layout *layout;
+	struct flash_pages_layout *layout = data->regions_layout.layout;
 	uint32_t i, j;
 
-	layout = k_heap_alloc(&ospi_b_heap,
-			      sizeof(struct flash_pages_layout) * data->regions_layout.region_count,
-			      K_NO_WAIT);
-	if (!layout) {
-		LOG_ERR("Failed to allocate memory for page layout");
-		return -ENOMEM;
-	}
-
+	/* region_count is already bounds-checked against ARRAY_SIZE(layout)
+	 * wherever regions_layout.regions/region_count are populated.
+	 */
 	for (i = 0; i < data->regions_layout.region_count; i++) {
 		uint32_t min_size = UINT32_MAX;
 
@@ -987,15 +1077,12 @@ static int flash_ospi_b_update_page_layout(struct flash_renesas_ra_ospi_b_data *
 
 		if (min_size == UINT32_MAX) {
 			LOG_ERR("No valid erase size found for region %u", i);
-			k_free(layout);
 			return -EINVAL;
 		}
 
 		layout[i].pages_size = min_size;
 		layout[i].pages_count = data->regions_layout.regions[i].size / min_size;
 	}
-
-	data->regions_layout.layout = layout;
 
 	return 0;
 }
@@ -1016,13 +1103,14 @@ static int flash_ospi_b_read_map_format(struct flash_renesas_ra_ospi_b_data *dat
 		return -EIO;
 	}
 
-	regions = k_heap_alloc(&ospi_b_heap, sizeof(struct flash_region_info) * region_count,
-			       K_NO_WAIT);
-	if (!regions) {
-		LOG_ERR("Failed to allocate memory for flash regions");
+	if (region_count > ARRAY_SIZE(data->regions_layout.regions)) {
+		LOG_ERR("Sector map region count %u exceeds the max-regions DT property "
+			"(%zu)",
+			region_count, ARRAY_SIZE(data->regions_layout.regions));
 		return -ENOMEM;
 	}
 
+	regions = data->regions_layout.regions;
 	offset = 0;
 
 	/* Populate regions. */
@@ -1042,11 +1130,9 @@ static int flash_ospi_b_read_map_format(struct flash_renesas_ra_ospi_b_data *dat
 	}
 
 	if (!regions_erase_type) {
-		k_free(regions);
 		return -EINVAL;
 	}
 
-	data->regions_layout.regions = regions;
 	data->regions_layout.region_count = region_count;
 
 	/*
@@ -1583,7 +1669,7 @@ static int flash_ospi_b_seq_8d_enable(ospi_b_instance_ctrl_t *p_ctrl, uint32_t *
 			LOG_DBG("Failed to enable octal ddr mode");
 			return -EIO;
 		}
-		k_sleep(K_USEC(50));
+		FLASH_OSPI_B_POLL_WAIT_US(50);
 	}
 
 	return 0;
@@ -1867,13 +1953,7 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 			LOG_DBG("Failed to handle sector map parameter table");
 		}
 	} else {
-		struct flash_region_info *regions;
-
-		regions = k_heap_alloc(&ospi_b_heap, sizeof(struct flash_region_info), K_NO_WAIT);
-		if (!regions) {
-			LOG_ERR("Failed to allocate memory for flash regions");
-			return -ENOMEM;
-		}
+		struct flash_region_info *regions = data->regions_layout.regions;
 
 		regions->offset = 0;
 		regions->size = config->flash_size;
@@ -1886,7 +1966,6 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 			}
 		}
 
-		data->regions_layout.regions = regions;
 		data->regions_layout.region_count = 1;
 
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
@@ -1969,9 +2048,9 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 		} else if (sfdp_region->param_available & SFDP_PARAM_SEQ_OCTAL_DDR_AVAILABLE) {
 			/* Reset SPI NOR flash device by driving OM_RESET pin */
 			data->ospi_b_ctrl.p_reg->LIOCTL_b.RSTCS0 = 0;
-			k_sleep(K_USEC(500));
+			FLASH_OSPI_B_POLL_WAIT_US(500);
 			data->ospi_b_ctrl.p_reg->LIOCTL_b.RSTCS0 = 1;
-			k_sleep(K_NSEC(50));
+			FLASH_OSPI_B_POLL_WAIT_US(50);
 
 			ret = flash_ospi_b_seq_8d_enable(&data->ospi_b_ctrl,
 							 sfdp_region->octal_ddr_buf,
@@ -2288,7 +2367,165 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 	return 0;
 }
 
-static int flash_ospi_b_nor_probe(const struct device *dev)
+/*
+ * OSPI_B's register base isn't resolved into data->ospi_b_ctrl.p_reg until
+ * R_OSPI_B_Open() runs (r_ospi_b.c: p_reg = R_XSPI0 + unit * (R_XSPI1 -
+ * R_XSPI0)). Reproduce that arithmetic so flash_ospi_b_is_memory_mapped()
+ * and the XIP handoff import path below can resolve it before/without ever
+ * calling Open().
+ */
+static inline R_XSPI0_Type *flash_ospi_b_reg_from_unit(uint8_t unit)
+{
+	return (R_XSPI0_Type *)((uint32_t)R_XSPI0 + unit * ((uint32_t)R_XSPI1 - (uint32_t)R_XSPI0));
+}
+
+/*
+ * Detect whether OSPI_B is already serving memory-mapped reads for this
+ * instance's CS - i.e. MCUboot already opened and configured the controller
+ * and jumped directly into this image while it executes XIP out of it.
+ */
+static bool flash_ospi_b_is_memory_mapped(const struct flash_renesas_ra_ospi_b_data *data)
+{
+	uint8_t unit = data->ospi_b_config_extend.ospi_b_unit;
+	R_XSPI0_Type *p_reg;
+	uint32_t access_mask;
+
+	/*
+	 * BMCTL0 (like every other OSPI_B register) only reflects real state
+	 * once this unit's peripheral clock has been started - R_OSPI_B_Open()
+	 * is what does that first, via R_BSP_MODULE_START(). Before that has
+	 * ever run in this power cycle (a genuine cold boot), reading this
+	 * unclocked peripheral's registers reads back as all-1s on this SoC,
+	 * which would otherwise satisfy any nonzero BMCTL0 bitmask check below
+	 * and produce a false "already memory-mapped" positive - observed in
+	 * practice as MCUboot's own first-ever probe refusing to reprobe and
+	 * failing device_is_ready(), aborting boot before the app ever runs.
+	 * MSTPCRB bit (16 + unit) is FSP's own module-stop bit for FSP_IP_OSPI
+	 * (see bsp_module_stop.h: BSP_MSTP_BIT_FSP_IP_OSPI); set means stopped.
+	 */
+	if (R_MSTP->MSTPCRB & (1U << (16U + unit))) {
+		return false;
+	}
+
+	p_reg = flash_ospi_b_reg_from_unit(unit);
+	access_mask = (data->ospi_b_config_extend.channel == 0)
+			      ? (R_XSPI0_BMCTL0_CH0CS0ACC_Msk | R_XSPI0_BMCTL0_CH1CS0ACC_Msk)
+			      : (R_XSPI0_BMCTL0_CH0CS1ACC_Msk | R_XSPI0_BMCTL0_CH1CS1ACC_Msk);
+
+	return (p_reg->BMCTL0 & access_mask) == access_mask;
+}
+
+#define OSPI_B_ZEPHYR_XIP_HANDOFF_OPEN_SENTINEL (0x78535049U)
+
+#define OSPI_B_XIP_HANDOFF_MAGIC 0x4f585048U /* "OXPH" */
+
+/*
+ * On-wire format for flash_ospi_b_xip_handoff_export()/_import(). Uses only
+ * fixed-width/FSP-standard value types (no pointers) so a raw byte copy
+ * across the MCUboot -> app image boundary is valid, since both images are
+ * built from the same FSP headers and this same driver source.
+ */
+struct ospi_b_xip_handoff {
+	uint32_t magic;
+	uint32_t spi_protocol;
+	uint32_t address_mode;
+	uint32_t calib_sector_size;
+	uint32_t region_count;
+	spi_flash_erase_command_t erase_command_list[JESD216_NUM_ERASE_TYPES];
+	ospi_b_xspi_command_set_t command_set;
+	struct flash_region_info regions[DT_INST_PROP(0, max_regions)];
+};
+
+static int flash_ospi_b_xip_handoff_export(const struct device *dev, void *buf, size_t buf_size)
+{
+	struct flash_renesas_ra_ospi_b_data *data = dev->data;
+	struct ospi_b_xip_handoff handoff = {0};
+
+	if (buf_size < sizeof(handoff)) {
+		return -EINVAL;
+	}
+
+	if (data->regions_layout.region_count == 0 ||
+	    data->regions_layout.region_count > ARRAY_SIZE(handoff.regions)) {
+		return -ENODEV;
+	}
+
+	handoff.magic = OSPI_B_XIP_HANDOFF_MAGIC;
+	handoff.spi_protocol = (uint32_t)data->ospi_b_ctrl.spi_protocol;
+	handoff.address_mode = data->address_mode;
+	handoff.calib_sector_size = data->calib_sector_size;
+	handoff.region_count = data->regions_layout.region_count;
+	memcpy(handoff.erase_command_list, data->erase_command_list,
+	       sizeof(handoff.erase_command_list));
+	handoff.command_set = data->ospi_b_command_set_table[1];
+	memcpy(handoff.regions, data->regions_layout.regions,
+	       handoff.region_count * sizeof(handoff.regions[0]));
+
+	memcpy(buf, &handoff, sizeof(handoff));
+
+	return (int)sizeof(handoff);
+}
+
+/*
+ * Counterpart to flash_ospi_b_xip_handoff_export(), used only by this same
+ * driver on the application side. Populates data's ctrl bookkeeping and
+ * SFDP-derived state from a previously exported blob without touching any
+ * OSPI_B register or the flash device itself.
+ */
+static int flash_ospi_b_xip_handoff_import(struct flash_renesas_ra_ospi_b_data *data,
+					   const void *buf, size_t len)
+{
+	struct ospi_b_xip_handoff handoff;
+
+	if (len < sizeof(handoff)) {
+		return -EINVAL;
+	}
+	memcpy(&handoff, buf, sizeof(handoff));
+
+	if (handoff.magic != OSPI_B_XIP_HANDOFF_MAGIC) {
+		return -EINVAL;
+	}
+	if (handoff.region_count == 0 || handoff.region_count > ARRAY_SIZE(handoff.regions)) {
+		return -EINVAL;
+	}
+
+	data->ospi_b_ctrl.p_cfg = &data->ospi_b_cfg;
+	data->ospi_b_ctrl.p_reg =
+		flash_ospi_b_reg_from_unit(data->ospi_b_config_extend.ospi_b_unit);
+	data->ospi_b_ctrl.channel = data->ospi_b_config_extend.channel;
+	data->ospi_b_ctrl.ospi_b_unit = data->ospi_b_config_extend.ospi_b_unit;
+	data->ospi_b_ctrl.spi_protocol = (spi_flash_protocol_t)handoff.spi_protocol;
+	data->ospi_b_ctrl.open = OSPI_B_ZEPHYR_XIP_HANDOFF_OPEN_SENTINEL;
+
+	data->address_mode = (uint8_t)handoff.address_mode;
+	data->calib_sector_size = handoff.calib_sector_size;
+	memcpy(data->erase_command_list, handoff.erase_command_list,
+	       sizeof(data->erase_command_list));
+
+	data->ospi_b_command_set_table[1] = handoff.command_set;
+	/*
+	 * p_erase_commands is a pointer into *this image's* data struct - the
+	 * value carried over by the raw copy above points into the exporting
+	 * image's own address space and must be re-pointed at our own erase
+	 * table wrapper.
+	 */
+	data->ospi_b_command_set_table[1].p_erase_commands = &data->ospi_b_erase_commands;
+	data->ospi_b_ctrl.p_cmd_set = &data->ospi_b_command_set_table[1];
+
+	memcpy(data->regions_layout.regions, handoff.regions,
+	       handoff.region_count * sizeof(handoff.regions[0]));
+	data->regions_layout.region_count = handoff.region_count;
+
+#if defined(CONFIG_FLASH_PAGE_LAYOUT)
+	if (flash_ospi_b_update_page_layout(data) != 0) {
+		return -EINVAL;
+	}
+#endif
+
+	return 0;
+}
+
+static int flash_ospi_b_nor_probe(const struct device *dev, bool warm_attach)
 {
 	const struct flash_renesas_ra_ospi_b_config *config = dev->config;
 	struct flash_renesas_ra_ospi_b_data *data = dev->data;
@@ -2296,6 +2533,33 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 	uint8_t device_id[JESD216_READ_ID_LEN];
 	fsp_err_t err;
 	int ret;
+
+	if (warm_attach) {
+		/*
+		 * OSPI_B is already open and memory-mapped - MCUboot configured it
+		 * and jumped directly into this XIP image. Do NOT call
+		 * R_OSPI_B_Open()/toggle RSTCS0/redo the SFDP probe
+		 * Import the configuration MCUboot already derived
+		 */
+#if DT_HAS_CHOSEN(zephyr_ospi_xip_handoff)
+		const struct device *retained_mem_dev =
+			DEVICE_DT_GET(DT_PARENT(DT_CHOSEN(zephyr_ospi_xip_handoff)));
+		off_t retained_mem_off = DT_REG_ADDR(DT_CHOSEN(zephyr_ospi_xip_handoff));
+		uint8_t handoff_buf[sizeof(struct ospi_b_xip_handoff)];
+
+		if (device_is_ready(retained_mem_dev) &&
+		    retained_mem_read(retained_mem_dev, retained_mem_off, handoff_buf,
+				      sizeof(handoff_buf)) == 0 &&
+		    flash_ospi_b_xip_handoff_import(data, handoff_buf, sizeof(handoff_buf)) == 0) {
+			LOG_INF("OSPI_B: adopted MCUboot's XIP configuration (warm handoff)");
+			data->xip_warm_attach = true;
+			return 0;
+		}
+#endif
+		LOG_ERR("OSPI_B already memory-mapped but no valid MCUboot XIP handoff found, "
+			"refusing to reprobe");
+		return -ENODEV;
+	}
 
 	/* Open OSPI module */
 	err = R_OSPI_B_Open(&data->ospi_b_ctrl, &data->ospi_b_cfg);
@@ -2307,9 +2571,9 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 
 	/* Reset SPI NOR flash device by driving OM_RESET pin */
 	data->ospi_b_ctrl.p_reg->LIOCTL_b.RSTCS0 = 0;
-	k_sleep(K_USEC(500));
+	FLASH_OSPI_B_POLL_WAIT_US(500);
 	data->ospi_b_ctrl.p_reg->LIOCTL_b.RSTCS0 = 1;
-	k_sleep(K_NSEC(50));
+	FLASH_OSPI_B_POLL_WAIT_US(100);
 
 	/* Read SFDP header */
 	ret = flash_ospi_b_sfdp_read_helper(&data->ospi_b_ctrl, &sfdp_region->header, 0,
@@ -2371,12 +2635,16 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 		goto _exit;
 	}
 
-	/* Allocate memory for parameter headers */
-	sfdp_region->phdr = k_heap_alloc(
-		&ospi_b_heap, (sfdp_region->header.nph + 1) * sizeof(struct jesd216_param_header),
-		K_NO_WAIT);
-	if (sfdp_region->phdr == NULL) {
-		LOG_DBG("Failed to allocate memory for parameter headers");
+	/* Parameter headers are read directly into the fixed-size phdr[]
+	 * array (see struct flash_sfdp_region) - no heap allocation, so
+	 * probing stays safe to run while OSPI_B is out of memory-mapped
+	 * mode. Fail loudly rather than silently truncate if a device
+	 * reports more headers than this build was configured for.
+	 */
+	if ((size_t)(sfdp_region->header.nph + 1) > ARRAY_SIZE(sfdp_region->phdr)) {
+		LOG_ERR("SFDP nph+1 (%u) exceeds the max-sfdp-param-headers DT property "
+			"(%zu)",
+			sfdp_region->header.nph + 1, ARRAY_SIZE(sfdp_region->phdr));
 		ret = -ENOMEM;
 		goto _exit;
 	}
@@ -2390,11 +2658,9 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 		goto _exit;
 	}
 
-	/* Allocate memory for BFP table */
-	sfdp_region->bfp_buf = k_heap_alloc(
-		&ospi_b_heap, sfdp_region->phdr[0].len_dw * sizeof(uint32_t), K_NO_WAIT);
-	if (sfdp_region->bfp_buf == NULL) {
-		LOG_DBG("Failed to allocate memory for BFP table");
+	if (sfdp_region->phdr[0].len_dw > ARRAY_SIZE(sfdp_region->bfp_buf)) {
+		LOG_ERR("BFP table length %u dw exceeds fixed buffer (%zu dw)",
+			sfdp_region->phdr[0].len_dw, ARRAY_SIZE(sfdp_region->bfp_buf));
 		ret = -ENOMEM;
 		goto _exit;
 	}
@@ -2410,111 +2676,97 @@ static int flash_ospi_b_nor_probe(const struct device *dev)
 
 	/* Read other parameter tables */
 	for (uint8_t i = 1; i <= sfdp_region->header.nph; i++) {
+		uint8_t len_dw = sfdp_region->phdr[i].len_dw;
+
 		switch (jesd216_param_id(&sfdp_region->phdr[i])) {
 		case JESD216_SFDP_PARAM_ID_SECTOR_MAP:
-			sfdp_region->smpt_buf = k_heap_alloc(
-				&ospi_b_heap, sfdp_region->phdr[i].len_dw * sizeof(uint32_t),
-				K_NO_WAIT);
-			if (sfdp_region->smpt_buf == NULL) {
-				LOG_DBG("Failed to allocate memory for sector map");
+			if (len_dw > ARRAY_SIZE(sfdp_region->smpt_buf)) {
+				LOG_ERR("Sector map length %u dw exceeds the smpt-max-dwords DT "
+					"property (%zu)",
+					len_dw, ARRAY_SIZE(sfdp_region->smpt_buf));
 				break;
 			}
 			ret = flash_ospi_b_sfdp_read_helper(
 				&data->ospi_b_ctrl, sfdp_region->smpt_buf,
 				jesd216_param_addr(&sfdp_region->phdr[i]),
-				sfdp_region->phdr[i].len_dw * sizeof(uint32_t));
+				len_dw * sizeof(uint32_t));
 			if (ret < 0) {
 				LOG_DBG("Failed to read sector map parameter table");
-				k_free(sfdp_region->smpt_buf);
-				sfdp_region->smpt_buf = NULL;
 				break;
 			}
-			sfdp_region->smp_len = sfdp_region->phdr[i].len_dw;
+			sfdp_region->smp_len = len_dw;
 			sfdp_region->param_available |= SFDP_PARAM_SECTOR_MAP_AVAILABLE;
 			break;
 		case JESD216_SFDP_PARAM_ID_SEQ_OCTAL_DDR:
-			sfdp_region->octal_ddr_buf = k_heap_alloc(
-				&ospi_b_heap, sfdp_region->phdr[i].len_dw * sizeof(uint32_t),
-				K_NO_WAIT);
-			if (sfdp_region->octal_ddr_buf == NULL) {
-				LOG_DBG("Failed to allocate memory for octal DDR sequences");
+			if (len_dw > ARRAY_SIZE(sfdp_region->octal_ddr_buf)) {
+				LOG_ERR("Octal DDR sequence table length %u dw exceeds fixed "
+					"buffer (%zu dw)",
+					len_dw, ARRAY_SIZE(sfdp_region->octal_ddr_buf));
 				break;
 			}
 			ret = flash_ospi_b_sfdp_read_helper(
 				&data->ospi_b_ctrl, sfdp_region->octal_ddr_buf,
 				jesd216_param_addr(&sfdp_region->phdr[i]),
-				sfdp_region->phdr[i].len_dw * sizeof(uint32_t));
+				len_dw * sizeof(uint32_t));
 			if (ret != 0) {
 				LOG_DBG("Read octal DDR sequences failed");
-				k_free(sfdp_region->octal_ddr_buf);
-				sfdp_region->octal_ddr_buf = NULL;
 				break;
 			}
-			sfdp_region->octal_ddr_len = sfdp_region->phdr[i].len_dw;
+			sfdp_region->octal_ddr_len = len_dw;
 			sfdp_region->param_available |= SFDP_PARAM_SEQ_OCTAL_DDR_AVAILABLE;
 			break;
 		case JESD216_SFDP_PARAM_ID_SCCR_MAP:
-			sfdp_region->sccr_buf = k_heap_alloc(
-				&ospi_b_heap, sfdp_region->phdr[i].len_dw * sizeof(uint32_t),
-				K_NO_WAIT);
-			if (sfdp_region->sccr_buf == NULL) {
-				LOG_DBG("Failed to allocate memory for SCCR map");
+			if (len_dw > ARRAY_SIZE(sfdp_region->sccr_buf)) {
+				LOG_ERR("SCCR map length %u dw exceeds the sccr-max-dwords DT "
+					"property (%zu dw)",
+					len_dw, ARRAY_SIZE(sfdp_region->sccr_buf));
 				break;
 			}
 			ret = flash_ospi_b_sfdp_read_helper(
 				&data->ospi_b_ctrl, sfdp_region->sccr_buf,
 				jesd216_param_addr(&sfdp_region->phdr[i]),
-				sfdp_region->phdr[i].len_dw * sizeof(uint32_t));
+				len_dw * sizeof(uint32_t));
 			if (ret != 0) {
 				LOG_DBG("Failed to read SCCR map");
-				k_free(sfdp_region->sccr_buf);
-				sfdp_region->sccr_buf = NULL;
 				break;
 			}
-			sfdp_region->sccr_len = sfdp_region->phdr[i].len_dw;
+			sfdp_region->sccr_len = len_dw;
 			sfdp_region->param_available |= SFDP_PARAM_SCCR_MAP_AVAILABLE;
 			break;
 		case JESD216_SFDP_PARAM_ID_XSPI_PROFILE_1V0:
-			sfdp_region->pr1_buf = k_heap_alloc(
-				&ospi_b_heap, sfdp_region->phdr[i].len_dw * sizeof(uint32_t),
-				K_NO_WAIT);
-			if (sfdp_region->pr1_buf == NULL) {
-				LOG_DBG("Failed to allocate memory for xSPI Profile 1.0 table");
+			if (len_dw > ARRAY_SIZE(sfdp_region->pr1_buf)) {
+				LOG_ERR("xSPI Profile 1.0 table length %u dw exceeds fixed "
+					"buffer (%zu dw)",
+					len_dw, ARRAY_SIZE(sfdp_region->pr1_buf));
 				break;
 			}
 			ret = flash_ospi_b_sfdp_read_helper(
 				&data->ospi_b_ctrl, sfdp_region->pr1_buf,
 				jesd216_param_addr(&sfdp_region->phdr[i]),
-				sfdp_region->phdr[i].len_dw * sizeof(uint32_t));
+				len_dw * sizeof(uint32_t));
 			if (ret != 0) {
 				LOG_DBG("Failed to read xSPI Profile 1.0 table");
-				k_free(sfdp_region->pr1_buf);
-				sfdp_region->pr1_buf = NULL;
 				break;
 			}
-			sfdp_region->pr1_len = sfdp_region->phdr[i].len_dw;
+			sfdp_region->pr1_len = len_dw;
 			sfdp_region->param_available |= SFDP_PARAM_PROFILE_1V0_AVAILABLE;
 			break;
 		case JESD216_SFDP_PARAM_ID_4B_ADDR_INSTR:
-			sfdp_region->addr_4b_buf = k_heap_alloc(
-				&ospi_b_heap, sfdp_region->phdr[i].len_dw * sizeof(uint32_t),
-				K_NO_WAIT);
-			if (sfdp_region->addr_4b_buf == NULL) {
-				LOG_DBG("Failed to allocate memory for 4-byte address instruction "
-					"table");
+			if (len_dw > ARRAY_SIZE(sfdp_region->addr_4b_buf)) {
+				LOG_ERR("4-byte address instruction table length %u dw exceeds "
+					"fixed buffer (%zu dw)",
+					len_dw, ARRAY_SIZE(sfdp_region->addr_4b_buf));
 				break;
 			}
 			ret = flash_ospi_b_sfdp_read_helper(
 				&data->ospi_b_ctrl, sfdp_region->addr_4b_buf,
 				jesd216_param_addr(&sfdp_region->phdr[i]),
-				sfdp_region->phdr[i].len_dw * sizeof(uint32_t));
+				len_dw * sizeof(uint32_t));
 			if (ret != 0) {
 				LOG_DBG("Failed to read 4-byte address instruction table");
-				k_free(sfdp_region->addr_4b_buf);
-				sfdp_region->addr_4b_buf = NULL;
 				break;
 			}
-			sfdp_region->addr_4b_len = sfdp_region->phdr[i].len_dw;
+			sfdp_region->addr_4b_len = len_dw;
 			sfdp_region->param_available |= SFDP_PARAM_4BYTE_ADDR_AVAILABLE;
 			break;
 		default:
@@ -2540,7 +2792,25 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 	struct flash_renesas_ra_ospi_b_data *data = dev->data;
 	bsp_octaclk_settings_t octaclk_settings;
 	uint32_t clock_freq;
+	bool warm_attach = flash_ospi_b_is_memory_mapped(data);
 	int ret;
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	unsigned int key = 0;
+#endif
+
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	/*
+	 * R_BSP_OctaclkUpdate() stops the OSPI_B module clock while it
+	 * reprograms OctaCLK. If the application is executing out of this
+	 * same OSPI flash, no ISR can be allowed to run in that window - its
+	 * handler code may not be reachable. Not needed for warm_attach: that
+	 * path (see below) never calls R_BSP_OctaclkUpdate() or touches any
+	 * OSPI_B register at all, only copies already-derived state into RAM.
+	 */
+	if (!warm_attach) {
+		key = irq_lock();
+	}
+#endif
 
 	/* desired_protocol of OSPI checking */
 	if (config->desired_protocol == OSPI_DUAL_MODE) {
@@ -2579,21 +2849,36 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 
 	k_sem_init(&data->sem, 1, 1);
 
-	/* SFDP spec requires that we downclock the FlexSPI to 50MHz or less */
-	if (clock_freq * config->clock_div > MHZ(800)) {
-		LOG_ERR("clock source for OctaCLK is too high need <= 800MHz");
-		return -EINVAL;
-	}
-	octaclk_settings.source_clock = config->clock_src;
-	octaclk_settings.divider = BSP_CLOCKS_OCTACLK_DIV_8;
-	R_BSP_OctaclkUpdate(&octaclk_settings);
+	if (!warm_attach) {
+		/* SFDP spec requires that we downclock the FlexSPI to 50MHz or less */
+		if (clock_freq * config->clock_div > MHZ(800)) {
+			LOG_ERR("clock source for OctaCLK is too high need <= 800MHz");
+			return -EINVAL;
+		}
+		octaclk_settings.source_clock = config->clock_src;
+		octaclk_settings.divider = BSP_CLOCKS_OCTACLK_DIV_8;
 
-	ret = flash_ospi_b_nor_probe(dev);
+		/*
+		 * Stops the OSPI_B module clock while reprogramming OctaCLK - see
+		 * the irq_lock() comment above. MCUboot already established the
+		 * correct OctaCLK configuration; redoing it here on the
+		 * warm_attach path would needlessly repeat that hazard for no
+		 * benefit, so it's skipped entirely above.
+		 */
+		R_BSP_OctaclkUpdate(&octaclk_settings);
+	}
+
+	ret = flash_ospi_b_nor_probe(dev, warm_attach);
 	if (ret) {
 		LOG_ERR("NOR probe failed (%d)", ret);
 		return ret;
 	}
 
+#if defined(CONFIG_CODE_DATA_RELOCATION)
+	if (!warm_attach) {
+		irq_unlock(key);
+	}
+#endif
 	return ret;
 }
 
@@ -2642,7 +2927,6 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 	};                                                                                         \
                                                                                                    \
 	static struct flash_renesas_ra_ospi_b_data ospi_b_data_##idx = {                           \
-		.regions_layout = {0},                                                             \
 		.ospi_b_timing_settings =                                                          \
 			{                                                                          \
 				.command_to_command_interval = OSPI_B_COMMAND_INTERVAL_CLOCKS_2,   \
@@ -2727,3 +3011,66 @@ static int flash_renesas_ra_ospi_b_init(const struct device *dev)
 			      &flash_renesas_ra_ospi_b_api);
 
 DT_INST_FOREACH_STATUS_OKAY(OSPI_B_RENESAS_RA_INIT);
+
+#if DT_HAS_CHOSEN(zephyr_ospi_xip_handoff)
+/*
+ * Publish this OSPI_B instance's SFDP-derived XIP configuration for a
+ * follow-on image to adopt (see flash_ospi_b_xip_handoff_import() above),
+ * so it can skip the OM_RESET pin toggle + SFDP reprobe that
+ * flash_ospi_b_nor_probe() just performed. On this board's flash part
+ * (JESD216_SFDP_BFP_DW18_BYTE_ORDER_SWAPPED), redoing that reprobe while an
+ * image depends on this same flash for XIP returns corrupted bytes for its
+ * own code/data - see flash_ospi_b_is_memory_mapped() and its callers.
+ *
+ * Runs at APPLICATION init level, i.e. after every POST_KERNEL device -
+ * including this one and the retention device below - is ready, in
+ * whichever image runs first (typically MCUboot). No explicit call from
+ * that image's own boot flow is needed: a later image that finds OSPI_B
+ * already memory-mapped takes the import path in flash_ospi_b_nor_probe()
+ * instead and skips this publish step entirely (data->xip_warm_attach).
+ */
+static int flash_ospi_b_xip_handoff_publish(void)
+{
+	const struct device *dev = DEVICE_DT_GET(DT_DRV_INST(0));
+	const struct device *retention_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_ospi_xip_handoff));
+	struct flash_renesas_ra_ospi_b_data *data;
+	uint8_t handoff_buf[sizeof(struct ospi_b_xip_handoff)];
+	ssize_t area_size;
+	int handoff_len;
+	int ret;
+
+	if (!device_is_ready(dev)) {
+		return 0;
+	}
+
+	data = dev->data;
+	if (data->xip_warm_attach) {
+		/* We imported this configuration ourselves; nothing new to publish. */
+		return 0;
+	}
+
+	if (!device_is_ready(retention_dev)) {
+		return 0;
+	}
+
+	area_size = retention_size(retention_dev);
+	if (area_size <= 0 || (size_t)area_size < sizeof(handoff_buf)) {
+		return 0;
+	}
+
+	handoff_len = flash_ospi_b_xip_handoff_export(dev, handoff_buf, sizeof(handoff_buf));
+	if (handoff_len <= 0) {
+		LOG_ERR("Failed to export OSPI XIP handoff data (%d)", handoff_len);
+		return 0;
+	}
+
+	ret = retention_write(retention_dev, 0, handoff_buf, (size_t)handoff_len);
+	if (ret != 0) {
+		LOG_ERR("Failed to write OSPI XIP handoff data");
+	}
+
+	return 0;
+}
+
+SYS_INIT(flash_ospi_b_xip_handoff_publish, APPLICATION, 0);
+#endif /* DT_HAS_CHOSEN(zephyr_ospi_xip_handoff) */

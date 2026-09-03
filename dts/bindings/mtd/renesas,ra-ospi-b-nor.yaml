@@ -66,3 +66,46 @@ properties:
        - <0x01> = Issue 0x38 after enabling Quad mode via the QE bit (quad-enable-requirements)
        - <0x02> = Issue 0x38, no prior QE bit write required
        - <0x04> = Issue 0x35, no prior QE bit write required
+
+  max-sfdp-param-headers:
+    type: int
+    default: 9
+    description: |
+      Maximum number of JESD216 SFDP parameter headers (nph + 1) this driver will read
+      during probe. All SFDP tables are read into fixed-size buffers (not heap-allocated)
+      so that probing remains safe to run while the application executes XIP out of this
+      same OSPI flash. Increase this if this flash device advertises more parameter
+      tables than the default covers; probe fails with an error rather than silently
+      truncating if the device exceeds this bound.
+
+  smpt-max-dwords:
+    type: int
+    default: 64
+    description: |
+      Maximum size (in 32-bit words) of this flash device's JESD216 Sector Map
+      Parameter Table (SMPT). Unlike the other SFDP tables, the SMPT's length is not
+      fixed by the JESD216 spec - it scales with how many configuration maps and
+      regions the device defines. Increase this if this flash device's sector map is
+      larger than the default covers.
+
+  max-regions:
+    type: int
+    default: 16
+    description: |
+      Maximum number of distinct erase regions this driver can track for this flash
+      device (parsed from its Sector Map Parameter Table, or 1 when it has no sector
+      map). This is live state used by every subsequent erase/write call, not just
+      probe-time scratch space. Increase this if this flash device's sector map
+      defines more regions than the default covers.
+
+  sccr-max-dwords:
+    type: int
+    default: 28
+    description: |
+      Maximum size (in 32-bit words) of this flash device's JESD216 SCCR Map
+      Parameter Table. JESD216D-01 6.9 only guarantees a 22-dw minimum (this
+      driver's own decode logic requires at least that much) - it is not a real
+      upper bound, and real devices report more: the MX25LW51245G measured on
+      real hardware reports 28 dw. Increase this if a different flash device's
+      SCCR map is larger than the default covers; probe fails with an error
+      rather than silently truncating if the device exceeds this bound.
