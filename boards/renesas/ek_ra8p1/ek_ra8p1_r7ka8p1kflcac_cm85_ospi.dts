@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include "ek_ra8p1_r7ka8p1kflcac_cm85_common.dtsi"
+
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &storage_partition;
+
+/ {
+	model = "Renesas EK-RA8P1 OSPI flash variant";
+	compatible = "renesas,ra8p1", "renesas,ra8";
+
+	chosen {
+		zephyr,flash = &ext_flash;
+		zephyr,flash-controller = &ext_flash_ctrl;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,uart-mcumgr = &uart8;
+		zephyr,ospi-xip-handoff = &ospi_xip_handoff;
+	};
+
+	/*
+	 * MCUboot already runs flash_ospi_b_nor_probe()'s OM_RESET + SFDP
+	 * discovery once and jumps straight into this image executing XIP out
+	 * of the same OSPI flash. mx25lw51245g reports
+	 * JESD216_SFDP_BFP_DW18_BYTE_ORDER_SWAPPED, so redoing that reprobe
+	 * from the app would briefly switch the controller to Extended SPI
+	 * (1S-1S-1S), during which every read of this already-8D-8D-8D
+	 * -programmed image returns corrupted bytes - unsafe regardless of
+	 * code relocation, since this SoC's vector table and fault handlers
+	 * are not RAM-relocated either. This carved-out tail of sram0 lets
+	 * MCUboot hand the already-derived OSPI configuration to the app
+	 * instead, so the app never re-enters Extended SPI mode. See
+	 * flash_ospi_b_nor_probe()/flash_ospi_b_xip_handoff_export() in
+	 * flash_renesas_ra_ospi_b.c.
+	 */
+	sram@220ffe00 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x220ffe00 0x200>;
+		zephyr,memory-region = "OSPI_XIP_HANDOFF";
+		status = "okay";
+
+		ospi_xip_handoff_retainedmem: retainedmem {
+			compatible = "zephyr,retained-ram";
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ospi_xip_handoff: retention@0 {
+				compatible = "zephyr,retention";
+				status = "okay";
+				reg = <0x0 0x200>;
+			};
+		};
+	};
+};
+
+/* Shrink sram0 to exclude the OSPI XIP handoff carve-out above. */
+&sram0 {
+	reg = <0x22000000 (DT_SIZE_M(1) - 0x200)>;
+};
+
+&ext_flash_ctrl {
+	status = "okay";
+};
+
+&mx25lw51245g {
+	status = "okay";
+
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		slot0_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x0 DT_SIZE_M(16)>;
+		};
+
+		slot1_partition: partition@1000000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <DT_SIZE_M(16) DT_SIZE_M(16)>;
+		};
+
+		storage_partition: partition@2000000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <DT_SIZE_M(32) DT_SIZE_K(64)>;
+		};
+
+		auto_calib_partition: partition@3fff000 {
+			compatible = "zephyr,mapped-partition";
+			label = "auto-calib-pattern";
+			reg = <0x3fff000 DT_SIZE_K(4)>;
+		};
+	};
+};

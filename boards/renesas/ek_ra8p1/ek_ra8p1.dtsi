@@ -280,7 +280,7 @@
 		default-8d-dummy-cycles = <20>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		status = "disabled";
+		status = "okay";
 
 		ext_flash: mx25lw51245g: nor-flash@0 {
 			compatible = "soc-nv-flash";
