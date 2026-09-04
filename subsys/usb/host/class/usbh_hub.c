@@ -810,18 +810,25 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 		return -ENOSPC;
 	}
 
-	/* Convert device-level match to interface 0 */
+	/*
+	 * Per the USB Hub Class spec, bDeviceProtocol is always 0x00 in the
+	 * device descriptor regardless of the hub's actual capabilities; the
+	 * real protocol (FS/single-TT/multi-TT) is only meaningful in the
+	 * interface descriptor. Reject the device-level match so this class
+	 * only ever binds once, at the interface level.
+	 */
 	if (iface == USBH_CLASS_IFNUM_DEVICE) {
-		target_iface = 0;
-	} else {
-		target_iface = iface;
+		LOG_DBG("Rejecting device-level match, hub only matches at interface level");
+		return -ENOTSUP;
 	}
+
+	target_iface = iface;
 
 	LOG_DBG("USB HUB device probe at interface %u", target_iface);
 
 	desc_start = usbh_desc_get_iface(udev, target_iface);
 	if (desc_start == NULL) {
-		LOG_ERR("Failed to find interface %u descriptor", iface);
+		LOG_ERR("Failed to find interface %u descriptor", target_iface);
 		return -ENOTSUP;
 	}
 
