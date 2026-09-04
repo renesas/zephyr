@@ -1003,6 +1003,12 @@ static struct usbh_class_filter hub_filters[] = {
 		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
 		.class = USB_HUB_CLASS_CODE,
 		.sub = USB_HUB_SUBCLASS_CODE,
+		.proto = USB_HUB_PROTOCOL_CODE,
+	},
+	{
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
+		.class = USB_HUB_CLASS_CODE,
+		.sub = USB_HUB_SUBCLASS_CODE,
 		.proto = 1,
 	},
 	{0},
