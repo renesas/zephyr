@@ -107,7 +107,7 @@ static void usbh_class_probe_function(struct usb_device *const udev,
 			continue;
 		}
 
-		if (!usbh_class_is_matching(c_node->filters, filter_data)) {
+		if (!usbh_class_is_matching(c_node->filters, filter_data, iface)) {
 			LOG_DBG("Class %s not matching interface %u",
 				c_data->name, iface);
 			continue;
@@ -165,7 +165,8 @@ void usbh_class_probe_device(struct usb_device *const udev)
 }
 
 bool usbh_class_is_matching(const struct usbh_class_filter *const filter_rules,
-			    const struct usbh_class_filter *const filter_data)
+			    const struct usbh_class_filter *const filter_data,
+			    const uint8_t iface)
 {
 	/* Make empty filter set match everything (use class_api->probe() only) */
 	if (filter_rules == NULL) {
@@ -175,6 +176,11 @@ bool usbh_class_is_matching(const struct usbh_class_filter *const filter_rules,
 	/* Try to find a rule that matches completely */
 	for (size_t i = 0; filter_rules[i].flags != 0; i++) {
 		const struct usbh_class_filter *rule = &filter_rules[i];
+
+		if (rule->flags & USBH_CLASS_MATCH_IFACE_ONLY &&
+		    iface == USBH_CLASS_IFNUM_DEVICE) {
+			continue;
+		}
 
 		if (rule->flags & USBH_CLASS_MATCH_VID_PID &&
 		    (filter_data->vid != rule->vid || filter_data->pid != rule->pid)) {

@@ -59,6 +59,16 @@ static const struct usbh_class_filter filter_rules_empty[] = {
 	{0},
 };
 
+static const struct usbh_class_filter filter_rules_iface_only[] = {
+	{
+		.class = FOO_TEST_CLASS,
+		.sub = FOO_TEST_SUB,
+		.proto = FOO_TEST_PROTO,
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE | USBH_CLASS_MATCH_IFACE_ONLY,
+	},
+	{0},
+};
+
 static const struct usbh_class_filter filter_invalid_triple = {
 	.vid = FOO_TEST_VID,
 	.pid = FOO_TEST_PID,
@@ -102,55 +112,64 @@ ZTEST(usbh_test, test_class_matching)
 {
 	/* Invalid code triple */
 
-	zassert(usbh_class_is_matching(NULL, &filter_invalid_triple),
+	zassert(usbh_class_is_matching(NULL, &filter_invalid_triple, 0),
 		"Filtering on NULL rules should match");
 
-	zassert(!usbh_class_is_matching(filter_rules_empty, &filter_invalid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_empty, &filter_invalid_triple, 0),
 		"Filtering on empty rules should not match");
 
-	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_vid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_vid_triple, 0),
 		"Filtering on invalid VID + invalid code triple should not match");
 
-	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_pid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_pid_triple, 0),
 		"Filtering on invalid PID + invalid code triple should not match");
 
-	zassert(usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_triple),
+	zassert(usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_triple, 0),
 		"Filtering on valid VID:PID + invalid code triple (ignored) should match");
 
-	zassert(!usbh_class_is_matching(filter_rules_triple, &filter_invalid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_triple, &filter_invalid_triple, 0),
 		"Filtering on valid VID:PID (ignored) + invalid code triple should not match");
 
-	zassert(usbh_class_is_matching(filter_rules_either, &filter_invalid_triple),
+	zassert(usbh_class_is_matching(filter_rules_either, &filter_invalid_triple, 0),
 		"Filtering on valid VID:PID + invalid code triple should match");
 
-	zassert(!usbh_class_is_matching(filter_rules_either, &filter_invalid_pid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_either, &filter_invalid_pid_triple, 0),
 		"Filtering on invalid VID:PID + invalid code triple should not match");
 
-	zassert(!usbh_class_is_matching(filter_rules_either, &filter_invalid_pid_triple),
+	zassert(!usbh_class_is_matching(filter_rules_either, &filter_invalid_pid_triple, 0),
 		"Filtering on invalid VID:PID + invalid code triple should not match");
 
 	/* Valid code triple */
 
-	zassert(usbh_class_is_matching(filter_rules_vid_pid, &filter_valid),
+	zassert(usbh_class_is_matching(filter_rules_vid_pid, &filter_valid, 0),
 		"Filtering on valid VID:PID + valid code triple (ignored) should match");
 
-	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_vid),
+	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_vid, 0),
 		"Filtering on invalid VID + valid code triple (ignored) should not match");
 
-	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_pid),
+	zassert(!usbh_class_is_matching(filter_rules_vid_pid, &filter_invalid_pid, 0),
 		"Filtering on invalid PID + valid code triple (ignored) should not match");
 
-	zassert(usbh_class_is_matching(filter_rules_triple, &filter_invalid_pid),
+	zassert(usbh_class_is_matching(filter_rules_triple, &filter_invalid_pid, 0),
 		"Filtering on invalid PID (ignored) + valid code triple should match");
 
-	zassert(usbh_class_is_matching(filter_rules_triple, &filter_invalid_vid),
+	zassert(usbh_class_is_matching(filter_rules_triple, &filter_invalid_vid, 0),
 		"Filtering on invalid VID (ignored) + valid code triple should match");
 
-	zassert(usbh_class_is_matching(filter_rules_either, &filter_invalid_pid),
+	zassert(usbh_class_is_matching(filter_rules_either, &filter_invalid_pid, 0),
 		"Filtering on invalid PID + valid code triple should match");
 
-	zassert(usbh_class_is_matching(filter_rules_either, &filter_valid),
+	zassert(usbh_class_is_matching(filter_rules_either, &filter_valid, 0),
 		"Filtering on valid VID:PID + valid code triple should match");
+
+	/* Interface-only rule */
+
+	zassert(usbh_class_is_matching(filter_rules_iface_only, &filter_valid, 0),
+		"Filtering an interface-only rule at interface level should match");
+
+	zassert(!usbh_class_is_matching(filter_rules_iface_only, &filter_valid,
+					USBH_CLASS_IFNUM_DEVICE),
+		"Filtering an interface-only rule at device level should not match");
 }
 
 ZTEST(usbh_test, test_get_next_desc)

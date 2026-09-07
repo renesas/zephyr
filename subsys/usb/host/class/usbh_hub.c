@@ -796,7 +796,6 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 	const struct usb_desc_header *header;
 	const void *desc_start;
 	const void *desc_end;
-	uint8_t target_iface;
 
 	if (hub_mgr.total_hubs == CONFIG_USBH_HUB_INSTANCES_COUNT) {
 		LOG_ERR("Maximum number of hubs reached (%d)", CONFIG_USBH_HUB_INSTANCES_COUNT);
@@ -810,16 +809,9 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 		return -ENOSPC;
 	}
 
-	/* Convert device-level match to interface 0 */
-	if (iface == USBH_CLASS_IFNUM_DEVICE) {
-		target_iface = 0;
-	} else {
-		target_iface = iface;
-	}
+	LOG_DBG("USB HUB device probe at interface %u", iface);
 
-	LOG_DBG("USB HUB device probe at interface %u", target_iface);
-
-	desc_start = usbh_desc_get_iface(udev, target_iface);
+	desc_start = usbh_desc_get_iface(udev, iface);
 	if (desc_start == NULL) {
 		LOG_ERR("Failed to find interface %u descriptor", iface);
 		return -ENOTSUP;
@@ -993,7 +985,7 @@ SYS_INIT(usbh_hub_init_wq, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
 
 static struct usbh_class_filter hub_filters[] = {
 	{
-		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE | USBH_CLASS_MATCH_IFACE_ONLY,
 		.class = USB_HUB_CLASS_CODE,
 		.sub = USB_HUB_SUBCLASS_CODE,
 		.proto = 1,
