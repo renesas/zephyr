@@ -702,7 +702,6 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 	const struct usb_desc_header *header;
 	const void *desc_start;
 	const void *desc_end;
-	uint8_t target_iface;
 
 	if (udev->level > CONFIG_USBH_HUB_MAX_LEVELS) {
 		LOG_ERR("Hub chain depth limit exceeded (%d > %d)",
@@ -711,18 +710,11 @@ static int usbh_hub_probe(struct usbh_class_data *const c_data,
 		return -ENOSPC;
 	}
 
-	/* Convert device-level match to interface 0 */
-	if (iface == USBH_CLASS_IFNUM_DEVICE) {
-		target_iface = 0;
-	} else {
-		target_iface = iface;
-	}
+	LOG_DBG("USB HUB device probe at interface %u", iface);
 
-	LOG_DBG("USB HUB device probe at interface %u", target_iface);
-
-	desc_start = usbh_desc_get_iface(udev, target_iface);
+	desc_start = usbh_desc_get_iface(udev, iface);
 	if (desc_start == NULL) {
-		LOG_ERR("Failed to find interface %u descriptor", target_iface);
+		LOG_ERR("Failed to find interface %u descriptor", iface);
 		return -ENOTSUP;
 	}
 
@@ -820,21 +812,21 @@ static int usbh_hub_init(struct usbh_class_data *const c_data)
 static struct usbh_class_filter hub_filters[] = {
 	{
 		/* All hub types report bDeviceProtocol == 0x00; match interface only. */
-		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE | USBH_CLASS_MATCH_IFACE_ONLY,
 		.class = USB_HUB_CLASS_CODE,
 		.sub = USB_HUB_SUBCLASS_CODE,
 		.proto = USB_HUB_PROTOCOL_FS,
 	},
 	{
 		/* HS hub with single TT: proto only meaningful in the interface descriptor */
-		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE | USBH_CLASS_MATCH_IFACE_ONLY,
 		.class = USB_HUB_CLASS_CODE,
 		.sub = USB_HUB_SUBCLASS_CODE,
 		.proto = USB_HUB_PROTOCOL_HS_SINGLE_TT,
 	},
 	{
 		/* HS hub with multiple TTs: proto only meaningful in the interface descriptor */
-		.flags = USBH_CLASS_MATCH_CODE_TRIPLE,
+		.flags = USBH_CLASS_MATCH_CODE_TRIPLE | USBH_CLASS_MATCH_IFACE_ONLY,
 		.class = USB_HUB_CLASS_CODE,
 		.sub = USB_HUB_SUBCLASS_CODE,
 		.proto = USB_HUB_PROTOCOL_HS_MULTI_TT,
