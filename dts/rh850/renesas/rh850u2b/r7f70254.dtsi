@@ -138,6 +138,7 @@
 			interrupt-names = "rxi", "txi", "eri", "tei";
 			reg = <0xff8e0000 0x2000>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RIIC, 0, LSB)>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			channel = <0>;
@@ -150,6 +151,7 @@
 			interrupt-names = "rxi", "txi", "eri", "tei";
 			reg = <0xff8e2000 0x2000>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RIIC, 1, LSB)>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			channel = <1>;

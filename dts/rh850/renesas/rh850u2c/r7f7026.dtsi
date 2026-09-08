@@ -1092,6 +1092,45 @@
 			alarms-count = <1>;
 			status = "disabled";
 		};
+
+		iic0: iic0@ff974000 {
+			compatible = "renesas,rh850-iic";
+			reg = <0xff974000 0x400>;
+			interrupts = <262 1>, <263 1>, <271 1>, <269 1>;
+			interrupt-names = "rxi", "txi", "eri", "tei";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RI3C, 0, SBUS)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		iic1: iic1@ff974800 {
+			compatible = "renesas,rh850-iic";
+			reg = <0xff974800 0x400>;
+			interrupts = <275 1>, <276 1>, <284 1>, <282 1>;
+			interrupt-names = "rxi", "txi", "eri", "tei";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RI3C, 1, SBUS)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <1>;
+			status = "disabled";
+		};
+
+		iic2: iic2@ff975000 {
+			compatible = "renesas,rh850-iic";
+			reg = <0xff975000 0x400>;
+			interrupts = <288 1>, <289 1>, <297 1>, <295 1>;
+			interrupt-names = "rxi", "txi", "eri", "tei";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RI3C, 2, SBUS)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <2>;
+			status = "disabled";
+		};
 	};
 
 	/* External CAN clock - to be overridden by boards that provide it */
