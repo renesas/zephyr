@@ -208,3 +208,21 @@
 	status = "okay";
 	rx-max-filters = <128>;
 };
+
+&iic0 {
+	pinctrl-0 = <&iic0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&iic1 {
+	pinctrl-0 = <&iic1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&iic2 {
+	pinctrl-0 = <&iic2_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

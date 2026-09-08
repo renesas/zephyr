@@ -23,4 +23,5 @@ supported:
   - adc
   - can
   - clock
+  - i2c
 vendor: renesas

@@ -115,4 +115,40 @@
 			drive-strength = "medium";
 		};
 	};
+
+	iic0_default: iic0_default {
+		group1 {
+			/* RI3C0SCL, RI3C0SDA */
+			psels = <RH850_PSEL(PORT_24, 6, ALT_OUT13)>,
+				<RH850_PSEL(PORT_24, 5, ALT_OUT13)>;
+			drive-strength = "low";
+			bias-pull-up;
+			renesas,bidirect-control;
+			drive-open-drain;
+		};
+	};
+
+	iic1_default: iic1_default {
+		group1 {
+			/* RI3C1SCL, RI3C1SDA */
+			psels = <RH850_PSEL(PORT_17, 5, ALT_OUT13)>,
+				<RH850_PSEL(PORT_17, 4, ALT_OUT13)>;
+			drive-strength = "low";
+			bias-pull-up;
+			renesas,bidirect-control;
+			drive-open-drain;
+		};
+	};
+
+	iic2_default: iic2_default {
+		group1 {
+			/* RI3C2SCL, RI3C2SDA */
+			psels = <RH850_PSEL(PORT_10, 13, ALT_OUT13)>,
+				<RH850_PSEL(PORT_10, 12, ALT_OUT13)>;
+			drive-strength = "low";
+			bias-pull-up;
+			renesas,bidirect-control;
+			drive-open-drain;
+		};
+	};
 };
