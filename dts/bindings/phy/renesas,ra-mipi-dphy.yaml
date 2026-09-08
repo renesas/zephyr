@@ -1,0 +1,118 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA MIPI D-PHY
+
+compatible: "renesas,ra-mipi-dphy"
+
+include: [phy-controller.yaml]
+
+phy-cells:
+  - mode
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  "#phy-cells":
+    const: 1
+    description: |
+      Single cell selects the D-PHY direction (DPHYMDC.MASTEREN). The PHY is a
+      single physical block shared between MIPI CSI and MIPI DSI: only one
+      direction can be enabled at a time.
+        0 = Slave mode, feeds MIPI CSI-2 (camera capture)
+        1 = Master mode, drives MIPI DSI (display)
+
+  pll-div:
+    type: int
+    enum: [1, 2, 3, 4]
+    description:
+      PHY PLL input frequency divisor.
+
+  pll-mul-int:
+    type: int
+    description:
+      PHY PLL integer multiplier.
+
+  pll-mul-frac:
+    type: string
+    enum: ["0.00", "0.33", "0.66", "0.50"]
+    description:
+      PHY PLL fractional multiplier.
+
+  pll-out-div:
+    type: int
+    enum: [1, 2, 4, 8]
+    description: |
+      PHY PLL output frequency divisor.
+
+  lp-divisor:
+    type: int
+    description:
+      PHY PLL LP speed divisor.
+
+child-binding:
+  description: |
+    D-PHY lane timing configuration. The child node must be named "phys-timing".
+    Refer to '65. MIPI PHY' in the RA8P1 HWM for parameter details.
+
+  properties:
+    t-init:
+      type: int
+      required: true
+      description: |
+        Minimum duration of the TINIT state (Units: operation clock cycles).
+
+    t-clk-prep:
+      type: int
+      required: true
+      description: |
+        Duration of the clock lane LP-00 state (immediately before entry to the HS-0 state).
+
+    t-hs-prep:
+      type: int
+      required: true
+      description: |
+        Duration of the data lane LP-00 state (immediately before entry to the HS-0 state).
+
+    t-clk-settle:
+      type: int
+      required: true
+      description: |
+        Period over which a transition to the HS state is ignored on the clock lane
+        after the TCLK_PREPARE period begins.
+
+    t-clk-miss:
+      type: int
+      required: true
+      description: |
+        Period from detecting the absence of a clock until the clock lane's HS-RX
+        is disabled.
+
+    t-hs-sett:
+      type: int
+      required: true
+      description: |
+        Period over which a transition to the HS state is ignored on a data lane
+        after its TCLK_PREPARE period begins.
+
+    t-lp-exit:
+      type: int
+      required: true
+      description:
+        Low-power transition time to High-Speed mode.
+
+    dphytim4:
+      type: array
+      required: true
+      description: |
+        Clock lane pre and post data timing parameter: <TCLKZERO TCLKPRE TCLKPOST TCLKTRL>
+
+    dphytim5:
+      type: array
+      required: true
+      description: |
+        High-Speed data lane timing parameter: <THSZERO THSTRL THSEXIT>

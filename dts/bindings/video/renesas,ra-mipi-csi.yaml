@@ -1,0 +1,58 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RA MIPI CSI
+
+compatible: "renesas,ra-mipi-csi"
+
+include: [base.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  clock-names:
+    required: true
+
+  phys:
+    type: phandle-array
+    required: true
+    description: |
+      MIPI D-PHY providing the physical layer for this CSI-2 receiver, in
+      slave mode. See renesas,ra-mipi-dphy.yaml.
+
+  phy-names:
+    type: string-array
+
+  ulps-wakeup-period:
+    type: int
+    description: ULPS wakeup period.
+
+  hsync-sample:
+    type: int
+    description: |
+      Specifies the number of PCLK cycles to sample the HSYNC signal.
+
+  vsync-sample:
+    type: int
+    description: |
+      Specifies the number of PCLK cycles to sample the VSYNC signal.
+
+  video-mode-delay:
+    type: int
+    description: |
+      Set the delay value inside DSI Host until the transfer begins.
+
+  timing:
+    type: array
+
+child-binding:
+  description: |
+    "ports" node grouping the sensor-facing input port (port@0) and the
+    VIN-facing output port (port@1).
+  child-binding:
+    child-binding:
+      include: video-interfaces.yaml
