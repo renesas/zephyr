@@ -78,6 +78,41 @@
 		};
 	};
 
+	glcdc_default: glcdc_default {
+		group1 {
+			psels = <RA_PSEL(RA_PSEL_GLCDC, 9, 14)>, /* D0B0 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 15)>, /* D1B1 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 3)>, /* D2B2 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 2)>, /* D3B3 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 10)>, /* D4B4 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 11)>, /* D5B5 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 12)>, /* D6B6 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 13)>, /* D7B7 */
+				<RA_PSEL(RA_PSEL_GLCDC, 9, 4)>, /* D8G0 */
+				<RA_PSEL(RA_PSEL_GLCDC, 2, 7)>, /* D9G1 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 7)>, /* D10G2 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 6)>, /* D11G3 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 5)>, /* D12G4 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 1)>, /* D13G5 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 4)>, /* D14G6 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 3)>, /* D15G7 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 2)>, /* D16R0 */
+				<RA_PSEL(RA_PSEL_GLCDC, 11, 0)>, /* D17R1 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 7)>, /* D18R2 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 11)>, /* D19R3 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 12)>, /* D20R4 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 13)>, /* D21R5 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 14)>, /* D22R6 */
+				<RA_PSEL(RA_PSEL_GLCDC, 7, 15)>, /* D23R7 */
+				<RA_PSEL(RA_PSEL_GLCDC, 8, 5)>, /* HSYNC */
+				<RA_PSEL(RA_PSEL_GLCDC, 8, 6)>, /* VSYNC */
+				<RA_PSEL(RA_PSEL_GLCDC, 8, 7)>, /* DE */
+				<RA_PSEL(RA_PSEL_GLCDC, 5, 15)>, /* DISP_CLK */
+				<RA_PSEL(RA_PSEL_GLCDC, 5, 13)>; /* DISP_TCON3 (unused role) */
+			drive-strength = "highspeed-high";
+		};
+	};
+
 	ceu_default: ceu_default {
 		group1 {
 			psels = <RA_PSEL(RA_PSEL_CEU, 4, 0)>, /* VIO_D0 */

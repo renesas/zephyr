@@ -21,6 +21,7 @@
 		zephyr,console = &uart8;
 		zephyr,shell-uart = &uart8;
 		zephyr,entropy = &trng;
+		zephyr,display = &lcdif;
 	};
 
 	aliases {
@@ -211,6 +212,37 @@
 &lcdif {
 	interrupts = <30 1>;
 	interrupt-names = "line";
+	pinctrl-0 = <&glcdc_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	backlight-gpios = <&ioport5 14 GPIO_ACTIVE_HIGH>;
+
+	width = <1024>;
+	height = <600>;
+	input-pixel-format = <16>;
+	output-pixel-format = <1>;
+	output-clock-divisor = <4>;
+
+	/* Reference's output.bg_color: {.a = 255, .r = 0xF, .g = 0xF, .b = 0xF} */
+	def-back-color-alpha = <255>;
+	def-back-color-red = <15>;
+	def-back-color-green = <15>;
+	def-back-color-blue = <15>;
+
+	display-timings {
+		compatible = "zephyr,panel-timing";
+		hsync-len = <1>;
+		hback-porch = <140>;
+		hfront-porch = <169>;
+		vsync-len = <1>;
+		vback-porch = <20>;
+		vfront-porch = <14>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		de-active = <1>;
+		pixelclk-active = <0>;
+	};
 };
 
 &drw {

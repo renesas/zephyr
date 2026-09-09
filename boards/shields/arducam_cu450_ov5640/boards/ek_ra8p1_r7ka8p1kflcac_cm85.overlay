@@ -59,6 +59,10 @@
 	frame-write-complete-interrupt;
 };
 
+&zephyr_lcdif {
+	ext-ram = <&sdram1>;
+};
+
 &arducam_ffc_40pin_mipi_dphy {
 	/*
 	 * D-PHY PLL settings matching the Renesas FSP:
