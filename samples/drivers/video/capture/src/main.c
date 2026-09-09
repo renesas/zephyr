@@ -68,6 +68,11 @@ static inline int app_setup_display(const struct device *const display_dev, cons
 
 	/* Set display pixel format to match the one in use by the camera */
 	switch (pixfmt) {
+	case VIDEO_PIX_FMT_YUYV:
+		if (capabilities.current_pixel_format != PIXEL_FORMAT_RGB_565) {
+			ret = display_set_pixel_format(display_dev, PIXEL_FORMAT_RGB_565);
+		}
+		break;
 	case VIDEO_PIX_FMT_RGB565:
 		if (capabilities.current_pixel_format != PIXEL_FORMAT_RGB_565) {
 			ret = display_set_pixel_format(display_dev, PIXEL_FORMAT_RGB_565);
