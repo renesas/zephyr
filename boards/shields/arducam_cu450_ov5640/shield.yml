@@ -1,6 +1,12 @@
-shield:
-  name: arducam_cu450_ov5640_dvp
-  full_name: Arducam CU450_OV5640 DVP interface camera module
-  vendor: ovti
-  supported_features:
+shields:
+  - name: arducam_cu450_ov5640_dvp
+    full_name: Arducam CU450_OV5640 DVP interface camera module
+    vendor: ovti
+    supported_features:
+      - video
+
+  - name: arducam_cu450_ov5640_mipi_csi
+    full_name: Arducam CU450_OV5640 MIPI CSI interface camera module
+    vendor: ovti
+    supported_features:
     - video

@@ -10,22 +10,81 @@
 
 &arducam_ffc_40pin_i2c {
 	clock-frequency = <DT_FREQ_K(100)>;
+	/*
+	 * PI4IOE5V6408 GPIO expander controlling the SW4 switch bank.
+	 * SW4-6 (MIPI_SEL) must be driven high to route the J35 camera
+	 * connector to MIPI CSI-2, matching the Renesas reference design.
+	 * Otherwise the CSI-2 receiver never sees the sensor signal.
+	 */
+	sw4_ioexp: pi4ioe5v6408@43 {
+		compatible = "diodes,pi4ioe5v6408";
+		reg = <0x43>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <8>;
+	};
 };
 
-&arducam_ffc_40pin_dvp_xclk {
-	clock-frequency = <DT_FREQ_M(12)>;
+&arducam_ffc_40pin_mipi_csi_xclk {
+	/*
+	 * OV5640 XCLK must be 24 MHz to match the PLL settings used by the
+	 * sensor and the Renesas reference design. At 12 MHz the MIPI bit rate
+	 * is halved and CSI-2 synchronization fails.
+	 */
+	pwms = <&pwm12 0 PWM_KHZ(24000) PWM_POLARITY_NORMAL>;
+	clock-frequency = <DT_FREQ_M(24)>;
 	status = "okay";
 };
 
-&arducam_ffc_40pin_dvp_interface {
-	swap-8bits;
-	swap-16bits;
-	swap-32bits;
+&arducam_ffc_40pin_mipi_csi_interface {
+	/*
+	 * YUV422 8-bit is the only CSI-2 format supported by both the RA8P1
+	 * VIN receiver and the OV5640 sensor. These are default values only;
+	 * The VIN driver adjusts stride and frame size to match the selected
+	 * format at runtime.
+	 */
+	input-format = <1>;
+	data-type = <0x1E>;
+	virtual-channel = <0>;
+	image-stride = <1024>;
+	line-start = <0>;
+	line-end = <599>;
+	pixel-start = <0>;
+	pixel-end = <1023>;
+	/*
+	 * Scaling is disabled because the OV5640 outputs the requested
+	 * resolution directly. Capture and output sizes always match, so
+	 * VIN-side resizing is unnecessary.
+	 */
+	frame-write-complete-interrupt;
+};
 
-	port {
-		dvp_ffc40_ep_in: endpoint {
-			hsync-sample = <1>;
-			vsync-sample = <1>;
-		};
+&arducam_ffc_40pin_mipi_dphy {
+	/*
+	 * D-PHY PLL settings matching the Renesas FSP:
+	 * 24 MHz / 3 * 125 = 1 GHz.
+	 */
+	pll-div = <3>;
+	pll-mul-int = <125>;
+	pll-mul-frac = "0.00";
+	pll-out-div = <1>;
+	lp-divisor = <5>;
+
+	/*
+	 * t-clk-settle, t-clk-miss, and t-hs-sett are HS-settle detection
+	 * timing parameters and are now wired into dphytim2_b/dphytim3_b.
+	 * Previously only t-clk-prep and t-hs-prep were applied, leaving
+	 * these values unused.
+	 */
+	phys-timing {
+		t-init = <74999>;
+		t-clk-prep = <9>;
+		t-clk-settle = <62>;
+		t-clk-miss = <37>;
+		t-hs-prep = <6>;
+		t-hs-sett = <24>;
+		t-lp-exit = <7>;
+		dphytim4 = <28 1 20 7>;
+		dphytim5 = <19 8 12>;
 	};
 };

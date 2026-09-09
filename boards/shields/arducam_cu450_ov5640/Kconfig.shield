@@ -3,3 +3,6 @@
 
 config SHIELD_ARDUCAM_CU450_OV5640_DVP
 	def_bool $(shields_list_contains,arducam_cu450_ov5640_dvp)
+
+config SHIELD_ARDUCAM_CU450_OV5640_MIPI_CSI
+	def_bool $(shields_list_contains,arducam_cu450_ov5640_mipi_csi)
