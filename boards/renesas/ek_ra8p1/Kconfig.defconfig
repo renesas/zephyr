@@ -17,4 +17,13 @@ configdefault NET_L2_ETHERNET
 config CLOCK_CONTROL_FIXED_RATE_CLOCK
 	default y if ETH_PHY_DRIVER
 
+if VIDEO_RENESAS_RA_VIN
+
+# MIPI CSI-2 board bring-up (D-PHY enable GPIO, camera-connector mux)
+# must run whenever the RA VIN and MIPI CSI-2 capture path is in use.
+config BOARD_EK_RA8P1_MIPI_CSI2_INIT
+	default y
+
+endif # VIDEO_RENESAS_RA_VIN
+
 endif # BOARD_EK_RA8P1

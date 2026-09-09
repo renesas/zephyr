@@ -4,3 +4,17 @@
 config BOARD_EK_RA8P1
 	select SOC_R7KA8P1KFLCAC_CM85 if BOARD_EK_RA8P1_R7KA8P1KFLCAC_CM85
 	select SOC_R7KA8P1KFLCAC_CM33 if BOARD_EK_RA8P1_R7KA8P1KFLCAC_CM33
+
+config BOARD_EK_RA8P1_MIPI_CSI2_INIT
+	bool "Configure EK-RA8P1 MIPI CSI-2 board bring-up during init"
+	default n
+	help
+		Enable board-level MIPI CSI-2 bring-up on the EK-RA8P1. This drives
+		the D-PHY analog enable GPIO (P108) and, when the sw4_ioexp node is
+		present, configures the camera connector mux (SW4-6/MIPI_SEL) for
+		CSI-2 routing. Both are required for CSI-2 lane activity regardless
+		of the rest of the capture pipeline configuration.
+
+		Automatically enabled by VIDEO_RENESAS_RA_VIN. Applications using
+		VIN/MIPI CSI-2 through raw FSP APIs instead of the Zephyr VIN driver
+		must enable this option explicitly.

@@ -91,7 +91,7 @@
 &iic1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	clock-frequency = <I2C_BITRATE_FAST_PLUS>;
+	clock-frequency = <I2C_BITRATE_FAST>;
 	pinctrl-0 = <&iic1_default>;
 	pinctrl-names = "default";
 	interrupts = <14 1>, <15 1>, <16 1>, <17 1>;
@@ -146,6 +146,15 @@
 	burst-transfer = <256>;
 };
 
+&vin {
+	pinctrl-0 = <&vin_default>;
+	pinctrl-names = "default";
+	interrupts = <32 2>, <33 1>;
+	interrupt-names = "irq", "err";
+	clocks = <&iclk 0 0>, <&pclka MSTPC 17>, <&cam_clock 0>;
+	clock-names = "aclk", "vclk", "cam-xclk";
+};
+
 &usbhs {
 	pinctrl-0 = <&usbhs_default>;
 	interrupts = <23 12>;
@@ -194,6 +203,11 @@
 	interrupt-names = "sq0", "sq1", "vm", "rcv", "ferr", "ppi";
 };
 
+&mipi_csi {
+	interrupts = <72 12>, <73 12>, <74 12>, <75 12>, <76 12>, <77 12>;
+	interrupt-names = "rx", "dl", "vc", "pm", "gst", "dbg";
+};
+
 &lcdif {
 	interrupts = <30 1>;
 	interrupt-names = "line";
@@ -218,6 +232,14 @@ arducam_ffc_40pin_i2c: &iic1 {};
 arducam_ffc_40pin_dvp_interface: &ceu {};
 
 arducam_ffc_40pin_dvp_xclk: &cam_clock {};
+
+arducam_ffc_40pin_mipi_csi_interface: &vin {};
+
+arducam_ffc_40pin_mipi_csi_receiver: &mipi_csi {};
+
+arducam_ffc_40pin_mipi_dphy: &mipi_phy {};
+
+arducam_ffc_40pin_mipi_csi_xclk: &cam_clock {};
 
 &eswm {
 	interrupts = <24 1>;

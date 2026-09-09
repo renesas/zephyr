@@ -64,9 +64,8 @@
 
 	pwm12_default: pwm12_default {
 		group1 {
-			/* GTIOC12A */
 			psels = <RA_PSEL(RA_PSEL_GPT1, 5, 1)>;
-			drive-strength = "medium";
+			drive-strength = "highspeed-high";
 		};
 	};
 
@@ -93,6 +92,9 @@
 				<RA_PSEL(RA_PSEL_CEU, 11, 3)>, /* VIO_HD */
 				<RA_PSEL(RA_PSEL_CEU, 11, 2)>; /* VIO_VD */
 		};
+	};
+
+	vin_default: vin_default {
 	};
 
 	usbhs_default: usbhs_default {
