@@ -1638,6 +1638,15 @@
 			status = "disabled";
 		};
 
+		iwdt: iwdt@87802200 {
+			compatible = "renesas,rx-iwdt-fsp";
+			reg = <0x87802200 0xc>;
+			clocks = <&iwdtclk>;
+			interrupts-extended = <&icu 95 1>;
+			interrupt-names = "iwuni";
+			status = "disabled";
+		};
+
 		ofs_mem_cfg_sec: option-setting-mem-cfg-sec@86c2e850 {
 			compatible = "renesas,ofs-memory";
 			reg = <0x86c2e850 0x715b0>;
