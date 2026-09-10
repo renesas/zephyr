@@ -23,6 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: renesas
+      url-base: https://github.com/renesas
 
   group-filter: [-babblesim, -optional, -testing]
 
@@ -30,6 +32,11 @@ manifest:
   # Please add items below based on alphabetical order
   # zephyr-keep-sorted-start re(^\s+\- name:)
   projects:
+    - name: executorch
+      url: https://github.com/pytorch/executorch
+      revision: v1.4.1
+      path: modules/lib/executorch
+      submodules: true
     - name: acpica
       revision: 8d24867bc9c9d81c81eeac59391cda59333affd4
       path: modules/lib/acpica
@@ -234,7 +241,8 @@ manifest:
         - hal
     - name: hal_renesas
       path: modules/hal/renesas
-      revision: 29d0d3b9c7f9e3929839c74a6cb10c487c24994f
+      remote: renesas
+      revision: Executorch_wip
       groups:
         - hal
     - name: hal_rpi_pico
