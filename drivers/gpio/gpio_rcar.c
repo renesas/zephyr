@@ -32,7 +32,7 @@ struct gpio_rcar_cfg {
 	DEVICE_MMIO_NAMED_ROM(reg_base);
 	init_func_t init_func;
 	const struct device *clock_dev;
-	struct rcar_cpg_clk mod_clk;
+	rcar_clk_t mod_clk;
 #ifdef CONFIG_SOC_SERIES_RCAR_GEN5
 	int channel;
 #endif
@@ -287,8 +287,7 @@ static int gpio_rcar_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	ret = clock_control_on(config->clock_dev,
-			       (clock_control_subsys_t) &config->mod_clk);
+	ret = clock_control_on(config->clock_dev, RCAR_CLOCK_SUBSYS(config->mod_clk));
 
 	if (ret < 0) {
 		return ret;
@@ -334,10 +333,7 @@ static DEVICE_API(gpio, gpio_rcar_driver_api) = {
 		.common = GPIO_COMMON_CONFIG_FROM_DT_INST(n),	      \
 		.init_func = gpio_rcar_##n##_init,		      \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),   \
-		.mod_clk.module =				      \
-			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, module),     \
-		.mod_clk.domain =				      \
-			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, domain),     \
+		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(n, 0), \
 		RCAR_GPIO_CHANNEL_GET(n)			      \
 	};							      \
 	static struct gpio_rcar_data gpio_rcar_data_##n;	      \
