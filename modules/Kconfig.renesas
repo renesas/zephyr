@@ -625,4 +625,9 @@ config USE_RX_FSP_SDRAM
 	help
 	  Enable RX FSP SDRAM support
 
+config USE_RX_FSP_IWDT
+	bool
+	help
+	  Enable RX FSP IWDT driver
+
 endif # HAS_RENESAS_RX_FSP

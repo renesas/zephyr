@@ -39,3 +39,22 @@ config WDT_RENESAS_RX_IWDT_REGISTER_START_MODE
 endchoice
 
 endif # WDT_RENESAS_RX_IWDT
+
+config WDT_RENESAS_RX_IWDT_FSP
+	bool "Renesas RX Series Independent Watchdog Driver using FSP"
+	default y
+	depends on DT_HAS_RENESAS_RX_IWDT_FSP_ENABLED
+	select USE_RX_FSP_IWDT
+	help
+	  Enable Renesas RX series watchdog driver using FSP
+
+if WDT_RENESAS_RX_IWDT_FSP
+
+config WDT_RENESAS_RX_IWDT_IRQ
+	bool "Interrupt request on IWDT underflow/refresh error"
+	default y
+	help
+	  Respond to an IWDT underflow or refresh error with the IWUNI interrupt
+	  (wdt_timeout_cfg callback) instead of only allowing a direct SoC reset.
+
+endif # WDT_RENESAS_RX_IWDT_FSP

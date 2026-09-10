@@ -1641,7 +1641,7 @@
 		iwdt: iwdt@87802200 {
 			compatible = "renesas,rx-iwdt-fsp";
 			reg = <0x87802200 0xc>;
-			clocks = <&iwdtclk>;
+			clocks = <&iwdtclk 0 0>;
 			interrupts-extended = <&icu 95 1>;
 			interrupt-names = "iwuni";
 			status = "disabled";
