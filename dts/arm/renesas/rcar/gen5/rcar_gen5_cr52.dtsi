@@ -74,6 +74,12 @@
 				compatible = "renesas,scmi-reset-status";
 				reg = <0x80>;
 			};
+
+			scmi_clk: protocol@14 {
+				compatible = "arm,scmi-clock";
+				reg = <0x14>;
+				#clock-cells = <1>;
+			};
 		};
 	};
 
