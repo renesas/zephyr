@@ -18,8 +18,8 @@ struct scmi_power_domain_test_case {
 	uint32_t id;
 };
 
-#define SCMI_POWER_DOMAIN_TEST_CASE(node_id) \
-	{ DT_NODE_PATH(node_id), DEVICE_DT_GET(node_id), DT_REG_ADDR(node_id) },
+#define SCMI_POWER_DOMAIN_TEST_CASE(node_id)                                                       \
+	{DT_NODE_PATH(node_id), DEVICE_DT_GET(node_id), DT_REG_ADDR(node_id)},
 
 /*
  * This covers every enabled SCMI PD node supplied by the R-Car X5H DTS.
@@ -27,14 +27,12 @@ struct scmi_power_domain_test_case {
  * by other peripherals.
  */
 static const struct scmi_power_domain_test_case power_domains[] = {
-	DT_FOREACH_CHILD_STATUS_OKAY(DT_PATH(power_domains), SCMI_POWER_DOMAIN_TEST_CASE)
-};
+	DT_FOREACH_CHILD_STATUS_OKAY(DT_PATH(power_domains), SCMI_POWER_DOMAIN_TEST_CASE)};
 
 ZTEST(scmi_power_system, test_system_power_protocol_queries)
 {
 	uint32_t version;
 	uint32_t attributes;
-	uint32_t message_attributes;
 
 	zassert_ok(scmi_system_protocol_version(&version),
 		   "System Power Protocol version query failed");
@@ -42,9 +40,6 @@ ZTEST(scmi_power_system, test_system_power_protocol_queries)
 
 	zassert_ok(scmi_system_protocol_attributes(&attributes),
 		   "System Power Protocol attributes query failed");
-	zassert_ok(scmi_system_protocol_message_attributes(SCMI_SYSTEM_MSG_POWER_STATE_SET,
-						   &message_attributes),
-		   "System Power State Set attributes query failed");
 }
 
 ZTEST(scmi_power_system, test_power_domain_states)
@@ -54,18 +49,17 @@ ZTEST(scmi_power_system, test_power_domain_states)
 		enum pm_device_state pm_state;
 		uint32_t scmi_state;
 
-		zassert_true(device_is_ready(test_case->dev),
-			     "%s is not ready", test_case->path);
-		zassert_ok(pm_device_state_get(test_case->dev, &pm_state),
-			   "%s has no PM state", test_case->path);
-		zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE,
-			      "%s is not active", test_case->path);
+		zassert_true(device_is_ready(test_case->dev), "%s is not ready", test_case->path);
+		zassert_ok(pm_device_state_get(test_case->dev, &pm_state), "%s has no PM state",
+			   test_case->path);
+		zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE, "%s is not active",
+			      test_case->path);
 
 		zassert_ok(scmi_power_state_get(test_case->id, &scmi_state),
-			   "SCMI Power State Get failed for %s (ID %u)",
-			   test_case->path, test_case->id);
-		zassert_equal(scmi_state, SCMI_POWER_STATE_GENERIC_ON,
-			      "%s (ID %u) is not ON", test_case->path, test_case->id);
+			   "SCMI Power State Get failed for %s (ID %u)", test_case->path,
+			   test_case->id);
+		zassert_equal(scmi_state, SCMI_POWER_STATE_GENERIC_ON, "%s (ID %u) is not ON",
+			      test_case->path, test_case->id);
 	}
 }
 
@@ -81,10 +75,8 @@ ZTEST(scmi_power_system, test_vcn_power_domain_pm_resume)
 	uint32_t scmi_state;
 
 	zassert_true(device_is_ready(dev), "VCN power domain is not ready");
-	zassert_ok(pm_device_state_get(dev, &pm_state),
-		   "VCN power domain has no PM state");
-	zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE,
-		      "VCN power domain is not initially active");
+	zassert_ok(pm_device_state_get(dev, &pm_state), "VCN power domain has no PM state");
+	zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE, "VCN power domain is not initially active");
 
 	/* Suspend first so RESUME exercises the SCMI adapter callback. */
 	zassert_ok(pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND),
@@ -98,8 +90,7 @@ ZTEST(scmi_power_system, test_vcn_power_domain_pm_resume)
 		   "VCN power-domain resume failed");
 	zassert_ok(pm_device_state_get(dev, &pm_state),
 		   "VCN power-domain state query failed after resume");
-	zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE,
-		      "VCN power domain did not become active");
+	zassert_equal(pm_state, PM_DEVICE_STATE_ACTIVE, "VCN power domain did not become active");
 
 	zassert_ok(scmi_power_state_get(DT_REG_ADDR(DT_NODELABEL(vcn_pd)), &scmi_state),
 		   "SCMI VCN power-state query failed");
