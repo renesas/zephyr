@@ -18,10 +18,10 @@
 extern "C" {
 #endif
 
-#ifndef CONFIG_ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
-#define ETH_RAM_SECTION __attribute__((section(".eth_ram")))
-#else
+#ifdef CONFIG_NOCACHE_MEMORY
 #define ETH_RAM_SECTION __nocache
+#else
+#define ETH_RAM_SECTION __attribute__((section(".eth_ram")))
 #endif
 
 /* TSNES Hardware Parameters */
@@ -111,7 +111,7 @@ struct eth_tsnes_ext_desc {
 	volatile uint8_t die_dt;
 	uint32_t Dptr;
 	uint32_t Info1[2];
-} packed;
+} __packed;
 
 struct eth_tsnes_ext_desc_with_ts {
 	uint16_t info_ds;
