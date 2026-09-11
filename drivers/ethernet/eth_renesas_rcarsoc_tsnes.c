@@ -89,6 +89,41 @@ static inline size_t tsnes_cache_align_size(size_t size)
 #define tsnes_cache_align_size(size) (size)
 #endif
 
+struct eth_tsnes_rx_dma_meta {
+	struct eth_tsnes_queue *queue;
+	uint32_t desc_idx;
+};
+
+static void eth_tsnes_rx_dma_destroy(struct net_buf *buf)
+{
+	struct eth_tsnes_rx_dma_meta *meta = net_buf_user_data(buf);
+	struct eth_tsnes_ext_desc_with_ts *ring;
+	struct eth_tsnes_ext_desc_with_ts *desc;
+	k_spinlock_key_t key;
+
+	if (meta && meta->queue) {
+		key = k_spin_lock(&meta->queue->lock);
+		ring = (struct eth_tsnes_ext_desc_with_ts *)meta->queue->desc_ring;
+		desc = &ring[meta->desc_idx];
+
+		desc->info_ds = MIN(meta->queue->buf_nodes[meta->desc_idx].buf_size, 0xFFF);
+		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
+		desc->info = 0;
+		desc->Info1[0] = 0;
+		desc->Info1[1] = 0;
+		desc->tsns = 0;
+		desc->tss = 0;
+
+		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+		k_spin_unlock(&meta->queue->lock, key);
+	}
+
+	net_buf_destroy(buf);
+}
+
+NET_BUF_POOL_FIXED_DEFINE(eth_tsnes_rx_dma_pool, 256, sizeof(struct eth_tsnes_rx_dma_meta),
+			  sizeof(struct eth_tsnes_rx_dma_meta), eth_tsnes_rx_dma_destroy);
+
 static int eth_tsnes_set_mac_loopback(const struct eth_tsnes_config *cfg, bool enable)
 {
 	volatile eth_tsnes_rmac_reg_t *rmac = &cfg->tsnes_base->stRMACSys.stRMAC;
@@ -526,7 +561,7 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 
 	for (i = 0; i < 2; i++) {
 		desc->die_dt = ETH_DESC_FSTART;
-		desc->info_ds = (2048 & 0xFFF) | ETH_DESC_FCS_INCLUDED;
+		desc->info_ds = (2048 & 0xFFF);
 		desc->info = 0;
 		desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
 		desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
@@ -535,7 +570,7 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 
 		for (j = 0; j < 6; j++) {
 			desc->die_dt = ETH_DESC_FMID;
-			desc->info_ds = (2048 & 0xFFF) | ETH_DESC_FCS_INCLUDED;
+			desc->info_ds = (2048 & 0xFFF);
 			desc->info = 0;
 			desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
 			desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
@@ -544,7 +579,7 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 		}
 
 		desc->die_dt = ETH_DESC_FEND;
-		desc->info_ds = (2048 & 0xFFF) | ETH_DESC_FCS_INCLUDED;
+		desc->info_ds = (2048 & 0xFFF);
 		desc->info = 0;
 		desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
 		desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
@@ -770,16 +805,20 @@ static bool eth_tsnes_rx_queue_drained(struct eth_tsnes_queue *queue)
 	struct eth_tsnes_ext_desc_with_ts *ring =
 		(struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring;
 	uint32_t i;
+	k_spinlock_key_t key;
 
+	key = k_spin_lock(&queue->lock);
 	for (i = 0; i < queue->desc_count - 1; i++) {
 		uint8_t dt = ring[i].die_dt & ETH_DESC_DT_MASK;
 
 		if (dt != ETH_DESC_FEMPTY && dt != ETH_DESC_FEMPTY_ND) {
 			LOG_WRN("RX queue not drained yet: desc %u die_dt=0x%02x info_ds=0x%x", i,
 				ring[i].die_dt, ring[i].info_ds);
+			k_spin_unlock(&queue->lock, key);
 			return false;
 		}
 	}
+	k_spin_unlock(&queue->lock, key);
 
 	return true;
 }
@@ -851,13 +890,18 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 		(struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring;
 	struct eth_tsnes_ext_desc_with_ts *desc = &ring[desc_idx];
 	struct net_pkt *pkt;
+	struct net_buf *buf;
+	struct eth_tsnes_rx_dma_meta *meta;
 	uint16_t pkt_len;
 	int ret = 0;
+	k_spinlock_key_t key;
 
+	key = k_spin_lock(&queue->lock);
 	tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
 
 	/* Check if HW transferred ownership to software */
 	if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
+		k_spin_unlock(&queue->lock, key);
 		return -EAGAIN; /* Hardware still owns it */
 	}
 
@@ -870,7 +914,6 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	}
 
 	pkt_len = desc->info_ds & 0xFFF;
-
 	if (pkt_len < ETH_HEADER_SIZE || pkt_len > data->max_frame_size) {
 		queue->stats.rx_errors++;
 		LOG_DBG("RX desc %u: invalid length %u, max %u", desc_idx, pkt_len,
@@ -879,12 +922,14 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 		goto rx_done;
 	}
 
-	tsnes_dcache_invalidate(desc->Dptr, tsnes_cache_align_size(pkt_len));
+	k_spin_unlock(&queue->lock, key);
+
+	tsnes_dcache_invalidate((uintptr_t)desc->Dptr, tsnes_cache_align_size(pkt_len));
 
 	LOG_DBG("RX desc %u: len=%u", desc_idx, pkt_len);
 	LOG_HEXDUMP_DBG((uint8_t *)(uintptr_t)desc->Dptr, pkt_len, "RX packet data");
 
-	pkt = net_pkt_rx_alloc_with_buffer(data->iface, pkt_len, AF_UNSPEC, 0, K_NO_WAIT);
+	pkt = net_pkt_rx_alloc_on_iface(data->iface, K_NO_WAIT);
 	if (!pkt) {
 		queue->stats.rx_dropped++;
 		LOG_DBG("RX desc %u: net_pkt alloc failed, len %u", desc_idx, pkt_len);
@@ -892,13 +937,21 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 		goto rx_done;
 	}
 
-	if (net_pkt_write(pkt, (uint8_t *)(uintptr_t)desc->Dptr, pkt_len)) {
+	buf = net_buf_alloc_with_data(&eth_tsnes_rx_dma_pool, (void *)(uintptr_t)desc->Dptr,
+				      pkt_len, K_NO_WAIT);
+	if (!buf) {
 		net_pkt_unref(pkt);
-		queue->stats.rx_errors++;
-		LOG_DBG("RX desc %u: net_pkt_write failed, len %u", desc_idx, pkt_len);
-		ret = -EIO;
+		queue->stats.rx_dropped++;
+		LOG_DBG("RX desc %u: net_buf alloc failed, len %u", desc_idx, pkt_len);
+		ret = -ENOMEM;
 		goto rx_done;
 	}
+
+	meta = net_buf_user_data(buf);
+	meta->queue = queue;
+	meta->desc_idx = desc_idx;
+
+	net_pkt_append_buffer(pkt, buf);
 
 	queue->stats.rx_packets++;
 	queue->stats.rx_bytes += pkt_len;
@@ -907,16 +960,18 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	ret = 0;
 
 rx_done:
-	/* Return to hardware */
-	desc->info_ds = MIN(data->max_frame_size, 0xFFF);
-	desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
-	desc->info = 0;
-	desc->Info1[0] = 0;
-	desc->Info1[1] = 0;
-	desc->tsns = 0;
-	desc->tss = 0;
-
-	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+	if (ret < 0) {
+		key = k_spin_lock(&queue->lock);
+		desc->info_ds = MIN(data->max_frame_size, 0xFFF);
+		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
+		desc->info = 0;
+		desc->Info1[0] = 0;
+		desc->Info1[1] = 0;
+		desc->tsns = 0;
+		desc->tss = 0;
+		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+		k_spin_unlock(&queue->lock, key);
+	}
 
 	return ret;
 }
@@ -964,10 +1019,14 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 					q_idx, i, queue->head_idx);
 			}
 
-			ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+			{
+				k_spinlock_key_t lock_key = k_spin_lock(&queue->lock);
+
+				ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+				k_spin_unlock(&queue->lock, lock_key);
+			}
 
 			if (queue->rxfull_pending) {
-
 				if (eth_tsnes_rx_queue_drained(queue)) {
 					if (eth_tsnes_rx_desc_learning(
 						    axi, q_idx,

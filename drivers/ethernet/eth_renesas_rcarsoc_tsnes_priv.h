@@ -598,6 +598,7 @@ struct eth_tsnes_queue {
 	uint32_t head_idx;
 	uint32_t tail_idx;
 	bool rxfull_pending;
+	struct k_spinlock lock;
 
 	struct {
 		uint32_t rx_packets;
