@@ -1,0 +1,18 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config ARM_SCMI_RENESAS_VENDOR_EXTENSIONS
+	bool "Allow Renesas-specific SCMI features"
+	help
+	  Enable SCMI features implemented by Renesas vendor protocols.
+
+if ARM_SCMI_RENESAS_VENDOR_EXTENSIONS
+
+config RENESAS_SCMI_RESET_STATUS_HELPERS
+	bool "Helper functions for Renesas SCMI reset status"
+	default y
+	depends on DT_HAS_RENESAS_SCMI_RESET_STATUS_ENABLED
+	help
+	  Enable support for the Renesas vendor RESET_GET_STATUS command.
+
+endif # ARM_SCMI_RENESAS_VENDOR_EXTENSIONS

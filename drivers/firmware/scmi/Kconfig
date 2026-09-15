@@ -117,6 +117,7 @@ config ARM_SCMI_RESET_HELPERS
 	  Enable support for SCMI reset protocol helper functions.
 
 source "drivers/firmware/scmi/nxp/Kconfig"
+source "drivers/firmware/scmi/renesas/Kconfig"
 source "drivers/firmware/scmi/shell/Kconfig"
 
 endif # ARM_SCMI

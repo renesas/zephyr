@@ -18,4 +18,5 @@ zephyr_library_sources_ifdef(CONFIG_ARM_SCMI_RESET_HELPERS reset.c)
 zephyr_library_sources_ifdef(CONFIG_ARM_SCMI_SYSTEM system.c)
 
 add_subdirectory_ifdef(CONFIG_ARM_SCMI nxp)
+add_subdirectory_ifdef(CONFIG_ARM_SCMI renesas)
 add_subdirectory_ifdef(CONFIG_ARM_SCMI_SHELL shell)
