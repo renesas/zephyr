@@ -9,6 +9,24 @@ config NUM_IRQS
 config BUILD_OUTPUT_S19
 	default y
 
+# Mailbox and SCMI depend on GIC. Set their init priority to GIC's,
+# so they will be initialized by the order according to dts dependency
+# although they use the same init priority.
+config MBOX_INIT_PRIORITY
+	default INTC_INIT_PRIORITY
+
+config ARM_SCMI_SHMEM_INIT_PRIORITY
+	default INTC_INIT_PRIORITY
+
+config ARM_SCMI_TRANSPORT_INIT_PRIORITY
+	default INTC_INIT_PRIORITY
+
+config RESET_INIT_PRIORITY
+	default INTC_INIT_PRIORITY
+
+config POWER_DOMAIN_ARM_SCMI_INIT_PRIORITY
+	default INTC_INIT_PRIORITY
+
 if MDIO
 
 config MDIO_INIT_PRIORITY
