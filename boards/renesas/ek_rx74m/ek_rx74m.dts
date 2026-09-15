@@ -74,6 +74,7 @@
 		sdhc0 = &sdhc0;
 		pwm-0 = &pwm4;
 		rtc = &rtc;
+		watchdog0 = &iwdt;
 	};
 
 	zephyr,user {
@@ -159,6 +160,10 @@
 &uclk {
 	clocks = <&pllr>;
 	div = <5>;
+	status = "okay";
+};
+
+&iwdtclk {
 	status = "okay";
 };
 
@@ -548,5 +553,9 @@
 };
 
 &rtc {
+	status = "okay";
+};
+
+&iwdt {
 	status = "okay";
 };
