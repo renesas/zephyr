@@ -1896,6 +1896,37 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 	data->ospi_b_command_set_table[1].p_erase_commands = &data->ospi_b_erase_commands;
 
 	if (target_mode == JESD216_MODE_8D8D8D) {
+#ifdef CONFIG_OSPI_OPTIMINE_DUMMY_CYCLES
+		spi_flash_direct_transfer_t transfer_opt_dummy = {
+			.command = 0x71,
+			.command_length = 1,
+			.address = 0x300,
+			.address_length = 4,
+			.data_length = 1,
+			.dummy_cycles = 0,
+		};
+
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_opt_dummy,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_READ);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+
+		transfer_opt_dummy.command = 0x72;
+		transfer_opt_dummy.data &= ~7;
+		transfer_opt_dummy.data |= 3;
+
+		ret = flash_ospi_b_write_enable(data);
+		if (ret != 0) {
+			return ret;
+		}
+
+		err = R_OSPI_B_DirectTransfer(&data->ospi_b_ctrl, &transfer_opt_dummy,
+					      SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
+		if (err != FSP_SUCCESS) {
+			return -EIO;
+		}
+#endif
 		if (sfdp_region->param_available & SFDP_PARAM_SCCR_MAP_AVAILABLE) {
 			uint8_t dummy;
 
@@ -1967,6 +1998,9 @@ static int flash_ospi_b_update_flash_config(const struct device *dev)
 				config->special_require_info.def_8d_dummy_cycles;
 		}
 
+#ifdef CONFIG_OSPI_OPTIMINE_DUMMY_CYCLES
+		data->ospi_b_command_set_table[1].read_dummy_cycles = 14;
+#endif
 		/* Although the PP_4B is not supported in 4-byte instruction table, so far the nor
 		 * still use PP_4B + extend for octal mode
 		 */
