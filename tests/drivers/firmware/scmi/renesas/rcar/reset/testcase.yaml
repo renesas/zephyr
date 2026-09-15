@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+
+tests:
+  drivers.firmware.scmi.renesas.rcar.reset:
+    tags:
+      - scmi
+      - reset
+    timeout: 30
+    platform_allow:
+      - rcar_ironhide_x5h/r8a78000/r52
+    integration_platforms:
+      - rcar_ironhide_x5h/r8a78000/r52
