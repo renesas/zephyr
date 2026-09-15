@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+
+tests:
+  drivers.firmware.scmi.renesas.rcar.power_system:
+    tags:
+      - scmi
+      - power_domain
+      - system_power
+    timeout: 30
+    platform_allow:
+      - rcar_ironhide_x5h/r8a78000/r52
+    integration_platforms:
+      - rcar_ironhide_x5h/r8a78000/r52
