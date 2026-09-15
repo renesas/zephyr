@@ -23,6 +23,7 @@ config TEST_WDT_SLEEP_TIME
 
 config TEST_WDT_SETUP_FLAGS
 	int "WDT setup flags for test, selectable options are: No flags (0x0U), WDT_OPT_PAUSE_IN_SLEEP (0x1U), WDT_OPT_PAUSE_HALTED_BY_DBG (0x2U)"
+	default 0 if SOC_FAMILY_RENESAS_RX
 	default 2
 	help
 	  Set the watchdog setup flags for the test.
