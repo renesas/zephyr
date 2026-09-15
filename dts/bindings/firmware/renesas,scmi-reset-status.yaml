@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas SCMI vendor reset status interface
+
+compatible: "renesas,scmi-reset-status"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
+    const: [0x80]

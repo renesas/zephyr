@@ -53,6 +53,17 @@
 				compatible = "arm,scmi-system";
 				reg = <0x12>;
 			};
+
+			scmi_reset: protocol@16 {
+				compatible = "arm,scmi-reset";
+				reg = <0x16>;
+				#reset-cells = <1>;
+			};
+
+			scmi_renesas_reset_status: protocol@80 {
+				compatible = "renesas,scmi-reset-status";
+				reg = <0x80>;
+			};
 		};
 	};
 
