@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rx/renesas/r5k574x.dtsi>
+
+/delete-node/ &escclk;
+/delete-node/ &dsmifclk;
+
+&mram_ctrl {
+	code_flash_ctrl: code-mram-ctrl {
+		compatible = "renesas,rx-mram-region-ctrl";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		code_mram: mram@fff00000 {
+			compatible = "soc-nv-flash";
+			reg = <0xfff00000 DT_SIZE_M(1)>;
+			ranges = <0x0 0xfff00000 DT_SIZE_M(1)>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			write-block-size = <1>;
+			erase-block-size = <32>;
+		};
+	};
+
+	data_flash_ctrl: data-mram-ctrl {
+		compatible = "renesas,rx-mram-region-ctrl";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		data_mram: mram@86900000 {
+			compatible = "soc-nv-flash";
+			reg = <0x86900000 DT_SIZE_K(48)>;
+			ranges = <0x0 0x86900000 DT_SIZE_K(48)>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			write-block-size = <16>;
+			erase-block-size = <16>;
+		};
+	};
+};
