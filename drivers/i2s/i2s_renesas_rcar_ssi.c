@@ -15,6 +15,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/irq.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/interrupt_controller/gic.h>
 #include <zephyr/sys/util.h>
 
 #ifdef CONFIG_I2S_RENESAS_RCAR_SSI_DMA
@@ -144,6 +145,7 @@ static inline void i2s_rcar_ssi_clear_status(const struct device *dev);
 static inline void i2s_rcar_ssi_int(const struct device *dev, bool enable);
 static inline void i2s_rcar_ssiu_busif_enable_transfer(const struct device *dev, bool enable);
 static inline void i2s_rcar_ssi_halt(const struct device *dev);
+static inline void i2s_rcar_ssi_int_clear_pending(unsigned int irq);
 
 /* Enable or disable the SSI module (SSICR.EN) */
 static inline void i2s_rcar_ssi_enable(const struct device *dev, bool enable)
@@ -181,19 +183,29 @@ static inline void i2s_rcar_ssi_clear_status(const struct device *dev)
 /* Enable or mask the SSI and SSIU interrupt sources used by the current transfer mode */
 static inline void i2s_rcar_ssi_int(const struct device *dev, bool enable)
 {
+	const struct i2s_rcar_config *config = dev->config;
 	uint32_t cr = sys_read32(SSI_BASE(dev) + SSI_SSICR_OFFSET);
 	uint32_t int_en = sys_read32(SSIU_BASE(dev) + SSIU_INT_ENABLE_OFFSET);
 
 	if (enable) {
 		cr |= I2S_RCAR_SSICR_INT_MSK;
 		int_en |= I2S_RCAR_SSIU_INT_MSK;
+
+		/* Clear pending interrupt signal */
+		i2s_rcar_ssi_int_clear_pending(config->irq);
+
+		sys_write32(cr, SSI_BASE(dev) + SSI_SSICR_OFFSET);
+		sys_write32(int_en, SSIU_BASE(dev) + SSIU_INT_ENABLE_OFFSET);
 	} else {
 		cr &= ~(I2S_RCAR_SSICR_INT_MSK);
 		int_en &= ~(I2S_RCAR_SSIU_INT_MSK);
-	}
 
-	sys_write32(cr, SSI_BASE(dev) + SSI_SSICR_OFFSET);
-	sys_write32(int_en, SSIU_BASE(dev) + SSIU_INT_ENABLE_OFFSET);
+		sys_write32(cr, SSI_BASE(dev) + SSI_SSICR_OFFSET);
+		sys_write32(int_en, SSIU_BASE(dev) + SSIU_INT_ENABLE_OFFSET);
+
+		/* Clear pending interrupt signal */
+		i2s_rcar_ssi_int_clear_pending(config->irq);
+	}
 }
 
 /* Start or stop the data transfer between the BUSIF and the SSI */
@@ -223,6 +235,17 @@ static inline void i2s_rcar_ssi_halt(const struct device *dev)
 		LOG_ERR("Serial bus activity has not stopped");
 		return;
 	}
+}
+
+/* Clear pending interrupt signal */
+static inline void i2s_rcar_ssi_int_clear_pending(unsigned int irq)
+{
+#if defined(CONFIG_GIC)
+	arm_gic_irq_clear_pending(irq);
+#else
+	ARG_UNUSED(irq);
+	/* Do nothing */
+#endif
 }
 
 #ifdef CONFIG_I2S_RENESAS_RCAR_SSI_DMA
@@ -372,6 +395,9 @@ static int i2s_rcar_dma_start_transfer(const struct device *dev, enum i2s_dir di
 		/* Start BUSIF transfer */
 		i2s_rcar_ssiu_busif_enable_transfer(dev, true);
 	}
+
+	/* Clear latched status flags */
+	i2s_rcar_ssi_clear_status(dev);
 
 	/* Enable interrupts */
 	i2s_rcar_ssi_int(dev, true);
