@@ -31,6 +31,16 @@
 			compatible = "arm,scmi-shmem";
 			reg = <0xc1060200 0x100>;
 		};
+
+		scmi_shmem1: memory@c1060400 {
+			compatible = "arm,scmi-shmem";
+			reg = <0xc1060400 0x100>;
+		};
+
+		scmi_shmem2: memory@c1060600 {
+			compatible = "arm,scmi-shmem";
+			reg = <0xc1060600 0x100>;
+		};
 	};
 
 	firmware {
