@@ -85,17 +85,21 @@ static int pcs_init_ram(const struct device *dev)
 	ret = pcs_reg_wait(dev, 0x026c, 0x180, BIT(0), 1);
 
 	if (ret) {
-		LOG_ERR(" pcs_reg_wait(dev, 0x026c, 0x180, BIT(0), BIT(0)) failed");
+		LOG_ERR("pcs_reg_wait(dev, 0x026c, 0x180, BIT(0), BIT(0)) failed");
 		return ret;
 	}
 
 	pcs_write32(dev, 0x026c, 0x180, 0x03);
 
-	/* Power on MP-PHY */
-	ret = mp_phy_renesas_rcar_power_on(config->mpphy_dev, config->phy_cfg);
-	k_busy_wait(1100);
-	if (ret) {
-		return ret;
+	/* Power on MP-PHY only once per physical PHY; skip it if the lane
+	 * sharing this MP-PHY channel already powered it on.
+	 */
+	if (!mp_phy_renesas_rcar_get_run_status(config->mpphy_dev, config->phy_cfg)) {
+		ret = mp_phy_renesas_rcar_power_on(config->mpphy_dev, config->phy_cfg);
+		k_busy_wait(1100);
+		if (ret) {
+			return ret;
+		}
 	}
 
 	return pcs_reg_wait(dev, 0x0000, 0x300, BIT(15), 0);
@@ -423,3 +427,69 @@ static DEVICE_API(ethphy, pcs_channel_api) = {
 			      &pcs_channel_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PCS_CHANNEL_INIT)
+
+#undef DT_DRV_COMPAT
+#define DT_DRV_COMPAT renesas_r8a78000_ether_pcs
+
+/*
+ * Renesas R-Car X5H Ethernet PCS block (the "eth_pcs" node all
+ * renesas,rcar-ether-pcs-channel nodes above live under).
+ */
+
+struct pcs_block_channel_clock {
+	const struct device *clock_dev;
+	struct rcar_clkc mod_clk;
+};
+
+struct pcs_block_config {
+	const struct pcs_block_channel_clock *chan_clk;
+	uint8_t num_chan;
+};
+
+static int pcs_block_init(const struct device *dev)
+{
+	const struct pcs_block_config *config = dev->config;
+	int ret;
+
+	for (uint8_t i = 0; i < config->num_chan; i++) {
+		const struct pcs_block_channel_clock *chan = &config->chan_clk[i];
+
+		if (!device_is_ready(chan->clock_dev)) {
+			LOG_ERR("PCS block: clock controller not ready for channel %u", i);
+			return -ENODEV;
+		}
+
+		ret = clock_control_on(chan->clock_dev, (clock_control_subsys_t)&chan->mod_clk);
+		if (ret < 0) {
+			LOG_ERR("PCS block: failed to release module standby for channel %u "
+				"(err %d)",
+				i, ret);
+			return ret;
+		}
+	}
+
+	LOG_INF("Renesas PCS block: released module standby for %u channel(s)", config->num_chan);
+
+	return 0;
+}
+
+#define PCS_BLOCK_CHANNEL_CLOCK_ENTRY(node_id)                                                     \
+	{                                                                                          \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(node_id)),                               \
+		.mod_clk.module = DT_CLOCKS_CELL_BY_IDX(node_id, 0, module),                       \
+		.mod_clk.domain = DT_CLOCKS_CELL_BY_IDX(node_id, 0, domain),                       \
+	},
+
+#define PCS_BLOCK_INIT(n)                                                                          \
+	static const struct pcs_block_channel_clock pcs_block_chan_clk_##n[] = {                   \
+		DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(n), PCS_BLOCK_CHANNEL_CLOCK_ENTRY)};      \
+	static const struct pcs_block_config pcs_block_config_##n = {                              \
+		.chan_clk = pcs_block_chan_clk_##n,                                                \
+		.num_chan = ARRAY_SIZE(pcs_block_chan_clk_##n),                                    \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(n, pcs_block_init, NULL, NULL, &pcs_block_config_##n, POST_KERNEL,   \
+			      CONFIG_PHY_RENESAS_PCS_BLOCK_INIT_PRIORITY, NULL);
+
+DT_INST_FOREACH_STATUS_OKAY(PCS_BLOCK_INIT)
+
+#undef DT_DRV_COMPAT

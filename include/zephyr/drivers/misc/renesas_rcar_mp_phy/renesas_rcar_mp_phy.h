@@ -21,5 +21,7 @@ struct mp_phy_renesas_rcar_cfg {
 
 int mp_phy_renesas_rcar_prepare(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg);
 int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg);
+uint8_t mp_phy_renesas_rcar_get_run_status(const struct device *dev,
+					   struct mp_phy_renesas_rcar_cfg phy_cfg);
 
 #endif /* ZEPHYR_DRIVERS_MISC_RENESAS_RCAR_MP_PHY_H_ */

@@ -178,6 +178,8 @@ struct mp_phy_renesas_rcar_config {
 
 struct mp_phy_renesas_rcar_data {
 	DEVICE_MMIO_NAMED_RAM(reg_base);
+	uint8_t running[CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS];
+	uint8_t prepared[CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS];
 };
 
 extern const uint8_t mpphy_firmware[];
@@ -256,6 +258,7 @@ static int mp_phy_init_ethernet(const struct device *dev, uint32_t channel_id)
 
 int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
 {
+	struct mp_phy_renesas_rcar_data *data = dev->data;
 	int ret;
 
 	if (phy_cfg.type == MP_PHY_TYPE_ETH) {
@@ -264,9 +267,12 @@ int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas
 		ret = mp_phy_renesas_rcar_wait_bits(dev, MP_PHY_PXRXREQ1(phy_cfg.channel),
 						    MP_PHY_PXRXREQ1_INIT_BUSY,
 						    MP_PHY_PXRXREQ1_INIT_IDLE);
+
 		if (ret < 0) {
 			return ret;
 		}
+
+		data->running[phy_cfg.channel] = true;
 	} else {
 		return -ENOTSUP;
 	}
@@ -277,11 +283,16 @@ int mp_phy_renesas_rcar_power_on(const struct device *dev, struct mp_phy_renesas
 int mp_phy_renesas_rcar_prepare(const struct device *dev, struct mp_phy_renesas_rcar_cfg phy_cfg)
 {
 	const struct mp_phy_renesas_rcar_config *config = dev->config;
+	struct mp_phy_renesas_rcar_data *data = dev->data;
 	uint8_t if_type;
 	int ret;
 
 	if (phy_cfg.channel >= CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS) {
 		return -EINVAL;
+	}
+
+	if (data->prepared[phy_cfg.channel]) {
+		return 0;
 	}
 
 	if_type = config->chan_cfg[phy_cfg.channel].if_type;
@@ -310,12 +321,23 @@ int mp_phy_renesas_rcar_prepare(const struct device *dev, struct mp_phy_renesas_
 		return -EINVAL;
 	}
 
+	data->prepared[phy_cfg.channel] = true;
+
 	return 0;
+}
+
+uint8_t mp_phy_renesas_rcar_get_run_status(const struct device *dev,
+					   struct mp_phy_renesas_rcar_cfg phy_cfg)
+{
+	struct mp_phy_renesas_rcar_data *data = dev->data;
+
+	return data->running[phy_cfg.channel];
 }
 
 static int mp_phy_renesas_rcar_init(const struct device *dev)
 {
 	const struct mp_phy_renesas_rcar_config *config = dev->config;
+	struct mp_phy_renesas_rcar_data *data = dev->data;
 	uint32_t sramcnt[CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS];
 	uint32_t cmncnt1 = 0;
 	uint32_t cmncnt2 = MP_PHY_CMNCNT2_RES_DEFAULT_SETTING;
@@ -325,6 +347,11 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 	}
 
 	DEVICE_MMIO_NAMED_MAP(dev, reg_base, K_MEM_CACHE_NONE);
+
+	for (int i = 0; i < CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS; i++) {
+		data->running[i] = false;
+		data->prepared[i] = false;
+	}
 
 	/* Power ON the MP-PHYs, keep the reset asserted */
 	for (uint32_t i = 0; i < config->num_mod_clk; i++) {

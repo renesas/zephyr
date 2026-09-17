@@ -11,12 +11,21 @@ config PHY_RENESAS_PCS
 
 if PHY_RENESAS_PCS
 
+config PHY_RENESAS_PCS_BLOCK_INIT_PRIORITY
+	int "Renesas R-Car Ethernet PCS block init priority"
+	default 51
+	help
+	  Renesas R-Car Ethernet PCS block (renesas,r8a78000-ether-pcs)
+	  initialization priority. Releases Module Standby for every PCS
+	  channel underneath it. Must run after the MP-PHY device and before
+	  PHY_RENESAS_PCS_INIT_PRIORITY.
+
 config PHY_RENESAS_PCS_INIT_PRIORITY
 	int "Renesas R-Car Ethernet PCS channel init priority"
 	default 52
 	help
 	  Renesas R-Car Ethernet PCS channel initialization priority.
-	  This must run after the MP-PHY device and before R-Switch 3.
+	  This must run after the PCS block device and before R-Switch 3.
 
 config PHY_RENESAS_PCS_TIMEOUT_US
 	int "Register access timeout (us)"
