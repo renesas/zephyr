@@ -223,6 +223,7 @@
 					    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
 			brga-clk-sel = <ADG_BRGSRC(S0D4)>;
 			brgb-clk-sel = <ADG_BRGSRC(S0D4)>;
+			status = "disabled";
 		};
 
 		adg1: audio-clock@ed530000 {
@@ -239,6 +240,7 @@
 					    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
 			brga-clk-sel = <ADG_BRGSRC(S0D4)>;
 			brgb-clk-sel = <ADG_BRGSRC(S0D4)>;
+			status = "disabled";
 		};
 
 		gpio0: gpio@c1080100 {
