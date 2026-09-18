@@ -9,6 +9,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/pinctrl.h>
 #include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 
 /* ADG registers offset */
@@ -231,6 +232,7 @@ struct i2s_rcar_adg_clk_rate {
 /* Device tree derived configuration of an ADG instance */
 struct clock_control_renesas_adg_cfg {
 	DEVICE_MMIO_ROM;                              /* ADG register region, must be first */
+	const struct pinctrl_dev_config *pincfg;      /* ADG pin config */
 	struct rcar_adg_clock_config dev_pclk;        /* ADG module clock, gates register access */
 	struct rcar_adg_clock_config dev_s0d4;        /* S0D4 internal clock control instance */
 	struct rcar_adg_clock_config dev_s0d1;        /* S0D1 internal clock control instance */

@@ -54,8 +54,7 @@ static int rcar_adg_avbcounter8_set_rate(const struct device *dev, uint8_t avbco
 /*
  * Enable or disable an ADG clock source
  *
- * The BRG units have no gate of their own, they run as soon as their timing signal is enabled
- * in TIM_EN, which init() does once for all units. Enabling them is therefore a no-op and
+ * The BRG units have no gate of their own. Enabling them is therefore a no-op and
  * disabling them is rejected with -ENOTSUP. The avb_counter8 channels are individually gated
  * by the matching AVB_CLK_CONFIG.DIV_EN bit.
  *
@@ -685,6 +684,16 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 
 	k_mutex_init(&data->lock);
 
+	/* Apply pinctrl state */
+	if (config->pincfg != NULL) {
+		ret = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
+
+		if (ret < 0) {
+			LOG_ERR("Apply pinctrl failed");
+			return ret;
+		}
+	}
+
 	/* Enable clock for ADG and its internal clock */
 	ret = clock_control_on(config->dev_pclk.clock_dev,
 			       (clock_control_subsys_t)&config->dev_pclk.cpg);
@@ -859,6 +868,8 @@ static DEVICE_API(clock_control, clock_control_renesas_rcar_adg_api) = {
 
 /* Define the config, data and device for one ADG instance */
 #define INIT_ADG(node_id)                                                                          \
+	PINCTRL_DT_INST_DEFINE(node_id);                                                           \
+                                                                                                   \
 	static struct i2s_rcar_adg_clk_rate clkin_src_rate##node_id = {                            \
 		.audio_clka_hz =                                                                   \
 			DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(node_id, clk_a), clock_frequency),     \
@@ -870,6 +881,7 @@ static DEVICE_API(clock_control, clock_control_renesas_rcar_adg_api) = {
                                                                                                    \
 	static const struct clock_control_renesas_adg_cfg adg_cfg_##node_id = {                    \
 		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(node_id)),                                        \
+		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(node_id),                                 \
 		.clkin_src_rate = &clkin_src_rate##node_id,                                        \
 		.dev_pclk = RCAR_ADG_CLOCK_DEFINE(node_id, pclk),                                  \
 		.dev_s0d4 = RCAR_ADG_CLOCK_DEFINE(node_id, s0d4),                                  \

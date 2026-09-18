@@ -169,18 +169,13 @@
 };
 
 &adg0 {
+	pinctrl-0 = <&audio_clka_default &audio0_clkout0_default>;
+	pinctrl-names = "default";
 	audio-clkout-sel = <ADG_CLKSRC(BRGB) ADG_CLKSRC(NONE)
 			    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
 	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
 	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
 	status = "okay";
-};
-
-&adg1 {
-	audio-clkout-sel = <ADG_CLKSRC(BRGB) ADG_CLKSRC(NONE)
-			    ADG_CLKSRC(NONE) ADG_CLKSRC(NONE)>;
-	brga-clk-sel = <ADG_BRGSRC(CLKA)>;
-	brgb-clk-sel = <ADG_BRGSRC(CLKA)>;
 };
 
 &audio_dmac0 {
@@ -188,8 +183,7 @@
 };
 
 &ssi5 {
-	pinctrl-0 = <&audio_clka_default &audio0_clkout0_default
-		     &ssi5_sck_default &ssi5_ws_default &ssi5_sd_default>;
+	pinctrl-0 = <&ssi5_sck_default &ssi5_ws_default &ssi5_sd_default>;
 	pinctrl-names = "default";
 	clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI05>,
 		 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,

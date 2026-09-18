@@ -5,7 +5,7 @@ description: Renesas R-Car Audio Clock Generator
 
 compatible: "renesas,rcar-adg"
 
-include: [clock-controller.yaml, base.yaml]
+include: [clock-controller.yaml, pinctrl-device.yaml, base.yaml]
 
 properties:
   reg:
