@@ -1,0 +1,12 @@
+board:
+  name: pb_rh850u2a_292pin
+  full_name: RH850/U2A 292pin PiggyBack Board
+  vendor: renesas
+  socs:
+  - name: r7f702300afaba-c
+  - name: r7f702300bfaba-c
+  - name: r7f702300eaba-c
+  - name: r7f702301afabg-c
+  - name: r7f702301bfabg-c
+  - name: r7f702301eabg-c
+  - name: r7f702302fabb-c
