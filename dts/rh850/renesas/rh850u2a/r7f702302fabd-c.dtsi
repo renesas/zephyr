@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2a/r7f702302.dtsi>
+
+/ {
+	soc {
+		flash0: flash@0 {
+			reg = <0x0 DT_SIZE_M(6)>;
+		};
+
+		sram0: memory@fe000000 {
+			reg = <0xfe000000 DT_SIZE_K(512)>;
+		};
+
+		/* Delete gpio P22, AP1, AP3, AP4 */
+		/delete-node/ gpio@ffd90580;
+		/delete-node/ gpio@ffd90cc0;
+		/delete-node/ gpio@ffd90d40;
+		/delete-node/ gpio@ffd90d80;
+
+		/* Delete rlin3 uart node:
+		 * rlin31, rlin32, rlin36, rlin37
+		 */
+		/delete-node/ rlin31@ffc7c000;
+		/delete-node/ rlin32@ffd28200;
+		/delete-node/ rlin36@ffd28600;
+		/delete-node/ rlin37@ffc7c180;
+
+		/* Delete adcj2 node */
+		/delete-node/ adc@ff9a2000;
+	};
+};

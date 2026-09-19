@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2a/r7f702300.dtsi>
+
+/ {
+	soc {
+		/* Delete gpio node P0, P1, P8,
+		 * P9, P11, P12, P18, P19, P23
+		 */
+		/delete-node/ gpio@ffd90000;
+		/delete-node/ gpio@ffd90200;
+		/delete-node/ gpio@ffd90040;
+		/delete-node/ gpio@ffd90240;
+		/delete-node/ gpio@ffd902c0;
+		/delete-node/ gpio@ffd90300;
+		/delete-node/ gpio@ffd90480;
+		/delete-node/ gpio@ffd904c0;
+		/delete-node/ gpio@ffd905c0;
+		/delete-node/ gpio@ffd90dc0;
+
+		/* Delete rlin3 uart node:
+		 * from rlin312 to rlin323
+		 */
+		/delete-node/ rlin312@ffd28c00;
+		/delete-node/ rlin313@ffc7c300;
+		/delete-node/ rlin314@ffd28e00;
+		/delete-node/ rlin315@ffc7c380;
+		/delete-node/ rlin316@ffd29000;
+		/delete-node/ rlin317@ffc7c400;
+		/delete-node/ rlin318@ffd29200;
+		/delete-node/ rlin319@ffc7c480;
+		/delete-node/ rlin320@ffd29400;
+		/delete-node/ rlin321@ffc7c500;
+		/delete-node/ rlin322@ffd29600;
+		/delete-node/ rlin323@ffc7c580;
+	};
+};

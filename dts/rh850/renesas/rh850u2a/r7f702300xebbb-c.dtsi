@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2a/r7f702300.dtsi>
+
+/ {
+	soc {
+		/* Delete gpio P1, P9, P12, P18, P19, P23 */
+		/delete-node/ gpio@ffd90040;
+		/delete-node/ gpio@ffd90240;
+		/delete-node/ gpio@ffd90300;
+		/delete-node/ gpio@ffd90480;
+		/delete-node/ gpio@ffd904c0;
+		/delete-node/ gpio@ffd905c0;
+	};
+};
