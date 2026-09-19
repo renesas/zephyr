@@ -1,0 +1,26 @@
+identifier: pb_rh850u2a_156pin/r7f702302fabd-c
+name: Renesas RH850 U2A 156pin
+type: mcu
+arch: rh850
+ram: 512
+flash: 6144
+toolchain:
+  - iar
+supported:
+  - adc
+  - clock
+  - counter
+  - gpio
+  - pinctrl
+  - interrupt_controller
+  - i2c
+  - rtc
+  - spi
+  - timer
+  - uart
+  - crc
+  - watchdog
+  - dma
+  - pwm
+  - can
+vendor: renesas

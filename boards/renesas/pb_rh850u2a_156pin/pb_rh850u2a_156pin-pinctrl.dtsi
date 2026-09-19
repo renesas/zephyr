@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2a.h>
+
+&pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_10, 0, ALT_OUT4)>,
+				<RH850_PSEL(PORT_10, 5, ALT_IN7)>;
+		};
+	};
+
+	iic0_default: iic0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_17, 2, ALT_OUT4)>,
+				<RH850_PSEL(PORT_17, 3, ALT_OUT4)>;
+			drive-strength = "low";
+			renesas,bidirect-control;
+			bias-pull-up;
+			drive-open-drain;
+		};
+	};
+
+	iic1_default: iic1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_22, 3, ALT_OUT5)>,
+				<RH850_PSEL(PORT_22, 4, ALT_OUT5)>;
+			drive-strength = "low";
+			renesas,bidirect-control;
+			bias-pull-up;
+			drive-open-drain;
+		};
+	};
+
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 5, ALT_OUT2)>,
+				<RH850_PSEL(PORT_02, 3, ALT_OUT3)>,
+				<RH850_PSEL(PORT_04, 6, ALT_OUT2)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_04, 7, ALT_IN2)>;
+			drive-strength = "very low";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_IN3)>,
+				<RH850_PSEL(PORT_02, 0, ALT_OUT2)>,
+				<RH850_PSEL(PORT_05, 2, ALT_OUT3)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_IN3)>;
+			drive-strength = "very low";
+		};
+	};
+
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT6)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT6)>;
+		};
+	};
+
+	canfd0_default: canfd0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 7, ALT_OUT3)>,	/* TX */
+				<RH850_PSEL(PORT_02, 6, ALT_IN8)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
+};
