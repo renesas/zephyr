@@ -6,6 +6,22 @@ family:
           - name: r7f702300aebbc-c
           - name: r7f702300bebbc-c
           - name: r7f702300ebbg-c
+          - name: r7f702300bebbb-c
+          - name: r7f702300ebbb-c
+          - name: r7f702300aebbb-c
+          - name: r7f702300bfaba-c
+          - name: r7f702300eaba-c
+          - name: r7f702300afaba-c
+          - name: r7f702301bebba-c
+          - name: r7f702301ebba-c
+          - name: r7f702301aebba-c
+          - name: r7f702301bfabg-c
+          - name: r7f702301eabg-c
+          - name: r7f702301afabg-c
+          - name: r7f702302fabb-c
+          - name: r7f702302fafk-c
+          - name: r7f702302fabd-c
+          - name: r7f702302fafm-c
       - name: rh850u2b
         socs:
           - name: r7f70254xfabg-c

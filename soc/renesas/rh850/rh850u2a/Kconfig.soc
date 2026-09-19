@@ -18,6 +18,70 @@ config SOC_R7F702300EBBG_C
 	bool
 	select SOC_SERIES_RH850U2A
 
+config SOC_R7F702300BEBBB_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702300EBBB_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702300AEBBB_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702300BFABA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702300EABA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702300AFABA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301BEBBA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301EBBA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301AEBBA_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301BFABG_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301EABG_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702301AFABG_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702302FABB_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702302FAFK_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702302FABD_C
+	bool
+	select SOC_SERIES_RH850U2A
+
+config SOC_R7F702302FAFM_C
+	bool
+	select SOC_SERIES_RH850U2A
+
 config SOC_SERIES
 	default "rh850u2a" if SOC_SERIES_RH850U2A
 
@@ -25,3 +89,19 @@ config SOC
 	default "r7f702300aebbc-c" if SOC_R7F702300AEBBC_C
 	default "r7f702300bebbc-c" if SOC_R7F702300BEBBC_C
 	default "r7f702300ebbg-c" if SOC_R7F702300EBBG_C
+	default "r7f702300bebbb-c" if SOC_R7F702300BEBBB_C
+	default "r7f702300ebbb-c" if SOC_R7F702300EBBB_C
+	default "r7f702300aebbb-c" if SOC_R7F702300AEBBB_C
+	default "r7f702300bfaba-c" if SOC_R7F702300BFABA_C
+	default "r7f702300eaba-c" if SOC_R7F702300EABA_C
+	default "r7f702300afaba-c" if SOC_R7F702300AFABA_C
+	default "r7f702301bebba-c" if SOC_R7F702301BEBBA_C
+	default "r7f702301ebba-c" if SOC_R7F702301EBBA_C
+	default "r7f702301aebba-c" if SOC_R7F702301AEBBA_C
+	default "r7f702301bfabg-c" if SOC_R7F702301BFABG_C
+	default "r7f702301eabg-c" if SOC_R7F702301EABG_C
+	default "r7f702301afabg-c" if SOC_R7F702301AFABG_C
+	default "r7f702302fabb-c" if SOC_R7F702302FABB_C
+	default "r7f702302fafk-c" if SOC_R7F702302FAFK_C
+	default "r7f702302fabd-c" if SOC_R7F702302FABD_C
+	default "r7f702302fafm-c" if SOC_R7F702302FAFM_C
