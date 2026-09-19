@@ -8,6 +8,7 @@ toolchain:
   - iar
 supported:
   - adc
+  - clock
   - counter
   - gpio
   - pinctrl

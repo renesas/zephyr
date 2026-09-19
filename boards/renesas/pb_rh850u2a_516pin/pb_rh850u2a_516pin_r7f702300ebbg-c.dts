@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include <rh850/renesas/rh850u2a/r7f702300bebbc-c.dtsi>
+#include <rh850/renesas/rh850u2a/r7f702300.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
 
