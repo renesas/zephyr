@@ -1,0 +1,6 @@
+board:
+  name: pb_rh850u2a_176pin
+  full_name: RH850/U2A 176pin PiggyBack Board
+  vendor: renesas
+  socs:
+  - name: r7f702302fafk-c

@@ -1,0 +1,155 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <rh850/renesas/rh850u2a/r7f702302fafk-c.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+#include "pb_rh850u2a_176pin-pinctrl.dtsi"
+
+/ {
+	model = "Renesas RH850 U2A 176pin";
+	compatible = "renesas,pb-rh850u2a-176pin", "renesas,u2a";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,system-timer = &ostm0;
+		zephyr,crc = &crc0;
+		zephyr,canbus = &canfd0;
+	};
+
+	aliases {
+		led0 = &led0;
+		watchdog0 = &wdtba;
+		pwm-led0 = &pwm_led_0;
+		pwm-led1 = &pwm_led_1;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led0 {
+			gpios = <&ioporta2 8 GPIO_ACTIVE_HIGH>;
+			label = "LED0";
+		};
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+
+		pwm_led_0: pwm_led_0 {
+			pwms = <&pwm0_slave 0 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+			label = "PWM LED 0";
+		};
+
+		pwm_led_1: pwm_led_1 {
+			pwms = <&pwm1_slave 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+			label = "PWM LED 1";
+		};
+	};
+
+	can_phy0: can-phy0 {
+		compatible = "can-transceiver-gpio";
+		standby-gpios = <&ioport10 4 GPIO_ACTIVE_HIGH>;
+		max-bitrate = <8000000>;
+		#phy-cells = <0>;
+	};
+};
+
+&pwm0_master {
+	status = "okay";
+};
+
+&pwm0_slave {
+	pinctrl-0 = <&pwm0_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&pwm1_slave {
+	pinctrl-0 = <&pwm1_slave_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ostm0 {
+	status = "okay";
+
+	timer {
+		status = "okay";
+	};
+};
+
+&rlin30 {
+	pinctrl-0 = <&rlin30_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	uart0: uart {
+		current-speed = <115200>;
+		status = "okay";
+	};
+};
+
+&mspi0 {
+	pinctrl-0 = <&mspi0_default>;
+	pinctrl-names = "default";
+	channel = <0>;
+	status = "okay";
+};
+
+&mspi1 {
+	pinctrl-0 = <&mspi1_default>;
+	pinctrl-names = "default";
+	channel = <0>;
+	status = "okay";
+};
+
+&ioporta2 {
+	status = "okay";
+};
+
+&iic0 {
+	pinctrl-0 = <&iic0_default>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&iic1 {
+	pinctrl-0 = <&iic1_default>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	status = "okay";
+};
+
+&wdtba {
+	status = "okay";
+};
+
+&crc0 {
+	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+	phys = <&can_phy0>;
+};
+
+&ioport10 {
+	status = "okay";
+};
