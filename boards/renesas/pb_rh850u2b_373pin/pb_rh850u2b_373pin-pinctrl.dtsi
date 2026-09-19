@@ -1,0 +1,99 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2b.h>
+
+&pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 6, ALT_OUT8)>,
+				<RH850_PSEL(PORT_02, 5, ALT_IN11)>;
+		};
+	};
+
+	canfd0_default: canfd0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 0, ALT_OUT7)>,	/* TX */
+				<RH850_PSEL(PORT_02, 2, ALT_IN7)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
+
+	irq35_ioport: irq35_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_34, 0, ALT_IN11)>;
+		};
+	};
+
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 1, ALT_OUT6)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 2, ALT_OUT6)>;
+		};
+	};
+
+	irq36_ioport: irq36_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_34, 1, ALT_IN11)>;
+		};
+	};
+
+	iic0_default: iic0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 1, ALT_OUT4)>,
+				<RH850_PSEL(PORT_00, 2, ALT_OUT4)>;
+			drive-strength = "low";
+			bias-pull-up;
+			renesas,bidirect-control;
+			drive-open-drain;
+		};
+	};
+
+	iic1_default: iic1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 6, ALT_OUT4)>,
+				<RH850_PSEL(PORT_00, 7, ALT_OUT4)>;
+			drive-strength = "low";
+			bias-pull-up;
+			renesas,bidirect-control;
+			drive-open-drain;
+		};
+	};
+
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 5, ALT_IN1)>,
+				<RH850_PSEL(PORT_11, 9, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 3, ALT_OUT2)>,
+				<RH850_PSEL(PORT_11, 4, ALT_IN2)>;
+			drive-strength = "medium";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 2, ALT_IN1)>,
+				<RH850_PSEL(PORT_11, 7, ALT_OUT2)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 2, ALT_OUT2)>,
+				<RH850_PSEL(PORT_11, 6, ALT_IN1)>;
+			drive-strength = "medium";
+		};
+	};
+};

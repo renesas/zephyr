@@ -1,0 +1,7 @@
+board:
+  name: pb_rh850u2b_373pin
+  full_name: Piggy Board RH850 U2B 373pin
+  vendor: renesas
+  socs:
+  - name: r7f70254xafaba-c
+  - name: r7f70254xfaba-c
