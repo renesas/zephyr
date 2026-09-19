@@ -6,7 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/input/input-event-codes.h>
-#include <rh850/renesas/rh850u2b/r7f70254xfabg-c.dtsi>
+#include <rh850/renesas/rh850u2b/r7f70254xxfabg-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
 

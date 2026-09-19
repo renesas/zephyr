@@ -2,8 +2,8 @@ identifier: pb_rh850u2b_468pin/r7f70254xfabg-c
 name: Renesas RH850 U2B 468pin
 type: mcu
 arch: rh850
-ram: 384
-flash: 4096
+ram: 480
+flash: 10240
 toolchain:
   - iar
 supported:
@@ -21,4 +21,5 @@ supported:
   - pwm
   - adc
   - can
+  - clock
 vendor: renesas
