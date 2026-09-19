@@ -1,0 +1,26 @@
+identifier: pb_rh850u2a_373pin/r7f702300aebbb-c
+name: Renesas RH850 U2A 373pin
+type: mcu
+arch: rh850
+ram: 512
+flash: 16384
+toolchain:
+  - iar
+supported:
+  - adc
+  - clock
+  - counter
+  - gpio
+  - pinctrl
+  - interrupt_controller
+  - i2c
+  - rtc
+  - spi
+  - timer
+  - uart
+  - crc
+  - watchdog
+  - dma
+  - pwm
+  - can
+vendor: renesas

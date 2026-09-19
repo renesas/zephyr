@@ -1,0 +1,11 @@
+board:
+  name: pb_rh850u2a_373pin
+  full_name: RH850/U2A 373pin PiggyBack Board
+  vendor: renesas
+  socs:
+  - name: r7f702300aebbb-c
+  - name: r7f702300bebbb-c
+  - name: r7f702300ebbb-c
+  - name: r7f702301aebba-c
+  - name: r7f702301bebba-c
+  - name: r7f702301ebba-c
