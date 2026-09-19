@@ -86,6 +86,26 @@ built, flashed, and debugged in the usual way. See
 :ref:`build_an_application` and :ref:`application_run` for more details on
 building and running.
 
+**Note:** Currently, the pb_rh850u2b_292pin is built and programmed using the IAR for RH850 toolchain.
+Please follow the steps below to program it onto the board:
+
+  1. Download and install IAR toolchain:
+     https://www.iar.com/embedded-development-tools/free-trials
+
+  2. Set env variable:
+
+   .. code-block:: console
+
+      export ZEPHYR_TOOLCHAIN_VARIANT=iar
+      export IAR_TOOLCHAIN_PATH=<Path/to/your/toolchain>/rh850
+
+  3. Build the Blinky Sample for pb_rh850u2b_292pin
+
+   .. code-block:: console
+
+      cd ~/zephyrproject/zephyr
+      west build -p always -b pb_rh850u2b_292pin/r7f70254xafabb-c samples/basic/blinky
+
 Flashing
 ========
 
@@ -115,7 +135,7 @@ You can use IAR Embedded Workbench for Renesas RH850 (`IAR Embedded Workbench Do
 Once downloaded and installed, open IarIdePm and configure the debug project
 like so:
 
-* Target Device: RH850 - R7F70254x
+* Target Device: RH850 - R7F70254x and R7F70255x
 * Driver: E2
 * Power Supply: 5V
 * Program File: <path/to/your/build/zephyr.elf>
