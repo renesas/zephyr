@@ -57,7 +57,7 @@ LOG_MODULE_REGISTER(i2s_rcar, CONFIG_I2S_LOG_LEVEL);
 /* CPG/MSSR module clock */
 struct i2s_rcar_module_clock_config {
 	const struct device *dev; /* clock controller */
-	struct rcar_cpg_clk cpg;  /* module and domain identifiers */
+	rcar_clk_t cpg;           /* clock identifiers */
 };
 
 /* ADG audio clock feeding the SSI serial bit clock */
@@ -1755,10 +1755,10 @@ static int i2s_rcar_init(const struct device *dev)
 
 	/* Enable the audio domain clock */
 	if (clock_control_get_status(config->ssiclk_domain.dev,
-				     (clock_control_subsys_t)&config->ssiclk_domain.cpg) !=
+				     RCAR_CLOCK_SUBSYS(config->ssiclk_domain.cpg)) !=
 	    CLOCK_CONTROL_STATUS_ON) {
 		err = clock_control_on(config->ssiclk_domain.dev,
-				       (clock_control_subsys_t)&config->ssiclk_domain.cpg);
+				       RCAR_CLOCK_SUBSYS(config->ssiclk_domain.cpg));
 
 		if (err < 0) {
 			LOG_ERR("Apply clock control on failed for audio domain clock with error "
@@ -1769,7 +1769,7 @@ static int i2s_rcar_init(const struct device *dev)
 	}
 
 	/* Enable the SSI module clock */
-	err = clock_control_on(config->ssiclk.dev, (clock_control_subsys_t)&config->ssiclk.cpg);
+	err = clock_control_on(config->ssiclk.dev, RCAR_CLOCK_SUBSYS(config->ssiclk.cpg));
 
 	if (err < 0) {
 		LOG_ERR("Apply clock control on failed for SSI clock with error code (%d)", err);
@@ -1853,12 +1853,10 @@ static DEVICE_API(i2s, i2s_rcar_driver_api) = {
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(idx),                                     \
                                                                                                    \
 		.ssiclk_domain.dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(idx, ssi_domain)),  \
-		.ssiclk_domain.cpg.module = DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi_domain, module),  \
-		.ssiclk_domain.cpg.domain = DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi_domain, domain),  \
+		.ssiclk_domain.cpg = RCAR_DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi_domain),            \
                                                                                                    \
 		.ssiclk.dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(idx, ssi)),                \
-		.ssiclk.cpg.module = DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi, module),                \
-		.ssiclk.cpg.domain = DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi, domain),                \
+		.ssiclk.cpg = RCAR_DT_INST_CLOCKS_CELL_BY_NAME(idx, ssi),                          \
                                                                                                    \
 		.adgclk.dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(idx, audio_clk)),          \
 		.adgclk.adg_clksrc = DT_INST_CLOCKS_CELL_BY_NAME(idx, audio_clk, clock_source),    \

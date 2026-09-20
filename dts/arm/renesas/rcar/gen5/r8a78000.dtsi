@@ -502,8 +502,8 @@
 			       <&audio_dmac0 1 0x7d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 513 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI00>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI00>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -521,8 +521,8 @@
 			       <&audio_dmac0 1 0x6d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 514 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI01>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI01>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -540,8 +540,8 @@
 			       <&audio_dmac0 1 0x5d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 515 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI02>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI02>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -559,8 +559,8 @@
 			       <&audio_dmac0 1 0x4d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 516 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI03>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI03>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -578,8 +578,8 @@
 			       <&audio_dmac0 1 0x3d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 517 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI04>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI04>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -597,8 +597,8 @@
 			       <&audio_dmac0 1 0x2d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 518 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI05>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI05>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -616,8 +616,8 @@
 			       <&audio_dmac0 1 0x2b>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 519 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI06>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI06>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -635,8 +635,8 @@
 			       <&audio_dmac0 1 0x29>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 520 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI07>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI07>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -654,8 +654,8 @@
 			       <&audio_dmac0 1 0x27>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 521 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI08>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI08>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -673,8 +673,8 @@
 			       <&audio_dmac0 1 0x25>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 522 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI09>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI0>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI09>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI0>,
 				 <&adg0 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -692,8 +692,8 @@
 			       <&audio_dmac2 1 0x7d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 523 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI10>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI10>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -711,8 +711,8 @@
 			       <&audio_dmac2 1 0x6d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 524 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI11>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI11>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -730,8 +730,8 @@
 			       <&audio_dmac2 1 0x5d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 525 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI12>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI12>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -749,8 +749,8 @@
 			       <&audio_dmac2 1 0x4d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 526 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI13>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI13>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -768,8 +768,8 @@
 			       <&audio_dmac2 1 0x3d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 527 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI14>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI14>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -787,8 +787,8 @@
 			       <&audio_dmac2 1 0x2d>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 528 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI15>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI15>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -806,8 +806,8 @@
 			       <&audio_dmac2 1 0x2b>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 529 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI16>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI16>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -825,8 +825,8 @@
 			       <&audio_dmac2 1 0x29>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 530 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI17>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI17>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -844,8 +844,8 @@
 			       <&audio_dmac2 1 0x27>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 531 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI18>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI18>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
@@ -863,8 +863,8 @@
 			       <&audio_dmac2 1 0x25>;
 			dma-names = "rx", "tx";
 			interrupts = <GIC_SPI 532 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_SSI19>,
-				 <&clkc CLKC_MOD R8A78000_MOD_SSI1>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_SSI19>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SSI1>,
 				 <&adg1 ADG_CLKSRC(BRGA)>;
 			clock-names = "ssi", "ssi-domain", "audio-clk";
 			#address-cells = <1>;
