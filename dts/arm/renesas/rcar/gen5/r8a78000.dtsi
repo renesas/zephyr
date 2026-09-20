@@ -212,9 +212,9 @@
 		adg0: audio-clock@ec530000 {
 			compatible = "renesas,rcar-adg";
 			reg = <0xec530000 0x140>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_ADG0>,
-				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD1CK_MP_BUS>,
-				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD4CK_MP_BUS>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_ADG0>,
+				 <&scmi_clk R8A78000_SCMI_CLK_ADGHD1CK_MP_BUS>,
+				 <&scmi_clk R8A78000_SCMI_CLK_ADGHD4CK_MP_BUS>,
 				 <&audio_clk_a>, <&audio_clk_b>, <&audio_clk_c>;
 			clock-names = "pclk", "s0d1", "s0d4",
 				      "clk_a", "clk_b", "clk_c";
@@ -229,9 +229,9 @@
 		adg1: audio-clock@ed530000 {
 			compatible = "renesas,rcar-adg";
 			reg = <0xed530000 0x140>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_ADG1>,
-				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD1CK_MP_BUS>,
-				 <&clkc CLKC_CORE R8A78000_CLK_ADGHD4CK_MP_BUS>,
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_ADG1>,
+				 <&scmi_clk R8A78000_SCMI_CLK_ADGHD1CK_MP_BUS>,
+				 <&scmi_clk R8A78000_SCMI_CLK_ADGHD4CK_MP_BUS>,
 				 <&audio_clk_a>, <&audio_clk_b>, <&audio_clk_c>;
 			clock-names = "pclk", "s0d1", "s0d4",
 				      "clk_a", "clk_b", "clk_c";

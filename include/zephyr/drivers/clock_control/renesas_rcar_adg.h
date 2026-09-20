@@ -210,7 +210,7 @@ enum i2s_rcar_audio_clkout {
 /* Reference to a CPG clock the ADG driver depends on */
 struct rcar_adg_clock_config {
 	const struct device *clock_dev; /* CPG clock controller device */
-	struct rcar_cpg_clk cpg;        /* CPG module/domain identifying the clock */
+	rcar_clk_t cpg;                 /* Clock identifier */
 };
 
 /* Rates of the clock signals the ADG can output on the AUDIO_CLKOUT pins */

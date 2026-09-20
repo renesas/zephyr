@@ -695,33 +695,16 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 	}
 
 	/* Enable clock for ADG and its internal clock */
-	ret = clock_control_on(config->dev_pclk.clock_dev,
-			       (clock_control_subsys_t)&config->dev_pclk.cpg);
+	ret = clock_control_on(config->dev_pclk.clock_dev, RCAR_CLOCK_SUBSYS(config->dev_pclk.cpg));
 
 	if (ret < 0) {
 		LOG_ERR("Failed enable pclk clock");
 		return ret;
 	}
 
-	ret = clock_control_on(config->dev_s0d1.clock_dev,
-			       (clock_control_subsys_t)&config->dev_s0d1.cpg);
-
-	if (ret < 0) {
-		LOG_ERR("Failed enable s0d1 clock");
-		return ret;
-	}
-
-	ret = clock_control_on(config->dev_s0d4.clock_dev,
-			       (clock_control_subsys_t)&config->dev_s0d4.cpg);
-
-	if (ret < 0) {
-		LOG_ERR("Failed enable s0d4 clock");
-		return ret;
-	}
-
 	/* Get internal clock sources rate */
 	ret = clock_control_get_rate(config->dev_s0d1.clock_dev,
-				     (clock_control_subsys_t)&config->dev_s0d1.cpg,
+				     RCAR_CLOCK_SUBSYS(config->dev_s0d1.cpg),
 				     &config->clkin_src_rate->audio_s0d1_hz);
 
 	if (ret < 0) {
@@ -730,7 +713,7 @@ static int clock_control_renesas_rcar_adg_init(const struct device *dev)
 	}
 
 	ret = clock_control_get_rate(config->dev_s0d4.clock_dev,
-				     (clock_control_subsys_t)&config->dev_s0d4.cpg,
+				     RCAR_CLOCK_SUBSYS(config->dev_s0d4.cpg),
 				     &config->clkin_src_rate->audio_s0d4_hz);
 
 	if (ret < 0) {
@@ -859,11 +842,7 @@ static DEVICE_API(clock_control, clock_control_renesas_rcar_adg_api) = {
 #define RCAR_ADG_CLOCK_DEFINE(node_id, clk_name)                                                   \
 	{                                                                                          \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(node_id, clk_name)),        \
-		.cpg =                                                                             \
-			{                                                                          \
-				.module = DT_INST_CLOCKS_CELL_BY_NAME(node_id, clk_name, module),  \
-				.domain = DT_INST_CLOCKS_CELL_BY_NAME(node_id, clk_name, domain),  \
-			},                                                                         \
+		.cpg = RCAR_DT_INST_CLOCKS_CELL_BY_NAME(node_id, clk_name),                        \
 	}
 
 /* Define the config, data and device for one ADG instance */
