@@ -8,6 +8,7 @@
 #include <zephyr/dt-bindings/dt-util.h>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
 #include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
+#include <zephyr/dt-bindings/clock/r8a78000_scmi_clock.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <mem.h>
 
@@ -162,7 +163,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 577 IRQ_TYPE_LEVEL
 				      IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_I2C5>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_I2C5>;
 			status = "disabled";
 		};
 
@@ -175,7 +176,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 578 IRQ_TYPE_LEVEL
 				      IRQ_DEFAULT_PRIORITY>;
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_I2C6>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_I2C6>;
 			status = "disabled";
 		};
 

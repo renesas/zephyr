@@ -26,7 +26,7 @@ struct i2c_rcar_cfg {
 	uint32_t reg_addr;
 	init_func_t init_func;
 	const struct device *clock_dev;
-	struct rcar_cpg_clk mod_clk;
+	rcar_clk_t mod_clk;
 	uint32_t bitrate;
 #ifdef CONFIG_SOC_SERIES_RCAR_GEN5
 	const struct pinctrl_dev_config *pcfg;
@@ -365,8 +365,7 @@ static int i2c_rcar_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	ret = clock_control_on(config->clock_dev,
-			       (clock_control_subsys_t)&config->mod_clk);
+	ret = clock_control_on(config->clock_dev, RCAR_CLOCK_SUBSYS(config->mod_clk));
 
 	if (ret != 0) {
 		return ret;
@@ -409,10 +408,7 @@ static DEVICE_API(i2c, i2c_rcar_driver_api) = {
 		.init_func = i2c_rcar_##n##_init,			       \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),	       \
 		.bitrate = DT_INST_PROP(n, clock_frequency),		       \
-		.mod_clk.module =					       \
-			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, module),	       \
-		.mod_clk.domain =					       \
-			DT_INST_CLOCKS_CELL_BY_IDX(n, 0, domain),	       \
+		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(n, 0),	       \
 		I2C_RCAR_PINCFG_GET(n)					       \
 	};								       \
 									       \
