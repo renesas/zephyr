@@ -122,16 +122,9 @@ static int uart_rh850_rlin3_apply_config(const struct device *dev)
 
 	struct uart_config *uart_config = &data->uart_config;
 	uart_cfg_t *fsp_cfg = data->fsp_cfg;
-
-	baud_setting_t baud_setting;
 	const rlin3_uart_extended_cfg_t *fsp_config_extend = fsp_cfg->p_extend;
 
-	if (FSP_SUCCESS != R_RLIN3_UART_BaudCalculate(data->fsp_ctrl, uart_config->baudrate, 5000,
-						      &baud_setting)) {
-		return -EIO;
-	}
-
-	memcpy(fsp_config_extend->p_baud_setting, &baud_setting, sizeof(baud_setting_t));
+	fsp_config_extend->p_baud_setting->baudrate = uart_config->baudrate;
 
 	switch (uart_config->data_bits) {
 	case UART_CFG_DATA_BITS_7:
@@ -178,6 +171,8 @@ static int uart_rh850_rlin3_configure(const struct device *dev, const struct uar
 {
 	const struct uart_rh850_rlin3_config *config = dev->config;
 	struct uart_rh850_rlin3_data *data = dev->data;
+	uart_cfg_t *fsp_cfg = data->fsp_cfg;
+	const rlin3_uart_extended_cfg_t *fsp_config_extend = fsp_cfg->p_extend;
 	int err = 0;
 
 	memcpy(&data->uart_config, cfg, sizeof(struct uart_config));
@@ -193,6 +188,11 @@ static int uart_rh850_rlin3_configure(const struct device *dev, const struct uar
 	}
 
 	if (FSP_SUCCESS != config->fsp_api->open(data->fsp_ctrl, data->fsp_cfg)) {
+		return -EIO;
+	}
+
+	if (FSP_SUCCESS != config->fsp_api->baudSet(data->fsp_ctrl,
+				fsp_config_extend->p_baud_setting)) {
 		return -EIO;
 	}
 
@@ -362,6 +362,8 @@ static int uart_rh850_rlin3_init(const struct device *dev)
 {
 	const struct uart_rh850_rlin3_config *config = dev->config;
 	struct uart_rh850_rlin3_data *data = dev->data;
+	uart_cfg_t *fsp_cfg = data->fsp_cfg;
+	const rlin3_uart_extended_cfg_t *fsp_config_extend = fsp_cfg->p_extend;
 	int ret;
 
 	/* Configure dt provided device signals when available */
@@ -377,6 +379,11 @@ static int uart_rh850_rlin3_init(const struct device *dev)
 	}
 
 	if (FSP_SUCCESS != config->fsp_api->open(data->fsp_ctrl, data->fsp_cfg)) {
+		return -EIO;
+	}
+
+	if (FSP_SUCCESS != config->fsp_api->baudSet(data->fsp_ctrl,
+				fsp_config_extend->p_baud_setting)) {
 		return -EIO;
 	}
 
@@ -482,10 +489,12 @@ static void uart_rh850_rlin3_event_handler(uart_callback_args_t *p_args)
 		.operation_enable = UART_DIR_RX_TX,                                                \
 		.invert_input = UART_NORMAL_INPUT,                                                 \
 		.invert_output = UART_NORMAL_OUTPUT,                                               \
-		.transfer_order = UART_LSB_FISRT,                                                  \
+		.transfer_order = UART_LSB_FIRST,                                                  \
 		.enb_overrun_err = 1,                                                              \
 		.enb_frame_err = 1,                                                                \
 		.noise_cancel = RLIN3_UART_NOISE_CANCELLATION_ENABLE,                              \
+		.baud_calculate = RLIN3_UART_BAUD_RATE_CALCULATION_ENABLE,                         \
+		.baudrate_max_err_percent = 5,                                                     \
 		.p_baud_setting = &g_uart##n##_baud_setting,                                       \
 		.timing_select = UART_COMPLETION,                                                  \
 	};                                                                                         \
