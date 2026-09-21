@@ -1,0 +1,9 @@
+board:
+  name: pb_rh850u2c_100pin
+  full_name: Piggy Board RH850 U2C 100pin
+  vendor: renesas
+  socs:
+  - name: r7f702606afafd-c
+  - name: r7f702616afafd-c
+  - name: r7f702613afafd-c
+  - name: r7f702608afafd-c
