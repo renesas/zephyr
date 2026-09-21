@@ -6,6 +6,7 @@
 config GPIO_RCAR
 	bool "Renesas R-Car GPIO"
 	default y
+	select PINCTRL
 	depends on DT_HAS_RENESAS_RCAR_GPIO_ENABLED
 	help
 	  Enable Renesas RCAR GPIO driver.
