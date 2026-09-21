@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2c/r7f7026xx-u2c2.dtsi>
+
+/* Peripheral definition following RH850/U2C2 100 pin devices */
+/ {
+	soc {
+		flash0: flash@0 {
+			reg = <0x0 DT_SIZE_M(2)>;
+		};
+
+		sram0: memory@fe000000 {
+			reg = <0xfe000000 DT_SIZE_K(160)>;
+		};
+
+		/* Delete rlin3 uart node:
+		 * from rlin37 to rlin310
+		 */
+		/delete-node/ rlin37@ff89b700;
+		/delete-node/ rlin38@ffc7c800;
+		/delete-node/ rlin39@ff89b900;
+		/delete-node/ rlin310@ffc7ca00;
+
+		/* Delete ostm1 node */
+		/delete-node/ ostm1@ff89a100;
+	};
+};

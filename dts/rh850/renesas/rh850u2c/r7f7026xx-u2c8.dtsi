@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2c/r7f7026xx-u2c4.dtsi>
+
+/* Peripheral definition following RH850/U2C8 devices */
+/ {
+	soc {
+		/* Delete gpio node P00, P19 */
+		/delete-node/ gpio@ffd90000;
+		/delete-node/ gpio@ffd904c0;
+
+		ioaport4: gpio@ffd90d80 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90d80 0x40>;
+			port = <4>;
+			protected-write-mask = <24>;
+			port-type = "aport";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		rlin315: rlin315@ff89bf00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <568 1>, <569 1>, <570 1>, <571 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xff89bf00 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 15, RLIN3)>;
+			status = "disabled";
+
+			uart15: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <15>;
+				status = "disabled";
+			};
+		};
+
+		rlin316: rlin316@ffc7d000 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <572 1>, <573 1>, <574 1>, <575 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7d000 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 16, RLIN3)>;
+			status = "disabled";
+
+			uart16: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <16>;
+				status = "disabled";
+			};
+		};
+
+		rlin317: rlin317@ff89c100 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <576 1>, <577 1>, <578 1>, <579 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xff89c100 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 17, RLIN3)>;
+			status = "disabled";
+
+			uart17: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <17>;
+				status = "disabled";
+			};
+		};
+
+		rlin318: rlin318@ffc7d200 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <580 1>, <581 1>, <582 1>, <583 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7d200 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 18, RLIN3)>;
+			status = "disabled";
+
+			uart18: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <18>;
+				status = "disabled";
+			};
+		};
+
+		adck2: adc@fff21000 {
+			compatible = "renesas,rh850-adck";
+			reg = <0xfff21000 0x1000>;
+			interrupts = <559 1>, <560 1>, <561 1>, <562 1>, <563 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupt-parent = <&intc2>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			renesas,physical-channel-mask = <0x000fffff 0x00000000>;
+			status = "disabled";
+		};
+	};
+};

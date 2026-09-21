@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2c/r7f7026xx-u2c4.dtsi>
+
+/* Peripheral definition following RH850/U2C4 100 pin devices */
+/ {
+	soc {
+		flash0: flash@0 {
+			reg = <0x0 DT_SIZE_M(4)>;
+		};
+
+		sram0: memory@fe000000 {
+			reg = <0xfe000000 DT_SIZE_K(448)>;
+		};
+
+		/* Delete gpio node P00, P03, P08, P19, AP1, AP3 */
+		/delete-node/ gpio@ffd90000;
+		/delete-node/ gpio@ffd900c0;
+		/delete-node/ gpio@ffd90200;
+		/delete-node/ gpio@ffd904c0;
+		/delete-node/ gpio@ffd90cc0;
+		/delete-node/ gpio@ffd90d40;
+
+		/* Delete rlin312, rlin313 node */
+		/delete-node/ rlin312@ffc7cc00;
+		/delete-node/ rlin313@ff89bd00;
+	};
+};

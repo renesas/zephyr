@@ -1,0 +1,191 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <rh850/renesas/rh850u2c/r7f7026xx-u2c2.dtsi>
+
+/* Peripheral definition following RH850/U2C4 devices */
+/ {
+	soc {
+		ioport0: gpio@ffd90000 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90000 0x40>;
+			port = <0>;
+			protected-write-mask = <0>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport3: gpio@ffd900c0 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd900c0 0x40>;
+			port = <3>;
+			protected-write-mask = <3>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport8: gpio@ffd90200 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90200 0x40>;
+			port = <8>;
+			protected-write-mask = <7>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioport19: gpio@ffd904c0 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd904c0 0x40>;
+			port = <19>;
+			protected-write-mask = <11>;
+			port-type = "port";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioaport1: gpio@ffd90cc0 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90cc0 0x40>;
+			port = <1>;
+			protected-write-mask = <21>;
+			port-type = "aport";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		ioaport3: gpio@ffd90d40 {
+			compatible = "renesas,rh850-gpio";
+			reg = <0xffd90d40 0x40>;
+			port = <3>;
+			protected-write-mask = <23>;
+			port-type = "aport";
+			#gpio-cells = <2>;
+			gpio-controller;
+			status = "disabled";
+		};
+
+		rlin311: rlin311@ff89bb00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <493 1>, <494 1>, <495 1>, <496 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xff89bb00 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 11, RLIN3)>;
+			status = "disabled";
+
+			uart11: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <11>;
+				status = "disabled";
+			};
+		};
+
+		rlin312: rlin312@ffc7cc00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <497 1>, <498 1>, <499 1>, <500 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7cc00 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 12, RLIN3)>;
+			status = "disabled";
+
+			uart12: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <12>;
+				status = "disabled";
+			};
+		};
+
+		rlin313: rlin313@ff89bd00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <501 1>, <502 1>, <503 1>, <504 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xff89bd00 0x3e0f00>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 13, RLIN3)>;
+			status = "disabled";
+
+			uart13: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <13>;
+				status = "disabled";
+			};
+		};
+
+		rlin314: rlin314@ffc7ce00 {
+			compatible = "renesas,rh850-rlin3";
+			interrupts = <505 1>, <506 1>, <507 1>, <508 1>;
+			interrupt-names = "rlin3i", "txi", "rxi", "eri";
+			reg = <0xffc7ce00 0x35>;
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RLIN3, 14, RLIN3)>;
+			status = "disabled";
+
+			uart14: uart {
+				compatible = "renesas,rh850-rlin3-uart";
+				channel = <14>;
+				status = "disabled";
+			};
+		};
+
+		adck1: adc@fff20000 {
+			compatible = "renesas,rh850-adck";
+			reg = <0xfff20000 0x1000>;
+			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupt-parent = <&intc2>;
+			#io-channel-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000003>;
+			status = "disabled";
+		};
+
+		wdtb1: watchdog@ff899000 {
+			unit = <2>;
+			compatible = "renesas,rh850-wdtb";
+			interrupts = <22 0>;
+			window-open-mode = "select-by-window-start";
+			error-mode = "nmi-mode";
+			clock-freq = <312500>;
+			reg = <0xff899000 0x14>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		/* ETNF0 MAC node */
+		etnf0: ethernet@ff1d0000 {
+			compatible = "renesas,rh850-ethernet-etnf";
+			reg = <0xff1d0000 0x77c>;
+			interrupts = <536 0>;
+			interrupt-parent = <&intc2>;
+			phy-connection-type = "internal";
+			mdio-interface = "shared";
+			pma-filtered;
+			status = "disabled";
+
+			ct25205: phy {
+				compatible = "renesas,ct25205-phy";
+				phy-lsi-addr = <31>;
+				plca-enable;
+				plca-node-id = <0>;
+				plca-node-count = <8>;
+				plca-burst-count = <0>;
+				plca-burst-timer = <128>;
+				plca-to-timer = <32>;
+				status = "okay";
+			};
+		};
+	};
+};
