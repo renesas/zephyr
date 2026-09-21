@@ -1112,6 +1112,13 @@ static void uart_ra_sci_b_rxi_isr(const struct device *dev)
 #endif
 
 #if defined(CONFIG_UART_ASYNC_API)
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	if (data->user_cb != NULL) {
+		R_ICU->IELSR_b[data->fsp_config.rxi_irq].IR = 0U;
+		return;
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	uart_ra_sci_b_async_timer_start(&data->rx_timeout_work, data->rx_timeout);
 
 	if (data->fsp_config.p_transfer_rx) {
@@ -1147,6 +1154,13 @@ static void uart_ra_sci_b_txi_isr(const struct device *dev)
 #endif
 
 #if defined(CONFIG_UART_ASYNC_API)
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	if (data->user_cb != NULL) {
+		R_ICU->IELSR_b[data->fsp_config.txi_irq].IR = 0U;
+		return;
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	sci_b_uart_txi_isr();
 #else
 	R_ICU->IELSR_b[data->fsp_config.txi_irq].IR = 0U;
@@ -1164,6 +1178,13 @@ static void uart_ra_sci_b_tei_isr(const struct device *dev)
 #endif
 
 #if defined(CONFIG_UART_ASYNC_API)
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	if (data->user_cb != NULL) {
+		R_ICU->IELSR_b[data->fsp_config.tei_irq].IR = 0U;
+		return;
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	k_work_cancel_delayable(&data->tx_timeout_work);
 	sci_b_uart_tei_isr();
 #if CONFIG_PM
@@ -1185,6 +1206,13 @@ static void uart_ra_sci_b_eri_isr(const struct device *dev)
 #endif
 
 #if defined(CONFIG_UART_ASYNC_API)
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	if (data->user_cb != NULL) {
+		R_ICU->IELSR_b[data->fsp_config.eri_irq].IR = 0U;
+		return;
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	sci_b_uart_eri_isr();
 #else
 	R_ICU->IELSR_b[data->fsp_config.eri_irq].IR = 0U;
