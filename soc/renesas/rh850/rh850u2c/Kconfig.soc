@@ -10,7 +10,63 @@ config SOC_R7F702600AFABB_C
 	bool
 	select SOC_SERIES_RH850U2C
 
-config SOC_R7F702600FABB_C
+config SOC_R7F702606AFABB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702616AFABB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702613AFABB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702606AFAFB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702606AFAFM_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702616AFAFM_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702616AFAFB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702614AFAFM_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702614AFAFB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702606AFAFD_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702616AFAFD_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702613AFAFD_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702615AFAFM_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702615AFAFB_C
+	bool
+	select SOC_SERIES_RH850U2C
+
+config SOC_R7F702608AFAFD_C
 	bool
 	select SOC_SERIES_RH850U2C
 
@@ -19,4 +75,18 @@ config SOC_SERIES
 
 config SOC
 	default "r7f702600afabb-c"   if SOC_R7F702600AFABB_C
-	default "r7f702600fabb-c"   if SOC_R7F702600FABB_C
+	default "r7f702606afabb-c"   if SOC_R7F702606AFABB_C
+	default "r7f702616afabb-c"   if SOC_R7F702616AFABB_C
+	default "r7f702613afabb-c"   if SOC_R7F702613AFABB_C
+	default "r7f702606afafb-c"   if SOC_R7F702606AFAFB_C
+	default "r7f702606afafm-c"   if SOC_R7F702606AFAFM_C
+	default "r7f702616afafm-c"   if SOC_R7F702616AFAFM_C
+	default "r7f702616afafb-c"   if SOC_R7F702616AFAFB_C
+	default "r7f702614afafm-c"   if SOC_R7F702614AFAFM_C
+	default "r7f702614afafb-c"   if SOC_R7F702614AFAFB_C
+	default "r7f702606afafd-c"   if SOC_R7F702606AFAFD_C
+	default "r7f702616afafd-c"   if SOC_R7F702616AFAFD_C
+	default "r7f702613afafd-c"   if SOC_R7F702613AFAFD_C
+	default "r7f702615afafm-c"   if SOC_R7F702615AFAFM_C
+	default "r7f702615afafb-c"   if SOC_R7F702615AFAFB_C
+	default "r7f702608afafd-c"   if SOC_R7F702608AFAFD_C
