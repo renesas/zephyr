@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2c.h>
+
+&pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 1, ALT_OUT1)>,
+				<RH850_PSEL(PORT_04, 2, ALT_IN1)>;
+		};
+	};
+
+	irq17_ioport: irq17_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 5, ALT_IN14)>;
+		};
+	};
+
+	irq35_ioport: irq35_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 4, ALT_IN14)>;
+		};
+	};
+
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_06, 6, ALT_IN2)>,
+				<RH850_PSEL(PORT_06, 7, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_06, 5, ALT_IN1)>,
+				<RH850_PSEL(PORT_06, 9, ALT_OUT1)>;
+			drive-strength = "medium";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 3, ALT_IN1)>,
+				<RH850_PSEL(PORT_02, 5, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT1)>,
+				<RH850_PSEL(PORT_02, 4, ALT_IN1)>;
+			drive-strength = "medium";
+		};
+	};
+
+	pwm0_slave_default: pwm0_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_17, 1, ALT_OUT11)>;
+		};
+	};
+
+	pwm1_slave_default: pwm1_slave_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_17, 2, ALT_OUT11)>;
+		};
+	};
+
+	etnf0_default: etnf0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_20, 4, ALT_OUT3)>,
+				<RH850_PSEL(PORT_20, 11, ALT_OUT3)>,
+				<RH850_PSEL(PORT_22, 2, ALT_OUT2)>;
+			drive-strength = "high";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 3, ALT_OUT3)>,
+				<RH850_PSEL(PORT_20, 13, ALT_OUT4)>,
+				<RH850_PSEL(PORT_21, 0, ALT_OUT2)>;
+			drive-strength = "high";
+			renesas,direct-control;
+		};
+	};
+
+	canfd0_default: canfd0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT4)>,	/* TX */
+				<RH850_PSEL(PORT_02, 0, ALT_IN2)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
+};

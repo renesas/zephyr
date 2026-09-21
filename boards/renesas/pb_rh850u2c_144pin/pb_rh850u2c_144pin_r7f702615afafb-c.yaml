@@ -1,0 +1,25 @@
+identifier: pb_rh850u2c_144pin/r7f702615afafb-c
+name: Renesas RH850 U2C 144pin
+type: mcu
+arch: rh850
+ram: 160
+flash: 2048
+toolchain:
+  - iar
+supported:
+  - counter
+  - spi
+  - gpio
+  - interrupt_controller
+  - pinctrl
+  - rtc
+  - crc
+  - uart
+  - timer
+  - watchdog
+  - dma
+  - pwm
+  - adc
+  - can
+  - clock
+vendor: renesas
