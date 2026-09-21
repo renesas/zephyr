@@ -1,0 +1,85 @@
+# Copyright (c) 2026, Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas R-Car MFIS common mailbox controller.
+
+  The common MFIS mailbox channels provide communication between AP and RT
+  core domains, or between RT core domains.
+
+  Each channel has two communication sides, S and R. The local core's side
+  is configured independently for each channel.
+
+compatible: "renesas,rcar-mfis-common-mbox"
+
+include: renesas,rcar-mfis-mbox-base.yaml
+
+properties:
+  interrupts:
+    required: true
+    description: |
+      The interrupt list contains the two interrupt lines for each supported
+      MFIS common hardware channel.
+
+      For hardware channel N:
+        interrupt index (2 * N)     is the S-to-R interrupt
+        interrupt index (2 * N + 1) is the R-to-S interrupt
+
+      The driver selects the RX interrupt for a channel from this pair based
+      on the channel child's renesas,local-side property.
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+child-binding:
+  description: MFIS common channel configuration
+
+  properties:
+    reg:
+      type: array
+      required: true
+      description: MFIS common channel ID.
+
+    renesas,local-side:
+      type: string
+      required: true
+      enum:
+        - "s-side"
+        - "r-side"
+      description: |
+        Selects the local core's side of this MFIS common channel.
+
+        "s-side" uses the S-to-R direction for transmit and the R-to-S
+        direction for receive.
+
+        "r-side" uses the R-to-S direction for transmit and the S-to-R
+        direction for receive.
+
+        For AP-to-RT communication, the R-Car software convention assigns
+        the AP endpoint to "r-side" and the RT endpoint to "s-side".
+
+        For RT-to-RT communication, there is no fixed side assignment.
+        The two endpoints of a channel must use opposite sides: one endpoint
+        must use "s-side" and the other must use "r-side".
+
+examples:
+  - |
+    /* Consumer using MFIS common channel 0 */
+    &mfis_common {
+        status = "okay";
+
+        channel@0 {
+            reg = <0>;
+            renesas,local-side = "s-side";
+        };
+    };
+
+    mbox_consumer: mbox-consumer {
+        compatible = "vnd,mbox-consumer";
+        mboxes = <&mfis_common 0>,
+                 <&mfis_common 0>;
+        mbox-names = "tx", "rx";
+    };

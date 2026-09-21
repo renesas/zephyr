@@ -1,0 +1,38 @@
+# Copyright (c) 2026, Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas R-Car MFIS SCP mailbox controller.
+
+  The SCP MFIS mailbox channels provide communication between an AP/RT
+  core domain and the SCP core domain.
+
+  The communication side for these channels is fixed by hardware and
+  therefore does not require per-channel S/R configuration.
+
+compatible: "renesas,rcar-mfis-scp-mbox"
+
+include: renesas,rcar-mfis-mbox-base.yaml
+
+properties:
+  interrupts:
+    required: true
+    description: |
+      Interrupt index N maps directly to mailbox channel N within this
+      mailbox controller instance. The interrupt list must contain one
+      entry for each supported channel.
+
+examples:
+  - |
+    /* Consumer using MFIS scp channel 0 */
+    &mfis_scp {
+        status = "okay";
+    };
+
+    firmware {
+        scmi {
+            compatible = "arm,scmi";
+            mboxes = <&mfis_scp 0>;
+            mbox-names = "tx";
+        };
+    };

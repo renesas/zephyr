@@ -1,0 +1,22 @@
+# Copyright (c) 2026, Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Common properties for Renesas R-Car MFIS mailbox controllers.
+
+  The multifunctional interface (MFIS) provides signalling and small message
+  registers between CPU domains. Each MFIS channel is bidirectional and represents
+  one communication link between two endpoints. A channel should not be shared by multiple
+  cores on the same endpoint.
+
+include: [base.yaml, mailbox-controller.yaml]
+
+properties:
+  reg:
+    required: true
+
+  "#mbox-cells":
+    const: 1
+
+mbox-cells:
+  - channel

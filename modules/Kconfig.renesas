@@ -534,4 +534,9 @@ config USE_RCARSOC_DRV_DMAC
 	help
 	  Enable RCAR hal DMAC driver
 
+config USE_RCARSOC_DRV_MFIS
+	bool
+	help
+	  Enable RCAR hal MFIS driver
+
 endif # HAS_RENESAS_RCARSOC_DRV
