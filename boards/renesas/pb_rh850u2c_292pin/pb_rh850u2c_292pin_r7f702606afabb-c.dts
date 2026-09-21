@@ -6,7 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/input/input-event-codes.h>
-#include <rh850/renesas/rh850u2c/r7f702600fabb-c.dtsi>
+#include <rh850/renesas/rh850u2c/r7f702606afabb-c.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
 
@@ -99,6 +99,13 @@
 	};
 };
 
+&etnf0 {
+	pinctrl-0 = <&etnf0_default>;
+	pinctrl-names = "default";
+	local-mac-address = [74 90 50 12 34 56];
+	status = "okay";
+};
+
 &irq17 {
 	trigger-type = "falling";
 	pinctrl-0 = <&irq17_ioport>;
@@ -113,12 +120,12 @@
 	status = "okay";
 };
 
-&ioaport4 {
+&ioport2 {
+	irqs = <&irq35 4>;
 	status = "okay";
 };
 
-&ioport2 {
-	irqs = <&irq35 4>;
+&ioaport4 {
 	status = "okay";
 };
 

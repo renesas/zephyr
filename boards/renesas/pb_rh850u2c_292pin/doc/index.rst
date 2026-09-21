@@ -83,9 +83,8 @@ Programming and Debugging
 
 Applications for the ``pb_rh850u2c_292pin`` board target configuration can be built, flashed, and
 debugged in the usual way. There are many supported soc in ``pb_rh850u2c_292pin`` board such as
-``r7f702600fabb-c`` and ``r7f702600afabb-c``. See :ref:`build_an_application` and
-:ref:`application_run` for more details on
-building and running.
+``r7f702600afabb-c``, ``r7f702606afabb-c``, ``r7f702616afabb-c`` and ``r7f702613afabb-c``
+. See :ref:`build_an_application` and :ref:`application_run` for more details on building and running.
 
 **Note:** Currently, the pb_rh850u2c_292pin is built and programmed using the IAR for RH850 toolchain.
 Please follow the steps below to program it onto the board:
@@ -128,7 +127,7 @@ described in `RH850 U2C 292pin User Manual Piggy Board`_
 
    .. code-block:: console
 
-      west flash -- --tool-opt="-auth id FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF -osc 20“
+      west flash -- --tool-opt="-auth id FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF -osc 20"
 
 Debugging
 =========

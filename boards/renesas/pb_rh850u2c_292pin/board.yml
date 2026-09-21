@@ -4,4 +4,6 @@ board:
   vendor: renesas
   socs:
   - name: r7f702600afabb-c
-  - name: r7f702600fabb-c
+  - name: r7f702606afabb-c
+  - name: r7f702616afabb-c
+  - name: r7f702613afabb-c
