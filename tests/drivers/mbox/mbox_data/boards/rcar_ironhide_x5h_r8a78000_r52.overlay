@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,sram = &sram0;
+	};
+
+	mbox-consumer {
+		compatible = "vnd,mbox-consumer";
+		mboxes = <&mfis_common 0>, <&mfis_common 0>, <&mfis_common 1>, <&mfis_common 1>,
+			 <&mfis_common 2>, <&mfis_common 2>, <&mfis_common 3>, <&mfis_common 3>;
+		mbox-names = "tx0", "rx0", "tx1", "rx1", "tx2", "rx2", "tx3", "rx3";
+	};
+};
+
+&mfis_common {
+	status = "okay";
+
+	channel@0 {
+		reg = <0>;
+		renesas,local-side = "s-side";
+	};
+
+	channel@1 {
+		reg = <1>;
+		renesas,local-side = "s-side";
+	};
+
+	channel@2 {
+		reg = <2>;
+		renesas,local-side = "s-side";
+	};
+
+	channel@3 {
+		reg = <3>;
+		renesas,local-side = "s-side";
+	};
+};

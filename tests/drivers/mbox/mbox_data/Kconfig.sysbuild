@@ -19,3 +19,4 @@ string
 	default "max78002evkit/max78002/rv32" if $(BOARD) = "max78002evkit"
 	default "max32690evkit/max32690/rv32" if $(BOARD) = "max32690evkit"
 	default "max32655evkit/max32655/rv32" if $(BOARD) = "max32655evkit"
+	default "rcar_ironhide_x5h/r8a78000/r52" if $(BOARD) = "rcar_ironhide_x5h"
