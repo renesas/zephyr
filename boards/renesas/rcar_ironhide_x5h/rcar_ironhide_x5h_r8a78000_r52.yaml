@@ -8,4 +8,5 @@ toolchain:
 supported:
   - uart
   - clock_control
+  - mbox
 vendor: renesas
