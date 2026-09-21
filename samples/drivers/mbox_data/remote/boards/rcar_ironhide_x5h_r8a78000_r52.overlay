@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,sram = &sram1;
+	};
+
+	mbox-consumer {
+		compatible = "vnd,mbox-consumer";
+		mboxes = <&mfis_common 63>, <&mfis_common 63>;
+		mbox-names = "tx", "rx";
+	};
+};
+
+&scif1 {
+	status = "disabled";
+};
+
+&mfis_common {
+	status = "okay";
+
+	channel@3f {
+		reg = <63>;
+		renesas,local-side = "r-side";
+	};
+};
