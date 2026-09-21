@@ -432,5 +432,23 @@
 			renesas,rswitch-forward-ports = <BIT(5)>;
 			status = "disabled";
 		};
+
+		mfis_common: mailbox@18800000 {
+			compatible = "renesas,rcar-mfis-common-mbox";
+			reg = <0x18800000 0x40000>;
+			interrupt-parent = <&gic>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#mbox-cells = <1>;
+			status = "disabled";
+		};
+
+		mfis_scp: mailbox@18840000 {
+			compatible = "renesas,rcar-mfis-scp-mbox";
+			reg = <0x18840000 0x40000>;
+			interrupt-parent = <&gic>;
+			#mbox-cells = <1>;
+			status = "disabled";
+		};
 	};
 };
