@@ -26,3 +26,11 @@ config PHY_RENESAS_PCS_TIMEOUT_US
 	  during SERDES bring-up.
 
 endif # PHY_RENESAS_PCS
+
+config PHY_RENESAS_Q32XX
+	bool "Renesas Q32XX PHY Driver"
+	default y
+	depends on DT_HAS_RENESAS_Q32XX_PHY_ENABLED
+	select MDIO
+	help
+	  Enable Renesas Q32XX Ethernet PHY driver
