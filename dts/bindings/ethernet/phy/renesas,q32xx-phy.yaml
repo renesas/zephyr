@@ -1,0 +1,42 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas implementation of the PHY Q32XX
+
+compatible: "renesas,q32xx-phy"
+
+include: ethernet-phy-common.yaml
+
+properties:
+  renesas,line-rate:
+    type: string
+    description: |
+      T1 line rate programmed during initialization. If not specified, the device will use
+      default HW strap setting. This PHY driver currently supports 2500 and 5000 through
+      this property.
+    enum:
+      - "2500BASE-T1"
+      - "5000BASE-T1"
+
+  renesas,master-slave:
+    type: string
+    description: |
+      Operation mode programmed during initialization. If not specified, the device will
+      use default HW strap to determine master/slave mode.
+    enum:
+      - "slave"
+      - "master"
+
+  renesas,serdes-speed:
+    type: string
+    description: |
+      SerDes speed programmed during initialization. If not specified, the device will
+      use default HW strap to determine SerDes speed.
+    enum:
+      - "2500_BASEX"
+      - "2P5G_BASEX"
+      - "5000_BASER"
+      - "5G_BASER"
+      - "10G_BASER"
+      - "5G_USXGMII"
+      - "10G_USXGMII"
