@@ -425,6 +425,7 @@
 				reg = <5>;
 				phys = <&mp_phy 2 1>;
 				phy-mode = "sgmii";
+				status = "disabled";
 			};
 		};
 
@@ -443,7 +444,6 @@
 				compatible = "renesas,rcarsoc-rswitch3-port";
 				reg = <4>;
 				xpcs = <&pcs_ch4>;
-				phy-mode = "usxgmii";
 				status = "disabled";
 			};
 
@@ -451,8 +451,6 @@
 				compatible = "renesas,rcarsoc-rswitch3-port";
 				reg = <5>;
 				xpcs = <&pcs_ch5>;
-				phy-handle = <&phy2>;
-				phy-mode = "sgmii";
 				status = "disabled";
 			};
 		};
