@@ -92,12 +92,31 @@
 	pinctrl-names = "default";
 	status = "disabled";
 
+	phy1: ethernet-phy@1 {
+		compatible = "renesas,q32xx-phy";
+		reg = <1>;
+		renesas,master-slave = "master";
+		renesas,line-rate = "2500BASE-T1";
+		renesas,serdes-speed = "10G_USXGMII";
+		status = "disabled";
+	};
+
 	phy2: ethernet-phy@2 {
 		compatible = "ti,dp83869";
 		reg = <2>;
 		ti,op-mode = <DP83869_OP_MODE_SGMII_COPPER_ETHERNET>;
 		status = "disabled";
 	};
+};
+
+&port4 {
+	phy-mode = "usxgmii";
+	phy-handle = <&phy1>;
+};
+
+&port5 {
+	phy-mode = "sgmii";
+	phy-handle = <&phy2>;
 };
 
 &gpio0 {
