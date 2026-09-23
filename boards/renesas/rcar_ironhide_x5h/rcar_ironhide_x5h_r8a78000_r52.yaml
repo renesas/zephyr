@@ -9,4 +9,5 @@ supported:
   - uart
   - clock_control
   - mbox
+  - watchdog
 vendor: renesas

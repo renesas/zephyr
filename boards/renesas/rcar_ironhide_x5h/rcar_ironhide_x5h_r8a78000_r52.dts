@@ -79,6 +79,7 @@
 		led0 = &led1;
 		led1 = &led2;
 		sw0 = &button1;
+		watchdog0 = &wwdt0;
 	};
 
 	zephyr,user {
@@ -203,4 +204,8 @@
 	pinctrl-names = "default";
 	local-mac-address = [74 90 50 48 df 57];
 	status = "disabled";
+};
+
+&wwdt0 {
+	status = "okay";
 };
