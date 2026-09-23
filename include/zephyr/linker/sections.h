@@ -66,6 +66,7 @@
 #define _IMX_BOOT_CONTAINER_SECTION_NAME .boot_hdr.container
 
 #define _STM32_BACKUP_SRAM_SECTION_NAME	.stm32_backup_sram
+#define _RCAR_BACKUP_BUFFER_SECTION_NAME .rcar_backup_buffer
 
 #ifdef CONFIG_NOCACHE_MEMORY
 #define _NOCACHE_SECTION_NAME nocache

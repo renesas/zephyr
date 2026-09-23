@@ -8,3 +8,6 @@ if(CONFIG_SOC_R8A78000_R52)
   zephyr_include_directories(r52)
   set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_a_r/scripts/linker.ld CACHE INTERNAL "")
 endif()
+
+zephyr_sources_ifdef(CONFIG_RCAR_BACKUP_BUFFER rcar_backup_buffer.c)
+zephyr_linker_sources_ifdef(CONFIG_RCAR_BACKUP_BUFFER SECTIONS rcar_backup_buffer.ld)
