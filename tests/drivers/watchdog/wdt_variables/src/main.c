@@ -21,7 +21,7 @@ static struct wdt_timeout_cfg m_cfg_wdt0;
 #define WDT_HAS_FIRED	(12345678U)
 #define TEST_VALUE		(2U)
 
-#define NOINIT_SECTION ".noinit.test_wdt"
+#define NOINIT_SECTION CONFIG_TEST_WDT_NOINIT_SECTION
 static volatile uint32_t wdt_status __attribute__((section(NOINIT_SECTION)));
 
 /* Global variables to verify */

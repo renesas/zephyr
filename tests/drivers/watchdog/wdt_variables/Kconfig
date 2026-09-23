@@ -1,6 +1,4 @@
-# Copyright (c) 2026 Infineon Technologies AG,
-# or an affiliate of Infineon Technologies AG.
-#
+# Copyright (c) 2026 Renesas Electronics Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 source "Kconfig.zephyr"
@@ -8,9 +6,7 @@ source "Kconfig.zephyr"
 config TEST_WDT_NOINIT_SECTION
 	string "Watchdog test's NOINIT section"
 	default ".rcar_backup_buffer.test_wdt" if RCAR_BACKUP_BUFFER
-	default ".dtcm_noinit.test_wdt" if $(dt_chosen_enabled,$(DT_CHOSEN_Z_DTCM)) \
-		  && !SOC_FAMILY_STM32
 	default ".noinit.test_wdt"
 	help
 	  Set the memory region used as NOINIT for the
-	  wdt_basic_api test.
+	  wdt_variables test.
