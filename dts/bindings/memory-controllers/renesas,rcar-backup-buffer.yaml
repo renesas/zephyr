@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Back-up Buffer (BKBUF).
+
+  The data storage in the Back-up Buffer are not initialized after a reset
+  as long as the power is supplied to the given LSI chip.
+
+compatible: "renesas,rcar-backup-buffer"
+
+include: [base.yaml, "zephyr,memory-region.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  reg-names:
+    required: true
+    description: |
+      Three register regions are expected, in this order:
+
+        - "bkbuf": the Back-up Buffer itself. This region is the one turned
+          into the linker memory region named by the "zephyr,memory-region"
+          property.
+        - "prot": the MDLCnPKCPROT1 register, which guards writes to the
+          "bkbapr" register.
+        - "bkbapr": the MDLCnBKBAPR register, which controls access to the
+          Back-up Buffer.
