@@ -109,6 +109,17 @@
 			status = "okay";
 		};
 
+		backup_buffer: memory@c11ef000 {
+			compatible = "renesas,rcar-backup-buffer", "zephyr,memory-region";
+			/* BKBUF, MDLC27PKCPROT1, MDLC27BKBAPR */
+			reg = <0xc11ef000 0x400>,
+			      <0xc1338cf4 0x4>,
+			      <0xc1338060 0x4>;
+			reg-names = "bkbuf", "prot", "bkbapr";
+			zephyr,memory-region = "BACKUP_BUFFER";
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@f0000000 {
 			compatible = "arm,gic", "arm,gic-v3";
 			reg = <0xf0000000 0x100000>,
