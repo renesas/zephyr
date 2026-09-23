@@ -539,4 +539,14 @@ config USE_RCARSOC_DRV_MFIS
 	help
 	  Enable RCAR hal MFIS driver
 
+config USE_RCARSOC_DRV_WATCHDOG
+	bool
+	help
+	  Enable RCAR hal WWWDT driver
+
+config USE_RCARSOC_DRV_ECM
+	bool
+	help
+	  Enable RCAR hal ECM driver
+
 endif # HAS_RENESAS_RCARSOC_DRV

@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config WDT_RENESAS_RCAR
+	bool "Window Watchdog Timer Driver for Renesas R-Car"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_WWDT_ENABLED
+	select USE_RCARSOC_DRV_WATCHDOG
+	select USE_RCARSOC_DRV_ECM
+	help
+	  Enable Window Watchdog Timer driver for Renesas R-Car
