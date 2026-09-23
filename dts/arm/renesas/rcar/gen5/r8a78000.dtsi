@@ -9,6 +9,7 @@
 #include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 #include <zephyr/dt-bindings/power/r8a78000_scmi_power_domain.h>
+#include <zephyr/dt-bindings/reset/r8a78000_scmi_reset_domain.h>
 
 / {
 	power-domains {
@@ -490,6 +491,166 @@
 			interrupts = <GIC_SPI 588 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clocks = <&scmi_clk R8A78000_SCMI_CLK_SCIF1>, /* Mod clk */
 				 <&scmi_clk R8A78000_SCMI_CLK_SGAD16_PERW_BUS>; /* Bus clk */
+		};
+
+		wwdt0: watchdog@1c100000 {
+			interrupts = <GIC_SPI 655 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT00>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT01>;
+			warning-irq-enabled;
+		};
+
+		wwdt1: watchdog@1c110000 {
+			interrupts = <GIC_SPI 656 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT10>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT11>;
+			warning-irq-enabled;
+		};
+
+		wwdt2: watchdog@1c120000 {
+			interrupts = <GIC_SPI 657 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT20>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT21>;
+			warning-irq-enabled;
+		};
+
+		wwdt3: watchdog@1c130000 {
+			interrupts = <GIC_SPI 658 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT30>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT31>;
+			warning-irq-enabled;
+		};
+
+		wwdt4: watchdog@1c140000 {
+			interrupts = <GIC_SPI 659 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT40>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT41>;
+			warning-irq-enabled;
+		};
+
+		wwdt5: watchdog@1c150000 {
+			interrupts = <GIC_SPI 660 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT50>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT51>;
+			warning-irq-enabled;
+		};
+
+		wwdt6: watchdog@1c160000 {
+			interrupts = <GIC_SPI 661 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT60>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT61>;
+			warning-irq-enabled;
+		};
+
+		wwdt7: watchdog@1c170000 {
+			interrupts = <GIC_SPI 662 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT70>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT71>;
+			warning-irq-enabled;
+		};
+
+		wwdt8: watchdog@1c180000 {
+			interrupts = <GIC_SPI 663 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT80>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT81>;
+			warning-irq-enabled;
+		};
+
+		wwdt9: watchdog@1c190000 {
+			interrupts = <GIC_SPI 664 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT90>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT91>;
+			warning-irq-enabled;
+		};
+
+		wwdt10: watchdog@1c1a0000 {
+			interrupts = <GIC_SPI 665 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT100>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT101>;
+			warning-irq-enabled;
+		};
+
+		wwdt11: watchdog@1c1b0000 {
+			interrupts = <GIC_SPI 666 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT110>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT111>;
+			warning-irq-enabled;
+		};
+
+		wwdt12: watchdog@1c1c0000 {
+			interrupts = <GIC_SPI 667 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT120>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT121>;
+			warning-irq-enabled;
+		};
+
+		wwdt13: watchdog@1c1d0000 {
+			interrupts = <GIC_SPI 668 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT130>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT131>;
+			warning-irq-enabled;
+		};
+
+		wwdt14: watchdog@1c1e0000 {
+			interrupts = <GIC_SPI 669 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT140>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT141>;
+			warning-irq-enabled;
+		};
+
+		wwdt15: watchdog@1c1f0000 {
+			interrupts = <GIC_SPI 670 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT150>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT151>;
+			warning-irq-enabled;
+		};
+
+		wwdt16: watchdog@1c200000 {
+			interrupts = <GIC_SPI 671 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT160>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT161>;
+			warning-irq-enabled;
+		};
+
+		wwdt17: watchdog@1c210000 {
+			interrupts = <GIC_SPI 672 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT170>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT171>;
+			warning-irq-enabled;
+		};
+
+		wwdt18: watchdog@1c220000 {
+			interrupts = <GIC_SPI 673 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT180>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT181>;
+			warning-irq-enabled;
+		};
+
+		wwdt19: watchdog@1c230000 {
+			interrupts = <GIC_SPI 674 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rclk>;
+			resets = <&scmi_reset R8A78000_SCMI_RESET_WWDT190>,
+				 <&scmi_reset R8A78000_SCMI_RESET_WWDT191>;
+			warning-irq-enabled;
 		};
 
 		ssi0: ssi@ec549000 {
@@ -1246,6 +1407,12 @@
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <0>;
+		};
+
+		rclk: rclk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
 		};
 	};
 };
