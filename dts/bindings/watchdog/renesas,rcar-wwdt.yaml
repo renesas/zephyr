@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Renesas Electronics Corporation and/or its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car Window Watchdog Timer (WWDT)
+
+compatible: "renesas,rcar-wwdt"
+
+include: [base.yaml, "reset-device.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    description: WWDT 75 percent warning interrupt
+
+  clocks:
+    required: true
+    description: Reference to the RCLK fixed clock that drives the WWDT counter
+
+  resets:
+    required: true
+    description: The two module reset domains of the WWDT instance
+
+  warning-irq-enabled:
+    type: boolean
+    description: Enable early warning interrupt threshold in 75 percent
+
+  error-mode:
+    type: string
+    enum:
+      - "nmi"
+      - "reset"
+    default: "reset"
+    description: |
+      Select WWDT handle error condition behavior:
+       - nmi: generates an NMI request for ECM.
+       - reset: generates a reset request for ECM.
+      Defaults to "reset" (hardware reset value for handling error mode).
