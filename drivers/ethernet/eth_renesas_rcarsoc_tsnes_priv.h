@@ -643,7 +643,7 @@ struct eth_tsnes_config {
 	/* MAC address */
 	uint8_t mac_addr[ETH_TSNES_MAC_ADDR_LEN];
 
-	/* Queue configuration (per-instance, from devicetree) */
+	/* Queue configuration */
 	uint8_t num_rx_queues;
 	uint8_t num_tx_queues;
 	uint16_t rx_queue_size;
@@ -658,11 +658,7 @@ struct eth_tsnes_config {
 	struct eth_tsnes_ext_desc *init_desc_chain;
 	uint8_t *init_dummy_buf;
 
-	/* R-Switch Integration */
-	const struct device *rswitch_dev;
 	uint32_t channel;
-	uint32_t rswitch_if;
-	uint32_t rswitch_fwd_ports;
 
 #ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
 	void *ts_desc_rings[ETH_NUM_TS_QUEUES];

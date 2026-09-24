@@ -79,10 +79,13 @@ config ETH_RENESAS_RCARSOC_RSWITCH3
 	default y
 	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_ENABLED
 	select PHY_RENESAS_PCS
+	select NET_MGMT if ETH_RENESAS_RCARSOC_TSNES
+	select NET_MGMT_EVENT if ETH_RENESAS_RCARSOC_TSNES
 	help
 	  Enable the driver for the Renesas R-Switch 3. This driver
-	  manages the switch fabric and provides an API for endpoints
-	  like TSN-ES to connect and forward traffic.
+	  manages the switch fabric, brings up the external ports and the
+	  internal agents of TSN-ES endpoints, and configures forwarding
+	  between them.
 
 if ETH_RENESAS_RCARSOC_RSWITCH3
 

@@ -7,15 +7,24 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
 
+#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/net/ethernet.h>
+#include <zephyr/net/net_event.h>
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/sys/sys_io.h>
 #include <zephyr/sys/util.h>
 #include "eth_renesas_rswitch3.h"
 
 #define DT_DRV_COMPAT renesas_rcarsoc_rswitch3
+
+/* Device behind the phandle property @p prop of node @p node_id, or NULL if it has none. */
+#define RSWITCH3_DT_DEV_OR_NULL(node_id, prop)                                                     \
+	COND_CODE_1(DT_NODE_HAS_PROP(node_id, prop), (DEVICE_DT_GET(DT_PHANDLE(node_id, prop))),   \
+		    (NULL))
 
 static inline uint32_t rswitch3_read(const struct device *dev, uint32_t reg)
 {
@@ -170,21 +179,21 @@ static void rswitch3_fwd_allow_ports(const struct device *dev, uint32_t src_port
 	rswitch3_modify(dev, FWPC2(src_port), FWPC2_LTWFM_TO_PORT(dst_mask), 0);
 }
 
-static void rswitch3_enable_tsn_forwarding(const struct device *dev, uint32_t tsnes_id,
-					   uint32_t rswitch_port, uint32_t fwd_mask)
+static void rswitch3_enable_tsn_forwarding(const struct device *dev, uint32_t rswitch_port,
+					   uint32_t fwd_mask)
 {
 	uint32_t external_ports = fwd_mask & GENMASK(7, 0);
 	int i;
 
 	if (!external_ports) {
-		LOG_ERR("TSN-ES%u has no external ports to forward to.", tsnes_id);
+		LOG_ERR("Agent %u has no external ports to forward to.", rswitch_port);
 		return;
 	}
 
-	/* Allow traffic from TSN-ES port to external ports */
+	/* Allow traffic from the internal (TSN-ES) agent to external ports */
 	rswitch3_fwd_allow_ports(dev, rswitch_port, external_ports);
 
-	/* Allow traffic from external ports back to the TSN-ES port */
+	/* Allow traffic from external ports back to the internal agent */
 	for (i = 0; i < 8; i++) {
 		if (!(external_ports & BIT(i))) {
 			continue;
@@ -192,8 +201,8 @@ static void rswitch3_enable_tsn_forwarding(const struct device *dev, uint32_t ts
 		rswitch3_fwd_allow_ports(dev, i, BIT(rswitch_port));
 	}
 
-	LOG_INF("Configured forwarding between TSN-ES%u (port %u) and external ports mask 0x%x",
-		tsnes_id, rswitch_port, external_ports);
+	LOG_INF("Configured forwarding between agent %u and external ports mask 0x%x",
+		rswitch_port, external_ports);
 }
 
 static void rswitch3_fwd_disallow_ports(const struct device *dev, uint32_t src_port,
@@ -209,26 +218,57 @@ static void rswitch3_fwd_disallow_ports(const struct device *dev, uint32_t src_p
 	rswitch3_modify(dev, FWPBFC(src_port), FIELD_PREP(FWPBFC_PBDV, dst_mask), 0);
 }
 
-static void rswitch3_disable_tsn_forwarding_port(const struct device *dev, uint32_t tsnes_id,
-						 uint32_t rswitch_port, uint32_t ext_port_id)
+static void rswitch3_disable_tsn_forwarding_port(const struct device *dev, uint32_t rswitch_port,
+						 uint32_t ext_port_id)
 {
 	rswitch3_fwd_disallow_ports(dev, rswitch_port, BIT(ext_port_id));
 	rswitch3_fwd_disallow_ports(dev, ext_port_id, BIT(rswitch_port));
 
-	LOG_INF("Revoked forwarding between TSN-ES%u (port %u) and external port %u (link down)",
-		tsnes_id, rswitch_port, ext_port_id);
+	LOG_INF("Revoked forwarding between agent %u and external port %u (link down)",
+		rswitch_port, ext_port_id);
 }
 
 /*
- * Opens or closes MFWD port-based forwarding between every attached TSN-ES
- * and one external port, according to whether that port currently has a
- * real PHY link.
+ * net_eth_carrier_on/off() submit the Ethernet L2 carrier work, which only
+ * exists once ethernet_init() has run for @p iface. Link changes seen before
+ * that are replayed by rswitch3_iface_event_handler().
  */
+static void rswitch3_set_carrier(struct net_if *iface, bool is_up)
+{
+	const struct ethernet_context *ctx;
+
+	if (iface == NULL) {
+		return;
+	}
+
+	ctx = net_if_l2_data(iface);
+	if (!ctx->is_init) {
+		return;
+	}
+
+	if (is_up) {
+		net_eth_carrier_on(iface);
+	} else {
+		net_eth_carrier_off(iface);
+	}
+}
+
+/*
+ * A TSN-ES net_if has carrier while any external port it forwards to has a
+ * link. Called with data->lock held.
+ */
+static void rswitch3_update_tsnes_carrier(const struct rswitch3_data *data,
+					  const struct rswitch3_internal_port *ip)
+{
+	rswitch3_set_carrier(net_if_lookup_by_dev(ip->tsnes_dev),
+			     (ip->fwd_mask & data->port_link_mask) != 0U);
+}
+
 static void rswitch3_update_forwarding_for_link(const struct device *dev, uint32_t port_id,
 						bool is_up)
 {
 	struct rswitch3_data *data = dev->data;
-	int tsnes_id;
+	uint32_t agent;
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
@@ -238,26 +278,23 @@ static void rswitch3_update_forwarding_for_link(const struct device *dev, uint32
 		data->port_link_mask &= ~BIT(port_id);
 	}
 
-	for (tsnes_id = 0; tsnes_id < RSWITCH3_NUM_TSNES; tsnes_id++) {
-		if (!(data->tsnes_attached & BIT(tsnes_id))) {
+	for (agent = 0; agent < RSWITCH3_NUM_AGENTS; agent++) {
+		struct rswitch3_internal_port *ip = &data->internal_ports[agent];
+
+		if (!ip->tsnes_dev) {
 			continue;
 		}
-		if (!(data->tsnes_fwd_mask[tsnes_id] & BIT(port_id))) {
+		if (!(ip->fwd_mask & BIT(port_id))) {
 			continue;
 		}
 
 		if (is_up) {
-			rswitch3_enable_tsn_forwarding(
-				dev, tsnes_id, data->tsnes_rswitch_port[tsnes_id], BIT(port_id));
+			rswitch3_enable_tsn_forwarding(dev, agent, BIT(port_id));
 		} else {
-			rswitch3_disable_tsn_forwarding_port(
-				dev, tsnes_id, data->tsnes_rswitch_port[tsnes_id], port_id);
+			rswitch3_disable_tsn_forwarding_port(dev, agent, port_id);
 		}
 
-		if (data->tsnes_link_cb[tsnes_id]) {
-			data->tsnes_link_cb[tsnes_id](dev, tsnes_id, is_up,
-						      data->tsnes_link_cb_data[tsnes_id]);
-		}
+		rswitch3_update_tsnes_carrier(data, ip);
 	}
 
 	k_mutex_unlock(&data->lock);
@@ -444,14 +481,6 @@ static int rswitch3_set_link_state(const struct device *dev, uint32_t port_id,
 	return 0;
 }
 
-struct rswitch3_phys_port_ctx {
-	const struct device *rswitch_dev;
-	const struct device *pcs_dev;
-	uint32_t port_id;
-};
-
-static struct rswitch3_phys_port_ctx rswitch3_phys_ports[RSWITCH3_NUM_AGENTS];
-
 static void rswitch3_phys_port_link_changed(const struct device *phy_dev,
 					    struct phy_link_state *state, void *user_data)
 {
@@ -494,7 +523,8 @@ static void rswitch3_phys_port_link_changed(const struct device *phy_dev,
 static void rswitch3_wire_physical_port(const struct device *dev, uint32_t port_id,
 					const struct device *phy_dev, const struct device *pcs_dev)
 {
-	struct rswitch3_phys_port_ctx *ctx = &rswitch3_phys_ports[port_id];
+	struct rswitch3_data *data = dev->data;
+	struct rswitch3_phys_port_ctx *ctx = &data->phys_ports[port_id];
 
 	if (!device_is_ready(phy_dev)) {
 		LOG_ERR("Port %u: external PHY device not ready, link will not be wired up",
@@ -517,66 +547,76 @@ static void rswitch3_wire_physical_port(const struct device *dev, uint32_t port_
 	phy_link_callback_set(phy_dev, rswitch3_phys_port_link_changed, ctx);
 }
 
-static int rswitch3_attach_tsnes(const struct device *dev, uint32_t tsnes_id, uint32_t rswitch_port,
-				 uint32_t fwd_mask, const uint8_t *mac_addr,
-				 rswitch_fwd_link_cb_t link_cb, void *user_data)
+static int __maybe_unused rswitch3_init_tsnes_port(const struct device *dev, uint32_t rswitch_port,
+				    const struct device *tsnes_dev, const uint8_t *mac_addr,
+				    uint32_t fwd_mask)
 {
 	struct rswitch3_data *data = dev->data;
+	struct rswitch3_internal_port *ip = &data->internal_ports[rswitch_port];
 	uint32_t ready_ports;
 	int ret;
-
-	if (tsnes_id >= RSWITCH3_NUM_TSNES) {
-		return -EINVAL;
-	}
-
-	k_mutex_lock(&data->lock, K_FOREVER);
-
-	if (data->tsnes_attached & BIT(tsnes_id)) {
-		ret = -EBUSY;
-		goto out_unlock;
-	}
 
 	/* Initialize the internal ETHA port connected to the TSN-ES */
 	ret = rswitch3_etha_hw_init_tsn_internal(dev, rswitch_port, mac_addr);
 	if (ret) {
-		LOG_ERR("Failed to init internal ETHA for TSN-ES%u", tsnes_id);
-		goto out_unlock;
+		LOG_ERR("Agent %u: internal ETHA init for %s failed (err %d)", rswitch_port,
+			tsnes_dev->name, ret);
+		return ret;
 	}
 
-	LOG_INF("attach tsnes device mac address: %02x:%02x:%02x:%02x:%02x:%02x", mac_addr[0],
-		mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+	LOG_INF("Agent %u: internal port for %s, MAC %02x:%02x:%02x:%02x:%02x:%02x, "
+		"forward-ports mask 0x%x",
+		rswitch_port, tsnes_dev->name, mac_addr[0], mac_addr[1], mac_addr[2],
+		mac_addr[3], mac_addr[4], mac_addr[5], fwd_mask);
 
-	data->tsnes_attached |= BIT(tsnes_id);
-	data->tsnes_rswitch_port[tsnes_id] = rswitch_port;
-	data->tsnes_fwd_mask[tsnes_id] = fwd_mask;
-	data->tsnes_link_cb[tsnes_id] = link_cb;
-	data->tsnes_link_cb_data[tsnes_id] = user_data;
+	k_mutex_lock(&data->lock, K_FOREVER);
+
+	ip->tsnes_dev = tsnes_dev;
+	ip->fwd_mask = fwd_mask;
 
 	/*
 	 * Only open forwarding to external ports that already have a
 	 * confirmed physical link; any port still down stays closed until
-	 * rswitch3_phys_port_link_changed() sees it come up. See
-	 * rswitch3_update_forwarding_for_link() for why forwarding into a
-	 * down port must never be opened early.
+	 * rswitch3_phys_port_link_changed() sees it come up, so MFWD never
+	 * forwards into a port whose MAC link is down.
 	 */
 	ready_ports = fwd_mask & data->port_link_mask;
-	if (ready_ports) {
-		rswitch3_enable_tsn_forwarding(dev, tsnes_id, rswitch_port, ready_ports);
+	if (ready_ports != 0U) {
+		rswitch3_enable_tsn_forwarding(dev, rswitch_port, ready_ports);
 	}
 
-	/*
-	 * Notify the caller of the forwarded port's current link state right
-	 * away too -- if it was already up when this TSN-ES attached, waiting
-	 * for the next link CHANGE event would never happen on an already
-	 * stable link, leaving the net_if carrier permanently off.
-	 */
-	if (link_cb && ready_ports) {
-		link_cb(dev, tsnes_id, true, user_data);
-	}
+	rswitch3_update_tsnes_carrier(data, ip);
 
-out_unlock:
 	k_mutex_unlock(&data->lock);
-	return ret;
+
+	return 0;
+}
+
+/*
+ * A TSN-ES net_if is initialized after this driver, so rswitch3_set_carrier()
+ * skips link changes reported before its ethernet_init(). Apply the current
+ * link state once the net_if is brought up.
+ */
+static void rswitch3_iface_event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt_event,
+					 struct net_if *iface)
+{
+	struct rswitch3_data *data = CONTAINER_OF(cb, struct rswitch3_data, iface_event_cb);
+	const struct device *if_dev = net_if_get_device(iface);
+	uint32_t agent;
+
+	ARG_UNUSED(mgmt_event);
+
+	k_mutex_lock(&data->lock, K_FOREVER);
+
+	for (agent = 0U; agent < RSWITCH3_NUM_AGENTS; agent++) {
+		const struct rswitch3_internal_port *ip = &data->internal_ports[agent];
+
+		if ((ip->tsnes_dev != NULL) && (ip->tsnes_dev == if_dev)) {
+			rswitch3_update_tsnes_carrier(data, ip);
+		}
+	}
+
+	k_mutex_unlock(&data->lock);
 }
 
 static int rswitch3_coma_init(const struct device *dev)
@@ -623,6 +663,68 @@ static int rswitch3_fwd_init(const struct device *dev)
 	return 0;
 }
 
+/*
+ * Brings up one physical ETHA port and, if it has an external PHY, wires its
+ * link-state callback. Necessary for TSN-ES forwarding to work.
+ */
+static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, uint32_t port_id,
+					const char *phy_mode, const struct device *phy_dev,
+					const struct device *pcs_dev)
+{
+	int ret;
+
+	ret = rswitch3_etha_hw_init_physical(dev, port_id, phy_mode);
+	if (ret) {
+		LOG_ERR("Port %u: physical ETHA init failed (err %d)", port_id, ret);
+		return ret;
+	}
+
+	if (phy_dev) {
+		rswitch3_wire_physical_port(dev, port_id, phy_dev, pcs_dev);
+	}
+
+	return 0;
+}
+
+#define RSWITCH3_INIT_PHYSICAL_PORT(n)                                                            \
+	if (ret == 0) {                                                                            \
+		ret = rswitch3_init_physical_port(dev, DT_REG_ADDR(n), DT_PROP(n, phy_mode),       \
+						  RSWITCH3_DT_DEV_OR_NULL(n, phy_handle),          \
+						  RSWITCH3_DT_DEV_OR_NULL(n, xpcs));               \
+	}
+
+#define RSWITCH3_INIT_TSNES_PORT(n)                                                               \
+	if (ret == 0) {                                                                            \
+		ret = rswitch3_init_tsnes_port(                                                    \
+			dev, DT_REG_ADDR(n), DEVICE_DT_GET(DT_PHANDLE(n, renesas_tsnes)),          \
+			(const uint8_t[NET_ETH_ADDR_LEN])DT_PROP_OR(DT_PHANDLE(n, renesas_tsnes),  \
+								    local_mac_address, {0}),       \
+			DT_PROP_OR(n, renesas_forward_ports, 0));                                  \
+	}
+
+/*
+ * A port node is either external (phy-mode + phy-handle, optional xpcs) or
+ * internal (renesas,tsnes); see renesas,rcarsoc-rswitch3-port.yaml.
+ */
+#define RSWITCH3_CHECK_PORT_EXTERNAL(n)                                                            \
+	BUILD_ASSERT(DT_NODE_HAS_PROP(n, phy_mode) && DT_NODE_HAS_PROP(n, phy_handle),             \
+		     DT_NODE_FULL_NAME(n) ": external port needs phy-mode and phy-handle");
+#define RSWITCH3_CHECK_PORT_INTERNAL(n)                                                            \
+	BUILD_ASSERT(!DT_NODE_HAS_PROP(n, xpcs) && !DT_NODE_HAS_PROP(n, phy_handle) &&             \
+			     !DT_NODE_HAS_PROP(n, phy_mode),                                       \
+		     DT_NODE_FULL_NAME(n) ": renesas,tsnes port must not set xpcs, phy-handle "    \
+					  "or phy-mode");
+#define RSWITCH3_CHECK_PORT(n)                                                                     \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (RSWITCH3_CHECK_PORT_INTERNAL(n)),         \
+		    (RSWITCH3_CHECK_PORT_EXTERNAL(n)))
+
+DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_CHECK_PORT)
+
+#define RSWITCH3_INIT_PORT_EXTERNAL(n)                                                            \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (), (RSWITCH3_INIT_PHYSICAL_PORT(n)))
+#define RSWITCH3_INIT_PORT_INTERNAL(n)                                                            \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (RSWITCH3_INIT_TSNES_PORT(n)), ())
+
 static int rswitch3_init(const struct device *dev)
 {
 	const struct rswitch3_config *config = dev->config;
@@ -638,6 +740,12 @@ static int rswitch3_init(const struct device *dev)
 
 	k_mutex_init(&data->lock);
 
+	if (IS_ENABLED(CONFIG_NET_MGMT_EVENT)) {
+		net_mgmt_init_event_callback(&data->iface_event_cb, rswitch3_iface_event_handler,
+					     NET_EVENT_IF_ADMIN_UP);
+		net_mgmt_add_event_callback(&data->iface_event_cb);
+	}
+
 	ret = rswitch3_coma_init(dev);
 	if (ret) {
 		return ret;
@@ -648,36 +756,13 @@ static int rswitch3_init(const struct device *dev)
 		return ret;
 	}
 
-	/* clang-format off */
-/*
- * Initialize physical ports that are defined in the device tree.
- * This is necessary for TSN-ES forwarding to work.
- */
-#define INIT_PHYSICAL_PORT(n)                                                    \
-	if (ret == 0) {                                                           \
-		ret = rswitch3_etha_hw_init_physical(dev, DT_REG_ADDR(n),        \
-						      DT_PROP(n, phy_mode));      \
-		if (ret) {                                                        \
-			LOG_ERR("Port %u: physical ETHA init failed (err %d)",   \
-				DT_REG_ADDR(n), ret);                             \
-		} else {                                                          \
-			IF_ENABLED(DT_NODE_HAS_PROP(n, phy_handle),               \
-				(rswitch3_wire_physical_port(                     \
-					dev, DT_REG_ADDR(n),                      \
-					DEVICE_DT_GET(DT_PHANDLE(n, phy_handle)), \
-					COND_CODE_1(DT_NODE_HAS_PROP(n, xpcs),    \
-						(DEVICE_DT_GET(                   \
-							DT_PHANDLE(n, xpcs))),    \
-						(NULL))                           \
-				);)                                                \
-			)                                                         \
-		}                                                                  \
-	}
-	/* clang-format on */
+	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_INIT_PORT_EXTERNAL)
+	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_INIT_PORT_INTERNAL)
 
-	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), INIT_PHYSICAL_PORT)
-
-#undef INIT_PHYSICAL_PORT
+#undef RSWITCH3_INIT_PHYSICAL_PORT
+#undef RSWITCH3_INIT_TSNES_PORT
+#undef RSWITCH3_INIT_PORT_EXTERNAL
+#undef RSWITCH3_INIT_PORT_INTERNAL
 
 	if (ret) {
 		return ret;
@@ -687,11 +772,6 @@ static int rswitch3_init(const struct device *dev)
 
 	return 0;
 }
-
-static DEVICE_API(rswitch, rswitch3_api) = {
-	.attach_tsnes = rswitch3_attach_tsnes,
-	.set_link_state = rswitch3_set_link_state,
-};
 
 static struct rswitch3_data rswitch3_data_0;
 
@@ -703,6 +783,6 @@ static const struct rswitch3_config rswitch3_config_0 = {
 };
 
 DEVICE_DT_INST_DEFINE(0, &rswitch3_init, NULL, &rswitch3_data_0, &rswitch3_config_0, POST_KERNEL,
-		      CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY, &rswitch3_api);
+		      CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY, NULL);
 
 #undef DT_DRV_COMPAT

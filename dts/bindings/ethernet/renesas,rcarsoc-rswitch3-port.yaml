@@ -2,10 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Renesas R-Car X5H R-Switch 3 physical port. This is a plain descriptive
-  node (no driver claims this compatible) read directly by the parent
-  rswitch3 driver via DT_FOREACH_CHILD_STATUS_OKAY(); it exists purely so
-  gen_defines can type its custom properties (phy-mode, xpcs).
+  Renesas R-Car R-Switch 3 port, one node per TSNA/ETHA agent. Read
+  directly by the parent rswitch3 driver via DT_FOREACH_CHILD_STATUS_OKAY(),
+  which brings the agent up.
+
+  A node is one of exactly two kinds, distinguished by which properties it
+  sets:
+
+  - external: this agent's RMAC talks to an external PHY. Set phy-handle
+    and phy-mode, plus xpcs if a PCS channel drives the SerDes lane. The
+    link state comes from the PHY behind phy-handle. Gets ETHA/PCS
+    bring-up.
+  - internal: this agent's RMAC talks directly to a TSN-ES endpoint
+    instead. Set renesas,tsnes (and usually renesas,forward-ports), and
+    none of xpcs, phy-handle or phy-mode. Gets internal ETHA bring-up only;
+    the referenced TSN-ES device owns its own net_if and DMA engine.
+
+  The driver rejects any other combination with a build-time assertion.
 
 compatible: "renesas,rcarsoc-rswitch3-port"
 
@@ -18,17 +31,28 @@ properties:
 
   xpcs:
     type: phandle
-    description: PCS channel driving the SERDES lane for this port.
+    description: PCS channel driving the SerDes lane for this port (external agents).
 
   phy-mode:
     type: string
-    required: true
     enum:
       - "rgmii"
       - "sgmii"
       - "usxgmii"
-    description: MAC-to-PCS interface mode for this port's ETHA agent.
+    description: |
+      MAC-to-PCS interface mode for this port's ETHA agent. Required for
+      external agents; not applicable to internal (renesas,tsnes) ones.
 
-  speed:
+  renesas,tsnes:
+    type: phandle
+    description: |
+      renesas,rcarsoc-eth-tsnes instance this agent's RMAC talks to
+      internally, instead of an external SerDes/PHY. Only set on internal
+      agents; mutually exclusive with xpcs/phy-handle/phy-mode.
+
+  renesas,forward-ports:
     type: int
-    description: Fixed link speed in Mbps, if the port is not auto-negotiated.
+    description: |
+      Bitmask (bit N = agent N) of external agents this internal agent's
+      TSN-ES traffic may be forwarded to/from. Only meaningful alongside
+      renesas,tsnes.

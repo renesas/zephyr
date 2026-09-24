@@ -17,7 +17,6 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/cache.h>
-#include <zephyr/drivers/ethernet/eth_renesas_rswitch.h>
 
 #include "eth_renesas_rcarsoc_tsnes_priv.h"
 
@@ -754,58 +753,6 @@ cleanup:
 	return ret;
 }
 
-#ifndef CONFIG_ETH_RENESAS_RCARSOC_TSNES_CONFIG_LOOPBACK
-/*
- * Invoked by rswitch3 whenever the forwarded external port's link state
- * changes (including once immediately at attach time, if that port is
- * already up). Only once the port this TSN-ES actually forwards to has a
- * real link can a frame sent on this net_if ever leave the board, so
- * carrier reflects that port's link, not this TSN-ES's own internal
- * (always-forced-up) ETHA-to-ETHA link.
- */
-static void eth_tsnes_fwd_link_changed(const struct device *rswitch_dev, uint32_t tsnes_id,
-				       bool is_up, void *user_data)
-{
-	const struct device *dev = user_data;
-	struct eth_tsnes_data *data = dev->data;
-
-	ARG_UNUSED(rswitch_dev);
-	ARG_UNUSED(tsnes_id);
-
-	if (!data->iface) {
-		/* Net L2 iface_init() hasn't run yet; nothing to update yet. */
-		return;
-	}
-
-	if (is_up) {
-		net_eth_carrier_on(data->iface);
-	} else {
-		net_eth_carrier_off(data->iface);
-	}
-}
-
-static int eth_tsnes_attach_to_rswitch(const struct device *dev)
-{
-	const struct eth_tsnes_config *config = dev->config;
-	const struct rswitch_driver_api *rswitch_api;
-
-	if (!device_is_ready(config->rswitch_dev)) {
-		LOG_ERR("R-Switch device not ready");
-		return -ENODEV;
-	}
-
-	rswitch_api = (const struct rswitch_driver_api *)config->rswitch_dev->api;
-	if (!rswitch_api || !rswitch_api->attach_tsnes) {
-		LOG_ERR("R-Switch driver API is not available");
-		return -EINVAL;
-	}
-
-	return rswitch_api->attach_tsnes(config->rswitch_dev, config->channel, config->rswitch_if,
-					 config->rswitch_fwd_ports, config->mac_addr,
-					 eth_tsnes_fwd_link_changed, (void *)dev);
-}
-#endif
-
 static int eth_tsnes_hw_init_tsnes(const struct device *dev)
 {
 	int ret;
@@ -1468,13 +1415,6 @@ static int eth_tsnes_init(const struct device *dev)
 		return ret;
 	}
 
-#ifndef CONFIG_ETH_RENESAS_RCARSOC_TSNES_CONFIG_LOOPBACK
-	ret = eth_tsnes_attach_to_rswitch(dev);
-	if (ret) {
-		LOG_ERR("Failed to attach to R-Switch (err: %d)", ret);
-		return ret;
-	}
-#endif
 	/* Switch MHD Mode to Operation after descriptors are setup */
 	ret = eth_tsnes_mhd_mode_setting(&cfg->tsnes_base->stMHD, ETH_TSNES_MHD_DISABLE_MODE);
 	if (ret) {
@@ -1512,15 +1452,6 @@ static int eth_tsnes_init(const struct device *dev)
 				  ETH_TSNES_RX_BUF_NODES_PTR, (), n)},      \
 			 .tx_buf_nodes = {LISTIFY(DT_INST_PROP(n, tx_queues),                      \
 				  ETH_TSNES_TX_BUF_NODES_PTR, (), n)}
-
-#ifdef CONFIG_ETH_RENESAS_RCARSOC_RSWITCH3
-#define ETH_TSNES_SWITCH_INIT(n)                                                                   \
-	.rswitch_dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, renesas_rswitch)),                         \
-	.channel = DT_INST_PROP(n, channel), .rswitch_if = DT_INST_PROP(n, renesas_rswitch_if),    \
-	.rswitch_fwd_ports = DT_INST_PROP(n, renesas_rswitch_forward_ports),
-#else
-#define ETH_TSNES_SWITCH_INIT(n)
-#endif
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 #define RENESAS_RCAR_PTP_DEFINE(n)                                                                 \
@@ -1575,13 +1506,14 @@ static int eth_tsnes_init(const struct device *dev)
 		.buf_pool = eth_tsnes_##n##_buf_pool,                                              \
 		.init_desc_chain = eth_tsnes_##n##_init_desc_chain,                                \
 		.init_dummy_buf = eth_tsnes_##n##_init_dummy_buf,                                  \
-		ETH_TSNES_SWITCH_INIT(n) RENESAS_RCAR_PTP_DEFINE(n)};                              \
+		.channel = DT_INST_PROP(n, channel),                                               \
+		RENESAS_RCAR_PTP_DEFINE(n)};                                                       \
                                                                                                    \
 	static struct eth_tsnes_data eth_tsnes_data_##n;                                           \
                                                                                                    \
 	ETH_NET_DEVICE_DT_INST_DEFINE(n, eth_tsnes_init, NULL, &eth_tsnes_data_##n,                \
 				      &eth_tsnes_config_##n, CONFIG_ETH_INIT_PRIORITY,             \
-				      &eth_tsnes_api, NET_ETH_MAX_FRAME_SIZE);
+				      &eth_tsnes_api, NET_ETH_MTU);
 
 DT_INST_FOREACH_STATUS_OKAY(ETH_TSNES_INIT)
 

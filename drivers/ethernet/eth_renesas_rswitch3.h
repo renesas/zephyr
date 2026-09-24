@@ -10,7 +10,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/net/ethernet.h>
-#include <zephyr/drivers/ethernet/eth_renesas_rswitch.h>
+#include <zephyr/net/net_mgmt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,8 +145,20 @@ enum rsw3_etha_mode {
 
 /* Constants */
 #define RSWITCH3_NUM_AGENTS 15
-#define RSWITCH3_NUM_TSNES  8
 #define RSWITCH3_TIMEOUT_US CONFIG_ETH_RENESAS_RSWITCH3_TIMEOUT
+
+/* Per-physical-port link-callback context, indexed by ETHA agent id. */
+struct rswitch3_phys_port_ctx {
+	const struct device *rswitch_dev;
+	const struct device *pcs_dev;
+	uint32_t port_id;
+};
+
+/* State for an internal (renesas,tsnes-linked) rswitch3-port agent */
+struct rswitch3_internal_port {
+	const struct device *tsnes_dev;
+	uint32_t fwd_mask; /* external agents this internal agent forwards to/from */
+};
 
 struct rswitch3_config {
 	mm_reg_t base;
@@ -157,21 +169,18 @@ struct rswitch3_config {
 
 struct rswitch3_data {
 	struct k_mutex lock;
-	/* Bitmask of attached TSN-ES devices */
-	unsigned long tsnes_attached;
-	/* Bitmask of forwarding ports for each TSN-ES */
-	uint32_t tsnes_fwd_mask[RSWITCH3_NUM_TSNES];
-	/* Internal ETHA port used by each attached TSN-ES */
-	uint32_t tsnes_rswitch_port[RSWITCH3_NUM_TSNES];
+	/* Per-agent state for internal (TSN-ES-connected) rswitch3-port
+	 * nodes
+	 */
+	struct rswitch3_internal_port internal_ports[RSWITCH3_NUM_AGENTS];
 	/*
 	 * Bitmask of external ports that currently report a real PHY link.
 	 */
 	uint32_t port_link_mask;
-	/* Link-state callback (and its user_data) registered by each attached
-	 * TSN-ES via attach_tsnes(), invoked from rswitch3_update_forwarding_for_link()
-	 */
-	rswitch_fwd_link_cb_t tsnes_link_cb[RSWITCH3_NUM_TSNES];
-	void *tsnes_link_cb_data[RSWITCH3_NUM_TSNES];
+	/* Link-callback context for every physical port, indexed by agent id. */
+	struct rswitch3_phys_port_ctx phys_ports[RSWITCH3_NUM_AGENTS];
+	/* NET_EVENT_IF_ADMIN_UP callback, replays link state onto TSN-ES net_ifs */
+	struct net_mgmt_event_callback iface_event_cb;
 };
 
 #ifdef __cplusplus

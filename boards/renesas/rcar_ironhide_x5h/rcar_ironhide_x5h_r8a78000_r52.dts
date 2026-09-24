@@ -194,7 +194,7 @@
 };
 
 &mp_phy {
-	status = "okay";
+	status = "disabled";
 
 	interface-names = "pci0", "pci1", "ethernet", "usb";
 	ref-use-pad = <0x0f>;
@@ -202,7 +202,7 @@
 };
 
 &gptp_tsnes4_ch0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &tsnes4 {

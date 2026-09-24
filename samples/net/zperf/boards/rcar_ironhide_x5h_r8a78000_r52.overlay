@@ -4,7 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+&rswitch3 {
+	status = "okay";
+};
+
 &tsnes4 {
+	status = "okay";
+};
+
+&port9 {
+	status = "okay";
+};
+
+&mp_phy {
+	status = "okay";
+};
+
+&eth_pcs {
 	status = "okay";
 };
 
