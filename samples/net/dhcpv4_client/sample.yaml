@@ -7,3 +7,12 @@ tests:
     tags:
       - net
       - http
+  sample.net.dhcpv4_client.rcar_ironhide_x5h:
+    build_only: true
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52
+  sample.net.dhcpv4_client.rcar_ironhide_x5h.tsnes4:
+    build_only: true
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay
+      - EXTRA_CONF_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf

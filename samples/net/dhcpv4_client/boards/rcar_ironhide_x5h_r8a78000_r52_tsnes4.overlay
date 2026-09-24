@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Alternate test config: tsnes4 as the net_if instead of port5 directly.
+ * port5 (enabled by the default board overlay) stays the egress -- port9
+ * (TSNA9, hardwired to TSN-ES4) is what actually forwards tsnes4's traffic
+ * to/from it, per its renesas,forward-ports = <BIT(5)> in rcar_gen5_cr52.dtsi.
+ * port5 drops renesas,gwca, so it gets no GWCA-backed net_if of its own and
+ * gwca0, which no other port uses, is disabled again.
+ *
+ * Not auto-applied: build with this and rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf
+ * layered on top of the default board files, e.g.
+ *   west build -b rcar_ironhide_x5h/r8a78000/r52 samples/net/dhcpv4_client -- \
+ *       -DEXTRA_DTC_OVERLAY_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay \
+ *       -DEXTRA_CONF_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf
+ */
+
+&tsnes4 {
+	status = "okay";
+};
+
+&port9 {
+	status = "okay";
+};
+
+&port5 {
+	/delete-property/ renesas,gwca;
+};
+
+&gwca0 {
+	status = "disabled";
+};

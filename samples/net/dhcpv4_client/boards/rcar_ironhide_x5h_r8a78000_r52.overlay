@@ -8,12 +8,14 @@
 	status = "okay";
 };
 
-&tsnes4 {
+&gwca0 {
 	status = "okay";
 };
 
-&port9 {
+&port5 {
 	status = "okay";
+	renesas,gwca = <&gwca0>;
+	local-mac-address = [74 90 50 48 df 57];
 };
 
 &mp_phy {
@@ -25,10 +27,6 @@
 };
 
 &pcs_ch5 {
-	status = "okay";
-};
-
-&port5 {
 	status = "okay";
 };
 
