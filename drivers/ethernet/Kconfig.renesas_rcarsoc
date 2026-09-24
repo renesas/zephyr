@@ -106,4 +106,67 @@ config ETH_RENESAS_RSWITCH3_INIT_PRIORITY
 	  and CONFIG_PHY_INIT_PRIORITY, and before CONFIG_ETH_INIT_PRIORITY
 	  (TSN-ES attaches to this driver at that priority).
 
+config ETH_RENESAS_RSWITCH3_GWCA
+	bool "Renesas R-Switch 3 GWCA (Gateway CPU Agent) DMA engine"
+	help
+	  Enable the GWCA DMA engine sub-module, letting the CPU inject
+	  and receive frames through the R-Switch 3 fabric directly.
+	  Selected by the physical-port net_if driver. Independent of the
+	  TSN-ES DMA path, which does not use GWCA.
+
+if ETH_RENESAS_RSWITCH3_GWCA
+
+config ETH_RENESAS_RSWITCH3_GWCA_TX_RING_SIZE
+	int "GWCA TX descriptor-ring entries per queue"
+	default 1024
+	range 8 2048
+	help
+	  Number of TX descriptors per GWCA queue. Each descriptor carries one
+	  frame, so this bounds the frames queued to hardware per port. Each
+	  entry reserves a 1536-byte buffer in ETHURAM. The default of 1024
+	  (about 1.5 MiB per port) holds about 5 ms of full-size frames at
+	  2.5 Gbit/s, so a UDP burst at line rate does not fill the ring.
+
+config ETH_RENESAS_RSWITCH3_GWCA_RX_RING_SIZE
+	int "GWCA RX descriptor-ring entries per queue"
+	default 32
+	range 8 4096
+	help
+	  Number of RX descriptors per GWCA queue. Each entry reserves a
+	  1536-byte buffer in ETHURAM. The default of 32 (48 KiB per port)
+	  holds about 150 us of full-size frames at 2.5 Gbit/s. Increase it
+	  if frames are dropped because the RX thread does not drain the ring
+	  in time.
+
+config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_STACK_SIZE
+	int "GWCA RX-processing thread stack size (bytes)"
+	default 2048
+	help
+	  Stack of the thread that drains the GWCA RX rings and passes each
+	  frame to the network stack with net_recv_data(). The default of
+	  2048 bytes covers net_pkt allocation and queueing to the stack's RX
+	  thread. With CONFIG_NET_TC_RX_COUNT=0 the whole receive path runs
+	  on this thread, which then needs CONFIG_NET_RX_STACK_SIZE instead.
+
+config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_PRIORITY
+	int "GWCA RX-processing thread priority"
+	default 2
+	help
+	  Cooperative priority of the GWCA RX thread, which runs at
+	  K_PRIO_COOP(<value>) so it is not preempted while draining a ring.
+	  Must be below CONFIG_NUM_COOP_PRIORITIES; lower values give higher
+	  priority. The default of 2 matches the RX threads of other Ethernet
+	  drivers.
+
+config ETH_RENESAS_RSWITCH3_GWCA_ENABLE_DMA_CACHE_OPS
+	bool "Explicit DMA cache operations for GWCA"
+	default y
+	help
+	  Use explicit cache invalidate/flush around GWCA descriptor and
+	  buffer accesses. Required for DMA coherency on systems without
+	  hardware coherency between the CPU and GWCA, so enabled by default.
+	  No cache operations are done with CONFIG_NOCACHE_MEMORY.
+
+endif # ETH_RENESAS_RSWITCH3_GWCA
+
 endif # ETH_RENESAS_RCARSOC_RSWITCH3

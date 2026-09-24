@@ -10,6 +10,7 @@ LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
 #include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/cache.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/net_if.h>
@@ -177,6 +178,11 @@ static void rswitch3_fwd_allow_ports(const struct device *dev, uint32_t src_port
 	/* Allow L2 forwarding to the destination ports */
 	rswitch3_modify(dev, FWPC0(src_port), 0, FWPC0_MACSDA);
 	rswitch3_modify(dev, FWPC2(src_port), FWPC2_LTWFM_TO_PORT(dst_mask), 0);
+
+	/*
+	 * Allow L3-table and direct-descriptor forwarding to the destination ports.
+	 */
+	rswitch3_modify(dev, FWPC1(src_port), FWCP1_LTHFW_TO_PORT(dst_mask), 0);
 }
 
 static void rswitch3_enable_tsn_forwarding(const struct device *dev, uint32_t rswitch_port,
@@ -201,8 +207,8 @@ static void rswitch3_enable_tsn_forwarding(const struct device *dev, uint32_t rs
 		rswitch3_fwd_allow_ports(dev, i, BIT(rswitch_port));
 	}
 
-	LOG_INF("Configured forwarding between agent %u and external ports mask 0x%x",
-		rswitch_port, external_ports);
+	LOG_INF("Configured forwarding between agent %u and external ports mask 0x%x", rswitch_port,
+		external_ports);
 }
 
 static void rswitch3_fwd_disallow_ports(const struct device *dev, uint32_t src_port,
@@ -548,8 +554,8 @@ static void rswitch3_wire_physical_port(const struct device *dev, uint32_t port_
 }
 
 static int __maybe_unused rswitch3_init_tsnes_port(const struct device *dev, uint32_t rswitch_port,
-				    const struct device *tsnes_dev, const uint8_t *mac_addr,
-				    uint32_t fwd_mask)
+						   const struct device *tsnes_dev,
+						   const uint8_t *mac_addr, uint32_t fwd_mask)
 {
 	struct rswitch3_data *data = dev->data;
 	struct rswitch3_internal_port *ip = &data->internal_ports[rswitch_port];
@@ -566,8 +572,8 @@ static int __maybe_unused rswitch3_init_tsnes_port(const struct device *dev, uin
 
 	LOG_INF("Agent %u: internal port for %s, MAC %02x:%02x:%02x:%02x:%02x:%02x, "
 		"forward-ports mask 0x%x",
-		rswitch_port, tsnes_dev->name, mac_addr[0], mac_addr[1], mac_addr[2],
-		mac_addr[3], mac_addr[4], mac_addr[5], fwd_mask);
+		rswitch_port, tsnes_dev->name, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3],
+		mac_addr[4], mac_addr[5], fwd_mask);
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 
@@ -663,13 +669,340 @@ static int rswitch3_fwd_init(const struct device *dev)
 	return 0;
 }
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
+/*
+ * GWCA (Gateway CPU Agent) core.
+ */
+static inline uint32_t rswitch3_gwca_read(const struct device *dev, uint32_t offs)
+{
+	const struct rswitch3_config *cfg = dev->config;
+
+	return rswitch3_read(dev, cfg->gwca.reg_base + offs);
+}
+
+static inline void rswitch3_gwca_write(const struct device *dev, uint32_t offs, uint32_t val)
+{
+	const struct rswitch3_config *cfg = dev->config;
+
+	rswitch3_write(dev, cfg->gwca.reg_base + offs, val);
+}
+
+static inline void rswitch3_gwca_modify(const struct device *dev, uint32_t offs, uint32_t clear,
+					uint32_t set)
+{
+	const struct rswitch3_config *cfg = dev->config;
+
+	rswitch3_modify(dev, cfg->gwca.reg_base + offs, clear, set);
+}
+
+static inline int rswitch3_gwca_reg_wait(const struct device *dev, uint32_t offs, uint32_t mask,
+					 uint32_t expected)
+{
+	const struct rswitch3_config *cfg = dev->config;
+
+	return rswitch3_reg_wait(dev, cfg->gwca.reg_base + offs, mask, expected);
+}
+
+/* Cache maintenance around GWCA DMA, unless DMA is coherent or buffers are uncached. */
+#define RSWITCH3_GWCA_CACHE_OPS                                                                    \
+	(IS_ENABLED(CONFIG_ETH_RENESAS_RSWITCH3_GWCA_ENABLE_DMA_CACHE_OPS) &&                      \
+	 !IS_ENABLED(CONFIG_NOCACHE_MEMORY))
+
+static inline void rswitch3_gwca_dcache_flush(const void *addr, size_t size)
+{
+	if (RSWITCH3_GWCA_CACHE_OPS) {
+		sys_cache_data_flush_range((void *)addr, size);
+	}
+}
+
+static inline void rswitch3_gwca_dcache_invalidate(const void *addr, size_t size)
+{
+	if (RSWITCH3_GWCA_CACHE_OPS) {
+		sys_cache_data_flush_and_invd_range((void *)addr, size);
+	}
+}
+
+static void rswitch3_gwca_desc_set_addr(struct rswitch3_gwca_desc *desc, uintptr_t addr)
+{
+	desc->addr_lo = (uint32_t)addr;
+	desc->addr_hi = (uint8_t)((uint64_t)addr >> 32);
+}
+
+static int rswitch3_gwca_change_mode(const struct device *dev, enum rsw3_gwca_mode mode)
+{
+	const struct rswitch3_config *cfg = dev->config;
+	int ret;
+
+	if (!rswitch3_agent_clock_is_enabled(dev, cfg->gwca.agent)) {
+		rswitch3_agent_clock_ctrl(dev, cfg->gwca.agent, true);
+	}
+
+	rswitch3_gwca_write(dev, GWMC, mode);
+
+	ret = rswitch3_gwca_reg_wait(dev, GWMS, GWMS_OPS_MASK, mode);
+
+	if (mode == GWMC_OPC_DISABLE) {
+		rswitch3_agent_clock_ctrl(dev, cfg->gwca.agent, false);
+	}
+
+	return ret;
+}
+
+static int rswitch3_gwca_mcast_table_reset(const struct device *dev)
+{
+	rswitch3_gwca_write(dev, GWMTIRM, GWMTIRM_MTIOG);
+
+	return rswitch3_gwca_reg_wait(dev, GWMTIRM, GWMTIRM_MTR, GWMTIRM_MTR);
+}
+
+static int rswitch3_gwca_axi_ram_reset(const struct device *dev)
+{
+	rswitch3_gwca_write(dev, GWARIRM, GWARIRM_ARIOG);
+
+	return rswitch3_gwca_reg_wait(dev, GWARIRM, GWARIRM_ARR, GWARIRM_ARR);
+}
+
+static void rswitch3_gwca_linkfix_init(const struct device *dev)
+{
+	const struct rswitch3_config *cfg = dev->config;
+	uint32_t num_queues = 2U * cfg->gwca.num_ports;
+	int i;
+
+	for (i = 0; i < num_queues; i++) {
+		cfg->gwca.linkfix_table[i].type = RSWITCH3_GWCA_DESC_EOS;
+	}
+	rswitch3_gwca_dcache_flush(cfg->gwca.linkfix_table,
+				   num_queues * sizeof(*cfg->gwca.linkfix_table));
+
+	/* GWDCBAC1 = lower 32 bits, GWDCBAC0 = upper 32 bits of the table's DMA address. */
+	rswitch3_gwca_write(dev, GWDCBAC1, (uint32_t)(uintptr_t)cfg->gwca.linkfix_table);
+	rswitch3_gwca_write(dev, GWDCBAC0,
+			    (uint32_t)((uint64_t)(uintptr_t)cfg->gwca.linkfix_table >> 32));
+}
+
+static void rswitch3_gwca_rx_desc_arm(struct rswitch3_gwca_rx_queue *q, uint32_t idx)
+{
+	struct rswitch3_gwca_rx_desc *desc = &q->ring[idx];
+
+	desc->hdr.size = RSWITCH3_GWCA_FRAME_BUF_SIZE;
+	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)q->bufs[idx]);
+	desc->meta_lo = 0;
+	desc->meta_hi = RSWITCH3_GWCA_META_SPN(q->port_id);
+	desc->tsns = 0;
+	desc->tss = 0;
+	desc->hdr.type = RSWITCH3_GWCA_DESC_FEMPTY | RSWITCH3_GWCA_DESC_DIE;
+
+	rswitch3_gwca_dcache_flush(desc, sizeof(*desc));
+}
+
+static void rswitch3_gwca_rx_poll(const struct device *dev, struct rswitch3_gwca_rx_queue *q)
+{
+	uint32_t i;
+
+	for (i = 0; i < RSWITCH3_GWCA_RX_RING_SIZE; i++) {
+		struct rswitch3_gwca_rx_desc *desc = &q->ring[q->cur];
+		uint32_t len;
+
+		rswitch3_gwca_dcache_invalidate(desc, sizeof(*desc));
+
+		if ((desc->hdr.type & RSWITCH3_GWCA_DESC_TYPE_MASK) != RSWITCH3_GWCA_DESC_FSINGLE) {
+			break;
+		}
+
+		/* Drop frames whose descriptor reports an AXI, data size or frame error. */
+		if (((desc->hdr.type & RSWITCH3_GWCA_DESC_ERR_MASK) == 0U) && (q->rx_cb != NULL)) {
+			len = MIN(desc->hdr.size, RSWITCH3_GWCA_FRAME_BUF_SIZE);
+			rswitch3_gwca_dcache_invalidate(q->bufs[q->cur], len);
+			q->rx_cb(dev, q->port_id, q->bufs[q->cur], len, q->rx_cb_user_data);
+		}
+
+		rswitch3_gwca_rx_desc_arm(q, q->cur);
+
+		q->cur = (q->cur + 1) % RSWITCH3_GWCA_RX_RING_SIZE;
+	}
+}
+
+static void rswitch3_gwca_rx_thread(void *arg1, void *arg2, void *arg3)
+{
+	const struct device *dev = (const struct device *)arg1;
+	const struct rswitch3_config *cfg = dev->config;
+	struct rswitch3_data *data = dev->data;
+	uint32_t i;
+
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
+	while (1) {
+		/* k_sem_give() wakes this promptly; the timeout is a fallback poll only. */
+		(void)k_sem_take(&data->gwca.rx_sem, K_MSEC(1));
+
+		for (i = 0; i < cfg->gwca.num_ports; i++) {
+			if (cfg->gwca.rx_queues[i].used) {
+				rswitch3_gwca_rx_poll(dev, &cfg->gwca.rx_queues[i]);
+			}
+		}
+	}
+}
+
+static void rswitch3_gwca_work_handler(struct k_work *work)
+{
+	struct rswitch3_gwca_data *gwca = CONTAINER_OF(work, struct rswitch3_gwca_data, work);
+	const struct device *dev = gwca->dev;
+	uint32_t status[RSWITCH3_GWCA_NUM_DI_REGS];
+	k_spinlock_key_t key;
+	uint32_t i;
+
+	key = k_spin_lock(&gwca->irq_lock);
+	for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
+		status[i] = gwca->pending_bits[i];
+		gwca->pending_bits[i] = 0U;
+	}
+	k_spin_unlock(&gwca->irq_lock, key);
+
+	for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
+		if (status[i] != 0U) {
+			k_sem_give(&gwca->rx_sem);
+			rswitch3_gwca_write(dev, GWDIE(i * 32U), status[i]);
+		}
+	}
+}
+
+static void rswitch3_gwca_isr(const struct device *dev)
+{
+	struct rswitch3_data *data = dev->data;
+	bool pending = false;
+	uint32_t status;
+	k_spinlock_key_t key;
+	uint32_t i;
+
+	/* Only RX queues raise data interrupts; rx_irq_mask has a bit for each of them. */
+	for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
+		/* i * 32 is the first descriptor chain held by register i */
+		if (data->gwca.rx_irq_mask[i] == 0U) {
+			continue;
+		}
+
+		status = rswitch3_gwca_read(dev, GWDIS(i * 32U)) & data->gwca.rx_irq_mask[i];
+		if (status == 0U) {
+			continue;
+		}
+
+		/* Disable and ack (write-1-to-clear) the queues just seen; the work
+		 * handler re-enables them once it has processed this batch.
+		 */
+		rswitch3_gwca_write(dev, GWDID(i * 32U), status);
+		rswitch3_gwca_write(dev, GWDIS(i * 32U), status);
+
+		key = k_spin_lock(&data->gwca.irq_lock);
+		data->gwca.pending_bits[i] |= status;
+		k_spin_unlock(&data->gwca.irq_lock, key);
+
+		pending = true;
+	}
+
+	if (pending) {
+		k_work_submit(&data->gwca.work);
+	}
+}
+
+/*
+ * IRQ_CONNECT() needs a compile-time instance number, which this runtime
+ * ISR-registration code doesn't have -- RSWITCH3_GWCA_IRQ_INIT(inst) is
+ * therefore invoked directly from the RSWITCH3_INIT(inst) macro instead of
+ * from a plain function; see the #undef block at the end of this file.
+ */
+#define RSWITCH3_GWCA_IRQ_INIT(inst)                                                               \
+	do {                                                                                       \
+		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(inst, gwca_gwdis, irq),                            \
+			    DT_INST_IRQ_BY_NAME(inst, gwca_gwdis, priority), rswitch3_gwca_isr,    \
+			    DEVICE_DT_INST_GET(inst), 0);                                          \
+		irq_enable(DT_INST_IRQ_BY_NAME(inst, gwca_gwdis, irq));                            \
+	} while (0)
+
+#define RSWITCH3_GWCA_RX_PRIO CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_PRIORITY
+
+BUILD_ASSERT((RSWITCH3_GWCA_RX_PRIO >= 0) && (RSWITCH3_GWCA_RX_PRIO < CONFIG_NUM_COOP_PRIORITIES),
+	     "GWCA RX thread priority must be below CONFIG_NUM_COOP_PRIORITIES");
+
+static int rswitch3_gwca_hw_init(const struct device *dev)
+{
+	const struct rswitch3_config *cfg = dev->config;
+	struct rswitch3_data *data = dev->data;
+	uint32_t i;
+	int ret;
+
+	data->gwca.dev = dev;
+
+	memset(data->gwca.port_row, RSWITCH3_GWCA_ROW_INVALID, sizeof(data->gwca.port_row));
+	for (i = 0; i < cfg->gwca.num_ports; i++) {
+		data->gwca.port_row[cfg->gwca.port_ids[i]] = i;
+	}
+
+	rswitch3_modify(dev, FWPC1(cfg->gwca.agent), 0, FWPC1_DDE);
+
+	ret = rswitch3_gwca_change_mode(dev, GWMC_OPC_DISABLE);
+	if (ret) {
+		return ret;
+	}
+
+	ret = rswitch3_gwca_change_mode(dev, GWMC_OPC_CONFIG);
+	if (ret) {
+		return ret;
+	}
+
+	ret = rswitch3_gwca_mcast_table_reset(dev);
+	if (ret) {
+		LOG_ERR("Timeout waiting for GWCA multicast table reset");
+		return ret;
+	}
+
+	ret = rswitch3_gwca_axi_ram_reset(dev);
+	if (ret) {
+		LOG_ERR("Timeout waiting for GWCA AXI RAM reset");
+		return ret;
+	}
+
+	rswitch3_gwca_write(dev, GWVCC, GWVCC_VEM_SC_TAG);
+	rswitch3_gwca_write(dev, GWTTFC, 0);
+	rswitch3_gwca_write(dev, GWMDNC, GWMDNC_TSDMN(1) | GWMDNC_TXDMN(0x1e) | GWMDNC_RXDMN(0x1f));
+	rswitch3_gwca_write(dev, GWTPC0, GWTPC_PPPL(RSWITCH3_GWCA_IPV));
+	rswitch3_gwca_modify(dev, GWCKSC, 0, GWCKSC_USMFSPE);
+
+	rswitch3_gwca_linkfix_init(dev);
+
+	ret = rswitch3_gwca_change_mode(dev, GWMC_OPC_DISABLE);
+	if (ret) {
+		return ret;
+	}
+
+	ret = rswitch3_gwca_change_mode(dev, GWMC_OPC_OPERATION);
+	if (ret) {
+		return ret;
+	}
+
+	/* IRQ_CONNECT() itself happens in the per-instance init wrapper
+	 * generated by RSWITCH3_INIT(inst), via RSWITCH3_GWCA_IRQ_INIT(inst)
+	 */
+	k_sem_init(&data->gwca.rx_sem, 0, 1);
+	k_work_init(&data->gwca.work, rswitch3_gwca_work_handler);
+	k_thread_create(&data->gwca.rx_thread_data, data->gwca.rx_stack,
+			K_KERNEL_STACK_SIZEOF(data->gwca.rx_stack), rswitch3_gwca_rx_thread,
+			(void *)dev, NULL, NULL, K_PRIO_COOP(RSWITCH3_GWCA_RX_PRIO), 0, K_NO_WAIT);
+
+	LOG_INF("Renesas R-Switch 3 GWCA%u initialized", cfg->gwca.instance);
+
+	return 0;
+}
+#endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
+
 /*
  * Brings up one physical ETHA port and, if it has an external PHY, wires its
  * link-state callback. Necessary for TSN-ES forwarding to work.
  */
 static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, uint32_t port_id,
-					const char *phy_mode, const struct device *phy_dev,
-					const struct device *pcs_dev)
+						      const char *phy_mode,
+						      const struct device *phy_dev,
+						      const struct device *pcs_dev)
 {
 	int ret;
 
@@ -686,14 +1019,14 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 	return 0;
 }
 
-#define RSWITCH3_INIT_PHYSICAL_PORT(n)                                                            \
+#define RSWITCH3_INIT_PHYSICAL_PORT(n)                                                             \
 	if (ret == 0) {                                                                            \
 		ret = rswitch3_init_physical_port(dev, DT_REG_ADDR(n), DT_PROP(n, phy_mode),       \
 						  RSWITCH3_DT_DEV_OR_NULL(n, phy_handle),          \
 						  RSWITCH3_DT_DEV_OR_NULL(n, xpcs));               \
 	}
 
-#define RSWITCH3_INIT_TSNES_PORT(n)                                                               \
+#define RSWITCH3_INIT_TSNES_PORT(n)                                                                \
 	if (ret == 0) {                                                                            \
 		ret = rswitch3_init_tsnes_port(                                                    \
 			dev, DT_REG_ADDR(n), DEVICE_DT_GET(DT_PHANDLE(n, renesas_tsnes)),          \
@@ -718,21 +1051,18 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (RSWITCH3_CHECK_PORT_INTERNAL(n)),         \
 		    (RSWITCH3_CHECK_PORT_EXTERNAL(n)))
 
-DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_CHECK_PORT)
-
-#define RSWITCH3_INIT_PORT_EXTERNAL(n)                                                            \
+#define RSWITCH3_INIT_PORT_EXTERNAL(n)                                                             \
 	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (), (RSWITCH3_INIT_PHYSICAL_PORT(n)))
-#define RSWITCH3_INIT_PORT_INTERNAL(n)                                                            \
+#define RSWITCH3_INIT_PORT_INTERNAL(n)                                                             \
 	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (RSWITCH3_INIT_TSNES_PORT(n)), ())
 
-static int rswitch3_init(const struct device *dev)
+static int rswitch3_init_common(const struct device *dev)
 {
 	const struct rswitch3_config *config = dev->config;
 	struct rswitch3_data *data = dev->data;
 	int ret;
 
-	ret = clock_control_on(config->clock_dev,
-			       RCAR_CLOCK_SUBSYS(config->mod_clk));
+	ret = clock_control_on(config->clock_dev, RCAR_CLOCK_SUBSYS(config->mod_clk));
 	if (ret < 0) {
 		LOG_ERR("Failed to enable RSwitch3 clock (err %d)", ret);
 		return ret;
@@ -756,33 +1086,115 @@ static int rswitch3_init(const struct device *dev)
 		return ret;
 	}
 
-	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_INIT_PORT_EXTERNAL)
-	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(0), RSWITCH3_INIT_PORT_INTERNAL)
-
-#undef RSWITCH3_INIT_PHYSICAL_PORT
-#undef RSWITCH3_INIT_TSNES_PORT
-#undef RSWITCH3_INIT_PORT_EXTERNAL
-#undef RSWITCH3_INIT_PORT_INTERNAL
-
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
+	ret = rswitch3_gwca_hw_init(dev);
 	if (ret) {
 		return ret;
 	}
-
-	LOG_INF("Renesas R-Switch 3 initialized");
+#endif
 
 	return 0;
 }
 
-static struct rswitch3_data rswitch3_data_0;
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
 
-static const struct rswitch3_config rswitch3_config_0 = {
-	.base = DT_INST_REG_ADDR_BY_NAME(0, base),
-	.secure_base = DT_INST_REG_ADDR_BY_NAME(0, secure_base),
-	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_IDX(0, 0)),
-	.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(0, 0),
-};
+#define RSWITCH3_GWCA_NUM_ROWS(inst) ARRAY_SIZE(rswitch3_gwca_port_ids_##inst)
 
-DEVICE_DT_INST_DEFINE(0, &rswitch3_init, NULL, &rswitch3_data_0, &rswitch3_config_0, POST_KERNEL,
-		      CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY, NULL);
+/* Which GWCA sub-instance (0=GWCA0, 1=GWCA1) this instance's
+ * renesas,gwca-instance devicetree property selects
+ */
+#define RSWITCH3_GWCA_INSTANCE(inst) DT_INST_PROP_OR(inst, renesas_gwca_instance, 0)
+
+#define RSWITCH3_GWCA_PORT_ID_ENTRY(n)                                                             \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (), (DT_REG_ADDR(n),))
+
+#define RSWITCH3_GWCA_INIT_CONFIG(inst)                                                            \
+	static const uint8_t rswitch3_gwca_port_ids_##inst[] = {                                   \
+		DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_GWCA_PORT_ID_ENTRY)};     \
+	static struct rswitch3_gwca_tx_queue                                                       \
+		rswitch3_gwca_tx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
+	static struct rswitch3_gwca_rx_queue                                                       \
+		rswitch3_gwca_rx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
+	static struct rswitch3_gwca_desc                                                           \
+		rswitch3_gwca_linkfix_table_##inst[2 * RSWITCH3_GWCA_NUM_ROWS(                     \
+							       inst)] RSWITCH3_GWCA_RAM_SECTION    \
+		__aligned(RSWITCH3_GWCA_DESC_ALIGN)
+
+#define RSWITCH3_GWCA_CONFIG_INIT(inst)                                                            \
+	.gwca = {                                                                                  \
+		.linkfix_table = rswitch3_gwca_linkfix_table_##inst,                               \
+		.tx_queues = rswitch3_gwca_tx_queues_##inst,                                       \
+		.rx_queues = rswitch3_gwca_rx_queues_##inst,                                       \
+		.port_ids = rswitch3_gwca_port_ids_##inst,                                         \
+		.num_ports = RSWITCH3_GWCA_NUM_ROWS(inst),                                         \
+		.reg_base = RSWITCH3_GWCA_INSTANCE(inst) ? RSWITCH3_GWCA1_OFFSET                   \
+							 : RSWITCH3_GWCA0_OFFSET,                  \
+		.agent = RSWITCH3_GWCA_INSTANCE(inst) ? (RSWITCH3_NUM_AGENTS - 1)                  \
+						      : (RSWITCH3_NUM_AGENTS - 2),                 \
+		.instance = RSWITCH3_GWCA_INSTANCE(inst),                                          \
+	},
+#else
+#define RSWITCH3_GWCA_INIT_CONFIG(inst)
+#define RSWITCH3_GWCA_CONFIG_INIT(inst)
+#define RSWITCH3_GWCA_IRQ_INIT(inst)
+#endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
+
+#define RSWITCH3_INIT(inst)                                                                        \
+	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_CHECK_PORT)                       \
+	RSWITCH3_GWCA_INIT_CONFIG(inst);                                                           \
+                                                                                                   \
+	static struct rswitch3_data rswitch3_data_##inst;                                          \
+                                                                                                   \
+	static const struct rswitch3_config rswitch3_config_##inst = {                             \
+		.base = DT_INST_REG_ADDR_BY_NAME(inst, base),                                      \
+		.secure_base = DT_INST_REG_ADDR_BY_NAME(inst, secure_base),                        \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_IDX(inst, 0)),                   \
+		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(inst, 0),                               \
+		RSWITCH3_GWCA_CONFIG_INIT(inst)};                                                  \
+                                                                                                   \
+	static int rswitch3_init_##inst(const struct device *dev)                                  \
+	{                                                                                          \
+		int ret;                                                                           \
+                                                                                                   \
+		ret = rswitch3_init_common(dev);                                                   \
+		if (ret) {                                                                         \
+			return ret;                                                                \
+		}                                                                                  \
+                                                                                                   \
+		RSWITCH3_GWCA_IRQ_INIT(inst);                                                      \
+                                                                                                   \
+		DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_INIT_PORT_EXTERNAL)       \
+		DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_INIT_PORT_INTERNAL)       \
+		if (ret) {                                                                         \
+			return ret;                                                                \
+		}                                                                                  \
+                                                                                                   \
+		LOG_INF("Renesas R-Switch 3 initialized");                                         \
+                                                                                                   \
+		return 0;                                                                          \
+	}                                                                                          \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(inst, &rswitch3_init_##inst, NULL, &rswitch3_data_##inst,            \
+			      &rswitch3_config_##inst, POST_KERNEL,                                \
+			      CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY, NULL);
+
+DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
+
+#undef RSWITCH3_INIT
+#undef RSWITCH3_GWCA_INIT_CONFIG
+#undef RSWITCH3_GWCA_CONFIG_INIT
+#undef RSWITCH3_INIT_PHYSICAL_PORT
+#undef RSWITCH3_INIT_TSNES_PORT
+#undef RSWITCH3_INIT_PORT_EXTERNAL
+#undef RSWITCH3_INIT_PORT_INTERNAL
+#undef RSWITCH3_CHECK_PORT
+#undef RSWITCH3_CHECK_PORT_EXTERNAL
+#undef RSWITCH3_CHECK_PORT_INTERNAL
+#undef RSWITCH3_GWCA_IRQ_INIT
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
+#undef RSWITCH3_GWCA_NUM_ROWS
+#undef RSWITCH3_GWCA_INSTANCE
+#undef RSWITCH3_GWCA_PORT_ID_ENTRY
+#endif
 
 #undef DT_DRV_COMPAT

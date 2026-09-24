@@ -654,6 +654,9 @@
 			clock-names = "module", "main-axi", "main-apb", "main-phy",
 				      "main-core", "tsn-axi", "tsn-apb", "tsn-phy",
 				      "tsn-core", "mfwd-core", "aes-apb", "aes-core";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 492 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "gwca_gwdis";
 			status = "disabled";
 
 			port4: port@4 {
