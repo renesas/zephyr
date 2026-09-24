@@ -8,6 +8,10 @@
 	status = "okay";
 };
 
+&pcs_ch5 {
+	status = "okay";
+};
+
 &port5 {
 	status = "okay";
 };
