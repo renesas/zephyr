@@ -126,6 +126,13 @@ enum rsw3_etha_mode {
 #define FWPBFC1_PBRP     GENMASK(19, 16)
 #define FWPBFC1_PBRP_TSN 0xf
 
+/*
+ * FWPBFCSDC(agent, port) is Port-Based-Forwarding Software Destination
+ * Configuration.
+ */
+#define FWPBFCSDC00            0x4b00
+#define FWPBFCSDC(agent, port) (FWPBFCSDC00 + (port) * 0x20 + (agent) * 0x04)
+
 /* FWPC0 */
 #define FWPC0_MACSDA BIT(20)
 
@@ -334,7 +341,7 @@ struct rswitch3_gwca_config {
 	uint8_t num_ports;       /* == ARRAY_SIZE(port_ids); external rswitch3-port children only */
 	uint32_t reg_base;       /* RSWITCH3_GWCA0_OFFSET or RSWITCH3_GWCA1_OFFSET */
 	uint8_t agent;           /* forwarding-agent index (13 or 14) among RSWITCH3_NUM_AGENTS */
-	uint8_t instance;        /* GWCA sub-instance (0 or 1) for TPDEMIMC_GDICM() */
+	uint8_t instance;        /* GWCA sub-instance (0 or 1) for TPDEMIMC_GDICM()/FWPBFCSDC() */
 };
 
 /* Per-instance GWCA runtime state, reachable via dev->data. */
@@ -362,6 +369,8 @@ struct rswitch3_phys_port_ctx {
 	const struct device *rswitch_dev;
 	const struct device *pcs_dev;
 	uint32_t port_id;
+	/* This agent's GWCA-backed net_if device. */
+	const struct device *port_net_dev;
 };
 
 struct rswitch3_internal_port {
@@ -389,6 +398,10 @@ struct rswitch3_data {
 	 * Bitmask of external ports that currently report a real PHY link.
 	 */
 	uint32_t port_link_mask;
+	/* Gateway of this core a port forwards to, indexed by agent id. Zero
+	 * when the port has no net_if on this core.
+	 */
+	uint32_t gwca_fwd_mask[RSWITCH3_NUM_AGENTS];
 	/* Link-callback context for every physical port, indexed by agent id. */
 	struct rswitch3_phys_port_ctx phys_ports[RSWITCH3_NUM_AGENTS];
 	/* NET_EVENT_IF_ADMIN_UP callback, replays link state onto TSN-ES net_ifs */

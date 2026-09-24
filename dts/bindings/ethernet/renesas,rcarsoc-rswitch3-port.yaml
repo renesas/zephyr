@@ -4,7 +4,9 @@
 description: |
   Renesas R-Car R-Switch 3 port, one node per TSNA/ETHA agent. Read
   directly by the parent rswitch3 driver via DT_FOREACH_CHILD_STATUS_OKAY(),
-  which brings the agent up.
+  which brings the agent up, and by the per-port net_if driver in the same
+  source file, which instantiates a GWCA-backed net_if for each external
+  agent.
 
   A node is one of exactly two kinds, distinguished by which properties it
   sets:
@@ -12,7 +14,7 @@ description: |
   - external: this agent's RMAC talks to an external PHY. Set phy-handle
     and phy-mode, plus xpcs if a PCS channel drives the SerDes lane. The
     link state comes from the PHY behind phy-handle. Gets ETHA/PCS
-    bring-up.
+    bring-up and a GWCA-backed net_if.
   - internal: this agent's RMAC talks directly to a TSN-ES endpoint
     instead. Set renesas,tsnes (and usually renesas,forward-ports), and
     none of xpcs, phy-handle or phy-mode. Gets internal ETHA bring-up only;

@@ -104,7 +104,7 @@ config ETH_RENESAS_RSWITCH3_INIT_PRIORITY
 	  Physical port bring-up wires each port's external PHY and PCS
 	  channel device, so this must run after CONFIG_MDIO_INIT_PRIORITY
 	  and CONFIG_PHY_INIT_PRIORITY, and before CONFIG_ETH_INIT_PRIORITY
-	  (TSN-ES attaches to this driver at that priority).
+	  (the per-port net_if attaches to the GWCA at that priority).
 
 config ETH_RENESAS_RSWITCH3_GWCA
 	bool "Renesas R-Switch 3 GWCA (Gateway CPU Agent) DMA engine"
@@ -168,5 +168,16 @@ config ETH_RENESAS_RSWITCH3_GWCA_ENABLE_DMA_CACHE_OPS
 	  No cache operations are done with CONFIG_NOCACHE_MEMORY.
 
 endif # ETH_RENESAS_RSWITCH3_GWCA
+
+config ETH_RENESAS_RSWITCH3_PORT
+	bool "Renesas R-Switch 3 physical-port net_if (GWCA-backed)"
+	default y
+	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_PORT_ENABLED
+	select ETH_RENESAS_RSWITCH3_GWCA
+	help
+	  Enable one Zephyr net_if per renesas,rcarsoc-rswitch3-port child
+	  node, backed by a dedicated GWCA TX/RX queue pair, allowing the
+	  CPU to send/receive packets directly through a physical port
+	  without a TSN-ES endpoint.
 
 endif # ETH_RENESAS_RCARSOC_RSWITCH3
