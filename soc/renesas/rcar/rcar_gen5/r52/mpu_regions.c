@@ -23,6 +23,28 @@ BUILD_ASSERT((DT_REG_ADDR(ETHURAM_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SI
 	     "ETHURAM base and size must be MPU-region aligned");
 #endif /* ethuram enabled */
 
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(osal_mmngr_00))
+#define OSAL_MMNGR_00_NODE DT_NODELABEL(osal_mmngr_00)
+
+BUILD_ASSERT(!DT_SAME_NODE(OSAL_MMNGR_00_NODE, DT_CHOSEN(zephyr_sram)),
+	     "OSAL_MMNGR_00 cannot be located in Zephyr system RAM.");
+BUILD_ASSERT((DT_REG_ADDR(OSAL_MMNGR_00_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0 &&
+		     (DT_REG_SIZE(OSAL_MMNGR_00_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) ==
+			     0,
+	     "OSAL_MMNGR_00 base and size must be MPU-region aligned");
+#endif /* osal_mmngr_00 enabled */
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(osal_mmngr_01))
+#define OSAL_MMNGR_01_NODE DT_NODELABEL(osal_mmngr_01)
+
+BUILD_ASSERT(!DT_SAME_NODE(OSAL_MMNGR_01_NODE, DT_CHOSEN(zephyr_sram)),
+	     "OSAL_MMNGR_01 cannot be located in Zephyr system RAM.");
+BUILD_ASSERT((DT_REG_ADDR(OSAL_MMNGR_01_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0 &&
+		     (DT_REG_SIZE(OSAL_MMNGR_01_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) ==
+			     0,
+	     "OSAL_MMNGR_01 base and size must be MPU-region aligned");
+#endif /* osal_mmngr_01 enabled */
+
 static const struct arm_mpu_region mpu_regions[] = {
 	MPU_REGION_ENTRY("SRAM_TEXT", (uintptr_t)__rom_region_start,
 			 REGION_RAM_TEXT_ATTR((uintptr_t)__rodata_region_start)),
@@ -42,6 +64,18 @@ static const struct arm_mpu_region mpu_regions[] = {
 #if defined(ETHURAM_NODE)
 	MPU_REGION_ENTRY("ETHURAM", DT_REG_ADDR(ETHURAM_NODE),
 			 REGION_RAM_ATTR(DT_REG_ADDR(ETHURAM_NODE) + DT_REG_SIZE(ETHURAM_NODE))),
+#endif
+
+#if defined(OSAL_MMNGR_00_NODE)
+	MPU_REGION_ENTRY("OSAL_MMNGR_00", DT_REG_ADDR(OSAL_MMNGR_00_NODE),
+			 REGION_RAM_NOCACHE_ATTR(DT_REG_ADDR(OSAL_MMNGR_00_NODE) +
+						 DT_REG_SIZE(OSAL_MMNGR_00_NODE))),
+#endif
+
+#if defined(OSAL_MMNGR_01_NODE)
+	MPU_REGION_ENTRY("OSAL_MMNGR_01", DT_REG_ADDR(OSAL_MMNGR_01_NODE),
+			 REGION_RAM_NOCACHE_ATTR(DT_REG_ADDR(OSAL_MMNGR_01_NODE) +
+						 DT_REG_SIZE(OSAL_MMNGR_01_NODE))),
 #endif
 };
 
