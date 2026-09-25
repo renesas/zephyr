@@ -8,6 +8,7 @@
 #define ZEPHYR_DRIVERS_ETHERNET_ETH_RENESAS_RSWITCH3_H_
 
 #include <zephyr/device.h>
+#include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/drivers/ethernet/eth_renesas_rswitch.h>
 
@@ -151,6 +152,7 @@ struct rswitch3_config {
 	mm_reg_t base;
 	mm_reg_t secure_base;
 	const struct device *clock_dev;
+	rcar_clk_t mod_clk;
 };
 
 struct rswitch3_data {

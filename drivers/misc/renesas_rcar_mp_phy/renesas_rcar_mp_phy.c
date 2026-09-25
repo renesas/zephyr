@@ -8,6 +8,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
+#include <zephyr/drivers/reset.h>
 #include <soc.h>
 #include <zephyr/drivers/misc/renesas_rcar_mp_phy/renesas_rcar_mp_phy.h>
 
@@ -170,8 +171,10 @@ struct mp_phy_renesas_rcar_config {
 	DEVICE_MMIO_NAMED_ROM(reg_base);
 	struct mp_phy_channel_config chan_cfg[CONFIG_RENESAS_RCAR_MP_PHY_NUM_CHANNELS];
 	const struct device *clock_dev;
-	struct rcar_cpg_clk *p_mod_clk;
+	rcar_clk_t *p_mod_clk;
 	uint8_t num_mod_clk;
+	const struct reset_dt_spec *p_mod_reset;
+	uint8_t num_mod_reset;
 	uint8_t use_pad_clk;
 	uint8_t repeat_clk_en;
 };
@@ -356,7 +359,21 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 	/* Power ON the MP-PHYs, keep the reset asserted */
 	for (uint32_t i = 0; i < config->num_mod_clk; i++) {
 		int ret = clock_control_on(config->clock_dev,
-					   (clock_control_subsys_t)&config->p_mod_clk[i]);
+					   RCAR_CLOCK_SUBSYS(config->p_mod_clk[i]));
+		if (ret < 0) {
+			return ret;
+		}
+	}
+
+	for (uint32_t i = 0; i < config->num_mod_reset; i++) {
+		const struct reset_dt_spec *reset = &config->p_mod_reset[i];
+		int ret;
+
+		if (!device_is_ready(reset->dev)) {
+			return -ENODEV;
+		}
+
+		ret = reset_line_deassert_dt(reset);
 		if (ret < 0) {
 			return ret;
 		}
@@ -420,11 +437,22 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 	return 0;
 };
 
-#define MP_PHY_CLOCKS_GET(node_id, prop, idx)                                                      \
-	{                                                                                          \
-		.module = DT_CLOCKS_CELL_BY_IDX(node_id, idx, module),                             \
-		.domain = DT_CLOCKS_CELL_BY_IDX(node_id, idx, domain),                             \
-	}
+#define MP_PHY_CLOCKS_GET(node_id, prop, idx) RCAR_DT_CLOCKS_CELL_BY_IDX(node_id, idx)
+
+#define DUMMY_CHAR
+
+#define MP_PHY_RESETS_GET(node_id, prop, idx) RESET_DT_SPEC_GET_BY_IDX(node_id, idx)
+
+#define MP_PHY_RESETS_ARRAY(n)                                                                     \
+	DT_INST_FOREACH_PROP_ELEM_SEP(n, resets, MP_PHY_RESETS_GET, (, DUMMY_CHAR))
+
+#define MP_PHY_RESETS_DEFINE(n)                                                                    \
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, resets),                                              \
+		(static const struct reset_dt_spec mod_reset##n[] = {                              \
+			MP_PHY_RESETS_ARRAY(n) \
+		};), ())
+
+#define MP_PHY_RESETS_PTR(n) COND_CODE_1(DT_INST_NODE_HAS_PROP(n, resets), (mod_reset##n), (NULL))
 
 #define _MP_PHY_GET_INTERFACE(if_name) MP_PHY_IF_##if_name
 #define MP_PHY_GET_INTERFACE(if_name)  _MP_PHY_GET_INTERFACE(if_name)
@@ -434,18 +462,19 @@ static int mp_phy_renesas_rcar_init(const struct device *dev)
 		.if_type = MP_PHY_GET_INTERFACE(DT_STRING_UPPER_TOKEN_BY_IDX(node_id, prop, idx)), \
 	}
 
-#define DUMMY_CHAR
-
 #define MP_PHY_DEVICE_INIT(n)                                                                      \
-	static struct rcar_cpg_clk mod_clk##n[DT_INST_NUM_CLOCKS(n)] = {                           \
+	static rcar_clk_t mod_clk##n[DT_INST_NUM_CLOCKS(n)] = {                                    \
 		DT_INST_FOREACH_PROP_ELEM_SEP(n, clocks, MP_PHY_CLOCKS_GET, (, DUMMY_CHAR)),       \
 	};                                                                                         \
+	MP_PHY_RESETS_DEFINE(n)                                                                    \
                                                                                                    \
 	static const struct mp_phy_renesas_rcar_config mp_phy_config##n = {                        \
 		DEVICE_MMIO_NAMED_ROM_INIT(reg_base, DT_DRV_INST(n)),                              \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.p_mod_clk = mod_clk##n,                                                           \
 		.num_mod_clk = DT_INST_NUM_CLOCKS(n),                                              \
+		.p_mod_reset = MP_PHY_RESETS_PTR(n),                                               \
+		.num_mod_reset = DT_INST_PROP_LEN_OR(n, resets, 0),                                \
 		.chan_cfg =                                                                        \
 			{                                                                          \
 				DT_INST_FOREACH_PROP_ELEM_SEP(n, interface_names,                  \

@@ -11,7 +11,7 @@
 #include <zephyr/device.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/drivers/clock_control/renesas_clkc_mdlc.h>
+#include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/drivers/misc/renesas_rcar_mp_phy/renesas_rcar_mp_phy.h>
 
 LOG_MODULE_REGISTER(phy_renesas_pcs, CONFIG_PHY_LOG_LEVEL);
@@ -24,7 +24,7 @@ struct pcs_channel_config {
 	mm_reg_t chan_base;
 	const struct device *mpphy_dev;
 	const struct device *clock_dev;
-	struct rcar_clkc mod_clk;
+	rcar_clk_t mod_clk;
 	struct mp_phy_renesas_rcar_cfg phy_cfg;
 	uint8_t channel_id;
 	bool usxgmii; /* false: SGMII, true: USXGMII */
@@ -366,7 +366,7 @@ static int pcs_channel_init(const struct device *dev)
 	data->state.speed = 0;
 	data->aneg_on = true;
 
-	ret = clock_control_on(config->clock_dev, (clock_control_subsys_t)&config->mod_clk);
+	ret = clock_control_on(config->clock_dev, RCAR_CLOCK_SUBSYS(config->mod_clk));
 	if (ret < 0) {
 		return ret;
 	}
@@ -413,8 +413,7 @@ static DEVICE_API(ethphy, pcs_channel_api) = {
 		.channel_id = DT_INST_REG_ADDR(n),                                                 \
 		.usxgmii = DT_INST_ENUM_HAS_VALUE(n, phy_mode, usxgmii),                           \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
-		.mod_clk.module = DT_INST_CLOCKS_CELL_BY_IDX(n, 0, module),                        \
-		.mod_clk.domain = DT_INST_CLOCKS_CELL_BY_IDX(n, 0, domain),                        \
+		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(n, 0),                                  \
 		.phy_cfg =                                                                         \
 			{                                                                          \
 				.channel = DT_PHA_BY_IDX(DT_DRV_INST(n), phys, 0, channel),        \
@@ -438,7 +437,7 @@ DT_INST_FOREACH_STATUS_OKAY(PCS_CHANNEL_INIT)
 
 struct pcs_block_channel_clock {
 	const struct device *clock_dev;
-	struct rcar_clkc mod_clk;
+	rcar_clk_t mod_clk;
 };
 
 struct pcs_block_config {
@@ -459,7 +458,7 @@ static int pcs_block_init(const struct device *dev)
 			return -ENODEV;
 		}
 
-		ret = clock_control_on(chan->clock_dev, (clock_control_subsys_t)&chan->mod_clk);
+		ret = clock_control_on(chan->clock_dev, RCAR_CLOCK_SUBSYS(chan->mod_clk));
 		if (ret < 0) {
 			LOG_ERR("PCS block: failed to release module standby for channel %u "
 				"(err %d)",
@@ -476,8 +475,7 @@ static int pcs_block_init(const struct device *dev)
 #define PCS_BLOCK_CHANNEL_CLOCK_ENTRY(node_id)                                                     \
 	{                                                                                          \
 		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(node_id)),                               \
-		.mod_clk.module = DT_CLOCKS_CELL_BY_IDX(node_id, 0, module),                       \
-		.mod_clk.domain = DT_CLOCKS_CELL_BY_IDX(node_id, 0, domain),                       \
+		.mod_clk = RCAR_DT_CLOCKS_CELL_BY_IDX(node_id, 0), \
 	},
 
 #define PCS_BLOCK_INIT(n)                                                                          \

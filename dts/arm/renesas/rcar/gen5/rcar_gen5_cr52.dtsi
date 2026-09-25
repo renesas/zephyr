@@ -9,6 +9,7 @@
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
 #include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/dt-bindings/clock/r8a78000_scmi_clock.h>
+#include <zephyr/dt-bindings/reset/r8a78000_scmi_reset_domain.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <mem.h>
 
@@ -412,6 +413,15 @@
 			compatible = "renesas,rcar-mp-phy";
 			reg = <0xc9a00000 0x100000>;
 			#phy-cells = <2>;
+			/* MPPHY02 starts in Module STOP and only needs its clock enabled. */
+			/*
+			 * MPPHY01, MPPHY11, MPPHY21, and MPPHY31 start in Module Standby
+			 * and need their resets released.
+			 */
+			resets = <&scmi_reset R8A78000_SCMI_RESET_MPPHY01>,
+				 <&scmi_reset R8A78000_SCMI_RESET_MPPHY11>,
+				 <&scmi_reset R8A78000_SCMI_RESET_MPPHY21>,
+				 <&scmi_reset R8A78000_SCMI_RESET_MPPHY31>;
 			status = "disabled";
 		};
 
@@ -424,7 +434,7 @@
 
 			pcs_ch4: phy@4 {
 				compatible = "renesas,rcar-ether-pcs-channel";
-				clocks = <&clkc CLKC_MOD R8A78000_MOD_XPCS4>;
+				clocks = <&scmi_clk R8A78000_SCMI_CLK_XPCS4>;
 				reg = <4>;
 				phys = <&mp_phy 2 0>;
 				phy-mode = "usxgmii";
@@ -433,7 +443,7 @@
 
 			pcs_ch5: phy@5 {
 				compatible = "renesas,rcar-ether-pcs-channel";
-				clocks = <&clkc CLKC_MOD R8A78000_MOD_XPCS5>;
+				clocks = <&scmi_clk R8A78000_SCMI_CLK_XPCS5>;
 				reg = <5>;
 				phys = <&mp_phy 2 1>;
 				phy-mode = "sgmii";
@@ -450,6 +460,21 @@
 			      <0xc9c88000 0x800>,
 			      <0xc9c89000 0x800>;
 			reg-names = "base", "secure_base", "gptp_base", "secure_ptp";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RSW3>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D2_RSW3_MAIN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D4_RSW3_MAIN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SUBD1_RSW3_MAIN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_MAIN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D2_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D4_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SUBD1_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_MFWD>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D4_RSW3_AES>,
+				 <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>;
+			clock-names = "module", "main-axi", "main-apb", "main-phy",
+				      "main-core", "tsn-axi", "tsn-apb", "tsn-phy",
+				      "tsn-core", "mfwd-core", "aes-apb", "aes-core";
 			status = "okay";
 
 			port4: port@4 {
@@ -476,10 +501,11 @@
 			interrupts = <GIC_SPI 494 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
 				     <GIC_SPI 502 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "tdis", "tes_int_n";
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
-				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
-				 <&clkc CLKC_CORE R8A78000_CLK_S0D4_HSCN_RSW3_MAIN>,
-				 <&clkc CLKC_CORE R8A78000_CLK_RSWSUBD1CK_HSCN_RSW3_MAIN>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RSW3TSNTES0>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D2_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D4_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SUBD1_RSW3_TSN>;
+			clock-names = "module", "axi", "apb", "phy";
 			status = "disabled";
 		};
 
@@ -493,10 +519,11 @@
 			interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>,
 				     <GIC_SPI 506 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			interrupt-names = "tdis", "tes_int_n";
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_TSNTES0>,
-				 <&clkc CLKC_CORE R8A78000_CLK_S0D1_HSCN_RSW3_MAIN>,
-				 <&clkc CLKC_CORE R8A78000_CLK_S0D4_HSCN_RSW3_MAIN>,
-				 <&clkc CLKC_CORE R8A78000_CLK_RSWSUBD1CK_HSCN_RSW3_MAIN>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_RSW3TSNTES4>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D2_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_S0D4_RSW3_TSN>,
+				 <&scmi_clk R8A78000_SCMI_CLK_SUBD1_RSW3_TSN>;
+			clock-names = "module", "axi", "apb", "phy";
 			renesas,rswitch = <&rswitch3>;
 			renesas,rswitch-if = <9>;
 			renesas,rswitch-forward-ports = <BIT(5)>;

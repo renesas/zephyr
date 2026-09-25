@@ -13,3 +13,9 @@ properties:
 
   reg-names:
     required: true
+
+  clocks:
+    required: true
+
+  clock-names:
+    required: true

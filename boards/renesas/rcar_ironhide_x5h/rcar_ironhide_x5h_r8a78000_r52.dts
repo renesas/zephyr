@@ -169,6 +169,10 @@
 	clock-frequency = <DT_FREQ_K(24576)>;
 };
 
+&rsw3_aes_clk {
+	clock-frequency = <DT_FREQ_K(712500)>;
+};
+
 &adg0 {
 	pinctrl-0 = <&audio_clka_default &audio0_clkout0_default>;
 	pinctrl-names = "default";

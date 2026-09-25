@@ -625,8 +625,16 @@ static int rswitch3_fwd_init(const struct device *dev)
 
 static int rswitch3_init(const struct device *dev)
 {
+	const struct rswitch3_config *config = dev->config;
 	struct rswitch3_data *data = dev->data;
 	int ret;
+
+	ret = clock_control_on(config->clock_dev,
+			       RCAR_CLOCK_SUBSYS(config->mod_clk));
+	if (ret < 0) {
+		LOG_ERR("Failed to enable RSwitch3 clock (err %d)", ret);
+		return ret;
+	}
 
 	k_mutex_init(&data->lock);
 
@@ -690,6 +698,8 @@ static struct rswitch3_data rswitch3_data_0;
 static const struct rswitch3_config rswitch3_config_0 = {
 	.base = DT_INST_REG_ADDR_BY_NAME(0, base),
 	.secure_base = DT_INST_REG_ADDR_BY_NAME(0, secure_base),
+	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_IDX(0, 0)),
+	.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(0, 0),
 };
 
 DEVICE_DT_INST_DEFINE(0, &rswitch3_init, NULL, &rswitch3_data_0, &rswitch3_config_0, POST_KERNEL,

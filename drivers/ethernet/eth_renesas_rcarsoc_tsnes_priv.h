@@ -9,6 +9,7 @@
 
 #include "zephyr/spinlock.h"
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_if.h>
@@ -615,6 +616,8 @@ struct eth_tsnes_config {
 	volatile eth_tsnes_reg_t *tsnes_base;
 	/** pinctrl configs */
 	const struct pinctrl_dev_config *pcfg;
+	const struct device *clock_dev;
+	rcar_clk_t mod_clk;
 
 	void (*config_irq)(const struct device *dev);
 

@@ -85,6 +85,9 @@ LOG_MODULE_REGISTER(renesas_rcar_rsw3_mdio, CONFIG_MDIO_LOG_LEVEL);
 #define MPSM_MFF      BIT(2)
 #define MPSM_PSME     BIT(0)
 
+#define RSW3_MDC_SOURCE_RATE(inst)                                                           \
+	DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(inst, mdc_source), clock_frequency)
+
 /* Completion flags */
 #define MMIS1_PPRACS BIT(3) /* Post read access complete */
 #define MMIS1_PAACS  BIT(2) /* Address access complete */
@@ -106,7 +109,8 @@ struct renesas_rcar_rsw3_mdio_config {
 	DEVICE_MMIO_ROM; /* Must be first */
 	const struct pinctrl_dev_config *pcfg;
 	const struct device *clock_dev;
-	struct rcar_cpg_clk mdc_clk;
+	rcar_clk_t mdc_clk;
+	uint32_t mdc_source_rate_hz;
 	uint8_t channel;
 };
 
@@ -131,7 +135,7 @@ static inline void rsw3_update_bits32(mem_addr_t addr, uint32_t mask, uint32_t v
 	sys_write32(tmp, addr);
 }
 
-static int rsw3_get_clock_rate(const struct device *dev, uint32_t *rate)
+static int rsw3_enable_clock(const struct device *dev)
 {
 	const struct renesas_rcar_rsw3_mdio_config *config = dev->config;
 	int ret;
@@ -141,14 +145,9 @@ static int rsw3_get_clock_rate(const struct device *dev, uint32_t *rate)
 		return -ENODEV;
 	}
 
-	ret = clock_control_get_rate(config->clock_dev, (clock_control_subsys_t)&config->mdc_clk,
-				     rate);
+	ret = clock_control_on(config->clock_dev, RCAR_CLOCK_SUBSYS(config->mdc_clk));
 	if (ret) {
 		return ret;
-	}
-
-	if (*rate == 0U) {
-		return -EINVAL;
 	}
 
 	return 0;
@@ -474,7 +473,6 @@ static int renesas_rcar_rsw3_mdio_init(const struct device *dev)
 {
 	const struct renesas_rcar_rsw3_mdio_config *config = dev->config;
 	struct renesas_rcar_rsw3_mdio_data *data = dev->data;
-	uint32_t rate;
 	int ret;
 
 	/* Configure dt provided device signals when available */
@@ -488,7 +486,17 @@ static int renesas_rcar_rsw3_mdio_init(const struct device *dev)
 		return ret;
 	}
 
+	if (config->mdc_source_rate_hz == 0U) {
+		LOG_ERR("MDC source clock rate is zero");
+		return -EINVAL;
+	}
+
 	DEVICE_MMIO_MAP(dev, K_MEM_CACHE_NONE);
+
+	ret = rsw3_enable_clock(dev);
+	if (ret) {
+		return ret;
+	}
 
 	rsw3_init();
 
@@ -505,15 +513,10 @@ static int renesas_rcar_rsw3_mdio_init(const struct device *dev)
 	/* Clear MPIC value */
 	sys_write32(0x0, DEVICE_MMIO_GET(dev) + MPIC);
 
-	ret = rsw3_get_clock_rate(dev, &rate);
-	if (ret) {
-		return ret;
-	}
-
 	/* Enable and configure MDC clock */
 	rsw3_update_bits32(DEVICE_MMIO_GET(dev) + MPIC,
 			   MPIC_PSMCS_LO_MASK | MPIC_PSMCS_HI_MASK | MPIC_PSMHT_MASK,
-			   MPIC_PSMCS_PREP(rsw3_mpic_psmcs(rate)) |
+			   MPIC_PSMCS_PREP(rsw3_mpic_psmcs(config->mdc_source_rate_hz)) |
 				   FIELD_PREP(MPIC_PSMHT_MASK, MPIC_PSMHT_DEFAULT));
 
 	ret = rsw3_etha_change_mode(dev, EAMC_OPC_OPERATION);
@@ -541,9 +544,9 @@ static DEVICE_API(mdio, renesas_rcar_rsw3_mdio_api) = {
 	static const struct renesas_rcar_rsw3_mdio_config renesas_rcar_rsw3_mdio_config_##inst = { \
 		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(inst)),                                           \
 		.channel = DT_INST_PROP(inst, channel),                                            \
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(inst)),                             \
-		.mdc_clk.module = DT_INST_CLOCKS_CELL_BY_IDX(inst, 0, module),                     \
-		.mdc_clk.domain = DT_INST_CLOCKS_CELL_BY_IDX(inst, 0, domain),                     \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(inst, gate)),               \
+		.mdc_clk = RCAR_DT_INST_CLOCKS_CELL_BY_NAME(inst, gate),                           \
+		.mdc_source_rate_hz = RSW3_MDC_SOURCE_RATE(inst),                                  \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),                                      \
 	};                                                                                         \
                                                                                                    \

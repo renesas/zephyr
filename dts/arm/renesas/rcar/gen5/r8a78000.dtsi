@@ -1038,7 +1038,9 @@
 			reg = <0xc9b9e000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
-			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>,
+				 <&rsw3_aes_clk>;
+			clock-names = "gate", "mdc-source";
 			channel = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1050,7 +1052,9 @@
 			reg = <0xc9ba0000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
-			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>,
+				 <&rsw3_aes_clk>;
+			clock-names = "gate", "mdc-source";
 			channel = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1062,7 +1066,9 @@
 			reg = <0xc9ba2000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
-			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>,
+				 <&rsw3_aes_clk>;
+			clock-names = "gate", "mdc-source";
 			channel = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1074,7 +1080,9 @@
 			reg = <0xc9ba4000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
-			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>,
+				 <&rsw3_aes_clk>;
+			clock-names = "gate", "mdc-source";
 			channel = <3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1086,7 +1094,9 @@
 			reg = <0xc9ba6000 0x1000>,
 			      <0xc9b80000 0x40000>;
 			reg-names = "rmac", "base_secure";
-			clocks = <&clkc CLKC_CORE R8A78000_CLK_RSWCORECK_HSCN_RSW3_AES>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_CORE_RSW3_AES>,
+				 <&rsw3_aes_clk>;
+			clock-names = "gate", "mdc-source";
 			channel = <4>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1094,11 +1104,11 @@
 		};
 
 		mp_phy: mp_phy@c9a00000 {
-			clocks = <&clkc CLKC_MOD R8A78000_MOD_MPPHY01>,
-				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY11>,
-				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY21>,
-				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY31>,
-				 <&clkc CLKC_MOD R8A78000_MOD_MPPHY02>;
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_MPPHY01>,
+				 <&scmi_clk R8A78000_SCMI_CLK_MPPHY11>,
+				 <&scmi_clk R8A78000_SCMI_CLK_MPPHY21>,
+				 <&scmi_clk R8A78000_SCMI_CLK_MPPHY31>,
+				 <&scmi_clk R8A78000_SCMI_CLK_MPPHY02>;
 		};
 
 		mfis_common: mailbox@18800000 {
@@ -1413,6 +1423,12 @@
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <32768>;
+		};
+
+		rsw3_aes_clk: rsw3-aes-clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <0>;
 		};
 	};
 };

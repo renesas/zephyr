@@ -16,6 +16,15 @@ properties:
 
   clocks:
     required: true
+    description: |
+      The RSW3 AES clock controller followed by a fixed-clock provider for
+      the MDC divider source rate.
+
+  clock-names:
+    required: true
+    description: |
+      Must contain "gate" for the RSW3 AES clock controller and
+      "mdc-source" for the fixed MDC divider source rate.
 
   channel:
     type: int

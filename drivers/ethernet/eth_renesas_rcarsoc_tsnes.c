@@ -1195,6 +1195,12 @@ static int eth_tsnes_init(const struct device *dev)
 	const struct eth_tsnes_config *cfg = dev->config;
 	int ret;
 
+	ret = clock_control_on(cfg->clock_dev, RCAR_CLOCK_SUBSYS(cfg->mod_clk));
+	if (ret < 0) {
+		LOG_ERR("failed to enable TSNES clock (err %d)", ret);
+		return ret;
+	}
+
 	if (data->initialized) {
 		return 0;
 	}
@@ -1280,6 +1286,7 @@ static int eth_tsnes_init(const struct device *dev)
 #define ETH_TSNES_SWITCH_INIT(n)
 #endif
 
+#define ETH_TSNES_MOD_CLK(n) RCAR_DT_INST_CLOCKS_CELL_BY_NAME(n, module)
 #define ETH_TSNES_INIT(n)                                                                          \
 	BUILD_ASSERT(DT_INST_PROP(n, rx_queues) >= 1 &&                                            \
 			     DT_INST_PROP(n, rx_queues) <= ETH_NUM_RX_QUEUES,                      \
@@ -1306,6 +1313,8 @@ static int eth_tsnes_init(const struct device *dev)
 	static const struct eth_tsnes_config eth_tsnes_config_##n = {                              \
 		.tsnes_base = (volatile eth_tsnes_reg_t *)DT_INST_REG_ADDR_BY_NAME(n, tsnes),      \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(n, module)),             \
+		.mod_clk = ETH_TSNES_MOD_CLK(n),                                                \
 		.config_irq = eth_tsnes_config_irq_##n,                                            \
 		.mac_addr = DT_INST_PROP_OR(n, local_mac_address, {0}),                            \
 		.num_rx_queues = DT_INST_PROP(n, rx_queues),                                       \
@@ -1326,3 +1335,5 @@ static int eth_tsnes_init(const struct device *dev)
 				      &eth_tsnes_api, NET_ETH_MAX_FRAME_SIZE);
 
 DT_INST_FOREACH_STATUS_OKAY(ETH_TSNES_INIT)
+
+#undef ETH_TSNES_MOD_CLK
