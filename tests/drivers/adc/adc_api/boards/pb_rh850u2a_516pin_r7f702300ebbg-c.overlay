@@ -4,4 +4,61 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "pb_rh850u2a_516pin_r7f702300bebbc-c.overlay"
+#include <zephyr/dt-bindings/adc/adc.h>
+
+/ {
+	zephyr,user {
+		io-channels = <&adcj0 0>, <&adcj0 1>, <&adcj0 2>;
+	};
+};
+
+&adcj0 {
+	status = "okay";
+	vref-mv = <5000>;
+	channel-available-mask = <0x07>;
+
+	renesas,scan-group = <0>;
+	renesas,start-virtual-channel = <0>;
+	renesas,end-virtual-channel = <2>;
+	renesas,data-format = "12-bit-unsigned-right-justified";
+	renesas,trigger-method = "software";
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <0>;
+		renesas,physical-channel = <4>; /* ADCJ0 AN010 = ADCJ_PHYSICAL_CHANNEL_AN010 */
+		renesas,conversion-type = "normal";
+	};
+
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <1>;
+		renesas,physical-channel = <5>;
+		renesas,conversion-type = "normal";
+	};
+
+	channel@2 {
+		reg = <2>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <2>;
+		renesas,physical-channel = <6>;
+		renesas,conversion-type = "normal";
+	};
+};
