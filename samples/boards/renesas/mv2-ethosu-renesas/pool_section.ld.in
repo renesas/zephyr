@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+SECTION_DATA_PROLOGUE(pool_sdram_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(SDRAM))
+} GROUP_NOLOAD_LINK_IN(SDRAM, SDRAM)
+
+/* Keep this section in RAM because DTCM does not have enough space to include it.
+ * The section name embeds the checkout folder (WEST_TOPDIR/<folder>/drivers/...),
+ * so match it with a wildcard instead of assuming the folder is named zephyr.
+ */
+SECTION_DATA_PROLOGUE(drw_heap_sram_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(.noinit.*renesas_ra_drw.c.kheap_buf_drw_heap_runtime))
+} GROUP_NOLOAD_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+
+SECTION_DATA_PROLOGUE(dtcm_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(SORT_BY_ALIGNMENT(.noinit.*)))
+} GROUP_NOLOAD_LINK_IN(DTCM, DTCM)

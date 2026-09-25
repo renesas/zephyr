@@ -1,0 +1,206 @@
+# Copyright 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "ExecuTorch MobileNetV2 live camera classification (Renesas EK-RA8P1)"
+
+menu "Video capture configuration"
+
+config VIDEO_WIDTH
+	int "Define the width of the video"
+	default 640
+
+config VIDEO_HEIGHT
+	int "Define the height of the video"
+	default 480
+
+endmenu
+
+config OSPI_OPTIMINE_DUMMY_CYCLES
+	bool "Optimize OSPI dummy cycles for speed"
+	default y
+	help
+	  When enabled, the OSPI driver will attempt to optimize dummy cycles
+	  for faster read/write operations. This may improve performance on
+	  supported hardware.
+
+menu "Screen Configuration"
+
+config SCREEN_ORIENTATION
+	int "Screen orientation"
+	default 90
+	help
+	  Orientation of the screen in degrees (0, 90, 180, 270).
+
+config SCREEN_WIDTH
+	int "Screen width"
+	default 1024
+	help
+	  Width of the screen in pixels. Matches the native 1024x600
+	  resolution of the rtklcdpar1s00001be shield's panel on the EK-RA8P1.
+	  VIDEO_WIDTH/HEIGHT does not have to match this
+	  exactly - display.c puts the video in a 640x480 LVGL canvas at
+	  (0,0) against the panel's def-back-color background (see the board
+	  overlay's &lcdif), letterboxing whatever doesn't fit.
+
+config SCREEN_HEIGHT
+	int "Screen height"
+	default 600
+	help
+	  Height of the screen in pixels.
+endmenu
+
+menu "AI Configuration"
+
+config AI_INPUT_WIDTH
+	int "AI input image width"
+	default 224
+	help
+	  Width of the input image for the MobileNetV2 model.
+
+config AI_INPUT_HEIGHT
+	int "AI input image height"
+	default 224
+	help
+	  Height of the input image for the MobileNetV2 model.
+
+config ET_ARM_MODEL_PTE_DMA_ACCESSIBLE
+	bool "Model PTE is in DMA-accessible memory"
+	default y
+	help
+	  Skip copying the model PTE blob to a separate SRAM buffer at
+	  runtime. Enable this when the embedded model blob already resides
+	  in memory the Ethos-U NPU can DMA from (e.g. DDR on Corstone FVP,
+	  MRAM on Alif). This is independent of where the linker places the
+	  model section; DDR placement is controlled by the model_ddr DTS
+	  node in the board overlay.
+
+config EXECUTORCH_METHOD_ALLOCATOR_POOL_SIZE
+	int "Method allocator pool size in bytes"
+	default 1572864
+	depends on EXECUTORCH
+	help
+	  Size of the method allocator pool in bytes. MobileNetV2 requires
+	  more memory than simple models. Default is 1.5MB which is sufficient
+	  for a fully NPU-delegated INT8 MobileNetV2 model.
+
+config EXECUTORCH_TEMP_ALLOCATOR_POOL_SIZE
+	int "Temporary allocator pool size in bytes"
+	default 1572864
+	depends on EXECUTORCH
+	help
+	  Size of the temporary allocator pool in bytes. Default is 1.5MB
+	  which provides sufficient scratch space for MobileNetV2 inference
+	  on Ethos-U NPU.
+
+config AI_INPUT_QUANT_SCALE
+	string "Input tensor quantization scale"
+	default "0.0078"
+	help
+	  Input tensor's quantization scale, as printed by
+	  export_quantized_io.py's "Quantized input 0 ..." line for the
+	  exported .pte. Must match the .pte exactly - the runtime has no
+	  way to read this back from the tensor itself. Update this
+	  whenever the .pte is re-exported; input scale has reproduced
+	  identically across export runs so far (unlike output, see
+	  AI_OUTPUT_QUANT_SCALE), but verify against the .pte you're
+	  actually flashing rather than assuming.
+
+config AI_INPUT_QUANT_ZERO_POINT
+	int "Input tensor quantization zero point"
+	default 0
+	help
+	  Input tensor's quantization zero point, as printed by
+	  export_quantized_io.py's "Quantized input 0 ..." line for the
+	  exported .pte. Must match the .pte exactly.
+
+config AI_OUTPUT_QUANT_SCALE
+	string "Output tensor quantization scale"
+	default "0.1004"
+	help
+	  Output tensor's quantization scale, as printed by
+	  export_quantized_io.py's "Quantized output 0 ..." line for the
+	  exported .pte. Must match the .pte exactly - the runtime has no
+	  way to read this back from the tensor itself. Unlike input, this
+	  has NOT reproduced identically across export runs (calibration-
+	  order sensitivity in the AoT HistogramObserver) - re-check and
+	  update whenever the .pte is re-exported, against the .pte you're
+	  actually flashing.
+
+config AI_OUTPUT_QUANT_ZERO_POINT
+	int "Output tensor quantization zero point"
+	default 127
+	help
+	  Output tensor's quantization zero point, as printed by
+	  export_quantized_io.py's "Quantized output 0 ..." line for the
+	  exported .pte. Same calibration-order sensitivity caveat as
+	  AI_OUTPUT_QUANT_SCALE.
+
+config AI_OUTPUT_SCORE_AS_PERCENT
+	bool "Log classification score as softmax percent instead of raw logit"
+	default y
+	help
+	  When enabled, get_top_k() logs each top-K class's score as a
+	  softmax-normalized percentage (0-100%) over all classes. When
+	  disabled, the raw logit value from the output tensor is logged
+	  as-is.
+
+config APP_RUNTIME_LOG
+	bool "Print per-frame runtime console output"
+	default n
+	help
+	  Print the top-K results and inference time to the console for every
+	  frame. Each line is a synchronous console write, so keep this off
+	  when measuring latency or running the demo. Init logs and the
+	  on-screen result panel are not affected.
+
+config APP_PROFILING
+	bool "Measure and log per-stage pipeline latency"
+	default n
+	help
+	  Log average/max latency per pipeline stage (preprocess, inference,
+	  postprocess, end-to-end, video) every APP_PROFILING_PERIOD results.
+	  Time starts when camera_task dequeues the frame, so sensor exposure
+	  is not included. Keep APP_RUNTIME_LOG off: its console writes would
+	  count as postprocess time.
+
+config APP_PROFILING_PERIOD
+	int "Results per profiling report"
+	default 30
+	range 1 1000
+	depends on APP_PROFILING
+	help
+	  Number of inference results averaged into each report.
+
+endmenu
+
+menu "Thread Stack Sizes"
+
+config AI_THREAD_STACK_SIZE
+	int "AI task stack size"
+	default 16384
+	help
+	  Stack size for the AI (ExecuTorch inference) processing task.
+
+config CAMERA_THREAD_STACK_SIZE
+	int "Camera task stack size"
+	default 4096
+	help
+	  Stack size for the camera capture task.
+
+config DISPLAY_THREAD_STACK_SIZE
+	int "Display task stack size"
+	default 4096
+	help
+	  Stack size for the display task.
+
+config AI_PREPROCESS_THREAD_STACK_SIZE
+	int "AI preprocess task stack size"
+	default 2048
+	help
+	  Stack size for the RGB565->planar-RGB888 AI input conversion task.
+	  No ExecuTorch method/temp allocator pools involved here (that's
+	  AI_THREAD_STACK_SIZE), just the conversion loop's local state.
+
+endmenu
+
+source "Kconfig.zephyr"

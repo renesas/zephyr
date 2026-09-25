@@ -1,0 +1,11 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+SECTION_DATA_PROLOGUE(@ET_PTE_SECTION@,,)
+{
+    . = ALIGN(16);
+    *(@ET_PTE_SECTION@)
+    *(@ET_PTE_SECTION@.*)
+} GROUP_DATA_LINK_IN(OSPI_MEMORY, OSPI_MEMORY)

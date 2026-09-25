@@ -1,0 +1,71 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&npu0 {
+	interrupts = <95 1>;
+	interrupt-names = "npu-irq";
+	status = "okay";
+};
+
+&pll2q {
+	div = <9>;
+	freq = <DT_FREQ_M(266)>;
+};
+
+&octaspiclk {
+	clocks = <&pll2q>;
+	div = <1>;
+};
+
+&ext_flash_ctrl {
+	status = "okay";
+};
+
+&arducam_ffc_40pin_mipi_csi_interface {
+	image-stride = <640>;
+	line-start = <0>;
+	line-end = <479>;
+	pixel-start = <0>;
+	pixel-end = <639>;
+};
+
+&lcdif {
+	output-clock-divisor = <8>;
+
+	display-timings {
+		vback-porch = <40>;
+		vfront-porch = <101>;
+	};
+};
+
+/ {
+	dtcm: memory@20000000 {
+		compatible = "zephyr,memory-region", "arm,dtcm";
+		reg = <0x20000000 DT_SIZE_K(128)>;
+		zephyr,memory-region = "DTCM";
+	};
+
+	model_ddr: ospi@90000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x90000000 DT_SIZE_M(64)>;
+		zephyr,memory-region = "OSPI_MEMORY";
+	};
+};
+
+&code_mram_cm85 {
+	reg = <0x2000000 DT_SIZE_K(1024)>;
+};
+
+&code_mram_cm33 {
+	status = "disabled";
+};
+
+&sram0 {
+	reg = <0x22000000 DT_SIZE_K(1640)>;
+};
+
+&sram1 {
+	status = "disabled";
+};
