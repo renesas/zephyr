@@ -18,7 +18,10 @@ properties:
 
   interrupt-names:
     required: true
-    description: ADCJ scan-group completion interrupt names.
+    description: |
+      Scan-group completion interrupts are named sg0 through sg4.
+      An additional interrupt named error is used for upper/lower-limit
+      interrupt notification.
 
   vref-mv:
     type: int
@@ -32,14 +35,19 @@ properties:
   renesas,track-hold-mask:
     type: int
     default: 0
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     description: |
-      Bit mask of ADCJ track-and-hold units enabled for this controller.
-      If omitted, all T&H units are disabled and channels use normal A/D
-      conversion unless a child explicitly requests a conversion type that
-      requires T&H.
-      Bit 0 enables T&H0, bit 1 enables T&H1, bit 2 enables T&H2, and bit 3
-      enables T&H3. The RH850/U2A ADCJ hardware supports concurrent T&H for
-      up to four channels; common U2A examples use T&H0, T&H1, and T&H2.
+      Bit mask of enabled ADCJ track-and-hold circuits.
+
+      Bit 0 enables T&H0, bit 1 enables T&H1, bit 2 enables T&H2,
+      and bit 3 enables T&H3.
+
+      Track-and-hold is supported only on ADCJ0 and ADCJ1.
+      All enabled circuits belong to T&H group A.
+
+      A non-zero mask requires trigger-method "th-a" and at least
+      one hold-value virtual channel. Each enabled T&H circuit must
+      be referenced by a hold-value channel in the selected scan group.
 
   renesas,unit:
     type: int
@@ -64,11 +72,145 @@ properties:
 
   renesas,data-format:
     type: string
-    default: "12-bit"
+    default: "12-bit-unsigned-right-justified"
     enum:
-      - "10-bit"
-      - "12-bit"
-    description: Unsigned right-aligned ADC result format.
+      - "12-bit-signed-fixed-point"
+      - "12-bit-signed-integer"
+      - "12-bit-unsigned-fixed-point"
+      - "12-bit-unsigned-right-justified"
+      - "12-bit-unsigned-left-justified"
+    description: Static ADCJ result format returned as a 16-bit raw value.
+
+  renesas,wait-time-cycles:
+    type: array
+    default: [0, 0, 0, 0, 0, 0, 0, 0]
+    description: |
+      Wait times before A/D sampling, expressed in CLKAD cycles.
+
+      Entries 0 through 7 configure wait-time tables 0 through 7.
+      At most eight entries may be provided. Missing entries are zero.
+      Each entry must be in the range 0 through 16383.
+      A value of zero produces no effective wait.
+
+      Each channel selects a table using renesas,wait-table:
+      0 disables table selection, and 1 through 8 select tables 0
+      through 7.
+
+  renesas,addition-count:
+    type: int
+    default: 2
+    enum: [2, 4]
+    description: |
+      Number of consecutive A/D conversions summed for each channel
+      configured as "addition" or "mpx-addition".
+
+      2: Perform two conversions and store the average of both results.
+      4: Perform four conversions and store the average of all four results.
+
+  renesas,trigger-method:
+    type: string
+    default: "software"
+    enum: ["software", "hardware", "ad-timer", "th-a"]
+    description: |
+      Static start method for the selected scan group.
+
+      "software": Start the scan group by a software command.
+      "hardware": Start the scan group by the selected hardware trigger.
+      "ad-timer": Start the scan group using A/D timer triggers.
+      "th-a": Use a software hold trigger of T&H group A.
+
+  renesas,adcj0-trigger-source:
+    type: string
+    default: "disabled"
+    enum: ["disabled", "pic2"]
+    description: ADCJ0 hardware trigger route. LPS is intentionally excluded.
+
+  renesas,ad-timer-trigger-method:
+    type: string
+    default: "software"
+    enum: ["software", "hardware"]
+
+  renesas,ad-timer-initial-phase:
+    type: int
+    default: 0
+
+  renesas,ad-timer-cycle:
+    type: int
+    default: 2097151
+
+  renesas,pin-self-diagnostic-level:
+    type: int
+    default: 0
+    enum: [0, 1, 2, 3]
+    description: |
+      Controller-wide pin-level self-diagnostic voltage selection
+      encoded by TDCR.TDLV.
+
+      0: Even inputs use AnVSS; odd inputs use AnVCC.
+      1: Even inputs use AnVCC; odd inputs use AnVSS.
+      2: Even inputs use AnVSS; odd inputs use AnVCC / 2.
+      3: Even inputs use AnVCC / 2; odd inputs use AnVSS.
+
+      This setting applies to pin-level self-diagnostic conversions.
+      It does not select the ADcore self-diagnostic voltage.
+
+      For low-accuracy inputs, the high level is EnVCC instead
+      of AnVCC, and only selections 0 and 1 are supported.
+
+  renesas,wiring-break-pulse-width:
+    type: int
+    default: 1
+    enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    description: |
+      Controller-wide pull-down pulse width for wiring-break
+      detection mode 1 and its self-diagnostic conversion.
+
+      The value is expressed in internal clock states.
+      The ODPW register encoding is this value plus three.
+
+      Wiring-break addition mode is not enabled by this property.
+
+  renesas,physical-channel-mask:
+    type: array
+    required: true
+    description: |
+      Two 32-bit cells describing implemented physical input selectors.
+
+      Cell 0 covers selectors 0 through 31.
+      Cell 1 covers selectors 32 through 63.
+
+      This is a hardware capability mask, not a conversion enable mask.
+
+  renesas,lower-limit-values:
+    type: array
+    default: [0, 0, 0, 0, 0, 0, 0, 0]
+    description: |
+      Lower thresholds for hardware upper/lower limit tables 0 through 7.
+
+      Provide exactly eight entries when overriding this property.
+      Entries are 16-bit hardware threshold encodings, not millivolts.
+      The encoding depends on the controller data format and addition mode.
+
+  renesas,upper-limit-values:
+    type: array
+    default: [32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767]
+    description: |
+      Upper thresholds for hardware upper/lower limit tables 0 through 7.
+
+      Provide exactly eight entries when overriding this property.
+      Entries are 16-bit hardware threshold encodings, not millivolts.
+      The encoding depends on the controller data format and addition mode.
+
+  renesas,trigger-overlap-interrupt:
+    type: boolean
+    description: |
+      Enable hardware scan-group trigger-overlap detection and
+      its error interrupt.
+
+      A trigger received while the same scan group is operating
+      is ignored by hardware and can generate an error event.
+
+      The controller must provide an interrupt named error.
 
 io-channel-cells:
   - input
@@ -96,7 +238,7 @@ child-binding:
     zephyr,resolution:
       type: int
       required: true
-      enum: [10, 12]
+      enum: [12]
 
     zephyr,vref-mv:
       type: int
@@ -111,12 +253,25 @@ child-binding:
       default: "normal"
       enum:
         - "normal"
-        - "track-hold"
+        - "hold"
+        - "extended-sampling"
+        - "ad-core-self-diagnostic"
+        - "addition"
+        - "mpx-normal"
+        - "mpx-addition"
+        - "pin-level-self-diagnostic"
+        - "wiring-break-mode-1"
+        - "wiring-break-mode-2-pull-down"
+        - "wiring-break-mode-2-pull-up"
+        - "self-diagnostic-wiring-break-mode-1"
+        - "self-diagnostic-wiring-break-mode-2-pull-down"
+        - "self-diagnostic-wiring-break-mode-2-pull-up"
+        - "ad-conversion-path-diagnostic"
       description: |
         ADCJ virtual channel conversion type.
         If omitted, the virtual channel is configured for normal A/D
         conversion.
-        Use "track-hold" for hold-value A/D conversion using ADCJ T&H units.
+        Use "hold" for hold-value A/D conversion using ADCJ T&H units.
         In this mode renesas,physical-channel selects the T&H input index:
         0 = T&H0, 1 = T&H1, 2 = T&H2, and 3 = T&H3. The selected T&H unit
         must also be enabled in the parent renesas,track-hold-mask property.
@@ -125,9 +280,78 @@ child-binding:
       type: int
       required: true
       description: |
-        Hardware analog input selector for this ADCJ unit.
-        For renesas,conversion-type = "normal", this value selects the normal
-        ADCJ physical input selector defined by the target SoC.
-        For renesas,conversion-type = "track-hold", this value selects the
-        T&H input index: 0 = T&H0, 1 = T&H1, 2 = T&H2, and 3 = T&H3.
-        If renesas,conversion-type is omitted, "normal" is used.
+        Hardware input selector.
+
+        For hold-value conversion, this selects the T&H circuit index:
+        0 = T&H0, 1 = T&H1, 2 = T&H2, 3 = T&H3.
+
+        The corresponding bit must be enabled in the controller's
+        renesas,track-hold-mask property.
+
+    renesas,mpx-value:
+      type: int
+      default: 0
+      enum: [0, 1, 2, 3, 4, 5, 6, 7]
+      description: |
+        Static external multiplexer selection value.
+        Non-zero values are valid only for mpx-normal and mpx-addition.
+        The driver supports direct MPXCUR[2:0] output only.
+
+    renesas,wait-table:
+      type: int
+      default: 0
+      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+      description: |
+        Zero disables wait-table selection.
+        Values 1 through 8 select WAITTR0 through WAITTR7.
+
+        MPX conversions require a non-zero selector and a sufficiently
+        long wait in the selected table.
+
+        Wait selection is not supported for hold, AD-core self-diagnostic,
+        or ADVAL conversions. A scan group containing hold conversions
+        must not configure wait for any of its virtual channels.
+
+    renesas,upper-lower-limit-table:
+      type: int
+      default: 0
+      description: Zero disables checking; values 1 through 8 select tables 0 through 7.
+
+    renesas,limit-interrupt:
+      type: boolean
+      description: |
+        Enable upper/lower-limit interrupt notification for this
+        hardware virtual channel.
+
+        A non-zero renesas,upper-lower-limit-table must also be selected.
+        The controller must provide an interrupt named error.
+
+    renesas,self-diagnostic-level:
+      type: int
+      default: 0
+      enum: [0, 4, 8, 12, 16]
+      description: |
+        ADcore self-diagnostic voltage selector encoded by VCR.GCTRL.
+        Used only with conversion-type "ad-core-self-diagnostic".
+
+        0 selects zero.
+        4 selects AnVREFH / 4.
+        8 selects AnVREFH / 2.
+        12 selects 3 * AnVREFH / 4.
+        16 selects AnVREFH.
+
+        This property does not control TDCR.TDLV.
+
+    renesas,adval-data:
+      type: int
+      default: 0
+      enum: [0, 1]
+      description: |
+        Fixed-data selector used only with conversion-type
+        "ad-conversion-path-diagnostic".
+
+        0 selects 0xAAA.
+        1 selects 0x555.
+
+        A 12-bit data format is required. The returned raw
+        representation depends on the controller data format.
