@@ -70,7 +70,7 @@ typedef int (*rswitch_api_attach_tsnes_t)(const struct device *dev, uint32_t tsn
 typedef int (*rswitch_api_set_link_state_t)(const struct device *dev, uint32_t port_id,
 					    const struct phy_link_state *state);
 
-struct rswitch_driver_api {
+__subsystem struct rswitch_driver_api {
 	rswitch_api_attach_tsnes_t attach_tsnes;
 	rswitch_api_set_link_state_t set_link_state;
 };

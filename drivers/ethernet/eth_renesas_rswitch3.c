@@ -688,7 +688,7 @@ static int rswitch3_init(const struct device *dev)
 	return 0;
 }
 
-static const struct rswitch_driver_api rswitch3_api = {
+static DEVICE_API(rswitch, rswitch3_api) = {
 	.attach_tsnes = rswitch3_attach_tsnes,
 	.set_link_state = rswitch3_set_link_state,
 };
