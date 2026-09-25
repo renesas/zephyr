@@ -8,10 +8,3 @@ config CLOCK_CONTROL_RCAR_CPG_MSSR
 	depends on SOC_FAMILY_RENESAS_RCAR && !SOC_SERIES_RCAR_GEN5
 	help
 	  Enable support for Renesas RCar CPG MSSR driver.
-
-config CLOCK_CONTROL_RCAR_CLKC_MDLC
-	bool "Renesas R-Car CLKC MDLC driver"
-	default y
-	depends on DT_HAS_RENESAS_R8A78000_CLKC_MDLC_ENABLED
-	help
-	  Enable the Renesas R-Car Clock controller (CLKC) and Module controller (MDLC) driver.

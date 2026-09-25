@@ -6,7 +6,6 @@
 
 #include <renesas/rcar/gen5/rcar_gen5_cr52.dtsi>
 #include <zephyr/dt-bindings/clock/r8a78000_scmi_clock.h>
-#include <zephyr/dt-bindings/clock/r8a78000_clkc_mdlc.h>
 #include <zephyr/dt-bindings/clock/renesas_rcar_adg.h>
 #include <zephyr/dt-bindings/power/r8a78000_scmi_power_domain.h>
 #include <zephyr/dt-bindings/reset/r8a78000_scmi_reset_domain.h>
@@ -202,12 +201,6 @@
 			      <0xc0400800 0x16c>, <0xc0401000 0x16c>,
 			      <0xc0401800 0x16c>, <0xc9b00000 0x16c>,
 			      <0xc9b00800 0x16c>;
-		};
-
-		clkc: clock-controller@c08f0000 {
-			compatible = "renesas,r8a78000-clkc-mdlc";
-			reg = <0xc08f0000 0x4000>;
-			#clock-cells = <2>;
 		};
 
 		adg0: audio-clock@ec530000 {
