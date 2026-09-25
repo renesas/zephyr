@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+SECTION_DATA_PROLOGUE(pool_sdram_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(SDRAM))
+} GROUP_NOLOAD_LINK_IN(SDRAM, SDRAM)
+
+SECTION_DATA_PROLOGUE(drw_heap_sram_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(.noinit.WEST_TOPDIR/zephyr/drivers/misc/renesas_drw/renesas_ra_drw.c.kheap_buf_drw_heap_runtime))
+} GROUP_NOLOAD_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+
+SECTION_DATA_PROLOGUE(dtcm_section,(NOLOAD),)
+{
+    . = ALIGN(16);
+    KEEP(*(SORT_BY_ALIGNMENT(.noinit.*)))
+} GROUP_NOLOAD_LINK_IN(DTCM, DTCM)
