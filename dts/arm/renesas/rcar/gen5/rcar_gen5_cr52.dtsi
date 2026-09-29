@@ -45,7 +45,7 @@
 	};
 
 	firmware {
-		scmi {
+		scmi: scmi {
 			compatible = "arm,scmi";
 			shmem = <&scmi_shmem0>;
 			mboxes = <&mfis_scp 0>;
