@@ -20,6 +20,11 @@
 	status = "disabled";
 };
 
+&scmi {
+	shmem = <&scmi_shmem1>;
+	mboxes = <&mfis_scp 1>;
+};
+
 &mfis_common {
 	status = "okay";
 
