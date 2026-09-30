@@ -41,9 +41,9 @@ void soc_prep_hook(void)
 	 * before arch_data_copy() copies the .itcm section to 0x00000000.
 	 * Writing LRMSABAR0 requires PRCR_S.PRC4 to be unlocked first (key 0xA5).
 	 */
-	R_SYSTEM->PRCR = (uint16_t)((0xA5u << 8) | BIT(4));
+	R_SYSTEM->PRCR_S = (uint16_t)((0xA5u << 8) | BIT(4));
 	R_CPSCU->LRMSABAR0 = 0U;
-	R_SYSTEM->PRCR = (uint16_t)(0xA5u << 8); /* re-lock */
+	R_SYSTEM->PRCR_S = (uint16_t)(0xA5u << 8); /* re-lock */
 #endif
 }
 
@@ -52,7 +52,7 @@ void soc_early_init_hook(void)
 	SystemCoreClock = BSP_MOCO_HZ;
 	g_protect_pfswe_counter = 0;
 	renesas_rx_register_protect_open();
-	
+
 	/* Initialize the system clock and peripheral clock */
 	bsp_clock_init();
 
@@ -86,7 +86,7 @@ void sys_arch_reboot(int type)
 
 	unsigned int key = irq_lock();
 
-	R_SYSTEM->PRCR = (uint16_t)((0xA5u << 8) | BIT_U16(1) | BIT_U16(5));
+	R_SYSTEM->PRCR_S = (uint16_t)((0xA5u << 8) | BIT_U16(1) | BIT_U16(5));
 
 	R_SYSTEM->SYRSTMSK0_b.SWMASK = 0u;
 	R_SYSTEM->SWRR_b.SWRR = 0xA501;
