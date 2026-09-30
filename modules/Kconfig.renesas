@@ -564,10 +564,20 @@ config USE_RH850_FSP_DTSC
 	help
 	  Enable RH850 FSP DTSC driver
 
+config USE_RH850_FSP_ETHER_ETND
+	bool
+	help
+	  Enable RH850 FSP Ethernet TSN driver
+
 config USE_RH850_FSP_ETHER_ETNF
 	bool
 	help
 	  Enable RH850 FSP Ethernet T1S driver
+
+config USE_RH850_FSP_I3C
+	bool
+	help
+	  Enable RH850 FSP I3C driver
 
 config USE_RH850_FSP_EXT_IRQ
 	bool
@@ -589,6 +599,11 @@ config USE_RH850_FSP_IOPORT
 	help
 	  Enable RH850 FSP IOPORT driver
 
+config USE_RH850_FSP_MMCA
+	bool
+	help
+	  Enable RH850 FSP MMCA driver
+
 config USE_RH850_FSP_MSPI
 	bool
 	help
@@ -609,15 +624,50 @@ config USE_RH850_FSP_PIC
 	help
 	  Enable RH850 FSP PIC driver
 
+config USE_RH850_FSP_PSI5
+	bool
+	help
+	  Enable RH850 FSP PSI5 driver
+
+config USE_RH850_FSP_TAUD_THREE_PHASE
+	bool
+	help
+	  Enable RH850 FSP TAUD Three Phase driver
+
+config USE_RH850_FSP_RLIN3_LIN
+	bool
+	help
+	  Enable RH850 FSP RLIN3 LIN driver
+
 config USE_RH850_FSP_RLIN3_UART
 	bool
 	help
 	  Enable RH850 FSP RLIN3 UART driver
 
+config USE_RH850_FSP_RSENT_SENT
+	bool
+	help
+	  Enable RH850 FSP RSENT Sent driver
+
 config USE_RH850_FSP_RTCA
 	bool
 	help
 	  Enable RH850 FSP RTCA driver
+
+config USE_RH850_FSP_SFMA
+	bool
+	help
+	  Enable RH850 FSP SFMA driver
+
+config USE_RH850_FSP_SSI
+	bool
+	help
+	  Enable RH850 FSP SSI driver
+
+config USE_RH850_FSP_TAPA
+	bool
+	help
+	  Enable RH850 FSP TAPA driver
 
 config USE_RH850_FSP_TAUD
 	bool
@@ -628,9 +678,4 @@ config USE_RH850_FSP_WDT
 	bool
 	help
 	  Enable RH850 FSP WDT driver
-
-config USE_RH850_FSP_CRC
-	bool
-	help
-	  Enable RH850 FSP CRC driver
 endif # HAS_RENESAS_RH850_FSP
