@@ -193,6 +193,9 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_RENESAS_RZA2M_OSTM
 	DEVS_FOR_DT_COMPAT(renesas_rza2m_ostm_counter)
 #endif
+#ifdef CONFIG_COUNTER_RENESAS_RCAR_OSTM
+	DEVS_FOR_DT_COMPAT(renesas_rcar_ostm_counter)
+#endif
 #ifdef CONFIG_COUNTER_BFLB_TIMER
 	DEVS_FOR_DT_COMPAT(bflb_timer_channel)
 #endif
@@ -1264,6 +1267,11 @@ static bool reliable_cancel_capable(const struct device *dev)
 	}
 #endif
 #ifdef CONFIG_COUNTER_RENESAS_RZA2M_OSTM
+	if (single_channel_alarm_capable(dev)) {
+		return true;
+	}
+#endif
+#ifdef CONFIG_COUNTER_RENESAS_RCAR_OSTM
 	if (single_channel_alarm_capable(dev)) {
 		return true;
 	}
