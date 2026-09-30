@@ -125,8 +125,9 @@
 			status = "disabled";
 		};
 
-		cgc: clock-controller {
+		cgc: clock-controller@ff980000 {
 			compatible = "renesas,rh850-cgc";
+			reg = <0xff980000 0x830c>;
 			#clock-cells = <1>;
 			status = "okay";
 
