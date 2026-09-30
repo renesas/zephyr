@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config COUNTER_RENESAS_RCAR_OSTM
+	bool "Renesas R-Car OS Timer (OSTM) Counter driver"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_OSTM_COUNTER_ENABLED
+	select USE_RCARSOC_DRV_OSTM
+	help
+	  Enable the counter driver for the Renesas R-Car OS Timer (OSTM).
