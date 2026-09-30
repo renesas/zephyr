@@ -846,5 +846,47 @@
 			reg = <0x1c230000 0x18>;
 			status = "disabled";
 		};
+
+		ostm0: timer@1c060000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c060000 0x24>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		ostm1: timer@1c061000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c061000 0x24>;
+			channel = <1>;
+			status = "disabled";
+		};
+
+		ostm2: timer@1c062000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c062000 0x24>;
+			channel = <2>;
+			status = "disabled";
+		};
+
+		ostm3: timer@1c063000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c063000 0x24>;
+			channel = <3>;
+			status = "disabled";
+		};
+
+		ostm4: timer@1c064000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c064000 0x24>;
+			channel = <4>;
+			status = "disabled";
+		};
+
+		ostm5: timer@1c065000 {
+			compatible = "renesas,rcar-ostm-counter";
+			reg = <0x1c065000 0x24>;
+			channel = <5>;
+			status = "disabled";
+		};
 	};
 };

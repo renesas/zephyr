@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car OSTM Counter
+
+compatible: "renesas,rcar-ostm-counter"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  clocks:
+    required: true
+
+  channel:
+    type: int
+    required: true

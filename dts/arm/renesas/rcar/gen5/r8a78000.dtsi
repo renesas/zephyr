@@ -646,6 +646,42 @@
 			warning-irq-enabled;
 		};
 
+		ostm0: timer@1c060000 {
+			interrupts = <GIC_SPI 648 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM0>;
+		};
+
+		ostm1: timer@1c061000 {
+			interrupts = <GIC_SPI 649 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM1>;
+		};
+
+		ostm2: timer@1c062000 {
+			interrupts = <GIC_SPI 650 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM2>;
+		};
+
+		ostm3: timer@1c063000 {
+			interrupts = <GIC_SPI 651 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM3>;
+		};
+
+		ostm4: timer@1c064000 {
+			interrupts = <GIC_SPI 652 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM4>;
+		};
+
+		ostm5: timer@1c065000 {
+			interrupts = <GIC_SPI 653 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "overflow";
+			clocks = <&scmi_clk R8A78000_SCMI_CLK_OSTM5>;
+		};
+
 		ssi0: ssi@ec549000 {
 			compatible = "renesas,rcar-i2s-ssi";
 			reg = <0xec549000 0x34>,
