@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <rh850/renesas/rh850u2b/r7f70255xxfabb-c.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/input/input-event-codes.h>
+
+#include "y_ask_rh850u2b-pinctrl.dtsi"
+
+/ {
+	model = "Renesas RH850 U2B Starter Kit";
+	compatible = "renesas,u2b6", "renesas,u2b";
+
+	chosen {
+		zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,system-timer = &ostm0;
+	};
+
+	aliases {
+		led0 = &led20;
+		sw0 = &sw2;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led20: led20 {
+			gpios = <&ioport32 1 GPIO_ACTIVE_HIGH>;
+			label = "LED20";
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		sw2: sw2 {
+			label = "sw2";
+			gpios = <&ioport10 6 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_KEY_0>;
+		};
+
+		sw3: sw3 {
+			label = "sw3";
+			gpios = <&ioport14 0 GPIO_ACTIVE_LOW>;
+			zephyr,code = <INPUT_KEY_1>;
+		};
+	};
+};
+
+&ostm0 {
+	status = "okay";
+
+	timer {
+		status = "okay";
+	};
+};
+
+&rlin31 {
+	pinctrl-0 = <&rlin31_default>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	uart1: uart {
+		current-speed = <115200>;
+		status = "okay";
+	};
+};
+
+&ioport32 {
+	status = "okay";
+};
+
+&ioport10 {
+	irqs = <&irq4 6>;
+	status = "okay";
+};
+
+&ioport14 {
+	irqs = <&irq13 0>;
+	status = "okay";
+};
+
+&irq4 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq4_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&irq13 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq13_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};

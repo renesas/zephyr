@@ -1,0 +1,10 @@
+board:
+  name: y_ask_rh850u2b
+  full_name: RH850/U2B Starter Kit
+  vendor: renesas
+  socs:
+  - name: r7f70255xfabb-c
+  - name: r7f70255xafabb-c
+  - name: r7f70255xbfabb-c
+  - name: r7f70254xfabb-c
+  - name: r7f70254xafabb-c
