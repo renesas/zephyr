@@ -8,6 +8,8 @@
 
 #include <renesas/r5k574ncx.dtsi>
 #include <dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/flash_controller/xspi.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr.h>
 #include "ek_rx74n-pinctrl.dtsi"
 
 / {
@@ -94,6 +96,12 @@
 &canfdclk {
 	clocks = <&pllq>;
 	div = <5>;
+	status = "okay";
+};
+
+&octaspiclk {
+	clocks = <&pllp>;
+	div = <3>;
 	status = "okay";
 };
 
@@ -194,4 +202,49 @@
 
 &rtc {
 	status = "okay";
+};
+
+&xspi0 {
+	pinctrl-0 = <&xspi0_default>;
+	pinctrl-names = "default";
+	ranges = <0x00000000 0x20000000 DT_SIZE_M(512)>;
+	status = "okay";
+
+	mx25lw51245g_ctrl: nor-flash-controller@10000000 {
+		compatible = "renesas,rx-xspi-nor";
+		reg = <0x10000000 DT_SIZE_M(64)>;
+		size = <DT_SIZE_M(64)>; /* 512 Megabits = 64 Megabytes */
+		ospi-max-frequency = <DT_FREQ_M(133)>;
+		protocol-mode = <XSPI_OCTO_MODE>;
+		data-rate = <XSPI_DTR_TRANSFER>;
+		write-block-size = <2>;
+		output-assert-delay = "ASSERTION_DELAY_ENABLED";
+		ddr-sampling-extension = <3>;
+		cs = <0>;
+		auto-calib-pattern-address-sector = <3>;
+		jedec-id = [c2 86 3a];
+		rdsr-addr-4bytes;
+		default-8d-dummy-cycles = <20>;
+		status = "okay";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mx25lw51245g: nor-flash@0 {
+			compatible = "soc-nv-flash";
+			reg = <0x0 DT_SIZE_M(64)>;
+			erase-block-size = <DT_SIZE_K(64)>;
+
+			partitions {
+				compatible = "fixed-partitions";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				partition@0 {
+					label = "nor";
+					reg = <0x00000000 DT_SIZE_M(64)>;
+				};
+			};
+		};
+	};
 };
