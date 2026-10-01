@@ -614,14 +614,13 @@ static inline void set_afl_rule(const struct device *dev, const struct can_filte
 	canfdg_afl_entry_t *afl = (canfdg_afl_entry_t *)&data->fsp_canfdg_extend.p_afl[afl_offset];
 
 	*afl = (canfdg_afl_entry_t){
-		.id = {.id = filter->id,
+		.id_u = {.id = {.id = filter->id,
 #ifndef CONFIG_CAN_ACCEPT_RTR
 		       .frame_type = CAN_FRAME_TYPE_DATA,
 #endif
 		       .id_mode = ((filter->flags & CAN_FILTER_IDE) != 0) ? CAN_ID_MODE_EXTENDED
-									  : CAN_ID_MODE_STANDARD},
-		.mask =
-			{
+									  : CAN_ID_MODE_STANDARD}},
+		.mask_u = {.mask = {
 				.mask_id = filter->mask,
 #ifdef CONFIG_CAN_ACCEPT_RTR
 				/* Accept all types of frames */
@@ -633,11 +632,10 @@ static inline void set_afl_rule(const struct device *dev, const struct can_filte
 				.mask_id_mode = ((filter->flags & CAN_FILTER_IDE) != 0)
 							? CAN_ID_MODE_EXTENDED
 							: CAN_ID_MODE_STANDARD,
-			},
-		.destination =
-			{
+		}},
+		.destination_u = {.destination = {
 				.fifo_select_flags = CANFDG_RX_FIFO_0,
-			},
+		}},
 	};
 
 	if (data->common.started) {
@@ -702,16 +700,14 @@ static inline void remove_afl_rule(const struct device *dev, uint32_t afl_offset
 
 	/* Set the AFL ID to reserved ID */
 	*afl = (canfdg_afl_entry_t){
-		.id =
-			{
+		.id_u = {.id = {
 				.id = CAN_RENESAS_RX_RESERVED_ID,
 				.id_mode = CAN_ID_MODE_EXTENDED,
-			},
-		.mask =
-			{
+		}},
+		.mask_u = {.mask = {
 				.mask_id = CAN_RENESAS_RX_RESERVED_ID,
 				.mask_id_mode = CAN_ID_MODE_EXTENDED,
-			},
+		}},
 	};
 
 	if (data->common.started) {
