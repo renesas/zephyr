@@ -234,10 +234,10 @@ manifest:
       revision: 84a7fd556d95a411ee3cbf4ed29478eced58fb35
       groups:
         - hal
-    - name: hal_renesas_fsp
+    - name: hal_renesas
       remote: renesas
       path: modules/hal/renesas
-      revision: ek_rx74m_zephyr_support_final
+      revision: wip_rx74x
       groups:
         - hal
     - name: hal_rpi_pico
@@ -329,7 +329,7 @@ manifest:
     - name: psa-crypto-driver
       remote: renesas
       repo-path: psa-crypto-driver
-      revision: fsp-rx.0.13.0+mbedtls-3.6.2+renesas.3
+      revision: fsp-rx.1.0.0+mbedtls-3.6.2+renesas.3
       path: modules/crypto/psa-crypto-driver
       groups:
         - crypto
