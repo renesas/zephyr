@@ -26,12 +26,14 @@
 LOG_MODULE_REGISTER(renesas_rx_adc_b, CONFIG_ADC_LOG_LEVEL);
 
 #define ADC_CONTEXT_USES_KERNEL_TIMER
+#define ADC_CONTEXT_ENABLE_ON_COMPLETE
 #include "adc_context.h"
 
 #define ADC_B_RX_MAX_VC            32U /* Max virtual channels addressable via Zephyr ADC API */
 #define ADC_B_RX_MAX_VC_PER_GROUP  8U  /* Max virtual channels per scan group */
 #define ADC_B_RX_MAX_SCAN_GROUPS   12U /* Max scan groups */
 #define ADC_B_RX_MAX_SAMPLE_TABLES 15U /* Max sampling-state tables (ADSSTR0..7) */
+#define ADC_B_RX_MAX_UNITS         3U  /* ADC0, ADC1 and ADC2 */
 
 /* Sampling state table */
 #define ADC_B_SST_MIN      2U
@@ -58,8 +60,7 @@ LOG_MODULE_REGISTER(renesas_rx_adc_b, CONFIG_ADC_LOG_LEVEL);
 #define CALEND_UNIT_IRQ(node)   DT_IRQ_BY_NAME(node, calend, irq)
 #define CONVSERR_UNIT_IRQ(node) DT_IRQ_BY_NAME(node, convserr, irq)
 
-#define VECTOR_NUMBER_ADC_CALEND(node)                                                             \
-	((IRQn_Type)(CALEND_UNIT_IRQ(node) << 8U | GROUP_INT_AL5))
+#define VECTOR_NUMBER_ADC_CALEND(node) ((IRQn_Type)(CALEND_UNIT_IRQ(node) << 8U | GROUP_INT_AL5))
 
 #define VECTOR_NUMBER_ADC_CONVSERR(node)                                                           \
 	((IRQn_Type)(CONVSERR_UNIT_IRQ(node) << 8U | GROUP_INT_AL5))
@@ -138,10 +139,8 @@ struct adc_rx_grp_irq_entry {
 	IF_ENABLED(DT_IRQ_HAS_NAME(node_id, calend),                                                \
 		   ({CALEND_UNIT_IRQ(node_id), ADC_B_CAL_END_ISR(DT_PROP(node_id, unit_id))},))
 
-static const struct adc_rx_grp_irq_entry calend_irqs[] = {
-	ADC_RX_CALEND_IRQ_ENTRY(ADC0_NODE)
-	ADC_RX_CALEND_IRQ_ENTRY(ADC1_NODE)
-	ADC_RX_CALEND_IRQ_ENTRY(ADC2_NODE)};
+static const struct adc_rx_grp_irq_entry calend_irqs[] = {ADC_RX_CALEND_IRQ_ENTRY(
+	ADC0_NODE) ADC_RX_CALEND_IRQ_ENTRY(ADC1_NODE) ADC_RX_CALEND_IRQ_ENTRY(ADC2_NODE)};
 
 /* Per virtual-channel configuration parsed from DTS. */
 struct adc_rx_adc_b_channel_cfg {
@@ -204,18 +203,6 @@ struct adc_rx_adc_b_config {
 struct adc_rx_adc_b_data {
 	struct adc_context ctx;
 	const struct device *dev;
-	adc_b_instance_ctrl_t adc_ctrl;
-
-	adc_cfg_t adc_cfg;
-	adc_b_scan_cfg_t scan_cfg;
-
-	/* Per scan-group FSP configuration */
-	adc_b_group_cfg_t group_cfg[ADC_B_RX_MAX_SCAN_GROUPS];
-	adc_b_group_cfg_t *groups[ADC_B_RX_MAX_SCAN_GROUPS];
-
-	/* Virtual channel configurations */
-	adc_b_virtual_channel_cfg_t vc_cfg[ADC_B_RX_MAX_VC];
-	adc_b_virtual_channel_cfg_t *group_vcs[ADC_B_RX_MAX_SCAN_GROUPS][ADC_B_RX_MAX_VC_PER_GROUP];
 
 	/** Pointer to memory where next sample will be written */
 	uint16_t *buf;
@@ -232,17 +219,61 @@ struct adc_rx_adc_b_data {
 	 */
 	struct k_work start_work;
 
-	/* Semaphore for calibration */
-	struct k_sem calibrate_sem;
-
 	/* bitmask of configured channels (channel_setup) */
 	uint32_t configured_channels;
+};
 
+/* ADC0/1/2 are units of one physical peripheral: opening and (re)configuring
+ * the scan always covers the whole thing. So only one control block is
+ * opened, and every scan rebuild includes all units' channels, or
+ * reconfiguring one unit would wipe out the others'.
+ */
+struct adc_rx_adc_b_shared {
+	bool opened;
 	/* Set by channel_setup() when the channel set changed; cleared once
 	 * the scan has been (re)programmed and calibrated in start_read().
 	 */
 	bool scan_cfg_dirty;
+
+	adc_b_instance_ctrl_t adc_ctrl;
+	adc_cfg_t adc_cfg;
+
+	adc_b_scan_cfg_t scan_cfg;
+	adc_b_group_cfg_t group_cfg[ADC_B_RX_MAX_SCAN_GROUPS];
+	adc_b_group_cfg_t *groups[ADC_B_RX_MAX_SCAN_GROUPS];
+	adc_b_virtual_channel_cfg_t vc_cfg[ADC_B_RX_MAX_VC];
+	adc_b_virtual_channel_cfg_t *group_vcs[ADC_B_RX_MAX_SCAN_GROUPS][ADC_B_RX_MAX_VC_PER_GROUP];
+
+	struct k_sem calibrate_sem;
 };
+
+static struct adc_rx_adc_b_shared adc_b_shared;
+
+/* Serializes access to adc_b_shared across all ADC devices. */
+K_MUTEX_DEFINE(adc_b_shared_lock);
+
+/* Held across a whole conversion so the units never overlap. Separate from
+ * adc_b_shared_lock to avoid deadlocking that lock's workqueue continuation.
+ */
+K_SEM_DEFINE(adc_b_conversion_owner, 1, 1);
+
+/* adc_context_complete() is the true end of a sequence (sync or async).
+ * Release ADC_B ownership here rather than after wait_for_completion().
+ */
+static void adc_context_on_complete(struct adc_context *ctx, int status)
+{
+	ARG_UNUSED(ctx);
+	ARG_UNUSED(status);
+
+	k_sem_give(&adc_b_conversion_owner);
+}
+
+/* unit_id -> owning device, used to route callback events (which only
+ * identify a scan-group or unit) back to the right Zephyr device.
+ */
+static const struct device *adc_b_unit_dev[ADC_B_RX_MAX_UNITS];
+
+static adc_b_extended_cfg_t g_adc_cfg_extend;
 
 static int adc_rx_validate_phys_channel(uint32_t available_mask, uint8_t phys)
 {
@@ -323,20 +354,22 @@ static void adc_rx_adc_b_vc_configure(const struct adc_rx_adc_b_channel_cfg *ch,
 	memset(vc, 0, sizeof(*vc));
 
 	vc->channel_id = (adc_b_virtual_channel_t)ch->vc_id;
-	vc->channel_cfg_bits.group = BIT(ch->scan_group_id);
-	vc->channel_cfg_bits.channel = (adc_channel_t)ch->input_positive;
-	vc->channel_cfg_bits.sample_table_id = sample_table_id;
+	/* ADCHCRn.SGSEL: 0 = no group, N + 1 selects scan group N */
+	vc->channel_cfg_u.channel_cfg_bits.group = ch->scan_group_id + 1U;
+	vc->channel_cfg_u.channel_cfg_bits.channel = (adc_channel_t)ch->input_positive;
+	vc->channel_cfg_u.channel_cfg_bits.sample_table_id = sample_table_id;
 
 	if (adc_rx_vc_uses_oversample(method, ch->oversampling)) {
-		vc->channel_control_a_bits.digital_filter_id = 1;
-		vc->channel_control_b_bits.addition_average_mode = ADC_B_ADD_AVERAGE_AVERAGE_ENABLE;
-		vc->channel_control_b_bits.addition_average_count =
+		vc->channel_control_a_u.channel_control_a_bits.digital_filter_id = 1;
+		vc->channel_control_b_u.channel_control_b_bits.addition_average_mode =
+			ADC_B_ADD_AVERAGE_AVERAGE_ENABLE;
+		vc->channel_control_b_u.channel_control_b_bits.addition_average_count =
 			adc_rx_ovs_to_avg_count(ch->oversampling);
 	}
 
-	vc->channel_control_c_bits.channel_data_format =
+	vc->channel_control_c_u.channel_control_c_bits.channel_data_format =
 		rx_adc_resolution_to_format(ch->resolution);
-	vc->channel_control_c_bits.data_is_unsigned = true;
+	vc->channel_control_c_u.channel_control_c_bits.data_is_unsigned = true;
 }
 
 /* Decode a Zephyr ADC_ACQ_TIME-encoded value to nanoseconds.
@@ -446,131 +479,152 @@ static int adc_rx_alloc_sample_table(const struct device *dev, adc_b_extended_cf
 	return idx;
 }
 
-/* Populate the virtual-channel list for scan-group g (vc_global_idx is the
- * running index into the shared data->vc_cfg[]).
+/* Populate the virtual-channel list for one already-discovered scan-group g,
+ * pulling channels from every registered unit, not just one.
  */
-static int adc_rx_adc_b_populate_group(const struct device *dev, uint8_t g,
-				       adc_b_conversion_method_t method, uint32_t *table_ns,
-				       uint8_t *table_count, uint8_t *vc_global_idx)
+static int adc_rx_adc_b_populate_group(uint8_t g, uint32_t *table_ns, uint8_t *table_count,
+				       uint8_t *vc_global_idx)
 {
-	const struct adc_rx_adc_b_config *cfg = dev->config;
-	struct adc_rx_adc_b_data *data = dev->data;
-	adc_b_extended_cfg_t *extend = (adc_b_extended_cfg_t *)data->adc_cfg.p_extend;
-	uint8_t sg_id = (uint8_t)data->group_cfg[g].scan_group_id;
+	adc_b_extended_cfg_t *extend = &g_adc_cfg_extend;
+	uint8_t sg_id = (uint8_t)adc_b_shared.group_cfg[g].scan_group_id;
 	uint8_t vc_in_group = 0U;
 
-	for (uint8_t i = 0U; i < cfg->dt_channel_count; i++) {
-		const struct adc_rx_adc_b_channel_cfg *ch = &cfg->dt_channels[i];
-		uint32_t acq_ns;
-		int ret;
+	for (uint8_t u = 0U; u < ARRAY_SIZE(adc_b_unit_dev); u++) {
+		const struct device *udev = adc_b_unit_dev[u];
 
-		if (!(data->configured_channels & BIT(ch->vc_id))) {
-			continue;
-		}
-		if (ch->scan_group_id != sg_id) {
+		if (udev == NULL) {
 			continue;
 		}
 
-		ret = adc_rx_validate_phys_channel(cfg->channel_available_mask, ch->input_positive);
-		if (ret < 0) {
-			return ret;
-		}
+		const struct adc_rx_adc_b_config *cfg = udev->config;
+		struct adc_rx_adc_b_data *udata = udev->data;
+		adc_b_conversion_method_t method = extend->adc_b_converter_mode[u].method;
 
-		/* SAR method only supports up to 12-bit. */
-		if (!adc_rx_vc_uses_oversample(method, ch->oversampling) && ch->resolution > 12U) {
-			LOG_ERR("vc %u: SAR-path channel limited to 12-bit (got %u)", ch->vc_id,
-				ch->resolution);
-			return -EINVAL;
-		}
+		for (uint8_t i = 0U; i < cfg->dt_channel_count; i++) {
+			const struct adc_rx_adc_b_channel_cfg *ch = &cfg->dt_channels[i];
+			uint32_t acq_ns;
+			int ret;
 
-		if (vc_in_group >= ADC_B_RX_MAX_VC_PER_GROUP) {
-			LOG_ERR("Too many channels in scan-group %u (max %u)", sg_id,
-				ADC_B_RX_MAX_VC_PER_GROUP);
-			return -ENOMEM;
-		}
-		if (*vc_global_idx >= ADC_B_RX_MAX_VC) {
-			return -ENOMEM;
-		}
+			if (!(udata->configured_channels & BIT(ch->vc_id))) {
+				continue;
+			}
+			if (ch->scan_group_id != sg_id) {
+				continue;
+			}
 
-		/* Allocate a sampling-state table for this channel's
-		 * acquisition-time (deduplicated across channels).
-		 */
-		ret = adc_rx_acq_time_to_ns(ch->acq_time, &acq_ns);
-		if (ret < 0) {
-			return ret;
-		}
+			ret = adc_rx_validate_phys_channel(cfg->channel_available_mask,
+							   ch->input_positive);
+			if (ret < 0) {
+				return ret;
+			}
 
-		ret = adc_rx_alloc_sample_table(dev, extend, table_ns, table_count, acq_ns);
-		if (ret < 0) {
-			return ret;
-		}
+			/* SAR method only supports up to 12-bit. */
+			if (!adc_rx_vc_uses_oversample(method, ch->oversampling) &&
+			    ch->resolution > 12U) {
+				LOG_ERR("vc %u: SAR-path channel limited to 12-bit (got %u)",
+					ch->vc_id, ch->resolution);
+				return -EINVAL;
+			}
 
-		adc_rx_adc_b_vc_configure(ch, &data->vc_cfg[*vc_global_idx], method, (uint8_t)ret);
-		data->group_vcs[g][vc_in_group] = &data->vc_cfg[*vc_global_idx];
-		vc_in_group++;
-		(*vc_global_idx)++;
+			if (vc_in_group >= ADC_B_RX_MAX_VC_PER_GROUP) {
+				LOG_ERR("Too many channels in scan-group %u (max %u)", sg_id,
+					ADC_B_RX_MAX_VC_PER_GROUP);
+				return -ENOMEM;
+			}
+			if (*vc_global_idx >= ADC_B_RX_MAX_VC) {
+				return -ENOMEM;
+			}
+
+			/* Allocate a sampling-state table for this channel's
+			 * acquisition-time (deduplicated across channels).
+			 */
+			ret = adc_rx_acq_time_to_ns(ch->acq_time, &acq_ns);
+			if (ret < 0) {
+				return ret;
+			}
+
+			ret = adc_rx_alloc_sample_table(udev, extend, table_ns, table_count,
+							acq_ns);
+			if (ret < 0) {
+				return ret;
+			}
+
+			adc_rx_adc_b_vc_configure(ch, &adc_b_shared.vc_cfg[*vc_global_idx], method,
+						  (uint8_t)ret);
+			adc_b_shared.group_vcs[g][vc_in_group] =
+				&adc_b_shared.vc_cfg[*vc_global_idx];
+			vc_in_group++;
+			(*vc_global_idx)++;
+		}
 	}
 
-	data->group_cfg[g].virtual_channel_count = vc_in_group;
-	data->group_cfg[g].p_virtual_channels = (adc_b_virtual_channel_cfg_t **)data->group_vcs[g];
+	adc_b_shared.group_cfg[g].virtual_channel_count = vc_in_group;
+	adc_b_shared.group_cfg[g].p_virtual_channels =
+		(adc_b_virtual_channel_cfg_t **)adc_b_shared.group_vcs[g];
 
 	return 0;
 }
 
 /* Build adc_b_scan_cfg_t with one adc_b_group_cfg_t per scan-group that has
- * at least one configured virtual channel under this unit.
+ * at least one configured channel, across every registered unit. Must be
+ * called with adc_b_shared_lock held.
  */
-static int adc_rx_adc_b_scan_cfg(const struct device *dev)
+static int adc_rx_adc_b_scan_cfg(void)
 {
-	const struct adc_rx_adc_b_config *cfg = dev->config;
-	struct adc_rx_adc_b_data *data = dev->data;
-	adc_b_extended_cfg_t *extend = (adc_b_extended_cfg_t *)data->adc_cfg.p_extend;
 	uint8_t group_count = 0U;
 	uint8_t vc_global_idx = 0U;
 	uint32_t table_ns[ADC_B_RX_MAX_SAMPLE_TABLES];
 	uint8_t table_count = 0U;
 
-	if (cfg->dt_channel_count == 0U) {
-		return -EINVAL;
-	}
+	/* Discover unique scan-group IDs across every unit's configured channels */
+	for (uint8_t u = 0U; u < ARRAY_SIZE(adc_b_unit_dev); u++) {
+		const struct device *udev = adc_b_unit_dev[u];
 
-	adc_b_conversion_method_t method = extend->adc_b_converter_mode[cfg->unit_id].method;
-
-	/* Discover unique scan-group IDs across configured channels */
-	for (uint8_t i = 0U; i < cfg->dt_channel_count; i++) {
-		const struct adc_rx_adc_b_channel_cfg *ch = &cfg->dt_channels[i];
-		bool already_added = false;
-
-		if (!(data->configured_channels & BIT(ch->vc_id))) {
+		if (udev == NULL) {
 			continue;
 		}
 
-		for (uint8_t j = 0U; j < group_count; j++) {
-			if (data->group_cfg[j].scan_group_id == (adc_group_id_t)ch->scan_group_id) {
-				already_added = true;
-				break;
+		const struct adc_rx_adc_b_config *cfg = udev->config;
+		struct adc_rx_adc_b_data *udata = udev->data;
+
+		for (uint8_t i = 0U; i < cfg->dt_channel_count; i++) {
+			const struct adc_rx_adc_b_channel_cfg *ch = &cfg->dt_channels[i];
+			bool already_added = false;
+
+			if (!(udata->configured_channels & BIT(ch->vc_id))) {
+				continue;
 			}
+
+			for (uint8_t j = 0U; j < group_count; j++) {
+				if (adc_b_shared.group_cfg[j].scan_group_id ==
+				    (adc_group_id_t)ch->scan_group_id) {
+					already_added = true;
+					break;
+				}
+			}
+			if (already_added) {
+				continue;
+			}
+
+			if (group_count >= ADC_B_RX_MAX_SCAN_GROUPS) {
+				return -ENOMEM;
+			}
+
+			memset(&adc_b_shared.group_cfg[group_count], 0,
+			       sizeof(adc_b_shared.group_cfg[group_count]));
+			adc_b_shared.group_cfg[group_count].scan_group_id =
+				(adc_group_id_t)ch->scan_group_id;
+
+			adc_b_shared.group_cfg[group_count].converter_selection =
+				(adc_b_unit_id_t)adc_b_sg_to_unit(ch->scan_group_id);
+			adc_b_shared.group_cfg[group_count].scan_group_enable = true;
+			adc_b_shared.group_cfg[group_count].scan_end_interrupt_enable = true;
+			adc_b_shared.group_cfg[group_count].external_trigger_enable_mask =
+				(adc_b_external_trigger_t)ADC_B_EXTERNAL_TRIGGER_NONE;
+
+			adc_b_shared.groups[group_count] = &adc_b_shared.group_cfg[group_count];
+			group_count++;
 		}
-		if (already_added) {
-			continue;
-		}
-
-		if (group_count >= ADC_B_RX_MAX_SCAN_GROUPS) {
-			return -ENOMEM;
-		}
-
-		memset(&data->group_cfg[group_count], 0, sizeof(data->group_cfg[group_count]));
-		data->group_cfg[group_count].scan_group_id = (adc_group_id_t)ch->scan_group_id;
-
-		data->group_cfg[group_count].converter_selection =
-			(adc_b_unit_id_t)adc_b_sg_to_unit(ch->scan_group_id);
-		data->group_cfg[group_count].scan_group_enable = true;
-		data->group_cfg[group_count].scan_end_interrupt_enable = true;
-		data->group_cfg[group_count].external_trigger_enable_mask =
-			(adc_b_external_trigger_t)ADC_B_EXTERNAL_TRIGGER_NONE;
-
-		data->groups[group_count] = &data->group_cfg[group_count];
-		group_count++;
 	}
 
 	if (group_count == 0U) {
@@ -580,39 +634,30 @@ static int adc_rx_adc_b_scan_cfg(const struct device *dev)
 
 	/* for each discovered scan-group, populate its VC list */
 	for (uint8_t g = 0U; g < group_count; g++) {
-		int ret = adc_rx_adc_b_populate_group(dev, g, method, table_ns, &table_count,
-						      &vc_global_idx);
+		int ret = adc_rx_adc_b_populate_group(g, table_ns, &table_count, &vc_global_idx);
+
 		if (ret < 0) {
 			return ret;
 		}
 	}
 
-	memset(&data->scan_cfg, 0, sizeof(data->scan_cfg));
-	data->scan_cfg.group_count = group_count;
-	data->scan_cfg.p_adc_groups = (adc_b_group_cfg_t **)data->groups;
+	memset(&adc_b_shared.scan_cfg, 0, sizeof(adc_b_shared.scan_cfg));
+	adc_b_shared.scan_cfg.group_count = group_count;
+	adc_b_shared.scan_cfg.p_adc_groups = (adc_b_group_cfg_t **)adc_b_shared.groups;
 
 	return 0;
 }
 
-/* Fill converter_selection_0/1/2 with the scan-group -> converter map. */
+/* Fill converter_selection[] with the scan-group -> converter map. */
 static void adc_rx_setup_converter_selection(adc_b_extended_cfg_t *extend)
 {
-	uint32_t cs[3] = {0U, 0U, 0U};
-
 	for (size_t i = 0U; i < ARRAY_SIZE(adc_b_sg_unit_map); i++) {
 		uint8_t gid = adc_b_sg_unit_map[i].scan_group_id;
-		uint8_t uid = adc_b_sg_unit_map[i].unit_id;
-		uint8_t reg_idx = gid / 4U;
-		uint8_t bit_pos = (gid % 4U) * 8U;
 
-		if (reg_idx < ARRAY_SIZE(cs)) {
-			cs[reg_idx] |= ((uint32_t)uid << bit_pos);
+		if (gid < ARRAY_SIZE(extend->converter_selection)) {
+			extend->converter_selection[gid] = adc_b_sg_unit_map[i].unit_id;
 		}
 	}
-
-	extend->converter_selection_0 = cs[0];
-	extend->converter_selection_1 = cs[1];
-	extend->converter_selection_2 = cs[2];
 }
 
 static const struct adc_rx_adc_b_channel_cfg *
@@ -625,6 +670,32 @@ adc_rx_find_dt_channel(const struct adc_rx_adc_b_config *config, uint8_t channel
 	}
 
 	return NULL;
+}
+
+/* vc_id is a global virtual-channel-id shared by the whole ADC_B peripheral so two channels
+ * on different units must not reuse the same vc_id.
+ */
+static void adc_rx_check_vc_id_overlap(const struct adc_rx_adc_b_config *config)
+{
+	for (uint8_t u = 0U; u < ARRAY_SIZE(adc_b_unit_dev); u++) {
+		const struct device *other_dev = adc_b_unit_dev[u];
+		const struct adc_rx_adc_b_config *other;
+
+		if (other_dev == NULL || other_dev->config == config) {
+			continue;
+		}
+
+		other = other_dev->config;
+
+		for (uint8_t i = 0U; i < config->dt_channel_count; i++) {
+			uint8_t vc_id = config->dt_channels[i].vc_id;
+
+			for (uint8_t j = 0U; j < other->dt_channel_count; j++) {
+				__ASSERT(other->dt_channels[j].vc_id != vc_id,
+					 "vc_id %u reused across ADC_B units", vc_id);
+			}
+		}
+	}
 }
 
 /* Validate a virtual channel ID: in range and present in the device tree. */
@@ -641,23 +712,23 @@ static int adc_rx_validate_vc_id(const struct adc_rx_adc_b_config *config, uint8
 	return 0;
 }
 
-/* Run a hardware calibration and block until the calibration-complete
- * event is signalled from the FSP callback. Must be called from thread
- * context (it sleeps on the semaphore).
+/* Run a hardware calibration and block until calibration-complete is
+ * signalled from the FSP callback. Must be called from thread context (it
+ * sleeps on the semaphore) with adc_b_shared_lock held.
  */
-static int adc_rx_adc_b_calibrate(struct adc_rx_adc_b_data *data)
+static int adc_rx_adc_b_calibrate(void)
 {
 	fsp_err_t fsp_err;
 
-	k_sem_reset(&data->calibrate_sem);
+	k_sem_reset(&adc_b_shared.calibrate_sem);
 
-	fsp_err = R_ADC_B_Calibrate(&data->adc_ctrl, NULL);
+	fsp_err = R_ADC_B_Calibrate(&adc_b_shared.adc_ctrl, NULL);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADC_B_Calibrate failed: %d", fsp_err);
 		return -EIO;
 	}
 
-	if (k_sem_take(&data->calibrate_sem, ADC_B_CAL_TIMEOUT) != 0) {
+	if (k_sem_take(&adc_b_shared.calibrate_sem, ADC_B_CAL_TIMEOUT) != 0) {
 		LOG_ERR("calibration timed out");
 		return -ETIMEDOUT;
 	}
@@ -665,33 +736,33 @@ static int adc_rx_adc_b_calibrate(struct adc_rx_adc_b_data *data)
 	return 0;
 }
 
-/* (Re)program the scan and calibrate. Called from start_read() only when the
- * channel set changed, so repeated channel_setup() calls are cheap.
+/* Called from start_read() only when the combined channel set changed, so
+ * repeated channel_setup() calls do not re-run ScanCfg or trigger a
+ * calibration each time.
  */
-static int adc_rx_adc_b_apply_scan_cfg(const struct device *dev)
+static int adc_rx_adc_b_apply_scan_cfg(void)
 {
-	struct adc_rx_adc_b_data *data = dev->data;
 	fsp_err_t fsp_err;
 	int ret;
 
-	ret = adc_rx_adc_b_scan_cfg(dev);
+	ret = adc_rx_adc_b_scan_cfg();
 	if (ret < 0) {
 		LOG_ERR("failed to configure scan: %d", ret);
 		return ret;
 	}
 
-	fsp_err = R_ADC_B_ScanCfg(&data->adc_ctrl, &data->scan_cfg);
+	fsp_err = R_ADC_B_ScanCfg(&adc_b_shared.adc_ctrl, &adc_b_shared.scan_cfg);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADC_B_ScanCfg failed: %d", fsp_err);
 		return -EIO;
 	}
 
-	ret = adc_rx_adc_b_calibrate(data);
+	ret = adc_rx_adc_b_calibrate();
 	if (ret < 0) {
 		return ret;
 	}
 
-	data->scan_cfg_dirty = false;
+	adc_b_shared.scan_cfg_dirty = false;
 
 	return 0;
 }
@@ -726,10 +797,14 @@ static int adc_rx_adc_b_channel_setup(const struct device *dev,
 	}
 
 	/* Only record the channel here; the scan is (re)programmed and
-	 * calibrated lazily on the next start_read().
+	 * calibrated lazily on the next start_read(). configured_channels is
+	 * read by the scan rebuild under adc_b_shared_lock, so it must be
+	 * written under the same lock.
 	 */
+	k_mutex_lock(&adc_b_shared_lock, K_FOREVER);
 	data->configured_channels |= BIT(channel_cfg->channel_id);
-	data->scan_cfg_dirty = true;
+	adc_b_shared.scan_cfg_dirty = true;
+	k_mutex_unlock(&adc_b_shared_lock);
 
 	return 0;
 }
@@ -800,21 +875,31 @@ static int adc_rx_adc_b_start_read(const struct device *dev, const struct adc_se
 		return err;
 	}
 
-	/* Program the scan (and calibrate) only when the channel set changed
-	 * since the last read; channel_setup() just marks it dirty.
+	/* Own the shared hardware for this whole conversion, so another unit
+	 * cannot start (or rebuild scan config for) a conversion of its own
+	 * while this one is in flight.
 	 */
-	if (data->scan_cfg_dirty) {
-		err = adc_rx_adc_b_apply_scan_cfg(dev);
-		if (err < 0) {
-			return err;
-		}
+	k_sem_take(&adc_b_conversion_owner, K_FOREVER);
+
+	/* Program the combined scan (and calibrate) only when the channel set
+	 * of ANY unit changed since the last read; channel_setup() just marks
+	 * the shared config dirty.
+	 */
+	k_mutex_lock(&adc_b_shared_lock, K_FOREVER);
+
+	if (adc_b_shared.scan_cfg_dirty) {
+		err = adc_rx_adc_b_apply_scan_cfg();
 	} else if (sequence->calibrate) {
-		err = adc_rx_adc_b_calibrate(data);
-		if (err < 0) {
-			return err;
-		}
+		err = adc_rx_adc_b_calibrate();
 	} else {
-		/* do nothing */
+		err = 0;
+	}
+
+	k_mutex_unlock(&adc_b_shared_lock);
+
+	if (err < 0) {
+		k_sem_give(&adc_b_conversion_owner);
+		return err;
 	}
 
 	data->buf_id = 0;
@@ -822,6 +907,10 @@ static int adc_rx_adc_b_start_read(const struct device *dev, const struct adc_se
 
 	adc_context_start_read(&data->ctx, sequence);
 
+	/* adc_b_conversion_owner is released from adc_context_on_complete(),
+	 * the true end of this sequence - adc_context_wait_for_completion()
+	 * itself returns immediately for async reads, before that happens.
+	 */
 	return adc_context_wait_for_completion(&data->ctx);
 }
 
@@ -879,7 +968,10 @@ static int adc_rx_adc_b_scan_next_group(struct adc_rx_adc_b_data *data)
 
 	next_group = to_start & (uint32_t)(-(int32_t)to_start);
 
-	fsp_err = R_ADC_B_ScanGroupStart(&data->adc_ctrl, (adc_group_mask_t)next_group);
+	k_mutex_lock(&adc_b_shared_lock, K_FOREVER);
+	fsp_err = R_ADC_B_ScanGroupStart(&adc_b_shared.adc_ctrl, (adc_group_mask_t)next_group);
+	k_mutex_unlock(&adc_b_shared_lock);
+
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADC_B_ScanGroupStart(0x%02x) failed: %d", next_group, fsp_err);
 		adc_context_complete(&data->ctx, -EIO);
@@ -946,11 +1038,44 @@ static adc_b_clock_source_t adc_rx_get_clock_source(const struct device *clock_d
 	return ADC_B_CLOCK_SOURCE_PCLKA;
 }
 
+/* Wire one group-interrupt factor (calend/convserr) to its FSP ISR and
+ * enable it on the RX group interrupt controller.
+ */
+static int adc_rx_grp_irq_setup(const struct device *intc, int factor, void (*isr)(void),
+				void *context)
+{
+	int err;
+
+	err = rx_grp_intc_callback_set(intc, factor, isr, context);
+	if (err != 0) {
+		return err;
+	}
+
+	return rx_grp_intc_enable(intc, factor);
+}
+
+/* Calibration covers every unit, so every unit's calend vector is wired once
+ * (not per instance), whether or not that unit is enabled.
+ */
+static void adc_rx_calend_irq_setup(const struct device *group_intc)
+{
+	for (size_t i = 0U; i < ARRAY_SIZE(calend_irqs); i++) {
+		int err = adc_rx_grp_irq_setup(group_intc, calend_irqs[i].irq, calend_irqs[i].isr,
+					       (void *)&adc_b_shared.adc_ctrl);
+
+		if (err != 0) {
+			LOG_ERR("Failed to setup calibration end IRQ %zu", i);
+		}
+	}
+}
+
+static void renesas_rx_adc_callback(adc_callback_args_t *p_args);
+
 static int adc_rx_adc_b_init(const struct device *dev)
 {
 	const struct adc_rx_adc_b_config *config = dev->config;
 	struct adc_rx_adc_b_data *data = dev->data;
-	adc_b_extended_cfg_t *extend = (adc_b_extended_cfg_t *)data->adc_cfg.p_extend;
+	adc_b_extended_cfg_t *extend;
 	adc_b_clock_source_t clock_source;
 	uint8_t divr;
 	fsp_err_t fsp_err;
@@ -961,7 +1086,6 @@ static int adc_rx_adc_b_init(const struct device *dev)
 		return ret;
 	}
 
-	k_sem_init(&data->calibrate_sem, 0, 1);
 	k_work_init(&data->start_work, adc_rx_adc_b_start_work_handler);
 
 	ret = clock_control_on(config->clock_dev, (clock_control_subsys_t)&config->clock_subsys);
@@ -969,22 +1093,53 @@ static int adc_rx_adc_b_init(const struct device *dev)
 		return ret;
 	}
 
+	__ASSERT(config->unit_id < ARRAY_SIZE(adc_b_unit_dev), "unsupported ADC_B unit id");
+	adc_rx_check_vc_id_overlap(config);
+	adc_b_unit_dev[config->unit_id] = dev;
+
+	k_mutex_lock(&adc_b_shared_lock, K_FOREVER);
+
+	extend = &g_adc_cfg_extend;
+
 	adc_rx_setup_converter_selection(extend);
 
 	clock_source = adc_rx_get_clock_source(config->clock_dev);
 
 	/* DT clock-div is the divider (1..8); the register
-	 * field DIVR encodes (div - 1).
+	 * field DIVR encodes (div - 1). All units share the same parent clock
+	 * configuration (single ADCLKCR register), so recomputing this from
+	 * any unit's config always yields the same value.
 	 */
 	divr = config->clock_div - 1U;
-	extend->clock_control_data = ((clock_source << R_ADC_B0_ADCLKCR_CLKSEL_Pos) |
-				      (divr << R_ADC_B0_ADCLKCR_DIVR_Pos));
+	extend->clock_control_u.clock_control_data =
+		((clock_source << R_ADC_B0_ADCLKCR_CLKSEL_Pos) |
+		 (divr << R_ADC_B0_ADCLKCR_DIVR_Pos));
 
-	fsp_err = R_ADC_B_Open(&data->adc_ctrl, &data->adc_cfg);
-	if (fsp_err != FSP_SUCCESS) {
-		LOG_ERR("R_ADC_B_Open failed: %d", fsp_err);
-		return -EIO;
+	if (!adc_b_shared.opened) {
+		k_sem_init(&adc_b_shared.calibrate_sem, 0, 1);
+
+		/* adc_cfg.unit is not read back by the FSP; fixed at 0 rather
+		 * than tied to whichever unit happens to init first.
+		 */
+		adc_b_shared.adc_cfg.unit = 0;
+		adc_b_shared.adc_cfg.alignment = (adc_alignment_t)ADC_ALIGNMENT_RIGHT;
+		adc_b_shared.adc_cfg.p_callback = renesas_rx_adc_callback;
+		adc_b_shared.adc_cfg.p_context = NULL;
+		adc_b_shared.adc_cfg.p_extend = extend;
+
+		fsp_err = R_ADC_B_Open(&adc_b_shared.adc_ctrl, &adc_b_shared.adc_cfg);
+		if (fsp_err != FSP_SUCCESS) {
+			k_mutex_unlock(&adc_b_shared_lock);
+			LOG_ERR("R_ADC_B_Open failed: %d", fsp_err);
+			return -EIO;
+		}
+
+		adc_rx_calend_irq_setup(config->group_intc);
+
+		adc_b_shared.opened = true;
 	}
+
+	k_mutex_unlock(&adc_b_shared_lock);
 
 	config->irq_configure(dev);
 
@@ -1019,12 +1174,18 @@ static int adc_rx_adc_b_drain_results(const struct device *dev)
 			continue;
 		}
 
-		fsp_err =
-			R_ADC_B_Read32(&data->adc_ctrl, (adc_channel_t)ch->input_positive, &sample);
+		fsp_err = R_ADC_B_Read32(&adc_b_shared.adc_ctrl, (adc_channel_t)ch->input_positive,
+					 &sample);
 		if (fsp_err != FSP_SUCCESS) {
-			LOG_ERR("R_ADC_B_Read32 failed for vc %u (phys %u): %d", vc_id,
-				ch->input_positive, fsp_err);
-			return -EIO;
+			if (fsp_err == FSP_ERR_INVALID_DATA) {
+				LOG_WRN("vc %u (phys %u): conversion accuracy not guaranteed, "
+					"using reported value",
+					vc_id, ch->input_positive);
+			} else {
+				LOG_ERR("R_ADC_B_Read32 failed for vc %u (phys %u): %d", vc_id,
+					ch->input_positive, fsp_err);
+				return -EIO;
+			}
 		}
 
 		sample_buffer[data->buf_id++] = (uint16_t)sample;
@@ -1033,46 +1194,73 @@ static int adc_rx_adc_b_drain_results(const struct device *dev)
 	return 0;
 }
 
-static void renesas_rx_adc_callback(adc_callback_args_t *p_args)
+/* Route a completed scan-group to the device that owns it. */
+static void adc_rx_adc_b_handle_scan_complete(uint32_t group_mask)
 {
-	const struct device *dev = p_args->p_context;
-	struct adc_rx_adc_b_data *data = dev->data;
+	for (uint8_t gid = 0U; gid < ADC_B_RX_MAX_SCAN_GROUPS; gid++) {
+		uint8_t unit;
+		const struct device *dev;
+		struct adc_rx_adc_b_data *data;
+		uint32_t my_group_done;
 
-	switch (p_args->event) {
-	case ADC_EVENT_SCAN_COMPLETE: {
-		/* Filter to the scan-groups this sequence is waiting on. */
-		uint32_t my_groups_done = (uint32_t)p_args->group_mask & data->pending_group_mask;
-
-		if (my_groups_done == 0U) {
-			return;
+		if (!(group_mask & BIT(gid))) {
+			continue;
 		}
 
-		data->completed_group_mask |= my_groups_done;
+		unit = adc_b_sg_to_unit(gid);
+		dev = (unit < ARRAY_SIZE(adc_b_unit_dev)) ? adc_b_unit_dev[unit] : NULL;
+		if (dev == NULL) {
+			continue;
+		}
+
+		data = dev->data;
+		my_group_done = BIT(gid) & data->pending_group_mask;
+		if (my_group_done == 0U) {
+			continue;
+		}
+
+		data->completed_group_mask |= my_group_done;
 
 		if ((data->completed_group_mask & data->pending_group_mask) !=
 		    data->pending_group_mask) {
 			/* Kick the next group from the workqueue (not this ISR). */
 			k_work_submit(&data->start_work);
-			return;
+			continue;
 		}
 
 		if (adc_rx_adc_b_drain_results(dev) < 0) {
 			adc_context_complete(&data->ctx, -EIO);
-			return;
+			continue;
 		}
 
 		adc_context_on_sampling_done(&data->ctx, dev);
-		break;
 	}
+}
+
+static void renesas_rx_adc_callback(adc_callback_args_t *p_args)
+{
+	switch (p_args->event) {
+	case ADC_EVENT_SCAN_COMPLETE:
+		adc_rx_adc_b_handle_scan_complete((uint32_t)p_args->group_mask);
+		break;
 
 	case ADC_EVENT_CALIBRATION_COMPLETE:
-		k_sem_give(&data->calibrate_sem);
+		k_sem_give(&adc_b_shared.calibrate_sem);
 		break;
 
-	case ADC_EVENT_CONVERSION_ERROR:
-		LOG_ERR("conversion error event");
-		adc_context_complete(&data->ctx, -EIO);
+	case ADC_EVENT_CONVERSION_ERROR: {
+		const struct device *dev = (p_args->unit < ARRAY_SIZE(adc_b_unit_dev))
+						   ? adc_b_unit_dev[p_args->unit]
+						   : NULL;
+
+		LOG_ERR("conversion error event (unit %u)", p_args->unit);
+		if (dev != NULL) {
+			struct adc_rx_adc_b_data *data = dev->data;
+
+			adc_context_complete(&data->ctx, -EIO);
+		}
 		break;
+	}
 
 	default:
 		LOG_WRN("unhandled ADC event: %d", p_args->event);
@@ -1096,16 +1284,16 @@ DT_FOREACH_STATUS_OKAY(renesas_rx_adc_b_scan_group, SCANEND_ISR_WRAPPER)
  */
 #define ADC_RX_SG_IRQ_WIRE_NODE(node_id)                                                           \
 	if (128 <= DT_IRQ_BY_NAME(node_id, scanend, irq) &&                                        \
-	    DT_IRQ_BY_NAME(node_id, scanend, irq) < 144) {                                          \
+	    DT_IRQ_BY_NAME(node_id, scanend, irq) < 144) {                                         \
 		R_ICU->SLIXR[DT_IRQ_BY_NAME(node_id, scanend, irq) - 128].SLIXR =                  \
-			ADC_B_ICU_SCAN_END_EVENT(DT_REG_ADDR_RAW(node_id));                       \
+			ADC_B_ICU_SCAN_END_EVENT(DT_REG_ADDR_RAW(node_id));                        \
 	} else if (DT_IRQ_BY_NAME(node_id, scanend, irq) >= 144) {                                 \
 		R_ICU->SLIR[DT_IRQ_BY_NAME(node_id, scanend, irq) - 144].SLIR =                    \
-			ADC_B_ICU_SCAN_END_EVENT(DT_REG_ADDR_RAW(node_id));                       \
+			ADC_B_ICU_SCAN_END_EVENT(DT_REG_ADDR_RAW(node_id));                        \
 	}                                                                                          \
 	IRQ_CONNECT(DT_IRQ_BY_NAME(node_id, scanend, irq),                                         \
-		    DT_IRQ_BY_NAME(node_id, scanend, priority),                                    \
-		    adc_rx_scanend_isr_##node_id, NULL, 0);                                        \
+		    DT_IRQ_BY_NAME(node_id, scanend, priority), adc_rx_scanend_isr_##node_id,      \
+		    NULL, 0);                                                                      \
 	irq_enable(DT_IRQ_BY_NAME(node_id, scanend, irq));
 
 /* Scan-end wiring is keyed by scan-group (not by unit), so program it once. */
@@ -1117,43 +1305,18 @@ static int adc_rx_adc_b_global_init(void)
 }
 SYS_INIT(adc_rx_adc_b_global_init, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY);
 
-/* Wire one group-interrupt factor (calend/convserr) to its FSP ISR and
- * enable it on the RX group interrupt controller.
- */
-static int adc_rx_grp_irq_setup(const struct device *intc, int factor, void (*isr)(void),
-				void *context)
-{
-	int err;
-
-	err = rx_grp_intc_callback_set(intc, factor, isr, context);
-	if (err != 0) {
-		return err;
-	}
-
-	return rx_grp_intc_enable(intc, factor);
-}
-
-/* Per-instance IRQ setup: wire every unit's calend and this unit's convserr
- * on the group interrupt controller.
+/* Per-instance IRQ setup: wire this unit's convserr on the group interrupt
+ * controller (calend is wired once for all units in init).
  */
 #define IRQ_CONFIGURE_FUNC(idx)                                                                    \
 	static void adc_rx_configure_func_##idx(const struct device *dev)                          \
 	{                                                                                          \
 		const struct adc_rx_adc_b_config *cfg = dev->config;                               \
-		struct adc_rx_adc_b_data *data = dev->data;                                        \
 		int err;                                                                           \
-                                                                                                   \
-		for (size_t i = 0U; i < ARRAY_SIZE(calend_irqs); i++) {                            \
-			err = adc_rx_grp_irq_setup(cfg->group_intc, calend_irqs[i].irq,            \
-						   calend_irqs[i].isr, (void *)&data->adc_ctrl);   \
-			if (err != 0) {                                                            \
-				LOG_ERR("Failed to setup calibration end IRQ %zu", i);             \
-			}                                                                          \
-		}                                                                                  \
                                                                                                    \
 		err = adc_rx_grp_irq_setup(cfg->group_intc, CONVSERR_UNIT_IRQ(DT_DRV_INST(idx)),   \
 					   ADC_B_ERR_ISR(DT_INST_PROP(idx, unit_id)),              \
-					   (void *)&data->adc_ctrl);                               \
+					   (void *)&adc_b_shared.adc_ctrl);                        \
 		if (err != 0) {                                                                    \
 			LOG_ERR("Failed to setup conversion error IRQ for unit %d",                \
 				DT_INST_PROP(idx, unit_id));                                       \
@@ -1197,27 +1360,62 @@ static int adc_rx_grp_irq_setup(const struct device *intc, int factor, void (*is
 	.ISR_CFG_SCANEND_IPL(DT_REG_ADDR_RAW(node_id)) =                                           \
 		DT_IRQ_BY_NAME(node_id, scanend, priority),
 
+/* Each present unit fills its own slot in the shared config below. */
+#define ADC_B_CONVERTER_MODE_ENTRY(idx)                                                            \
+	[DT_INST_PROP(idx, unit_id)] = {                                                           \
+		.mode = (ADC_B_CONVERTER_MODE_SINGLE_SCAN),                                        \
+		.method = ADC_B_DT_METHOD(idx),                                                    \
+	},
+
+#define ADC_B_FILTER_SELECTION_ENTRY(idx) [DT_INST_PROP(idx, unit_id)] = ADC_B_DFSEL_SINC3_ALL,
+
+#define ADC_B_CONVSERR_ISR_ENTRY(idx)                                                              \
+	.ISR_CFG_CONVSERR_IRQ(                                                                     \
+		DT_INST_PROP(idx, unit_id)) = VECTOR_NUMBER_ADC_CONVSERR(DT_DRV_INST(idx)),        \
+				  .ISR_CFG_CONVSERR_IPL(DT_INST_PROP(idx, unit_id)) =              \
+					  DT_INST_IRQ_BY_NAME(idx, convserr, priority),
+
+static adc_b_isr_cfg_t g_adc_isr_cfg = {
+	DT_FOREACH_STATUS_OKAY(renesas_rx_adc_b_scan_group, ADC_RX_SG_ISR_CFG_FIELD_NODE)
+		ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC0_NODE)
+			ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC1_NODE)
+				ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC2_NODE)
+					DT_INST_FOREACH_STATUS_OKAY(ADC_B_CONVSERR_ISR_ENTRY)};
+
+static adc_b_extended_cfg_t g_adc_cfg_extend = {
+	.sync_operation_control_u = {.sync_operation_control = 0},
+	.adc_b_converter_mode = {DT_INST_FOREACH_STATUS_OKAY(ADC_B_CONVERTER_MODE_ENTRY)},
+	.fifo_enable_mask_u = {.fifo_enable_mask = 0},
+	.fifo_interrupt_enable_mask = 0,
+	.start_trigger_delay_table = {0},
+	.calibration_adc_state = ((256 << R_ADC_B0_ADCALSTCR_CALADSST_Pos) |
+				  (20 << R_ADC_B0_ADCALSTCR_CALADCST_Pos)),
+	.calibration_sample_and_hold =
+		((95 << R_ADC_B0_ADCALSHCR_CALSHSST_Pos) | (5 << R_ADC_B0_ADCALSHCR_CALSHHST_Pos)),
+	.p_isr_cfg = &g_adc_isr_cfg,
+	.sampling_state_table = {0},
+	.sample_and_hold_enable_mask = (ADC_B_SAMPLE_AND_HOLD_MASK_NONE),
+	.conversion_state =
+		((20 << R_ADC_B0_ADCNVSTR_CST0_Pos) | (20 << R_ADC_B0_ADCNVSTR_CST1_Pos) |
+		 (20 << R_ADC_B0_ADCNVSTR_CST2_Pos)),
+	.user_offset_tables = {0},
+	.user_gain_tables = {0},
+	.limiter_clip_interrupt_enable_mask = (0x00),
+	.limiter_clip_tables = {0},
+	.adc_filter_selection = {DT_INST_FOREACH_STATUS_OKAY(ADC_B_FILTER_SELECTION_ENTRY)},
+};
+
 #define ADC_RX_ADC_B_INIT(idx)                                                                     \
 	IRQ_CONFIGURE_FUNC(idx)                                                                    \
 	PINCTRL_DT_INST_DEFINE(idx);                                                               \
 	DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, ADC_RX_VALIDATE_CH)                                 \
 	static const struct adc_rx_adc_b_channel_cfg adc_rx_adc_b_channels_##idx[] = {             \
 		DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, ADC_RX_ADC_B_DT_CH_INIT)};                  \
-	static adc_b_isr_cfg_t g_adc_isr_cfg_##idx = {                                             \
-		DT_FOREACH_STATUS_OKAY(renesas_rx_adc_b_scan_group, ADC_RX_SG_ISR_CFG_FIELD_NODE)  \
-		ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC0_NODE)                                        \
-		ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC1_NODE)                                        \
-		ADC_RX_UNIT_CALEND_ISR_CFG_FIELD(ADC2_NODE)                                        \
-		.ISR_CFG_CONVSERR_IRQ(DT_INST_PROP(idx, unit_id)) =                                \
-			VECTOR_NUMBER_ADC_CONVSERR(DT_DRV_INST(idx)),                              \
-		.ISR_CFG_CONVSERR_IPL(DT_INST_PROP(idx, unit_id)) =                                \
-			DT_INST_IRQ_BY_NAME(idx, convserr, priority),                              \
-	};                                                                                         \
 	static DEVICE_API(adc, adc_rx_adc_b_api_##idx) = {                                         \
 		.channel_setup = adc_rx_adc_b_channel_setup,                                       \
 		.read = adc_rx_adc_b_read,                                                         \
 		.ref_internal = DT_INST_PROP_OR(idx, vref_mv, 3300),                               \
-		IF_ENABLED(CONFIG_ADC_ASYNC, (.read_async = adc_rx_adc_b_read_async))};            \
+		IF_ENABLED(CONFIG_ADC_ASYNC, (.read_async = adc_rx_adc_b_read_async))};               \
 	static const struct adc_rx_adc_b_config adc_rx_adc_b_config_##idx = {                      \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(idx),                                       \
 		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(idx))),                   \
@@ -1237,52 +1435,11 @@ static int adc_rx_grp_irq_setup(const struct device *intc, int factor, void (*is
 		IRQ_CONFIGURE_DEFINE(idx),                                                         \
 	};                                                                                         \
                                                                                                    \
-	static adc_b_extended_cfg_t g_adc_cfg_extend_##idx = {                                     \
-		.sync_operation_control = 0,                                                       \
-		.adc_b_converter_mode[DT_INST_PROP(idx, unit_id)] =                                \
-			{                                                                          \
-				.mode = (ADC_B_CONVERTER_MODE_SINGLE_SCAN),                        \
-				.method = ADC_B_DT_METHOD(idx),                                    \
-			},                                                                         \
-		.fifo_enable_mask = 0,                                                             \
-		.fifo_interrupt_enable_mask = 0,                                                   \
-		.start_trigger_delay_table = {0},                                                  \
-		.calibration_adc_state = ((256 << R_ADC_B0_ADCALSTCR_CALADSST_Pos) |               \
-					  (20 << R_ADC_B0_ADCALSTCR_CALADCST_Pos)),                \
-		.calibration_sample_and_hold = ((95 << R_ADC_B0_ADCALSHCR_CALSHSST_Pos) |          \
-						(5 << R_ADC_B0_ADCALSHCR_CALSHHST_Pos)),           \
-		.p_isr_cfg = &g_adc_isr_cfg_##idx,                                                 \
-		.sampling_state_tables =                                                           \
-			{                                                                          \
-				0,                                                                 \
-			},                                                                         \
-		.sample_and_hold_enable_mask = (ADC_B_SAMPLE_AND_HOLD_MASK_NONE),                  \
-		.conversion_state =                                                                \
-			((20 << R_ADC_B0_ADCNVSTR_CST0_Pos) | (20 << R_ADC_B0_ADCNVSTR_CST1_Pos) | \
-			 (20 << R_ADC_B0_ADCNVSTR_CST2_Pos)),                                      \
-		.user_offset_tables = {0},                                                         \
-		.user_gain_tables = {0},                                                           \
-		.limiter_clip_interrupt_enable_mask = (0x00),                                      \
-		.limiter_clip_tables = {0},                                                        \
-		.adc_filter_selection =                                                            \
-			{                                                                          \
-				[DT_INST_PROP(idx, unit_id)] = ADC_B_DFSEL_SINC3_ALL,              \
-			},                                                                         \
-	};                                                                                         \
-                                                                                                   \
 	static struct adc_rx_adc_b_data adc_rx_adc_b_data_##idx = {                                \
 		ADC_CONTEXT_INIT_TIMER(adc_rx_adc_b_data_##idx, ctx),                              \
 		ADC_CONTEXT_INIT_LOCK(adc_rx_adc_b_data_##idx, ctx),                               \
 		ADC_CONTEXT_INIT_SYNC(adc_rx_adc_b_data_##idx, ctx),                               \
 		.dev = DEVICE_DT_INST_GET(idx),                                                    \
-		.adc_cfg =                                                                         \
-			{                                                                          \
-				.unit = DT_INST_PROP(idx, unit_id),                                \
-				.alignment = (adc_alignment_t)ADC_ALIGNMENT_RIGHT,                 \
-				.p_callback = renesas_rx_adc_callback,                             \
-				.p_context = (void *)DEVICE_DT_GET(DT_DRV_INST(idx)),              \
-				.p_extend = &g_adc_cfg_extend_##idx,                               \
-			},                                                                         \
 		.buf = NULL,                                                                       \
 		.buf_id = 0,                                                                       \
 		.channels = 0,                                                                     \
