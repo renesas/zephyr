@@ -606,12 +606,6 @@ static DEVICE_API(rtc, rtc_renesas_rx_driver_api) = {
 
 #define ALARM_IRQ_ENABLE(index)                                                                    \
 	do {                                                                                       \
-		int alm_irq = DT_INST_IRQ_BY_NAME(index, alm, irq);                                \
-		if (128 <= alm_irq && alm_irq < 144) {                                             \
-			R_ICU->SLIXR[alm_irq - 128].SLIXR = ICU_EVENT_FIXED_RTC_ALARM;             \
-		} else if (144 <= alm_irq) {                                                       \
-			R_ICU->SLIR[alm_irq - 144].SLIR = ICU_EVENT_FIXED_RTC_ALARM;               \
-		}                                                                                  \
 		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, alm, irq),                                  \
 			    DT_INST_IRQ_BY_NAME(index, alm, priority), rtc_renesas_rx_alarm_isr,   \
 			    DEVICE_DT_INST_GET(index), 0);                                         \
@@ -620,12 +614,6 @@ static DEVICE_API(rtc, rtc_renesas_rx_driver_api) = {
 
 #define PERODIC_IRQ_ENABLE(index)                                                                  \
 	do {                                                                                       \
-		int prd_irq = DT_INST_IRQ_BY_NAME(index, prd, irq);                                \
-		if (128 <= prd_irq && prd_irq < 144) {                                             \
-			R_ICU->SLIXR[prd_irq - 128].SLIXR = ICU_EVENT_FIXED_RTC_PERIOD;            \
-		} else if (144 <= prd_irq) {                                                       \
-			R_ICU->SLIR[prd_irq - 144].SLIR = ICU_EVENT_FIXED_RTC_PERIOD;              \
-		}                                                                                  \
 		IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, prd, irq),                                  \
 			    DT_INST_IRQ_BY_NAME(index, prd, priority), rtc_renesas_rx_periodic_isr,\
 			    DEVICE_DT_INST_GET(index), 0);                                         \

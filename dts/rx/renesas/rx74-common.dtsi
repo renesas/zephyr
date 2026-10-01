@@ -1633,7 +1633,7 @@
 			reg = <0x87802000 0x80>;
 			clocks = <&subclk>;
 			alarms-count = <1>;
-			interrupts-extended = <&icu 92 1>, <&icu 93 1>, <&group_irq_al5 25 1>;
+			interrupts-extended = <&icu 92 1>, <&icu 93 1>, <&icu 151 1>;
 			interrupt-names = "alm", "prd", "cup";
 			status = "disabled";
 		};
