@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include <renesas/r5k574x.dtsi>
+#include <renesas/r5k574mcx.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/flash_controller/xspi.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
