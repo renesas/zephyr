@@ -168,6 +168,10 @@
 	status = "okay";
 };
 
+&group_irq_al5 {
+	status = "okay";
+};
+
 &sci1 {
 	pinctrl-0 = <&sci1_default>;
 	pinctrl-names = "default";
