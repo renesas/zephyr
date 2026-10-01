@@ -47,6 +47,7 @@
 		led0 = &led1;
 		led1 = &led2;
 		led2 = &led3;
+		rtc = &rtc;
 	};
 
 	transceiver0: can-phy0 {
@@ -188,5 +189,9 @@
 };
 
 &ioportf {
+	status = "okay";
+};
+
+&rtc {
 	status = "okay";
 };
