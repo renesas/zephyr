@@ -14,6 +14,7 @@
 		compatible = "renesas,rx-mram-region-ctrl";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		ranges;
 
 		code_mram: mram@fff00000 {
 			compatible = "soc-nv-flash";
@@ -30,6 +31,7 @@
 		compatible = "renesas,rx-mram-region-ctrl";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		ranges;
 
 		data_mram: mram@86900000 {
 			compatible = "soc-nv-flash";
