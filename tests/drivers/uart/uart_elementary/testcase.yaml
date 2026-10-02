@@ -61,6 +61,8 @@ tests:
       - y_ask_rh850u2b/r7f70255xfabb-c
       - y_ask_rh850u2b/r7f70254xafabb-c
       - y_ask_rh850u2b/r7f70254xfabb-c
+      - y_ask_rh850u2c/r7f702600afabb-c
+      - y_ask_rh850u2c/r7f702606afabb-c
     integration_platforms:
       - nrf54h20dk/nrf54h20/cpuapp
   drivers.uart.uart_elementary_dual_nrf54h:
