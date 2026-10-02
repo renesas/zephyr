@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&tmr01 {
+	renesas,prescaler = <3>;
+	status = "okay";
+
+	counter0: counter {
+		status = "okay";
+	};
+};
+
+&tmr23 {
+	renesas,prescaler = <3>;
+	status = "okay";
+
+	counter2: counter {
+		status = "okay";
+	};
+};
