@@ -218,3 +218,7 @@
 &wwdt0 {
 	status = "okay";
 };
+
+&ostm0 {
+	status = "okay";
+};
