@@ -578,10 +578,12 @@
 
 		canfd_global: canfd-global@ff800000 {
 			compatible = "renesas,rh850-canfd-global";
+			unit = <0>;
 			reg = <0xff800000 DT_SIZE_K(128)>;
 			interrupts = <652 1>, <653 1>;
 			interrupt-names = "g_err", "g_recc";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSCFD, 0, CANFD_C)>;
 			status = "disabled";
 
 			canfd0: canfd0 {
@@ -590,7 +592,15 @@
 				interrupts = <659 1>, <658 1>, <660 1>;
 				interrupt-names = "rxi", "eri", "txi";
 				interrupt-parent = <&intc2>;
-				clock-frequency = <DT_FREQ_M(80)>;
+				status = "disabled";
+			};
+
+			canfd1: canfd1 {
+				compatible = "renesas,rh850-canfd";
+				channel = <1>;
+				interrupts = <665 1>, <664 1>, <666 1>;
+				interrupt-names = "rxi", "eri", "txi";
+				interrupt-parent = <&intc2>;
 				status = "disabled";
 			};
 		};

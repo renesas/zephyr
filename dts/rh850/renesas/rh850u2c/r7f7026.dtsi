@@ -940,10 +940,12 @@
 
 		canfd_global: canfd-global@ff800000 {
 			compatible = "renesas,rh850-canfd-global";
+			unit = <0>;
 			reg = <0xff800000 DT_SIZE_K(128)>;
 			interrupts = <104 1>, <105 1>;
 			interrupt-names = "g_err", "g_recc";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSCFD, 0, CANFD_C)>;
 			status = "disabled";
 
 			canfd0: canfd0 {
@@ -953,7 +955,47 @@
 						      <&canfdrxi_ored0>,
 						      <&canfdtxi_ored0>;
 				interrupt-names = "eri", "rxi", "txi";
-				clock-frequency = <DT_FREQ_M(80)>;
+				status = "disabled";
+			};
+
+			canfd1: canfd1 {
+				compatible = "renesas,rh850-canfd";
+				channel = <1>;
+				interrupts-extended = <&canfderi_ored0>,
+						      <&canfdrxi_ored0>,
+						      <&canfdtxi_ored0>;
+				interrupt-names = "eri", "rxi", "txi";
+				status = "disabled";
+			};
+		};
+
+		canfd1_global: canfd1-global@ff820000 {
+			compatible = "renesas,rh850-canfd-global";
+			unit = <1>;
+			reg = <0xff820000 DT_SIZE_K(128)>;
+			interrupts = <566 1>, <567 1>;
+			interrupt-names = "g_err", "g_recc";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSCFD, 1, CANFD_C)>;
+			status = "disabled";
+
+			canfd8: canfd8 {
+				compatible = "renesas,rh850-canfd";
+				channel = <8>;
+				interrupts-extended = <&canfderi_ored0>,
+						      <&canfdrxi_ored0>,
+						      <&canfdtxi_ored0>;
+				interrupt-names = "eri", "rxi", "txi";
+				status = "disabled";
+			};
+
+			canfd9: canfd9 {
+				compatible = "renesas,rh850-canfd";
+				channel = <9>;
+				interrupts-extended = <&canfderi_ored0>,
+						      <&canfdrxi_ored0>,
+						      <&canfdtxi_ored0>;
+				interrupt-names = "eri", "rxi", "txi";
 				status = "disabled";
 			};
 		};

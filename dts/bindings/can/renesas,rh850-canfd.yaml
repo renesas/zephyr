@@ -12,10 +12,6 @@ properties:
     type: int
     required: true
 
-  clock-frequency:
-    type: int
-    required: true
-
   rx-max-filters:
     type: int
     required: true

@@ -8,5 +8,14 @@ compatible: "renesas,rh850-canfd-global"
 include: [base.yaml]
 
 properties:
+  clocks:
+    required: true
+    description: Module clock shared by all CAN FD channels in this unit.
+
+  unit:
+    type: int
+    required: true
+    description: CAN FD unit index
+
   interrupts:
     required: true
