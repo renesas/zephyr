@@ -5,7 +5,16 @@ config CAN_RENESAS_RH850_CANFD
 	bool "Renesas RH850 CANFD"
 	default y
 	depends on DT_HAS_RENESAS_RH850_CANFD_ENABLED
+	select CLOCK_CONTROL
 	select USE_RH850_FSP_CANFD
 	select PINCTRL
 	help
 	  Enable Renesas RH850 CANFD driver
+
+config CAN_RENESAS_RH850_TX_QUEUE_DEPTH
+	int "RH850 CANFD hardware TX queue depth"
+	depends on CAN_RENESAS_RH850_CANFD
+	range 3 16
+	default 8
+	help
+	  Maximum number of outstanding transmit frames per CAN channel.
