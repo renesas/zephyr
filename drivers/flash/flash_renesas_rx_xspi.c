@@ -246,7 +246,7 @@ static int flash_xspi_wait_operation(struct flash_renesas_rx_xspi_controller_dat
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		reg = (uint8_t)data->transfer_read_wip.data;
+		reg = (uint8_t)data->transfer_read_wip.data_u.data;
 
 		if (data->fsr_poll) {
 			if (reg & SPI_NOR_FLSR_READY) {
@@ -312,7 +312,7 @@ static int flash_xspi_write_enable(struct flash_renesas_rx_xspi_controller_data 
 			return -EIO;
 		}
 
-		if (((data->transfer_read_status.data >>
+		if (((data->transfer_read_status.data_u.data >>
 		      data->xspi_controller_ctrl.p_cfg->write_enable_bit) &
 		     0x1U) == 1U) {
 			break;
@@ -324,7 +324,7 @@ static int flash_xspi_write_enable(struct flash_renesas_rx_xspi_controller_data 
 
 	if (timeout == 0) {
 		LOG_ERR("WREN timeout: last SR=0x%02x proto=0x%03x",
-			(uint8_t)data->transfer_read_status.data,
+			(uint8_t)data->transfer_read_status.data_u.data,
 			data->xspi_controller_ctrl.spi_protocol);
 		return -EIO;
 	}
@@ -338,7 +338,7 @@ static void flash_xspi_is25_set_ods(struct flash_renesas_rx_xspi_controller_data
 		.command = IS25_CMD_SERPV,
 		.command_length = 1,
 		.address_length = 0,
-		.data = ods,
+		.data_u.data = ods,
 		.data_length = 1,
 		.dummy_cycles = 0,
 	};
@@ -872,7 +872,7 @@ static int flash_xspi_sfdp_read_helper(xspi_controller_instance_ctrl_t *p_ctrl, 
 			return -EIO;
 		}
 
-		memcpy(p_dst, &transfer_sfdp.data_u64, buf_size);
+		memcpy(p_dst, &transfer_sfdp.data_u.data_u64, buf_size);
 		len -= buf_size;
 		offset += buf_size;
 		p_dst += buf_size;
@@ -897,7 +897,7 @@ static int flash_xspi_jedec_id_read_helper(xspi_controller_instance_ctrl_t *p_ct
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
-	memcpy(data, &transfer_jedec_id.data, transfer_jedec_id.data_length);
+	memcpy(data, &transfer_jedec_id.data_u.data, transfer_jedec_id.data_length);
 
 	return 0;
 }
@@ -1050,7 +1050,7 @@ static int flash_xspi_4byte_enable(struct flash_renesas_rx_xspi_controller_data 
 	int ret;
 	spi_flash_direct_transfer_t transfer_4byte_enable = {
 		.address = 0,
-		.data = 0,
+		.data_u.data = 0,
 		.dummy_cycles = 0,
 		.command_length = 1,
 		.address_length = 0,
@@ -1098,7 +1098,7 @@ static int flash_xspi_4byte_enable(struct flash_renesas_rx_xspi_controller_data 
 		}
 
 		transfer_4byte_enable.command = CMD_WR_NONVOL_CFG;
-		transfer_4byte_enable.data |= BIT(0);
+		transfer_4byte_enable.data_u.data |= BIT(0);
 		err = R_XSPI_CONTROLLER_DirectTransfer(p_ctrl, &transfer_4byte_enable,
 						       SPI_FLASH_DIRECT_TRANSFER_DIR_WRITE);
 		if (err != FSP_SUCCESS) {
@@ -1139,7 +1139,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		sr1_value = transfer.data & 0xFF;
+		sr1_value = transfer.data_u.data & 0xFF;
 
 		transfer = (spi_flash_direct_transfer_t){
 			.command = SPI_NOR_CMD_RDSR2,
@@ -1153,7 +1153,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		sr2_value = transfer.data & 0xFF;
+		sr2_value = transfer.data_u.data & 0xFF;
 
 		if (sr2_value & BIT(1)) {
 			return 0;
@@ -1168,7 +1168,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 			.command = SPI_NOR_CMD_WRSR,
 			.command_length = 1,
 			.address_length = 0,
-			.data = (uint32_t)sr1_value | ((uint32_t)(sr2_value | BIT(1)) << 8),
+			.data_u.data = (uint32_t)sr1_value | ((uint32_t)(sr2_value | BIT(1)) << 8),
 			.data_length = 2,
 			.dummy_cycles = 0,
 		};
@@ -1192,7 +1192,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		sr1_value = transfer.data & 0xFF;
+		sr1_value = transfer.data_u.data & 0xFF;
 
 		if (sr1_value & BIT(6)) {
 			return 0;
@@ -1207,7 +1207,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 			.command = SPI_NOR_CMD_WRSR,
 			.command_length = 1,
 			.address_length = 0,
-			.data = sr1_value | BIT(6),
+			.data_u.data = sr1_value | BIT(6),
 			.data_length = 1,
 			.dummy_cycles = 0,
 		};
@@ -1231,7 +1231,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		sr2_value = transfer.data & 0xFF;
+		sr2_value = transfer.data_u.data & 0xFF;
 
 		if (sr2_value & BIT(7)) {
 			return 0;
@@ -1246,7 +1246,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 			.command = CMD_WRSR2_ALT,
 			.command_length = 1,
 			.address_length = 0,
-			.data = sr2_value | BIT(7),
+			.data_u.data = sr2_value | BIT(7),
 			.data_length = 1,
 			.dummy_cycles = 0,
 		};
@@ -1270,7 +1270,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 		if (err != FSP_SUCCESS) {
 			return -EIO;
 		}
-		sr2_value = transfer.data & 0xFF;
+		sr2_value = transfer.data_u.data & 0xFF;
 
 		if (sr2_value & BIT(1)) {
 			return 0;
@@ -1285,7 +1285,7 @@ static int flash_xspi_quad_enable(struct flash_renesas_rx_xspi_controller_data *
 			.command = SPI_NOR_CMD_WRSR2,
 			.command_length = 1,
 			.address_length = 0,
-			.data = sr2_value | BIT(1),
+			.data_u.data = sr2_value | BIT(1),
 			.data_length = 1,
 			.dummy_cycles = 0,
 		};
@@ -1338,7 +1338,7 @@ static int flash_xspi_seq_8d_enable(xspi_controller_instance_ctrl_t *p_ctrl, uin
 				payload = payload << 8 | (uint32_t)byte_value;
 			}
 
-			transfer_8d_enb[transfer_index].data = payload;
+			transfer_8d_enb[transfer_index].data_u.data = payload;
 			transfer_8d_enb[transfer_index].data_length = cmd_len - 1;
 
 		} else if (cmd_len == 5) {
@@ -1347,7 +1347,7 @@ static int flash_xspi_seq_8d_enable(xspi_controller_instance_ctrl_t *p_ctrl, uin
 				JESD216_SFDP_SODP_BYTE2(octal_8d_buf[i]) << 16 |
 				JESD216_SFDP_SODP_BYTE3(octal_8d_buf[i]) << 8 |
 				JESD216_SFDP_SODP_BYTE4(octal_8d_buf[i + 1]);
-			transfer_8d_enb[transfer_index].data =
+			transfer_8d_enb[transfer_index].data_u.data =
 				JESD216_SFDP_SODP_BYTE5(octal_8d_buf[i + 1]);
 			transfer_8d_enb[transfer_index].data_length = 1;
 
@@ -1360,8 +1360,8 @@ static int flash_xspi_seq_8d_enable(xspi_controller_instance_ctrl_t *p_ctrl, uin
 				JESD216_SFDP_SODP_BYTE5(octal_8d_buf[i + 1]);
 
 			for (uint8_t j = 6; j <= cmd_len; j++) {
-				transfer_8d_enb[transfer_index].data =
-					(transfer_8d_enb[transfer_index].data << 8) |
+				transfer_8d_enb[transfer_index].data_u.data =
+					(transfer_8d_enb[transfer_index].data_u.data << 8) |
 					((octal_8d_buf[i + 1] >> (24 - (j - 4) * 8)) & 0xFF);
 			}
 			transfer_8d_enb[transfer_index].data_length = cmd_len - 5;
@@ -1433,9 +1433,9 @@ static int flash_xspi_sccr_8d_enable(struct flash_renesas_rx_xspi_controller_dat
 	mask_enb_dtr_octa = BIT((sccr_buf[21] >> 24) & 0x7);
 
 	if (sccr_buf[21] & BIT(30)) {
-		transfer_8d_enb.data &= ~mask_enb_dtr_octa;
+		transfer_8d_enb.data_u.data &= ~mask_enb_dtr_octa;
 	} else {
-		transfer_8d_enb.data |= mask_enb_dtr_octa;
+		transfer_8d_enb.data_u.data |= mask_enb_dtr_octa;
 	}
 
 	if (mask_enb_octa != mask_enb_dtr_octa) {
@@ -1454,9 +1454,9 @@ static int flash_xspi_sccr_8d_enable(struct flash_renesas_rx_xspi_controller_dat
 
 	if (need_enb_octa) {
 		if (sccr_buf[16] & BIT(30)) {
-			transfer_8d_enb.data &= ~mask_enb_octa;
+			transfer_8d_enb.data_u.data &= ~mask_enb_octa;
 		} else {
-			transfer_8d_enb.data |= mask_enb_octa;
+			transfer_8d_enb.data_u.data |= mask_enb_octa;
 		}
 	}
 
@@ -1591,7 +1591,7 @@ static uint32_t *flash_xspi_get_map_in_use(struct flash_renesas_rx_xspi_controll
 			return ret;
 		}
 
-		map_id = map_id << 1 | !!(transfer_read_cfg.data & read_data_mask);
+		map_id = map_id << 1 | !!(transfer_read_cfg.data_u.data & read_data_mask);
 	}
 
 	ret = NULL;
@@ -1721,7 +1721,7 @@ static int flash_xspi_update_flash_config(const struct device *dev)
 			.command = IS25_CMD_SRPV,
 			.command_length = 1,
 			.address_length = 0,
-			.data = IS25_SRPV_DEFAULT,
+			.data_u.data = IS25_SRPV_DEFAULT,
 			.data_length = 1,
 			.dummy_cycles = 0,
 		};
