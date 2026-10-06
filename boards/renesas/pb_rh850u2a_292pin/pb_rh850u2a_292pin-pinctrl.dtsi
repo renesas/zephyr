@@ -82,4 +82,12 @@
 			drive-strength = "medium";
 		};
 	};
+
+	canfd1_default: canfd1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 9, ALT_OUT3)>,	/* TX */
+				<RH850_PSEL(PORT_04, 10, ALT_IN6)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
 };

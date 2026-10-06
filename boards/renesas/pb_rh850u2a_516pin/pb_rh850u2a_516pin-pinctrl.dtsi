@@ -82,4 +82,28 @@
 			drive-strength = "medium";
 		};
 	};
+
+	canfd1_default: canfd1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_06, 8, ALT_OUT2)>,	/* TX */
+				<RH850_PSEL(PORT_06, 7, ALT_IN7)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
+
+	canfd8_default: canfd8_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_01, 0, ALT_OUT2)>,	/* TX */
+				<RH850_PSEL(PORT_01, 1, ALT_IN7)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
+
+	canfd9_default: canfd9_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_01, 2, ALT_OUT2)>,	/* TX */
+				<RH850_PSEL(PORT_01, 3, ALT_IN7)>;	/* RX */
+			drive-strength = "medium";
+		};
+	};
 };

@@ -55,13 +55,6 @@
 			label = "PWM LED 1";
 		};
 	};
-
-	can_phy0: can-phy0 {
-		compatible = "can-transceiver-gpio";
-		standby-gpios = <&ioport24 4 GPIO_ACTIVE_HIGH>;
-		max-bitrate = <8000000>;
-		#phy-cells = <0>;
-	};
 };
 
 &pwm0_master {
@@ -191,6 +184,18 @@
 	status = "okay";
 };
 
+&canfderi_ored0 {
+	status = "okay";
+};
+
+&canfdrxi_ored0 {
+	status = "okay";
+};
+
+&canfdtxi_ored0 {
+	status = "okay";
+};
+
 &canfd_global {
 	status = "okay";
 };
@@ -200,9 +205,4 @@
 	pinctrl-names = "default";
 	status = "okay";
 	rx-max-filters = <128>;
-	phys = <&can_phy0>;
-};
-
-&ioport24 {
-	status = "okay";
 };
