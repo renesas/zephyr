@@ -185,16 +185,17 @@ static int udc_event_xfer_setup(const struct device *dev, struct udc_renesas_rx_
 	struct udc_renesas_rx_data *data = udc_get_private(dev);
 	struct usb_setup_packet *setup_packet =
 		(struct usb_setup_packet *)&evt->hal_evt.setup_received;
+	struct udc_ep_config *ep_in_cfg = udc_get_ep_cfg(dev, USB_CONTROL_EP_IN);
 
+	/* A SETUP token clears any pending STALL on the control endpoint. */
+	if (ep_in_cfg->stat.halted) {
+		LOG_DBG("Clearing STALL on CONTROL_EP_IN");
+		R_USBD_EdptClearStall(&data->udc, USB_CONTROL_EP_IN);
+		ep_in_cfg->stat.halted = false;
+	}
+
+	/* The controller handles the SET_ADDRESS Status IN by itself. */
 	if (setup_packet->bRequest == USB_SREQ_SET_ADDRESS) {
-		data->ignore_status_in = true;
-	} else if (USB_REQTYPE_GET_DIR(setup_packet->bmRequestType) == USB_REQTYPE_DIR_TO_DEVICE &&
-		   setup_packet->wLength) {
-		/*
-		 * Status IN after Data OUT is automatically handled by hardware.
-		 * This prevents the stack from stalling the Status stage if data
-		 * is invalid, but is required for correct enumeration.
-		 */
 		data->ignore_status_in = true;
 	} else {
 		data->ignore_status_in = false;
@@ -673,7 +674,7 @@ static int udc_renesas_rx_driver_preinit(const struct device *dev)
 	}
 
 	k_msgq_init(&priv->msgq, (char *)priv->msgq_buf, sizeof(struct udc_renesas_rx_evt),
-			  CONFIG_UDC_RENESAS_RX_MAX_QMESSAGES);
+		    CONFIG_UDC_RENESAS_RX_MAX_QMESSAGES);
 
 	k_mutex_init(&data->mutex);
 
