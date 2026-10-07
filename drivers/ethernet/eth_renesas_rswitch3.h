@@ -53,6 +53,8 @@ typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id,
 #define EAVCC    0x0130
 #define EACTDQDC 0x0104
 #define EATTFC   0x0138
+#define EACKSC   0x013c
+#define EACKSECN 0x0414 /* checksum error counter, cleared on read */
 #define MIOC     (RMRO + 0x0010)
 #define MPIC     (RMRO + 0x0004)
 #define MRMAC0   (RMRO + 0x0084)
@@ -75,6 +77,13 @@ enum rsw3_etha_mode {
 /* EAVCC */
 #define EAVCC_VEM_NO_TAG (0)
 #define EAVCC_VEM_SC_TAG (0x3 << 16)
+
+/* EACKSC (ingress checksum check; erroneous frames are discarded by MFWD) */
+#define EACKSC_IP4CKSE  BIT(0)
+#define EACKSC_UDPCKSE  BIT(1)
+#define EACKSC_TCPCKSE  BIT(2)
+#define EACKSC_ICMPCKSE BIT(3)
+#define EACKSC_ALL      (EACKSC_IP4CKSE | EACKSC_UDPCKSE | EACKSC_TCPCKSE | EACKSC_ICMPCKSE)
 
 /* MRAFC */
 #define RSW3_MRAFC_RX_PROMISC 0x07870787
@@ -286,6 +295,8 @@ struct rswitch3_gwca_rx_desc {
 
 /* Descriptor metadata fields */
 #define RSWITCH3_GWCA_META_FMT      BIT(2)          /* meta_lo */
+#define RSWITCH3_GWCA_META_L3CC     BIT(24)         /* meta_lo: insert IPv4 header checksum */
+#define RSWITCH3_GWCA_META_L4CC     BIT(25)         /* meta_lo: insert TCP/UDP/ICMP checksum */
 #define RSWITCH3_GWCA_META_IPV_MASK GENMASK(30, 28) /* meta_lo */
 #define RSWITCH3_GWCA_META_IPV(p)   FIELD_PREP(RSWITCH3_GWCA_META_IPV_MASK, (p))
 #define RSWITCH3_GWCA_META_SPN_MASK GENMASK(7, 4) /* meta_hi */

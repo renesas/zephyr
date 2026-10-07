@@ -16,8 +16,10 @@ LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_mgmt.h>
+#include <zephyr/net/net_ip.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/sys/barrier.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/sys_io.h>
 #include <zephyr/sys/util.h>
 #include <ethernet/eth_stats.h>
@@ -163,6 +165,13 @@ void rswitch3_dump_fwd_counters(const struct device *dev, uint32_t port_id, cons
 	LOG_DBG("%s: port %u fwd-discard  TX[cut-through=%u port-based=%u hop-limit=%u]  "
 		"RX[ingress-class=%u watermark=%u cut-through=%u port-based=%u]",
 		tag, port_id, ctfdcn, pbfdcn, mhlcn, icrdcn, wmrdcn, ctrdcn, pbrdcn);
+}
+
+/* Frames dropped at ingress because of an EACKSC checksum error (read clears the counter). */
+static uint32_t __maybe_unused rswitch3_etha_cksum_err_read(const struct device *dev,
+							    uint32_t etha_port)
+{
+	return rswitch3_read(dev, RSWITCH3_ETHA_OFFSET + etha_port * RSWITCH3_ETHA_SIZE + EACKSECN);
 }
 
 static void rswitch3_fwd_allow_ports(const struct device *dev, uint32_t src_port, uint32_t dst_mask)
@@ -438,6 +447,13 @@ static int rswitch3_etha_hw_init_physical(const struct device *dev, uint32_t por
 
 	rswitch3_etha_init_tsn_egress_path(dev, port_id);
 	sys_write32(EAVCC_VEM_SC_TAG, etha_base + EAVCC);
+
+	/*
+	 * Ingress checksum check: frames failing it are tagged CKSE and dropped
+	 * by MFWD (FWCEPRC0.ECKSEEF = 0), so anything forwarded on to a CPU
+	 * agent has a verified IPv4/TCP/UDP/ICMP checksum.
+	 */
+	sys_write32(IS_ENABLED(CONFIG_NET_CHECKSUM_OFFLOAD) ? EACKSC_ALL : 0, etha_base + EACKSC);
 
 	/*
 	 * Unlike the internal port, we don't force the link up.
@@ -1261,8 +1277,9 @@ out_unlock:
 	return ret;
 }
 
+/* tx_meta: extra meta_lo flags for the direct descriptor (RSWITCH3_GWCA_META_L3CC/L4CC). */
 static int rswitch3_gwca_port_send(const struct device *dev, uint32_t port_id, const uint8_t *frame,
-				   size_t len)
+				   size_t len, uint32_t tx_meta)
 {
 	const struct rswitch3_config *cfg = dev->config;
 	struct rswitch3_data *data = dev->data;
@@ -1310,7 +1327,8 @@ static int rswitch3_gwca_port_send(const struct device *dev, uint32_t port_id, c
 
 	desc->hdr.size = (uint16_t)len;
 	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)q->bufs[q->cur]);
-	desc->meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV);
+	desc->meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV) |
+			(tx_meta & (RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC));
 	desc->meta_hi = RSWITCH3_GWCA_META_DV(BIT(port_id));
 	rswitch3_gwca_dcache_flush(desc, sizeof(*desc));
 
@@ -1620,11 +1638,81 @@ static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_
 	net_recv_data(port_data->iface, pkt);
 }
 
+#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
+/*
+ * Checksums offloaded to hardware: IPv4 header, and TCP, UDP and ICMP over
+ * IPv4. Without ETHERNET_CHECKSUM_SUPPORT_IPV6_HEADER the stack computes and
+ * verifies TCP/UDP checksums over IPv6 itself: L4CC on an IPv6 frame with
+ * extension headers is a GWCA format error, and the stack cannot leave only
+ * those frames to software.
+ */
+#define RSWITCH3_PORT_CHKSUM_SUPPORT                                                               \
+	(ETHERNET_CHECKSUM_SUPPORT_IPV4_HEADER | ETHERNET_CHECKSUM_SUPPORT_IPV4_ICMP |             \
+	 ETHERNET_CHECKSUM_SUPPORT_TCP | ETHERNET_CHECKSUM_SUPPORT_UDP)
+
+/*
+ * Pick the L3CC/L4CC descriptor flags for an outgoing frame. Must cover every
+ * frame type in RSWITCH3_PORT_CHKSUM_SUPPORT, because the stack leaves those
+ * checksum fields zero. L3CC on a non-IPv4 frame, or L4CC on an IPv4 fragment,
+ * is a GWCA format error (the flags get silently dropped), so those cases are
+ * filtered out here.
+ */
+static uint32_t rswitch3_port_tx_chksum_flags(const uint8_t *frame, size_t len)
+{
+	size_t off = 2 * NET_ETH_ADDR_LEN;
+	uint16_t type;
+	uint8_t ihl;
+	uint8_t proto;
+
+	if (len < off + sizeof(uint16_t)) {
+		return 0;
+	}
+
+	type = sys_get_be16(&frame[off]);
+	off += sizeof(uint16_t);
+
+	if (type == NET_ETH_PTYPE_VLAN) {
+		if (len < off + 4) {
+			return 0;
+		}
+		type = sys_get_be16(&frame[off + 2]);
+		off += 4;
+	}
+
+	if (type == NET_ETH_PTYPE_IP) {
+		if (len < off + sizeof(struct net_ipv4_hdr) || (frame[off] >> 4) != 4) {
+			return 0;
+		}
+
+		ihl = (frame[off] & 0x0f) * 4;
+		if (ihl < sizeof(struct net_ipv4_hdr) || len < off + ihl) {
+			return 0;
+		}
+
+		/* Fragment (MF set or offset != 0): the stack already did the L4 checksum */
+		if (sys_get_be16(&frame[off + 6]) & 0x3fff) {
+			return RSWITCH3_GWCA_META_L3CC;
+		}
+
+		proto = frame[off + 9];
+		if (proto == NET_IPPROTO_TCP || proto == NET_IPPROTO_UDP ||
+		    proto == NET_IPPROTO_ICMP) {
+			return RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC;
+		}
+
+		return RSWITCH3_GWCA_META_L3CC;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_NET_CHECKSUM_OFFLOAD */
+
 static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 {
 	const struct rswitch3_port_config *cfg = dev->config;
 	struct rswitch3_port_data *data = dev->data;
 	size_t len = net_pkt_get_len(pkt);
+	uint32_t tx_meta = 0;
 	int ret;
 
 	if (!data->is_started) {
@@ -1639,11 +1727,16 @@ static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 		return -EIO;
 	}
 
+#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
+	tx_meta = rswitch3_port_tx_chksum_flags(data->tx_frame_buf, len);
+#endif
+
 	/* cfg->rswitch_dev is always this same driver's own rswitch3 parent
 	 * device (the only compatible a renesas,rcarsoc-rswitch3-port node
 	 * can have)
 	 */
-	ret = rswitch3_gwca_port_send(cfg->rswitch_dev, cfg->port_id, data->tx_frame_buf, len);
+	ret = rswitch3_gwca_port_send(cfg->rswitch_dev, cfg->port_id, data->tx_frame_buf, len,
+				      tx_meta);
 	if (ret) {
 		LOG_DBG("Port %u: send failed (err %d)", cfg->port_id, ret);
 		return ret;
@@ -1690,10 +1783,37 @@ static void rswitch3_port_iface_init(struct net_if *iface)
 
 static enum ethernet_hw_caps rswitch3_port_get_capabilities(const struct device *dev)
 {
+	enum ethernet_hw_caps caps;
+
 	ARG_UNUSED(dev);
 
 	/* Matches the speeds rswitch3_set_link_state() actually programs into MPIC. */
-	return ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE | ETHERNET_LINK_2500BASE;
+	caps = ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE | ETHERNET_LINK_2500BASE;
+
+	if (IS_ENABLED(CONFIG_NET_CHECKSUM_OFFLOAD)) {
+		/* TX: GWCA direct descriptor L3CC/L4CC. RX: ETHA EACKSC ingress check. */
+		caps |= ETHERNET_HW_TX_CHKSUM_OFFLOAD | ETHERNET_HW_RX_CHKSUM_OFFLOAD;
+	}
+
+	return caps;
+}
+
+static int rswitch3_port_get_config(const struct device *dev, enum ethernet_config_type type,
+				    struct ethernet_config *config)
+{
+	ARG_UNUSED(dev);
+
+	switch (type) {
+#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
+	case ETHERNET_CONFIG_TYPE_RX_CHECKSUM_SUPPORT:
+	case ETHERNET_CONFIG_TYPE_TX_CHECKSUM_SUPPORT:
+		/* IPv6 checksums are left to software in both directions. */
+		config->chksum_support = RSWITCH3_PORT_CHKSUM_SUPPORT;
+		return 0;
+#endif
+	default:
+		return -ENOTSUP;
+	}
 }
 
 static int rswitch3_port_start(const struct device *dev)
@@ -1724,7 +1844,14 @@ static const struct device *rswitch3_port_get_phy(const struct device *dev)
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 static struct net_stats_eth *rswitch3_port_get_stats(const struct device *dev)
 {
+	const struct rswitch3_port_config *cfg = dev->config;
 	struct rswitch3_port_data *data = dev->data;
+
+	if (IS_ENABLED(CONFIG_NET_CHECKSUM_OFFLOAD)) {
+		/* Frames the switch dropped on a bad checksum never reach rx_cb. */
+		data->stats.errors.rx +=
+			rswitch3_etha_cksum_err_read(cfg->rswitch_dev, cfg->port_id);
+	}
 
 	return &data->stats;
 }
@@ -1733,6 +1860,7 @@ static struct net_stats_eth *rswitch3_port_get_stats(const struct device *dev)
 static const struct ethernet_api rswitch3_port_api = {
 	.iface_api.init = rswitch3_port_iface_init,
 	.get_capabilities = rswitch3_port_get_capabilities,
+	.get_config = rswitch3_port_get_config,
 	.send = rswitch3_port_send,
 	.get_phy = rswitch3_port_get_phy,
 	.start = rswitch3_port_start,
