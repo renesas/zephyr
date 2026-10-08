@@ -163,6 +163,16 @@ config APP_PROFILING
 	  is not included. Keep APP_RUNTIME_LOG off: its console writes would
 	  count as postprocess time.
 
+config APP_SERIALIZE_FRAMES
+	bool "Process one AI frame at a time, from capture to flush finished"
+	default n
+	help
+	  Hand a camera frame to the AI pipeline only after the result of the
+	  previous AI frame has been flushed to the display. Frames in between
+	  are shown as video only. This removes queueing and CPU contention
+	  between frames so the latencies are those of a single frame, at the
+	  cost of AI throughput.
+
 config APP_PROFILING_PERIOD
 	int "Results per profiling report"
 	default 30

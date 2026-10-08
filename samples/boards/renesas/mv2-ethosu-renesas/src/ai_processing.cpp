@@ -431,6 +431,7 @@ void ai_task(void *arg1, void *arg2, void *arg3)
 		if (ai_input_msg.size != g_input_num_elements) {
 			ET_LOG(Error, "Input size mismatch: got %zu, expected %zu",
 			       ai_input_msg.size, g_input_num_elements);
+			ai_frame_gate_give();
 			continue;
 		}
 
@@ -454,6 +455,7 @@ void ai_task(void *arg1, void *arg2, void *arg3)
 		if (status != Error::Ok) {
 			ET_LOG(Error, "Execution failed: 0x%" PRIx32,
 			       static_cast<uint32_t>(status));
+			ai_frame_gate_give();
 			continue;
 		}
 
@@ -461,6 +463,7 @@ void ai_task(void *arg1, void *arg2, void *arg3)
 		if (status != Error::Ok) {
 			ET_LOG(Error, "get_outputs failed: 0x%" PRIx32,
 			       static_cast<uint32_t>(status));
+			ai_frame_gate_give();
 			continue;
 		}
 
@@ -480,6 +483,8 @@ void ai_task(void *arg1, void *arg2, void *arg3)
 		ai_result.inference_time_ms = inference_us / 1000;
 		ai_result.result_count = AI_TOP_K;
 		ai_result.timing = ai_input_msg.timing;
-		k_msgq_put(ai_result_msgq, &ai_result, K_NO_WAIT);
+		if (k_msgq_put(ai_result_msgq, &ai_result, K_NO_WAIT) != 0) {
+			ai_frame_gate_give();
+		}
 	}
 }

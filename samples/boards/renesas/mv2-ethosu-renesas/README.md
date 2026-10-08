@@ -37,7 +37,8 @@ makes the video choppy.
 
 ## Prerequisites
 
-- Python 3.12 or newer (tested with 3.12.3) for the export scripts.
+- Python 3.12 or newer (tested with 3.12.3) for the export and evaluation
+  scripts.
 - A west workspace for this project (see [Manifest / build](#manifest--build)).
 
 All commands below run from the `zephyr/` directory of the workspace.
@@ -63,6 +64,9 @@ python samples/boards/renesas/mv2-ethosu-renesas/scripts/gen_calibration_data.py
     --input <folder of real photos (.jpg/.png/...)> \
     --output calib_data/
 ```
+For a quick start, extract [data/imagenette2-160.tgz](data/imagenette2-160.tgz)
+(`tar xzf data/imagenette2-160.tgz`) and use its `train/` folder.
+
 A few dozen to a few hundred varied photos (different objects/scenes) is
 enough - no labels needed, calibration is unsupervised (it only records
 activation ranges, never checks predictions against ground truth).
@@ -133,6 +137,29 @@ copying the printed `scale`/`zero_point` into the board `.conf`. A `.pte`
 exported straight from `aot_arm_compiler.py` has float32 input and is rejected
 at startup; always export with `export_quantized_io.py`.
 
+### Check accuracy (FP32 vs INT8)
+
+```
+python samples/boards/renesas/mv2-ethosu-renesas/scripts/eval_accuracy.py \
+    --val_dir imagenette2-160/val --calibration_data calib_data/ 2>/dev/null
+```
+
+`imagenette2-160/` is the folder extracted from
+[data/imagenette2-160.tgz](data/imagenette2-160.tgz). Calibrate on its `train/`
+images and evaluate on `val/`.
+
+The script prints top-1 for FP32 and the INT8 PT2E model. The INT8 TOSA
+reference model is skipped by default (~0.4 s/image); add `--tosa` to run it, which is closer
+to the NPU's integer arithmetic. `--per_class N` limits the images per class.
+`--output_csv res.csv` saves the predicted class (wnid) of every image per
+model, in the layout of imagenette's `noisy_imagenette.csv`.
+
+The INT8 model is re-quantized with the same calibration
+data, so it shows the quantization loss, not the NPU's bit-exact output. Use
+a val set that is not the calibration set. The 1000-class number is not
+comparable with timm's published 65.9% (different preprocessing); compare
+FP32 against INT8.
+
 ## Manifest / build
 
 ```
@@ -202,11 +229,21 @@ avg/max per stage in ms:
   `Method::execute()`. Split into crop/resize/RGB565->RGB888, the quantize LUT,
   and queue waits (the converted frame waits for the previous inference).
 - **inference**: `Method::execute()`.
-- **postprocess total**: `execute()` returned -> the result is on screen
-  (LVGL flush finished and the GLCDC vsync passed). Split into
-  `get_outputs()` + top-k, and queue + render + flush.
+- **postprocess total**: `execute()` returned -> LVGL flush finished
+  (`LV_EVENT_FLUSH_FINISH`), one continuous interval. Split into
+  `get_outputs()` + top-k (AI thread), and queue + render + flush (the wait
+  until `display_task` picks the result up, then label update, LVGL render and
+  flush, including the wait for vsync). With CPU-only inference the queue and
+  vsync waits can last up to one inference, because a running `execute()`
+  keeps `display_task` from resuming.
 - **end-to-end**: capture -> the classification of that frame is on screen.
 - **video latency**: capture -> that camera frame itself is on screen.
+
+With `-DCONFIG_APP_SERIALIZE_FRAMES=y` only one AI frame is in flight: the next
+frame is handed to the AI pipeline only after the previous result has been
+flushed to the display. Other frames are shown as video only. Latencies are
+then those of a single frame (no queueing, and in a CPU-only build `execute()`
+no longer runs while `display_task` waits for vsync), but AI throughput drops.
 
 "Capture" is the VIN dequeue, i.e. the end of the frame readout; sensor exposure
 and readout time are not included. Only frames that reach inference are counted

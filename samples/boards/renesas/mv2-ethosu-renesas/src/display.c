@@ -29,8 +29,7 @@ static lv_obj_t *detection_canvas;
 static lv_obj_t *info_panel;
 static lv_obj_t *info_label;
 
-#ifdef CONFIG_APP_PROFILING
-/* "On screen" = LVGL finished a flush. The GLCDC driver blocks until the
+/* "Flush finished" = LVGL finished a flush. The GLCDC driver blocks until the
  * vsync that follows the buffer swap before returning, so this is when the
  * new image starts being scanned out.
  */
@@ -43,6 +42,8 @@ static void flush_finish_cb(lv_event_t *e)
 	flush_cycles = k_cycle_get_32();
 	flush_count++;
 }
+
+#ifdef CONFIG_APP_PROFILING
 
 enum prof_metric {
 	P_PRE,
@@ -64,7 +65,7 @@ static const char *const prof_label[P_COUNT] = {
 	[P_QUANT] = "  quantize LUT",
 	[P_PRE_WAIT] = "  queue waits",
 	[P_INFER] = "inference (Method::execute)",
-	[P_POST] = "postprocess total (NPU done -> on screen)",
+	[P_POST] = "postprocess total (execute done -> flush finished)",
 	[P_POST_AI] = "  get_outputs + top-k",
 	[P_POST_DISP] = "  queue + render + flush",
 	[P_E2E] = "end-to-end (capture -> result on screen)",
@@ -117,11 +118,6 @@ static void prof_result_arrived(const frame_timing_t *t)
 	prof_pending_valid = true;
 }
 
-static uint32_t prof_flush_count(void)
-{
-	return flush_count;
-}
-
 /* Called after an lv_timer_handler() pass that flushed: everything set on the
  * label/canvas before it is now on screen.
  */
@@ -158,11 +154,6 @@ static void prof_frame_flushed(uint32_t video_capture)
 static inline void prof_result_arrived(const frame_timing_t *t)
 {
 	ARG_UNUSED(t);
-}
-
-static inline uint32_t prof_flush_count(void)
-{
-	return 0;
 }
 
 static inline void prof_frame_flushed(uint32_t video_capture)
@@ -267,9 +258,7 @@ int display_init(void)
 
 	lv_sysmon_show_performance(lv_disp);
 
-#ifdef CONFIG_APP_PROFILING
 	lv_display_add_event_cb(lv_disp, flush_finish_cb, LV_EVENT_FLUSH_FINISH, NULL);
-#endif
 
 	LOG_INF("- Display initialized");
 	return 0;
@@ -286,6 +275,7 @@ void display_task(void *arg1, void *arg2, void *arg3)
 	ai_result_msg_t ai_result;
 	static camera_frame_msg_t held_frame_msg;
 	static bool have_held_frame;
+	bool result_awaiting_flush = false;
 
 	while (1) {
 		if (k_msgq_get(display_frame_msgq, &camera_frame_msg, K_FOREVER) != 0) {
@@ -293,6 +283,7 @@ void display_task(void *arg1, void *arg2, void *arg3)
 		}
 
 		if (k_msgq_get(ai_result_msgq, &ai_result, K_NO_WAIT) == 0) {
+			result_awaiting_flush = true;
 			ai_results = ai_result.results;
 			update_info_panel(ai_result.inference_time_ms, ai_results,
 					  ai_result.result_count);
@@ -300,12 +291,17 @@ void display_task(void *arg1, void *arg2, void *arg3)
 		}
 		update_video_canvas(camera_frame_msg.vbuf->buffer);
 
-		uint32_t flushes_before = prof_flush_count();
+		uint32_t flushes_before = flush_count;
 
 		lv_timer_handler();
 
-		if (prof_flush_count() != flushes_before) {
+		if (flush_count != flushes_before) {
 			prof_frame_flushed(camera_frame_msg.capture);
+
+			if (result_awaiting_flush) {
+				result_awaiting_flush = false;
+				ai_frame_gate_give();
+			}
 		}
 
 		if (have_held_frame) {

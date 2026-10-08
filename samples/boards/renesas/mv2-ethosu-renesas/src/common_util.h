@@ -36,6 +36,32 @@ typedef struct {
 	uint32_t post_done;  /* get_outputs() + get_top_k() finished */
 } frame_timing_t;
 
+#ifdef CONFIG_APP_SERIALIZE_FRAMES
+/* One AI frame in flight: taken when camera_task hands a frame to the AI
+ * pipeline, given when its result has been flushed (or the frame is dropped).
+ */
+extern struct k_sem ai_frame_gate_sem;
+
+static inline bool ai_frame_gate_take(void)
+{
+	return k_sem_take(&ai_frame_gate_sem, K_NO_WAIT) == 0;
+}
+
+static inline void ai_frame_gate_give(void)
+{
+	k_sem_give(&ai_frame_gate_sem);
+}
+#else
+static inline bool ai_frame_gate_take(void)
+{
+	return true;
+}
+
+static inline void ai_frame_gate_give(void)
+{
+}
+#endif
+
 typedef struct {
 	size_t size;
 	uint8_t *data;

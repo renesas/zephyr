@@ -15,6 +15,9 @@ LOG_MODULE_REGISTER(camera, CONFIG_LOG_DEFAULT_LEVEL);
 
 static uint8_t model_buffer_rgb[CONFIG_AI_INPUT_WIDTH * CONFIG_AI_INPUT_HEIGHT * 3] __aligned(4);
 K_SEM_DEFINE(ai_buffer_free_sem, 1, 1);
+#ifdef CONFIG_APP_SERIALIZE_FRAMES
+K_SEM_DEFINE(ai_frame_gate_sem, 1, 1);
+#endif
 const struct device *video_dev;
 static struct video_buffer *buffers[CONFIG_VIDEO_BUFFER_POOL_NUM_MAX];
 static enum video_buf_type type = VIDEO_BUF_TYPE_OUTPUT;
@@ -164,10 +167,11 @@ void camera_task(void *arg1, void *arg2, void *arg3)
 		camera_frame_msg.vbuf = vbuf;
 		camera_frame_msg.video_dev = (struct device *)video_dev;
 
-		if (k_msgq_num_free_get(ai_raw_frame_msgq) > 0) {
+		if (k_msgq_num_free_get(ai_raw_frame_msgq) > 0 && ai_frame_gate_take()) {
 			err = k_msgq_put(ai_raw_frame_msgq, &camera_frame_msg, K_NO_WAIT);
 			if (err) {
 				LOG_ERR("Failed to put frame into AI raw frame queue");
+				ai_frame_gate_give();
 			}
 		}
 
@@ -194,6 +198,7 @@ void camera_ai_preprocess_task(void *arg1, void *arg2, void *arg3)
 		}
 
 		if (k_sem_take(&ai_buffer_free_sem, K_NO_WAIT) != 0) {
+			ai_frame_gate_give();
 			continue;
 		}
 
@@ -211,6 +216,7 @@ void camera_ai_preprocess_task(void *arg1, void *arg2, void *arg3)
 		err = k_msgq_put(ai_input_msgq, &ai_input_msg, K_NO_WAIT);
 		if (err) {
 			LOG_ERR("Failed to put frame into AI input queue");
+			ai_frame_gate_give();
 		}
 	}
 }
