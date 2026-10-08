@@ -1,8 +1,8 @@
 # MobileNetV2 Live Camera Classification (Renesas EK-RA8P1)
 
 Captures live OV5640 camera frames, classifies them with MobileNetV2 on the
-Ethos-U55 NPU via ExecuTorch, and shows the camera feed plus the top-5
-labels (1000-class ImageNet) on the parallel RGB LCD.
+Ethos-U55 NPU (or the Cortex-M85 CPU) via ExecuTorch, and shows the camera feed
+plus the top-5 labels (1000-class ImageNet) on the parallel RGB LCD.
 
 **App version: v1.2** (matches the prebuilt images in [Prebuilt demo](#prebuilt-demo)).
 
@@ -27,6 +27,7 @@ Prebuilt merged images are in [binary/](binary/). Flash them as described in
 | Image | Runs on | Version | SHA-256 |
 |---|---|---|---|
 | `zephyr_merged_ethosu.hex` | Ethos-U55 NPU | v1.2 | 0abb1e83237dbdbd4f0aef8055df7ab5e4ece087ee08827d553fdc1731e89edf |
+| `zephyr_merged_cm85.hex` | Cortex-M85 CPU | v1.2 | 15f4b0cd2893df760168b1123a1669c914d9892664f849abf9045aa2caaf6d79 |
 
 Check the file before flashing, e.g. `sha256sum binary/zephyr_merged_ethosu.hex`.
 
@@ -43,8 +44,8 @@ All commands below run from the `zephyr/` directory of the workspace.
 
 ## Prepare a PTE model file
 
-A prebuilt `.pte` is in [models/](models/); skip this section to use it.
-Re-export only to change the model or the calibration.
+Prebuilt `.pte` files for both targets are in [models/](models/); skip this
+section to use them. Re-export only to change the model or the calibration.
 
 ### Generate calibration data (recommended)
 
@@ -113,7 +114,24 @@ CONFIG_AI_OUTPUT_QUANT_ZERO_POINT=127
 ```
 
 The board `.conf` ships with the values above, which match the prebuilt
-`models/mv2_a05_u55_256_int8.pte`.
+`models/mv2_a05_u55_256_int8.pte`. The output scale differs between targets
+and between exports, so take the values from the log of the `.pte` you use.
+
+### Export for the Cortex-M85 CPU (no NPU)
+
+Same script, `--target=cortex-m85` without `--delegate` (CMSIS-NN kernels):
+
+```
+python samples/boards/renesas/mv2-ethosu-renesas/scripts/export_quantized_io.py \
+    --model_name=mv2_a05 --quantize --target=cortex-m85 \
+    --calibration_data calib_data/ \
+    --output=samples/boards/renesas/mv2-ethosu-renesas/models/mv2_a05_cortex_m85_int8.pte
+```
+
+The I/O is int8 like the Ethos-U export, so no app change is needed beyond
+copying the printed `scale`/`zero_point` into the board `.conf`. A `.pte`
+exported straight from `aot_arm_compiler.py` has float32 input and is rejected
+at startup; always export with `export_quantized_io.py`.
 
 ## Manifest / build
 
@@ -134,6 +152,12 @@ west build -b ek_ra8p1/r7ka8p1kflcac/cm85 samples/boards/renesas/mv2-ethosu-rene
 ```
 
 The merged image to flash is `build/zephyr/zephyr_merged.hex`.
+
+The example above uses the Ethos-U `.pte`. The board `.conf` has two blocks,
+`ETHOS-U specific` (active by default, enables `CONFIG_ETHOS_U`) and
+`cortex-m85 specific`. To run on the CPU, comment out the Ethos-U block,
+uncomment the CPU block and pass the Cortex-M85 `.pte` in `ET_PTE_FILE_PATH`.
+Update the `CONFIG_AI_*_QUANT_*` values to match the `.pte` you pass.
 
 ## Flashing
 
@@ -185,7 +209,7 @@ avg/max per stage in ms:
 - **video latency**: capture -> that camera frame itself is on screen.
 
 "Capture" is the VIN dequeue, i.e. the end of the frame readout; sensor exposure
-and readout time are not included. Only frames that reach the NPU are counted
+and readout time are not included. Only frames that reach inference are counted
 for the first five metrics (the AI path drops frames while busy).
 
 ## Notes

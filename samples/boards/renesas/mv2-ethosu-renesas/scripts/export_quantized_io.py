@@ -33,6 +33,86 @@ def _get_model_and_inputs(model_name, model_input):
     return ref.get_model_and_inputs_from_name(model_name, model_input)
 
 
+def quantize_io(edge):
+    """Expose input/output 0 as int8 and return (edge, {input0/output0: quant args}).
+
+    Must run while the boundary ops are still quantized_decomposed::*; the
+    passes don't recognize the cortex_m::/Ethos-U rewrites made afterwards.
+    """
+    from executorch.exir.passes.quantize_io_pass import (
+        QuantizeInputs,
+        QuantizeOutputs,
+    )
+
+    exported = edge.exported_program()
+    input_name = exported.graph_signature.user_inputs[0]
+    input_placeholder = next(
+        n
+        for n in exported.graph_module.graph.nodes
+        if n.op == "placeholder" and n.name == input_name
+    )
+    input_quantize_node = next(iter(input_placeholder.users))
+    output_dequantize_node = exported.graph_module.graph.output_node().args[0][0]
+    quantize_io_info = {
+        "input0": tuple(input_quantize_node.args[1:]),
+        "output0": tuple(output_dequantize_node.args[1:]),
+    }
+
+    edge = edge.transform(
+        passes=[QuantizeInputs(edge, [0]), QuantizeOutputs(edge, [0])]
+    )
+    return edge, quantize_io_info
+
+
+def _to_channels_last(x):
+    if isinstance(x, torch.Tensor):
+        return x.to(memory_format=torch.channels_last) if x.dim() == 4 else x
+    if isinstance(x, tuple):
+        return tuple(_to_channels_last(t) for t in x)
+    return x
+
+
+def to_edge_cortex_m_quantized_io(
+    args, exported_program, model, example_inputs, calibration_samples
+):
+    """Cortex-M/CMSIS-NN counterpart of ref._to_edge_cortex_m() with int8 I/O."""
+    target_config = ref.CortexMTargetConfig.from_target_string(args.target)
+
+    model = model.to(memory_format=torch.channels_last)
+    example_inputs = tuple(_to_channels_last(x) for x in example_inputs)
+
+    prepared = ref.prepare_pt2e(model, ref.CortexMQuantizer())
+    for sample in calibration_samples or [example_inputs]:
+        prepared(*tuple(_to_channels_last(x) for x in sample))
+    model_quant = ref.convert_pt2e(prepared)
+
+    exported_program = torch.export.export(
+        model_quant, example_inputs, strict=args.strict_export
+    )
+    edge = ref.to_edge_transform_and_lower(
+        exported_program,
+        compile_config=ref.EdgeCompileConfig(
+            preserve_ops=[
+                torch.ops.aten.linear.default,
+                torch.ops.aten.hardsigmoid.default,
+                torch.ops.aten.hardsigmoid_.default,
+                torch.ops.aten.hardswish.default,
+                torch.ops.aten.hardswish_.default,
+            ],
+            _check_ir_validity=False,
+        ),
+    )
+
+    edge, quantize_io_info = quantize_io(edge)
+
+    pass_manager = ref.CortexMPassManager(
+        edge.exported_program(), target_config=target_config
+    )
+    edge._edge_programs["forward"] = pass_manager.transform()
+
+    return model_quant, edge, quantize_io_info
+
+
 def to_edge_quantized_io(
     target,
     exported_program,
@@ -64,28 +144,7 @@ def to_edge_quantized_io(
         compile_config=ref.EdgeCompileConfig(_check_ir_validity=False),
     )
 
-    from executorch.exir.passes.quantize_io_pass import (
-        QuantizeInputs,
-        QuantizeOutputs,
-    )
-
-    exported = edge.exported_program()
-    input_name = exported.graph_signature.user_inputs[0]
-    input_placeholder = next(
-        n
-        for n in exported.graph_module.graph.nodes
-        if n.op == "placeholder" and n.name == input_name
-    )
-    input_quantize_node = next(iter(input_placeholder.users))
-    output_dequantize_node = exported.graph_module.graph.output_node().args[0][0]
-    quantize_io_info = {
-        "input0": tuple(input_quantize_node.args[1:]),
-        "output0": tuple(output_dequantize_node.args[1:]),
-    }
-
-    edge = edge.transform(
-        passes=[QuantizeInputs(edge, [0]), QuantizeOutputs(edge, [0])]
-    )
+    edge, quantize_io_info = quantize_io(edge)
     edge = ref._apply_replace_quant_nodes(edge, target, direct_drive)
 
     return model_quant, edge, quantize_io_info
@@ -93,9 +152,12 @@ def to_edge_quantized_io(
 
 def main():
     args = ref._get_args()
-    if not args.delegate or args.target.startswith("cortex-m"):
+    is_cortex_m = args.target.startswith("cortex-m")
+    if is_cortex_m and not args.quantize:
+        raise RuntimeError("cortex-m targets need --quantize for int8 I/O.")
+    if not is_cortex_m and not args.delegate:
         raise RuntimeError(
-            "export_quantized_io.py only supports the --delegate path "
+            "Non cortex-m targets need --delegate "
             f"(got target={args.target!r}, delegate={args.delegate})."
         )
 
@@ -118,18 +180,23 @@ def main():
     if args.quantize:
         quant_mode = ref.QuantMode.A16W8 if "int16" in args.target else ref.QuantMode.INT8
 
-    model_quant, edge, quantize_io_info = to_edge_quantized_io(
-        args.target,
-        exported_program,
-        ref._get_compile_spec(args),
-        model,
-        quant_mode,
-        example_inputs,
-        args.model_name,
-        args.strict_export,
-        calibration_samples,
-        args.direct_drive,
-    )
+    if is_cortex_m:
+        model_quant, edge, quantize_io_info = to_edge_cortex_m_quantized_io(
+            args, exported_program, model, example_inputs, calibration_samples
+        )
+    else:
+        model_quant, edge, quantize_io_info = to_edge_quantized_io(
+            args.target,
+            exported_program,
+            ref._get_compile_spec(args),
+            model,
+            quant_mode,
+            example_inputs,
+            args.model_name,
+            args.strict_export,
+            calibration_samples,
+            args.direct_drive,
+        )
 
     ref.dump_delegation_info(edge, args.intermediates)
 
@@ -148,7 +215,12 @@ def main():
         config=ref.ExecutorchBackendConfig(extract_delegate_segments=False)
     )
 
-    output_path = args.output or f"{model_name}_arm_delegate_{args.target}.pte"
+    default_name = (
+        f"{model_name}_arm_{args.target}.pte"
+        if is_cortex_m
+        else f"{model_name}_arm_delegate_{args.target}.pte"
+    )
+    output_path = args.output or default_name
     ref.save_pte_program(exec_prog, output_path)
     print(f"PTE file saved as {output_path}")
 
