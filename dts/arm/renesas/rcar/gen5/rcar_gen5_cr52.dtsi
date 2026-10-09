@@ -401,6 +401,186 @@
 			status = "disabled";
 		};
 
+		gptp_rsw3: gptp@c9c88000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9c88000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <687500000>;
+
+			gptp_rsw3_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_rsw3_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes0: gptp@c9ca0000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca0000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes0_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes0_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes1: gptp@c9ca1000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca1000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes1_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes1_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes2: gptp@c9ca2000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca2000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes2_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes2_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes3: gptp@c9ca3000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca3000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes3_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes3_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes4: gptp@c9ca4000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca4000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes4_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes4_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes5: gptp@c9ca5000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca5000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes5_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes5_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes6: gptp@c9ca6000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca6000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes6_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes6_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
+		gptp_tsnes7: gptp@c9ca7000 {
+			compatible = "renesas,rcar-ptp-clock";
+			reg = <0xc9ca7000 0x800>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-frequency = <320833333>;
+
+			gptp_tsnes7_ch0: gptp@0 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <0>;
+				status = "disabled";
+			};
+
+			gptp_tsnes7_ch1: gptp@1 {
+				compatible = "renesas,rcar-ptp-clock-channel";
+				reg = <1>;
+				status = "disabled";
+			};
+		};
+
 		scif1: serial@c0704000 {
 			compatible = "renesas,rcar-scif";
 			reg = <0xc0704000 0x64>;
