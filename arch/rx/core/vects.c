@@ -26,6 +26,20 @@ extern void z_rx_irq_exit(void);
 #define CONFIG_GEN_IRQ_START_VECTOR 0
 #endif
 
+enum k_fatal_error_reason_rx {
+	K_ERR_PRIVILEGED_INSTRUCTION = K_ERR_ARCH_START,
+	K_ERR_ACCESS,
+	K_ERR_UNDEFINED_INSTRUCTION,
+	K_ERR_ADDRESS,
+	K_ERR_FLOATING_POINT,
+	K_ERR_NON_MASKABLE_INTERRUPT,
+	/* RX74x specific exceptions */
+	K_ERR_SECURE,
+	K_ERR_WORLD_TRANSITION_ACCEPTANCE,
+	/* Should never happen according to specification */
+	K_ERR_RESERVED,
+};
+
 #ifndef SOC_RX_MDE
 #define SOC_RX_MDE (0xFFFFFFFFUL)
 #endif
@@ -73,9 +87,9 @@ static ALWAYS_INLINE void REGISTER_SAVE(void)
 #endif
 
 #if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
-            /* Save the DPFPU context, always. */
-            "DPUSHM.D	DR0-DR15					\n"
-            "DPUSHM.L	DPSW-DECNT					\n"
+		/* Save the DPFPU context, always. */
+		"DPUSHM.D	DR0-DR15					\n"
+		"DPUSHM.L	DPSW-DECNT					\n"
 
 #endif
 
@@ -92,7 +106,6 @@ static ALWAYS_INLINE void REGISTER_SAVE(void)
 		"PUSH.L		R15			\n"
 #endif
 	);
-
 }
 
 static ALWAYS_INLINE void REGISTER_RESTORE_EXIT(void)
@@ -100,9 +113,9 @@ static ALWAYS_INLINE void REGISTER_RESTORE_EXIT(void)
 	__asm volatile(
 
 #if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
-            /* Restore the DPFPU context, always. */
-            "DPOPM.L	DPSW-DECNT					\n"
-            "DPOPM.D	DR0-DR15					\n"
+		/* Restore the DPFPU context, always. */
+		"DPOPM.L	DPSW-DECNT					\n"
+		"DPOPM.D	DR0-DR15					\n"
 #endif
 
 #if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
@@ -150,17 +163,20 @@ static ALWAYS_INLINE void REGISTER_RESTORE_EXIT(void)
 #endif
 #endif
 		"POPM		R1-R15			\n"
-		"RTE 					\n"
-	);
-
+		"RTE 					\n");
 }
 
-/* Privileged instruction execption */
+/* Privileged instruction exception */
 static void __ISR__ INT_Excep_SuperVisorInst(void)
 {
 	REGISTER_SAVE();
+
+	/* REGISTER_SAVE() prepares the structure on the stack, just point to it. */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
 	ISR_DIRECT_HEADER();
-	z_rx_fatal_error(K_ERR_CPU_EXCEPTION, NULL);
+
+	z_rx_fatal_error(K_ERR_PRIVILEGED_INSTRUCTION, esf);
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
@@ -169,8 +185,13 @@ static void __ISR__ INT_Excep_SuperVisorInst(void)
 static void __ISR__ INT_Excep_AccessInst(void)
 {
 	REGISTER_SAVE();
+
+	/* REGISTER_SAVE() prepares the structure on the stack, just point to it. */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
 	ISR_DIRECT_HEADER();
-	z_rx_fatal_error(K_ERR_CPU_EXCEPTION, NULL);
+
+	z_rx_fatal_error(K_ERR_ACCESS, esf);
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
@@ -179,8 +200,13 @@ static void __ISR__ INT_Excep_AccessInst(void)
 static void __ISR__ INT_Excep_UndefinedInst(void)
 {
 	REGISTER_SAVE();
+
+	/* REGISTER_SAVE() prepares the structure on the stack, just point to it. */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
 	ISR_DIRECT_HEADER();
-	z_rx_fatal_error(K_ERR_CPU_EXCEPTION, NULL);
+
+	z_rx_fatal_error(K_ERR_UNDEFINED_INSTRUCTION, esf);
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
@@ -189,8 +215,13 @@ static void __ISR__ INT_Excep_UndefinedInst(void)
 static void __ISR__ INT_Excep_FloatingPoint(void)
 {
 	REGISTER_SAVE();
+
+	/* REGISTER_SAVE() prepares the structure on the stack, just point to it. */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
 	ISR_DIRECT_HEADER();
-	z_rx_fatal_error(K_ERR_CPU_EXCEPTION, NULL);
+
+	z_rx_fatal_error(K_ERR_FLOATING_POINT, esf);
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
@@ -205,6 +236,7 @@ static void __ISR__ INT_NonMaskableInterrupt(void)
 	REGISTER_RESTORE_EXIT();
 }
 
+#if !defined(CONFIG_SOC_SERIES_RX74M) && !defined(CONFIG_SOC_SERIES_RX74N)
 /* dummy function */
 static void __ISR__ Dummy(void)
 {
@@ -213,7 +245,7 @@ static void __ISR__ Dummy(void)
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
-
+#endif
 /**
  * @brief select Zephyr ISR and argument from software ISR table and call
  * function
@@ -234,8 +266,13 @@ static ALWAYS_INLINE void handle_interrupt(uint8_t irq)
 static void __ISR__ reserved_isr(void)
 {
 	REGISTER_SAVE();
+
+	/* REGISTER_SAVE() prepares the structure on the stack, just point to it. */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
 	ISR_DIRECT_HEADER();
-	z_fatal_error(K_ERR_CPU_EXCEPTION, NULL);
+
+	z_fatal_error(K_ERR_CPU_EXCEPTION, esf);
 	ISR_DIRECT_FOOTER(1);
 	REGISTER_RESTORE_EXIT();
 }
@@ -576,8 +613,142 @@ const void *FixedVectors[] FVECT_SECT = {
  */
 const FVECT_SECT void *resetVector = _start;
 
+#if defined(CONFIG_SOC_SERIES_RX74M) || defined(CONFIG_SOC_SERIES_RX74N)
+
+/* Security exception */
+static void __ISR__ INT_Excep_Secure(void)
+{
+	REGISTER_SAVE();
+
+	/* PSW and PC are saved by the hardware handler and
+	 * REGISTER_SAVE() prepares the rest of the structure on the stack, just point to it.
+	 */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
+	ISR_DIRECT_HEADER();
+
+	/* TODO: Make use of SESTS and SEA registers to get more information about the exception. */
+	z_rx_fatal_error(K_ERR_SECURE, esf);
+	ISR_DIRECT_FOOTER(1);
+	REGISTER_RESTORE_EXIT();
+}
+
+/* World transition acceptance */
+static void __ISR__ INT_Excep_WorldTransitionAccept(void)
+{
+	REGISTER_SAVE();
+
+	/* PSW and PC are saved by the hardware handler and
+	 * REGISTER_SAVE() prepares the rest of the structure on the stack, just point to it.
+	 */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
+	ISR_DIRECT_HEADER();
+
+	/* The NMI is used for fatal faults only and cannot return to the interrupted program
+	 * when its destination world is Secure or Non-secure (RX74M User's Manual, 14.1.7).
+	 */
+	z_rx_fatal_error(K_ERR_WORLD_TRANSITION_ACCEPTANCE, esf);
+	ISR_DIRECT_FOOTER(1);
+	REGISTER_RESTORE_EXIT();
+}
+
+/* Address exception */
+static void __ISR__ INT_Excep_Address(void)
+{
+	REGISTER_SAVE();
+
+	/* PSW and PC are saved by the hardware handler and
+	 * REGISTER_SAVE() prepares the rest of the structure on the stack, just point to it.
+	 */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
+	ISR_DIRECT_HEADER();
+
+	z_rx_fatal_error(K_ERR_ADDRESS, esf);
+	ISR_DIRECT_FOOTER(1);
+	REGISTER_RESTORE_EXIT();
+}
+
+/* Reserved exception, used to make sure CPU doesn't jump to an invalid address */
+static void __ISR__ INT_Excep_Reserved(void)
+{
+	REGISTER_SAVE();
+
+	/* PSW and PC are saved by the hardware handler and
+	 * REGISTER_SAVE() prepares the rest of the structure on the stack, just point to it.
+	 */
+	register const struct arch_esf *esf;
+	__asm__ volatile("mov r0, %0" : "=r"(esf));
+	ISR_DIRECT_HEADER();
+
+	z_rx_fatal_error(K_ERR_RESERVED, esf);
+	ISR_DIRECT_FOOTER(1);
+	REGISTER_RESTORE_EXIT();
+}
+
+/* Exception vector table (RX74M User's Manual, 2.6.1)
+ * The vectors of the secure exception and of the world-transition NMI are only allocated to the
+ * table specified by EXTB_TR (Root world). The tables of the other worlds (EXTB_S, EXTB_NS) do
+ * not have these entries.
+ */
+const void *ExceptVectors[] EXVECT_SECT = {
+	/* 0x00-0x04: Reserved */
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	/* 0x08: Secure exception (RX74M User's Manual, 14.5.12) */
+	INT_Excep_Secure,
+	/* 0x0c - 0x14: Reserved */
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	/* 0x18: Non-maskable interrupt, world-transition acceptance (RX74M User's Manual,
+	 * 14.5.10)
+	 */
+	INT_Excep_WorldTransitionAccept,
+	/* 0x1c - 0x4c: Reserved */
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	/* 0x50: Privileged instruction exception */
+	INT_Excep_SuperVisorInst,
+	/* 0x54: Access exception */
+	INT_Excep_AccessInst,
+	/* 0x58: Reserved */
+	INT_Excep_Reserved,
+	/* 0x5c: Undefined Instruction Exception */
+	INT_Excep_UndefinedInst,
+	/* 0x60: Address Exception */
+	INT_Excep_Address,
+	/* 0x64: Floating Point Exception */
+	INT_Excep_FloatingPoint,
+	/* 0x68-0x74: Reserved */
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	INT_Excep_Reserved,
+	/* 0x78: Non-maskable interrupt */
+	INT_NonMaskableInterrupt,
+};
+
+#else
+
 /* Exception vector table
  * (see rx-family-rxv2-instruction-set-architecture-users-manual-software)
+ */
+
+/* Used by the SoCs with CONFIG_HAS_EXCEPT_VECTOR_TABLE other than the (RXv3E), whose
+ * exception table is different (see above).
  */
 const void *ExceptVectors[] EXVECT_SECT = {
 	/* 0x00-0x4c: Reserved, must be 0xff (according to e2 studio example) */
@@ -621,6 +792,8 @@ const void *ExceptVectors[] EXVECT_SECT = {
 	/* 0x78: Non-maskable interrupt */
 	INT_NonMaskableInterrupt,
 };
+
+#endif
 #endif
 
 const fp RelocatableVectors[] RVECT_SECT = {
