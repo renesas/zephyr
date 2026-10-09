@@ -201,12 +201,17 @@
 	ref-repeat-clk-en = <0x00>;
 };
 
+&gptp_tsnes4_ch0 {
+	status = "okay";
+};
+
 &tsnes4 {
 	pinctrl-0 = <&tsnes4_match_default
 		     &tsnes4_pps_default
 		     &tsnes4_capture_default>;
 	pinctrl-names = "default";
 	local-mac-address = [74 90 50 48 df 57];
+	ptp-clock = <&gptp_tsnes4_ch0>;
 	status = "disabled";
 };
 
