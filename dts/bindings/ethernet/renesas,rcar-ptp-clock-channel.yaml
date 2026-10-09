@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car PTP (Precision Time Protocol) Clock Channel
+
+compatible: "renesas,rcar-ptp-clock-channel"
+
+include: ["base.yaml"]
+
+properties:
+  reg:
+    required: true

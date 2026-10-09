@@ -11,6 +11,7 @@ if PTP_CLOCK
 # zephyr-keep-sorted-start
 source "drivers/ptp_clock/Kconfig.nxp_enet"
 source "drivers/ptp_clock/Kconfig.nxp_netc"
+source "drivers/ptp_clock/Kconfig.renesas_rcar"
 # zephyr-keep-sorted-stop
 
 config PTP_CLOCK_INIT_PRIORITY

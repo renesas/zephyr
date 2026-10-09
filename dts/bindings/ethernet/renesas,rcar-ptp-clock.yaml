@@ -1,0 +1,17 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas R-Car PTP (Precision Time Protocol) Clock
+
+compatible: "renesas,rcar-ptp-clock"
+
+include: ["base.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  clock-frequency:
+    type: int
+    required: true
+    description: Nominal Clock Frequency of PTP Clock

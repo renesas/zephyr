@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PTP_CLOCK_RENESAS_RCAR
+	bool "Renesas R-Car PTP Clock driver"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_PTP_CLOCK_CHANNEL_ENABLED
+	depends on NET_L2_PTP
+	depends on ETH_RENESAS_RCARSOC_TSNES
+	help
+	  Enable Renesas R-Car PTP Clock support.
