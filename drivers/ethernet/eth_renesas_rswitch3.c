@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
+
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/phy.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/sys/sys_io.h>
 #include <zephyr/sys/util.h>
 #include "eth_renesas_rswitch3.h"
-
-LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
 
 #define DT_DRV_COMPAT renesas_rcarsoc_rswitch3
 

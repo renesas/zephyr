@@ -62,6 +62,21 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 	static uint8_t eth_tsnes_##n##_init_dummy_buf[2048] ETH_RAM_SECTION                        \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+#define ETH_TSNES_INIT_TIMESTAMP_DESC_RING(n)                                                      \
+	static struct eth_tsnes_basic_desc_with_ts                                                 \
+		eth_tsnes_##n##_ts_desc_ring[ETH_MAX_TS_DESC_NUM + 1] ETH_RAM_SECTION              \
+		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
+
+#define ETH_TSNES_INIT_TS_PKT_NODES(n)                                                             \
+	static struct eth_tsnes_ts_pkt_mgmt                                                        \
+		eth_tsnes_##n##_ts_pkt_nodes[ETH_MAX_TS_DESC_NUM] ETH_RAM_SECTION                  \
+		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
+#else
+#define ETH_TSNES_INIT_TIMESTAMP_DESC_RING(n)
+#define ETH_TSNES_INIT_TS_PKT_NODES(n)
+#endif
+
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
 #define TSNES_CACHE_LINE_SIZE 64
 
@@ -109,8 +124,8 @@ static void eth_tsnes_rx_dma_destroy(struct net_buf *buf)
 		desc->info_ds = MIN(meta->queue->buf_nodes[meta->desc_idx].buf_size, 0xFFF);
 		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 		desc->info = 0;
-		desc->Info1[0] = 0;
-		desc->Info1[1] = 0;
+		desc->info1[0] = 0;
+		desc->info1[1] = 0;
 		desc->tsns = 0;
 		desc->tss = 0;
 
@@ -189,7 +204,9 @@ static int eth_tsnes_alloc_queue_descriptors(const struct device *dev,
 	queue->tail_idx = 0;
 
 	memset(queue->desc_ring, 0, count * desc_size);
-	memset(queue->buf_nodes, 0, count * sizeof(struct eth_tsnes_buf_mgmt));
+	if (buf_nodes != NULL) {
+		memset(queue->buf_nodes, 0, count * sizeof(struct eth_tsnes_buf_mgmt));
+	}
 
 	return 0;
 }
@@ -223,8 +240,44 @@ static int eth_tsnes_alloc_queues(const struct device *dev)
 		}
 	}
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	ret = eth_tsnes_alloc_queue_descriptors(dev, &data->ts_queues[0], ETH_MAX_TS_DESC_NUM + 1,
+						sizeof(struct eth_tsnes_basic_desc_with_ts),
+						cfg->ts_desc_rings[0], NULL);
+	if (ret) {
+		return ret;
+	}
+#endif
+
 	return 0;
 }
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+bool eth_tsnes_is_ptp_pkt(struct net_if *iface, struct net_pkt *pkt)
+{
+	if (net_ntohs(NET_ETH_HDR(pkt)->type) != NET_ETH_PTYPE_PTP) {
+		return false;
+	}
+
+	net_pkt_set_priority(pkt, NET_PRIORITY_CA);
+
+	return true;
+}
+
+static inline bool eth_tsnes_should_capture_tx_ts(struct net_pkt *pkt)
+{
+	return eth_tsnes_is_ptp_pkt(net_pkt_iface(pkt), pkt) || net_pkt_is_tx_timestamping(pkt);
+}
+
+static inline void eth_tsnes_enable_tx_capture(void *tx_desc, uint8_t channel, uint8_t unique_index)
+{
+	struct eth_tsnes_ext_desc *base = (struct eth_tsnes_ext_desc *)tx_desc;
+
+	base->info_ds |= ETH_DESC_TX_CAPTURE;
+	base->info = unique_index;
+	base->die_dt = (base->die_dt & ~0x1U) | (channel & 0x1U);
+}
+#endif
 
 static int eth_tsnes_mhd_mode_setting(volatile eth_tsnes_mhd_reg_t *mhd, uint32_t mode)
 {
@@ -302,9 +355,9 @@ static int eth_tsnes_setup_tx_descriptors(const struct device *dev)
 			desc->die_dt = ETH_DESC_FEMPTY;
 			desc->info_ds = 0;
 			desc->info = 0;
-			desc->Dptr = (uint32_t)(uintptr_t)buf;
-			desc->Info1[0] = 0;
-			desc->Info1[1] = 0;
+			desc->dptr = (uint32_t)(uintptr_t)buf;
+			desc->info1[0] = 0;
+			desc->info1[1] = 0;
 
 			queue->buf_nodes[j].buf_addr = (uintptr_t)buf;
 			queue->buf_nodes[j].buf_size = data->max_frame_size;
@@ -313,9 +366,9 @@ static int eth_tsnes_setup_tx_descriptors(const struct device *dev)
 		ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
 		ring[queue->desc_count - 1].info_ds = 0;
 		ring[queue->desc_count - 1].info = 0;
-		ring[queue->desc_count - 1].Dptr = (uint32_t)(uintptr_t)&ring[0];
-		ring[queue->desc_count - 1].Info1[0] = 0;
-		ring[queue->desc_count - 1].Info1[1] = 0;
+		ring[queue->desc_count - 1].dptr = (uint32_t)(uintptr_t)&ring[0];
+		ring[queue->desc_count - 1].info1[0] = 0;
+		ring[queue->desc_count - 1].info1[1] = 0;
 
 		tsnes_dcache_flush((uintptr_t)ring,
 				   queue->desc_count * sizeof(struct eth_tsnes_ext_desc));
@@ -352,9 +405,9 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 			desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 			desc->info_ds = MIN(data->max_frame_size, 0xFFF);
 			desc->info = 0;
-			desc->Dptr = (uint32_t)(uintptr_t)buf;
-			desc->Info1[0] = 0;
-			desc->Info1[1] = 0;
+			desc->dptr = (uint32_t)(uintptr_t)buf;
+			desc->info1[0] = 0;
+			desc->info1[1] = 0;
 			desc->tsns = 0;
 			desc->tss = 0;
 
@@ -366,9 +419,9 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 		ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
 		ring[queue->desc_count - 1].info_ds = 0;
 		ring[queue->desc_count - 1].info = 0;
-		ring[queue->desc_count - 1].Dptr = (uint32_t)(uintptr_t)&ring[0];
-		ring[queue->desc_count - 1].Info1[0] = 0;
-		ring[queue->desc_count - 1].Info1[1] = 0;
+		ring[queue->desc_count - 1].dptr = (uint32_t)(uintptr_t)&ring[0];
+		ring[queue->desc_count - 1].info1[0] = 0;
+		ring[queue->desc_count - 1].info1[1] = 0;
 		ring[queue->desc_count - 1].tsns = 0;
 		ring[queue->desc_count - 1].tss = 0;
 
@@ -382,6 +435,48 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 	}
 	return 0;
 }
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+static int eth_tsnes_setup_ts_descriptors(const struct device *dev)
+{
+	struct eth_tsnes_data *data = dev->data;
+	const struct eth_tsnes_config *cfg = dev->config;
+	volatile eth_tsnes_axibmi_reg_t *axi = &cfg->tsnes_base->stAXIBMI;
+	int i;
+
+	struct eth_tsnes_queue *queue = &data->ts_queues[0];
+	struct eth_tsnes_basic_desc_with_ts *ring =
+		(struct eth_tsnes_basic_desc_with_ts *)queue->desc_ring;
+	struct eth_tsnes_basic_desc_with_ts *desc;
+
+	for (i = 0; i < queue->desc_count; i++) {
+		desc = &ring[i];
+
+		desc->die_dt = ETH_DESC_FEMPTY_ND | ETH_DESC_DIE;
+		desc->info_ds = 0;
+		desc->info = 0;
+		desc->dptr = 0;
+		desc->tsns = 0;
+		desc->tss = 0;
+	}
+
+	/* Link last to first */
+	ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+	ring[queue->desc_count - 1].info_ds = 0;
+	ring[queue->desc_count - 1].info = 0;
+	ring[queue->desc_count - 1].dptr = (uint32_t)(uintptr_t)&ring[0];
+	ring[queue->desc_count - 1].tsns = 0;
+	ring[queue->desc_count - 1].tss = 0;
+
+	tsnes_dcache_flush((uintptr_t)ring,
+			   queue->desc_count * sizeof(struct eth_tsnes_basic_desc_with_ts));
+
+	axi->stTSD[0].TSSs = ETH_TSNES_TS_DESC_CHAIN_VALID;
+	axi->stTSD[0].TSAs = (uint32_t)(uintptr_t)&ring[0];
+
+	return 0;
+}
+#endif
 
 static int eth_tsnes_axibmi_init(const struct device *dev)
 {
@@ -424,6 +519,13 @@ static int eth_tsnes_axibmi_init(const struct device *dev)
 	if (ret) {
 		return ret;
 	}
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	ret = eth_tsnes_setup_ts_descriptors(dev);
+	if (ret) {
+		return ret;
+	}
+#endif
 
 	axi->DIE = ETH_TSNES_DIE_CONFIG;
 	axi->TSDIE = ETH_TSNES_TSDIE_CONFIG;
@@ -496,7 +598,11 @@ static void eth_tsnes_rmac_init(const struct device *dev)
 	rmac->MRFSCE = data->max_frame_size;
 	rmac->MRFSCP = data->max_frame_size;
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	rmac->MTRC = 0x00020000UL | (cfg->ptp_clock_channel << 28);
+#else
 	rmac->MTRC = 0x03020000UL;
+#endif
 
 	rmac->MRSCE = 0x003F003FUL; /* FSP ETH_TSNES_MRSCE_CONFIG */
 	rmac->MRSCP = 0x003F003FUL; /* FSP ETH_TSNES_MRSCP_CONFIG */
@@ -563,27 +669,27 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 		desc->die_dt = ETH_DESC_FSTART;
 		desc->info_ds = (2048 & 0xFFF);
 		desc->info = 0;
-		desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
-		desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
-		desc->Info1[1] = 0;
+		desc->dptr = (uint32_t)(uintptr_t)dummy_buf;
+		desc->info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
+		desc->info1[1] = 0;
 		desc++;
 
 		for (j = 0; j < 6; j++) {
 			desc->die_dt = ETH_DESC_FMID;
 			desc->info_ds = (2048 & 0xFFF);
 			desc->info = 0;
-			desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
-			desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
-			desc->Info1[1] = 0;
+			desc->dptr = (uint32_t)(uintptr_t)dummy_buf;
+			desc->info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
+			desc->info1[1] = 0;
 			desc++;
 		}
 
 		desc->die_dt = ETH_DESC_FEND;
 		desc->info_ds = (2048 & 0xFFF);
 		desc->info = 0;
-		desc->Dptr = (uint32_t)(uintptr_t)dummy_buf;
-		desc->Info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
-		desc->Info1[1] = 0;
+		desc->dptr = (uint32_t)(uintptr_t)dummy_buf;
+		desc->info1[0] = ETH_TSNES_INIT_FRAME_LENGTH;
+		desc->info1[1] = 0;
 		desc++;
 	}
 
@@ -591,9 +697,9 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 	desc->die_dt = ETH_DESC_EOS | ETH_DESC_DIE;
 	desc->info_ds = 0;
 	desc->info = 0;
-	desc->Dptr = (uint32_t)(uintptr_t)desc_chain;
-	desc->Info1[0] = 0;
-	desc->Info1[1] = 0;
+	desc->dptr = (uint32_t)(uintptr_t)desc_chain;
+	desc->info1[0] = 0;
+	desc->info1[1] = 0;
 
 	tsnes_dcache_flush((uintptr_t)desc_chain, 17 * sizeof(struct eth_tsnes_ext_desc));
 
@@ -774,6 +880,14 @@ static void eth_tsnes_ctrl_data_irq(const struct device *dev, bool enable)
 		axi->stRXDI[0].RDIDi = ETH_TSNES_RDIE0_CONFIG;
 		axi->stRXDFEI[0].RFEIDi = ETH_TSNES_RFEIE0_CONFIG;
 	}
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	if (enable) {
+		axi->TSDIE = ETH_TSNES_TSDIE_CONFIG;
+	} else {
+		axi->TSDID = ETH_TSNES_TSDIE_CONFIG;
+	}
+#endif
 }
 
 static void eth_tsnes_process_rx_full(const struct device *dev, uint32_t rxfull_stat)
@@ -823,6 +937,72 @@ static bool eth_tsnes_rx_queue_drained(struct eth_tsnes_queue *queue)
 	return true;
 }
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+static void eth_tsnes_process_tx_ts_read(const struct device *dev)
+{
+	struct eth_tsnes_data *data = dev->data;
+	const struct eth_tsnes_config *cfg = dev->config;
+	struct eth_tsnes_queue *queue = &data->ts_queues[0];
+	struct eth_tsnes_basic_desc_with_ts *ring = queue->desc_ring;
+	k_spinlock_key_t key;
+
+	for (uint32_t i = 0; i < queue->desc_count - 1; i++) {
+		struct eth_tsnes_basic_desc_with_ts *desc;
+		struct net_pkt *pkt;
+		uint8_t tsun;
+
+		desc = &ring[queue->head_idx];
+
+		key = k_spin_lock(&queue->lock);
+		tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
+
+		if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
+			break;
+		}
+
+		tsun = desc->info;
+
+		if (tsun >= queue->desc_count) {
+			LOG_ERR("TS queue invalid TSUN %u", tsun);
+			goto recycle;
+		}
+
+		k_spin_unlock(&queue->lock, key);
+
+		key = k_spin_lock(&data->lock);
+		pkt = cfg->ts_pkt_nodes[0][tsun].pkt;
+		if (pkt) {
+			pkt->timestamp.nanosecond = desc->tsns;
+			pkt->timestamp.second = desc->tss;
+
+			net_if_add_tx_timestamp(pkt);
+			net_pkt_unref(pkt);
+
+			cfg->ts_pkt_nodes[0][tsun].pkt = NULL;
+		}
+
+		k_spin_unlock(&data->lock, key);
+
+recycle:
+		key = k_spin_lock(&queue->lock);
+		desc->die_dt = ETH_DESC_FEMPTY_ND | ETH_DESC_DIE;
+		desc->info_ds = 0;
+		desc->info = 0;
+		desc->dptr = 0;
+		desc->tsns = 0;
+		desc->tss = 0;
+		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+		k_spin_unlock(&queue->lock, key);
+
+		queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
+	}
+
+	/* Change the last desc to LINK because HW changed it to LEMPTY after process */
+	ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+	tsnes_dcache_flush((uintptr_t)&ring[queue->desc_count - 1], sizeof(*ring));
+}
+#endif
+
 static void eth_tsnes_process_work_handler(struct k_work *work)
 {
 	struct eth_tsnes_data *data = CONTAINER_OF(work, struct eth_tsnes_data, process_work);
@@ -851,6 +1031,12 @@ static void eth_tsnes_process_work_handler(struct k_work *work)
 		eth_tsnes_process_rx_full(dev, rxfull_status);
 	}
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	if (status & 8) {
+		eth_tsnes_process_tx_ts_read(dev);
+	}
+#endif
+
 	eth_tsnes_ctrl_data_irq(dev, true);
 }
 
@@ -862,22 +1048,27 @@ static void eth_tsnes_isr(const struct device *dev)
 	uint32_t txi_stat = axi->stTXDI[0].TDISi;
 	uint32_t rxi_stat = axi->stRXDI[0].RDISi;
 	uint32_t rxfull_stat = axi->stRXDFEI[0].RFEISi;
+	uint32_t tsi_stat = axi->TSDIS;
 
-	if (txi_stat || rxi_stat || rxfull_stat) {
+	if (txi_stat || rxi_stat || rxfull_stat || (tsi_stat != 0U)) {
 		axi->stTXDI[0].TDISi = txi_stat;
 		axi->stRXDI[0].RDISi = rxi_stat;
 		axi->stRXDFEI[0].RFEISi = rxfull_stat;
+		axi->TSDIS = tsi_stat;
 
 		eth_tsnes_ctrl_data_irq(dev, false);
 
 		data->pending_irq_status |=
 			(txi_stat ? 1 : 0) | ((rxi_stat ? 1 : 0) << 1) | (rxfull_stat ? 4 : 0);
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+		data->pending_irq_status |= (tsi_stat ? 8 : 0);
+#endif
 		data->pending_rxfull_status |= rxfull_stat;
 
 		k_work_submit(&data->process_work);
 	}
 
-	if (!txi_stat && !rxi_stat && !rxfull_stat) {
+	if (!txi_stat && !rxi_stat && !rxfull_stat && !tsi_stat) {
 		LOG_INF("error signal interrupt!");
 	}
 }
@@ -924,10 +1115,10 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 
 	k_spin_unlock(&queue->lock, key);
 
-	tsnes_dcache_invalidate((uintptr_t)desc->Dptr, tsnes_cache_align_size(pkt_len));
+	tsnes_dcache_invalidate((uintptr_t)desc->dptr, tsnes_cache_align_size(pkt_len));
 
 	LOG_DBG("RX desc %u: len=%u", desc_idx, pkt_len);
-	LOG_HEXDUMP_DBG((uint8_t *)(uintptr_t)desc->Dptr, pkt_len, "RX packet data");
+	LOG_HEXDUMP_DBG((uint8_t *)(uintptr_t)desc->dptr, pkt_len, "RX packet data");
 
 	pkt = net_pkt_rx_alloc_on_iface(data->iface, K_NO_WAIT);
 	if (!pkt) {
@@ -937,7 +1128,7 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 		goto rx_done;
 	}
 
-	buf = net_buf_alloc_with_data(&eth_tsnes_rx_dma_pool, (void *)(uintptr_t)desc->Dptr,
+	buf = net_buf_alloc_with_data(&eth_tsnes_rx_dma_pool, (void *)(uintptr_t)desc->dptr,
 				      pkt_len, K_NO_WAIT);
 	if (!buf) {
 		net_pkt_unref(pkt);
@@ -956,8 +1147,12 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	queue->stats.rx_packets++;
 	queue->stats.rx_bytes += pkt_len;
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	pkt->timestamp.nanosecond = desc->tsns;
+	pkt->timestamp.second = desc->tss;
+#endif
+
 	net_recv_data(data->iface, pkt);
-	ret = 0;
 
 rx_done:
 	if (ret < 0) {
@@ -965,8 +1160,8 @@ rx_done:
 		desc->info_ds = MIN(data->max_frame_size, 0xFFF);
 		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 		desc->info = 0;
-		desc->Info1[0] = 0;
-		desc->Info1[1] = 0;
+		desc->info1[0] = 0;
+		desc->info1[1] = 0;
 		desc->tsns = 0;
 		desc->tss = 0;
 		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
@@ -1059,6 +1254,9 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	uint32_t next_tail_idx;
 	k_spinlock_key_t key;
 	volatile eth_tsnes_axibmi_reg_t *axi = &cfg->tsnes_base->stAXIBMI;
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	bool is_ptp_tx = eth_tsnes_should_capture_tx_ts(pkt);
+#endif
 
 	if (!data->is_started) {
 		LOG_ERR("data->is_started");
@@ -1103,14 +1301,37 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 		return -EIO;
 	}
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	if (is_ptp_tx) {
+		net_pkt_ref(pkt);
+	}
+#endif
+
 	tsnes_dcache_flush((uintptr_t)buf, tsnes_cache_align_size(pkt_len));
 
 	desc->info = 0;
 	desc->info_ds = pkt_len & 0xFFF;
-	desc->Dptr = (uint32_t)(uintptr_t)buf;
-	desc->Info1[0] = pkt_len; /* Tx Frame Length (TFL) */
-	desc->Info1[1] = 0;
-	desc->die_dt = ETH_DESC_FSINGLE | ETH_DESC_DIE; /* Hand over to HW */
+	desc->dptr = (uint32_t)(uintptr_t)buf;
+	desc->info1[0] = pkt_len; /* Tx Frame Length (TFL) */
+	desc->info1[1] = 0;
+	desc->die_dt = ETH_DESC_DIE;
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	if (is_ptp_tx) {
+		if (cfg->ts_pkt_nodes[0][data->unique_index].pkt != NULL) {
+			LOG_WRN("TX timestamp slot %d full, dropping packet for q0",
+				data->unique_index);
+			net_pkt_unref(pkt);
+			k_spin_unlock(&data->lock, key);
+			return -ENOBUFS;
+		}
+
+		eth_tsnes_enable_tx_capture(desc, cfg->ptp_clock_channel, data->unique_index);
+		cfg->ts_pkt_nodes[0][data->unique_index].pkt = pkt;
+		data->unique_index = (data->unique_index + 1) % ETH_MAX_TS_DESC_NUM;
+	}
+#endif
+	desc->die_dt |= ETH_DESC_FSINGLE; /* Hand over to HW */
 
 	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
 
@@ -1148,6 +1369,9 @@ static enum ethernet_hw_caps eth_tsnes_caps(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 	return ETHERNET_LINK_10BASE | ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE |
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	       ETHERNET_PTP |
+#endif
 	       ETHERNET_LINK_2500BASE;
 }
 
@@ -1180,12 +1404,24 @@ static struct net_stats_eth *eth_tsnes_stats(const struct device *dev)
 }
 #endif
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+static const struct device *eth_tsnes_get_ptp_clock(const struct device *dev)
+{
+	const struct eth_tsnes_config *cfg = dev->config;
+
+	return cfg->ptp_clock;
+}
+#endif
+
 static const struct ethernet_api eth_tsnes_api = {
 	.iface_api.init = eth_tsnes_iface_init,
 	.get_capabilities = eth_tsnes_caps,
 	.send = eth_tsnes_tx,
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	.get_stats = eth_tsnes_stats,
+#endif
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	.get_ptp_clock = eth_tsnes_get_ptp_clock,
 #endif
 };
 
@@ -1266,15 +1502,15 @@ static int eth_tsnes_init(const struct device *dev)
 }
 
 #define ETH_TSNES_INIT_DESC(n)                                                                     \
-	.rx_desc_rings = {LISTIFY(DT_INST_PROP(n, rx_queues),                    \
+	.rx_desc_rings = {LISTIFY(DT_INST_PROP(n, rx_queues),                                      \
 				ETH_TSNES_RX_DESC_RING_PTR, (), n)},     \
-			  .tx_desc_rings = {LISTIFY(DT_INST_PROP(n, tx_queues),  \
+			  .tx_desc_rings = {LISTIFY(DT_INST_PROP(n, tx_queues),                    \
 				ETH_TSNES_TX_DESC_RING_PTR, (), n)}
 
 #define ETH_TSNES_INIT_BUF_NODE(n)                                                                 \
-	.rx_buf_nodes = {LISTIFY(DT_INST_PROP(n, rx_queues),\
+	.rx_buf_nodes = {LISTIFY(DT_INST_PROP(n, rx_queues),                                       \
 				  ETH_TSNES_RX_BUF_NODES_PTR, (), n)},      \
-			 .tx_buf_nodes = {LISTIFY(DT_INST_PROP(n, tx_queues),    \
+			 .tx_buf_nodes = {LISTIFY(DT_INST_PROP(n, tx_queues),                      \
 				  ETH_TSNES_TX_BUF_NODES_PTR, (), n)}
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_RSWITCH3
@@ -1284,6 +1520,17 @@ static int eth_tsnes_init(const struct device *dev)
 	.rswitch_fwd_ports = DT_INST_PROP(n, renesas_rswitch_forward_ports),
 #else
 #define ETH_TSNES_SWITCH_INIT(n)
+#endif
+
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+#define RENESAS_RCAR_PTP_DEFINE(n)                                                                 \
+	.ts_desc_rings = {&eth_tsnes_##n##_ts_desc_ring[0]},                                       \
+	.ts_pkt_nodes = {&eth_tsnes_##n##_ts_pkt_nodes[0]},                                        \
+	.ptp_clock = DEVICE_DT_GET(DT_INST_PHANDLE(n, ptp_clock)),                                 \
+	.ptp_clock_channel = DT_REG_ADDR(DT_INST_PHANDLE(n, ptp_clock)),
+#else
+#define RENESAS_RCAR_PTP_DEFINE(n)
+#define PTP_CONFIG_BUILD_ASSERT(n)
 #endif
 
 #define ETH_TSNES_MOD_CLK(n) RCAR_DT_INST_CLOCKS_CELL_BY_NAME(n, module)
@@ -1305,7 +1552,9 @@ static int eth_tsnes_init(const struct device *dev)
 		irq_enable(DT_INST_IRQ_BY_NAME(n, tdis, irq));                                     \
 	}                                                                                          \
 	ETH_TSNES_INIT_DESC_RING(n);                                                               \
+	ETH_TSNES_INIT_TIMESTAMP_DESC_RING(n);                                                     \
 	ETH_TSNES_INIT_BUF_NODES(n);                                                               \
+	ETH_TSNES_INIT_TS_PKT_NODES(n);                                                            \
 	ETH_TSNES_INIT_BUF_POOL(n);                                                                \
 	ETH_TSNES_INIT_DESC_CHAIN(n);                                                              \
 	ETH_TSNES_INIT_DUMMY_BUF(n);                                                               \
@@ -1313,8 +1562,8 @@ static int eth_tsnes_init(const struct device *dev)
 	static const struct eth_tsnes_config eth_tsnes_config_##n = {                              \
 		.tsnes_base = (volatile eth_tsnes_reg_t *)DT_INST_REG_ADDR_BY_NAME(n, tsnes),      \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(n, module)),             \
-		.mod_clk = ETH_TSNES_MOD_CLK(n),                                                \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_NAME(n, module)),                \
+		.mod_clk = ETH_TSNES_MOD_CLK(n),                                                   \
 		.config_irq = eth_tsnes_config_irq_##n,                                            \
 		.mac_addr = DT_INST_PROP_OR(n, local_mac_address, {0}),                            \
 		.num_rx_queues = DT_INST_PROP(n, rx_queues),                                       \
@@ -1326,7 +1575,7 @@ static int eth_tsnes_init(const struct device *dev)
 		.buf_pool = eth_tsnes_##n##_buf_pool,                                              \
 		.init_desc_chain = eth_tsnes_##n##_init_desc_chain,                                \
 		.init_dummy_buf = eth_tsnes_##n##_init_dummy_buf,                                  \
-		ETH_TSNES_SWITCH_INIT(n)};                                                         \
+		ETH_TSNES_SWITCH_INIT(n) RENESAS_RCAR_PTP_DEFINE(n)};                              \
                                                                                                    \
 	static struct eth_tsnes_data eth_tsnes_data_##n;                                           \
                                                                                                    \

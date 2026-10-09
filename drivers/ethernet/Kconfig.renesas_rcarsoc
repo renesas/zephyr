@@ -63,6 +63,15 @@ config ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
 config ETH_RENESAS_RCARSOC_TSNES_CONFIG_LOOPBACK
 	bool "Configuration loopback mode for testing"
 
+config ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+	bool "Timestamp capture for Ethernet TSNES"
+	default y
+	depends on PTP_CLOCK_RENESAS_RCAR
+	help
+		Enable Timestamp capture feature on TSNES
+		Require desired ptp-clock to be enabled
+		and attached through device tree property
+
 endif # ETH_RENESAS_RCARSOC_TSNES
 
 config ETH_RENESAS_RCARSOC_RSWITCH3

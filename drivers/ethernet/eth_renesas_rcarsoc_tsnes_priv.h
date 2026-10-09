@@ -15,6 +15,10 @@
 #include <zephyr/net/net_if.h>
 #include <ethernet/eth_stats.h>
 
+#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+#include <zephyr/drivers/ptp_clock.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +34,8 @@ extern "C" {
 #define ETH_NUM_MAC_FILTERS      32UL
 #define ETH_NUM_TX_QUEUES        8UL
 #define ETH_NUM_RX_QUEUES        32UL
+#define ETH_NUM_TS_QUEUES        1UL
+#define ETH_MAX_TS_DESC_NUM      256UL
 #define ETH_HEADER_SIZE          14UL
 #define ETH_FCS_LENGTH           4UL
 #define ETH_SRC_DST_ADDRESS_SIZE 12UL
@@ -51,6 +57,7 @@ extern "C" {
 #define ETH_DESC_AXIE 0x04
 #define ETH_DESC_DSE  0x02
 
+#define ETH_DESC_TX_CAPTURE   0x4000
 #define ETH_DESC_RX_EI        0x2000
 #define ETH_DESC_FCS_INCLUDED 0x1000
 
@@ -90,6 +97,9 @@ extern "C" {
 #define ETH_TSNES_MHD_CONFIG_MODE       0x00000001UL
 #define ETH_TSNES_MHD_OPERATION_MODE    0x00000002UL
 
+/* Timestamp descriptor chain valid bit */
+#define ETH_TSNES_TS_DESC_CHAIN_VALID BIT(2)
+
 /* MHD Error Interrupt */
 #define ETH_TSNES_TCIE_CONFIG      0x00000400UL
 #define ETH_TSNES_TIE2_CONFIG      0xFF010000UL
@@ -106,20 +116,29 @@ extern "C" {
 	((uint32_t)(val) & ((1 << (uint32_t)(queue_idx)) << (uint32_t)(offset)))
 
 /* TSNES Structures */
+struct eth_tsnes_basic_desc_with_ts {
+	uint16_t info_ds;
+	uint8_t info;
+	volatile uint8_t die_dt;
+	uint32_t dptr;
+	uint32_t tsns;
+	uint32_t tss;
+} __packed;
+
 struct eth_tsnes_ext_desc {
 	uint16_t info_ds;
 	uint8_t info;
 	volatile uint8_t die_dt;
-	uint32_t Dptr;
-	uint32_t Info1[2];
+	uint32_t dptr;
+	uint32_t info1[2];
 } __packed;
 
 struct eth_tsnes_ext_desc_with_ts {
 	uint16_t info_ds;
 	uint8_t info;
 	volatile uint8_t die_dt;
-	uint32_t Dptr;
-	uint32_t Info1[2];
+	uint32_t dptr;
+	uint32_t info1[2];
 	uint32_t tsns;
 	uint32_t tss;
 } __packed;
@@ -644,6 +663,13 @@ struct eth_tsnes_config {
 	uint32_t channel;
 	uint32_t rswitch_if;
 	uint32_t rswitch_fwd_ports;
+
+#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+	void *ts_desc_rings[ETH_NUM_TS_QUEUES];
+	struct eth_tsnes_ts_pkt_mgmt *ts_pkt_nodes[ETH_NUM_TS_QUEUES];
+	const struct device *ptp_clock;
+	uint8_t ptp_clock_channel;
+#endif
 };
 
 /* Zephyr Driver Runtime Data Structure */
@@ -673,6 +699,12 @@ struct eth_tsnes_data {
 	/* Queue management */
 	struct eth_tsnes_queue rx_queues[ETH_NUM_RX_QUEUES];
 	struct eth_tsnes_queue tx_queues[ETH_NUM_TX_QUEUES];
+#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+	struct eth_tsnes_queue ts_queues[ETH_NUM_TS_QUEUES];
+
+	/* Unique number assigned to the next TX timestamp descriptor */
+	uint8_t unique_index;
+#endif
 
 	uint32_t num_rx_queues;
 	uint32_t num_tx_queues;
@@ -691,6 +723,13 @@ struct eth_tsnes_buf_mgmt {
 	uintptr_t buf_addr;
 	uint32_t buf_size;
 };
+
+#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+struct eth_tsnes_ts_pkt_mgmt {
+	/* Store the TX pkt to report TS back */
+	struct net_pkt *pkt;
+};
+#endif
 
 #ifdef __cplusplus
 }

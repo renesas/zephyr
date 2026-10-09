@@ -6,6 +6,11 @@
 
 #define DT_DRV_COMPAT renesas_rcar_rsw3_mdio
 
+
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(renesas_rcar_rsw3_mdio, CONFIG_MDIO_LOG_LEVEL);
+
 #include <stdint.h>
 #include <errno.h>
 #include <zephyr/device.h>
@@ -17,10 +22,6 @@
 #include <zephyr/net/mdio.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/sys/util.h>
-
-#include <zephyr/logging/log.h>
-
-LOG_MODULE_REGISTER(renesas_rcar_rsw3_mdio, CONFIG_MDIO_LOG_LEVEL);
 
 #define RSW3_SLEEP_US   1000
 #define RSW3_TIMEOUT_US 1000000
