@@ -123,6 +123,18 @@ SECTIONS
 	} GROUP_LINK_IN(ROMABLE_REGION)
 #endif
 
+#if !defined(CONFIG_BOOTLOADER_MCUBOOT)
+	SECTION_PROLOGUE(rom_start,,)
+	{
+/* Located in generated directory. This file is populated by calling
+ * zephyr_linker_sources(ROM_START ...). This is the first output section
+ * placed in ROMABLE_REGION, useful for data that must live at a fixed
+ * offset from the start of ROM (e.g. reserved/manufacturing data areas).
+ */
+#include <snippets-rom-start.ld>
+	} GROUP_LINK_IN(ROMABLE_REGION)
+
+#endif
 	SECTION_PROLOGUE(.startup_entry,,SUBALIGN(4))
 	{
 		KEEP(*(.startup_entry))
