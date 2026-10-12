@@ -147,6 +147,17 @@ config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_PRIORITY
 	  priority. The default of 2 matches the RX threads of other Ethernet
 	  drivers.
 
+config ETH_RENESAS_RSWITCH3_GWCA_RX_ZERO_COPY
+	bool "Zero-copy GWCA reception"
+	default y
+	help
+	  Hand the GWCA RX DMA buffer to the network stack instead of copying
+	  the frame into a net_pkt buffer. The ring slot is re-armed when the
+	  stack frees the buffer, so the gateway's renesas,rx-ring-size also
+	  bounds how many received frames the stack (e.g. TCP receive queues)
+	  may hold per port.
+	  Disable to fall back to copying, e.g. for debugging.
+
 config ETH_RENESAS_RSWITCH3_GWCA_IRQ_DELAY_PRESCALER
 	int "GWCA interrupt delay prescaler (GWIDPC.IDPV)"
 	default 0

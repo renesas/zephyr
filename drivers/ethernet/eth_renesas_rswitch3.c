@@ -953,10 +953,15 @@ static void rswitch3_gwca_tx_queue_format(const struct device *gw, uint32_t row)
 static void rswitch3_gwca_rx_desc_arm(struct rswitch3_gwca_rx_queue *q, uint32_t idx)
 {
 	struct rswitch3_gwca_rx_desc *desc = &q->ring[idx].desc;
+	uint8_t *buf = q->bufs + idx * RSWITCH3_GWCA_FRAME_BUF_SIZE;
 
-	desc->hdr.size = RSWITCH3_GWCA_FRAME_BUF_SIZE;
-	rswitch3_gwca_desc_set_addr(&desc->hdr,
-				    (uintptr_t)(q->bufs + idx * RSWITCH3_GWCA_FRAME_BUF_SIZE));
+	/* The stack may have written into a lent buffer (header rewrites):
+	 * write back and drop those lines before HW DMAs into it again.
+	 */
+	rswitch3_gwca_dcache_invalidate(buf, RSWITCH3_GWCA_FRAME_BUF_SIZE);
+
+	desc->hdr.size = RSWITCH3_GWCA_FRAME_BUF_SIZE - RSWITCH3_GWCA_RX_HEADROOM;
+	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)(buf + RSWITCH3_GWCA_RX_HEADROOM));
 	desc->meta_lo = 0;
 	desc->meta_hi = RSWITCH3_GWCA_META_SPN(q->port_id);
 	desc->tsns = 0;
@@ -1063,6 +1068,8 @@ static struct rswitch3_gwca_rx_queue *rswitch3_gwca_rx_queue_alloc(const struct 
 		q->cur = 0;
 		q->rx_cb = rx_cb;
 		q->rx_cb_user_data = user_data;
+		q->lent = &gw_cfg->rx_lent[row * ATOMIC_BITMAP_SIZE(gw_cfg->rx_ring_size)];
+		memset(q->lent, 0, ATOMIC_BITMAP_SIZE(gw_cfg->rx_ring_size) * sizeof(atomic_t));
 		rswitch3_gwca_rx_queue_format(gw, row);
 		/* The RX thread polls a queue as soon as it reads used, so publish it
 		 * only once its ring is formatted, and enable its interrupt after that.
@@ -1075,15 +1082,44 @@ static struct rswitch3_gwca_rx_queue *rswitch3_gwca_rx_queue_alloc(const struct 
 	return q;
 }
 
-/* Hands every completed frame to rx_cb; at most one ring's worth per call. */
+/* The stack is done with a lent buffer: give the slot back to hardware. */
+static void rswitch3_gwca_rx_buf_release(const struct device *gw, struct net_buf *buf)
+{
+	const struct rswitch3_gwca_config *gw_cfg = gw->config;
+	struct rswitch3_gwca_data *gw_data = gw->data;
+	struct rswitch3_gwca_rx_buf_meta *meta = &gw_cfg->rx_buf_meta[net_buf_id(buf)];
+	struct rswitch3_gwca_rx_queue *q = meta->q;
+
+	rswitch3_gwca_rx_desc_arm(q, meta->idx);
+	atomic_clear_bit(q->lent, meta->idx);
+
+	net_buf_destroy(buf);
+
+	/* The poll loop may be parked on this slot. */
+	k_sem_give(&gw_data->rx_sem);
+}
+
+/*
+ * Hands every completed frame to rx_cb without copying; at most one ring's
+ * worth per call. A slot whose buffer is still lent to the stack stops the
+ * walk (HW cannot have refilled it either), and is resumed from the destroy
+ * callback.
+ */
 static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_rx_queue *q)
 {
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	uint32_t i;
 
 	for (i = 0; i < gw_cfg->rx_ring_size; i++) {
-		struct rswitch3_gwca_rx_desc *desc = &q->ring[q->cur].desc;
-		uint32_t len;
+		uint32_t idx = q->cur;
+		struct rswitch3_gwca_rx_desc *desc = &q->ring[idx].desc;
+		struct rswitch3_gwca_rx_buf_meta *meta;
+		struct net_buf *buf = NULL;
+		uint32_t len = 0;
+
+		if (atomic_test_bit(q->lent, idx)) {
+			break;
+		}
 
 		rswitch3_gwca_dcache_invalidate(desc, sizeof(*desc));
 
@@ -1091,19 +1127,33 @@ static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_
 			break;
 		}
 
+		q->cur = (idx + 1) % gw_cfg->rx_ring_size;
+
 		/* Drop frames whose descriptor reports an AXI, data size or frame error. */
 		if (((desc->hdr.type & RSWITCH3_GWCA_DESC_ERR_MASK) == 0U) && (q->rx_cb != NULL)) {
-			len = MIN(desc->hdr.size, RSWITCH3_GWCA_FRAME_BUF_SIZE);
-			rswitch3_gwca_dcache_invalidate(
-				q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len);
-			q->rx_cb(gw_cfg->rswitch_dev, q->port_id,
-				 q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len,
-				 q->rx_cb_user_data);
+			len = MIN(desc->hdr.size,
+				  RSWITCH3_GWCA_FRAME_BUF_SIZE - RSWITCH3_GWCA_RX_HEADROOM);
+			buf = net_buf_alloc_with_data(gw_cfg->rx_buf_pool,
+						      q->bufs + idx * RSWITCH3_GWCA_FRAME_BUF_SIZE +
+							      RSWITCH3_GWCA_RX_HEADROOM,
+						      len, K_NO_WAIT);
 		}
 
-		rswitch3_gwca_rx_desc_arm(q, q->cur);
+		if (buf == NULL) {
+			/* Error frame, no consumer or no net_buf header: drop it. */
+			rswitch3_gwca_rx_desc_arm(q, idx);
+			continue;
+		}
 
-		q->cur = (q->cur + 1) % gw_cfg->rx_ring_size;
+		rswitch3_gwca_dcache_invalidate(buf->data, len);
+
+		meta = &gw_cfg->rx_buf_meta[net_buf_id(buf)];
+		meta->q = q;
+		meta->idx = idx;
+		/* Mark before the callback: it may free the buffer synchronously. */
+		atomic_set_bit(q->lent, idx);
+
+		q->rx_cb(gw_cfg->rswitch_dev, q->port_id, buf, q->rx_cb_user_data);
 	}
 }
 
@@ -1872,6 +1922,19 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		rswitch3_gwca_tx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
 	static struct rswitch3_gwca_rx_queue                                                       \
 		rswitch3_gwca_rx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
+	static atomic_t rswitch3_gwca_rx_lent_##inst[RSWITCH3_GWCA_NUM_ROWS(                       \
+		inst)][ATOMIC_BITMAP_SIZE(RSWITCH3_GWCA_RX_RING(inst))];                           \
+	static void rswitch3_gwca_rx_buf_destroy_##inst(struct net_buf *buf)                       \
+	{                                                                                          \
+		rswitch3_gwca_rx_buf_release(DEVICE_DT_INST_GET(inst), buf);                       \
+	}                                                                                          \
+	NET_BUF_POOL_FIXED_DEFINE(rswitch3_gwca_rx_buf_pool_##inst,                                \
+				  RSWITCH3_GWCA_NUM_ROWS(inst) * RSWITCH3_GWCA_RX_RING(inst), 0,   \
+				  CONFIG_NET_PKT_BUF_USER_DATA_SIZE,                               \
+				  rswitch3_gwca_rx_buf_destroy_##inst);                            \
+	static struct rswitch3_gwca_rx_buf_meta                                                    \
+		rswitch3_gwca_rx_buf_meta_##inst[RSWITCH3_GWCA_NUM_ROWS(inst) *                    \
+						 RSWITCH3_GWCA_RX_RING(inst)];                     \
 	static struct rswitch3_gwca_tx_slot rswitch3_gwca_tx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
 		inst)][RSWITCH3_GWCA_TX_RING(inst)] RSWITCH3_GWCA_RAM_SECTION                      \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
@@ -1900,6 +1963,9 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		.linkfix_table = rswitch3_gwca_linkfix_table_##inst,                               \
 		.tx_queues = rswitch3_gwca_tx_queues_##inst,                                       \
 		.rx_queues = rswitch3_gwca_rx_queues_##inst,                                       \
+		.rx_lent = (atomic_t *)rswitch3_gwca_rx_lent_##inst,                               \
+		.rx_buf_pool = &rswitch3_gwca_rx_buf_pool_##inst,                                  \
+		.rx_buf_meta = rswitch3_gwca_rx_buf_meta_##inst,                                   \
 		.port_ids = rswitch3_gwca_port_ids_##inst,                                         \
 		.num_ports = RSWITCH3_GWCA_NUM_ROWS(inst),                                         \
 		.reg_base = RSWITCH3_GWCA_INSTANCE(inst) ? RSWITCH3_GWCA1_OFFSET                   \
@@ -1951,37 +2017,43 @@ struct rswitch3_port_data {
 #endif
 };
 
-static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_id, uint8_t *data,
-				size_t len, void *user_data)
+static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_id,
+				struct net_buf *buf, void *user_data)
 {
 	const struct device *dev = user_data;
 	struct rswitch3_port_data *port_data = dev->data;
+	size_t len = buf->len;
 	struct net_pkt *pkt;
 
 	ARG_UNUSED(rswitch_dev);
-	ARG_UNUSED(port_id);
 
-	if (!port_data->iface) {
-		/* Net L2 iface_init() hasn't run yet; nothing to deliver to. */
+	if ((port_data->iface == NULL) || !port_data->is_started) {
+		/* iface_init() hasn't run yet, or the interface is stopped. */
+		net_buf_unref(buf);
 		return;
 	}
 
-	if (!port_data->is_started) {
-		return;
+	if (IS_ENABLED(CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_ZERO_COPY)) {
+		pkt = net_pkt_rx_alloc_on_iface(port_data->iface, K_NO_WAIT);
+		if (pkt != NULL) {
+			net_pkt_append_buffer(pkt, buf);
+		} else {
+			net_buf_unref(buf);
+		}
+	} else {
+		pkt = net_pkt_rx_alloc_with_buffer(port_data->iface, len, AF_UNSPEC, 0, K_NO_WAIT);
+		if ((pkt != NULL) && (net_pkt_write(pkt, buf->data, len) < 0)) {
+			net_pkt_unref(pkt);
+			pkt = NULL;
+		}
+		net_buf_unref(buf);
 	}
 
-	pkt = net_pkt_rx_alloc_with_buffer(port_data->iface, len, AF_UNSPEC, 0, K_NO_WAIT);
 	if (!pkt) {
 		LOG_DBG("Port %u: net_pkt alloc failed, len %u", port_id, (unsigned int)len);
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 		port_data->stats.error_details.rx_no_buffer_count++;
 #endif
-		return;
-	}
-
-	if (net_pkt_write(pkt, data, len)) {
-		net_pkt_unref(pkt);
-		LOG_DBG("Port %u: net_pkt_write failed, len %u", port_id, (unsigned int)len);
 		return;
 	}
 

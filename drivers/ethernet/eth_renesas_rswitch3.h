@@ -12,13 +12,20 @@
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_mgmt.h>
+#include <zephyr/net_buf.h>
+#include <zephyr/sys/atomic.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id, uint8_t *data,
-				     size_t len, void *user_data);
+/*
+ * Receive callback. @p buf wraps the frame in its GWCA DMA buffer (no copy)
+ * and is owned by the callee: it must be handed to the stack or unref'd.
+ * Freeing it gives the ring slot back to hardware.
+ */
+typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id,
+				     struct net_buf *buf, void *user_data);
 
 /* Register offsets */
 #define RSWITCH3_ETHA_OFFSET 0x1d000
@@ -321,6 +328,12 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_ROW_INVALID 0xffU
 
 #define RSWITCH3_GWCA_FRAME_BUF_SIZE 1536
+/*
+ * RX frames start 2 bytes into their buffer so that, after the 14-byte
+ * Ethernet header, the IP header and payload are word aligned: header
+ * parsing and the socket's copy to user space then use aligned accesses.
+ */
+#define RSWITCH3_GWCA_RX_HEADROOM    2
 #define RSWITCH3_GWCA_DESC_ALIGN     64 /* >= data cache line */
 
 #ifndef CONFIG_NOCACHE_MEMORY
@@ -363,13 +376,27 @@ struct rswitch3_gwca_tx_queue {
 	uint32_t cur;  /* next slot to fill */
 };
 
+/*
+ * Ring slot a lent RX net_buf came from. The net_buf user data belongs to the
+ * network stack (TCP keeps the segment sequence number there), so the slot is
+ * kept in a side table indexed by net_buf_id() instead.
+ */
+struct rswitch3_gwca_rx_buf_meta {
+	struct rswitch3_gwca_rx_queue *q;
+	uint32_t idx;
+};
+
 struct rswitch3_gwca_rx_queue {
 	bool used;
 	uint32_t index;
 	uint32_t port_id;
 	struct rswitch3_gwca_rx_slot *ring; /* rx_ring_size slots, cyclic */
 	uint8_t *bufs; /* [rx_ring_size][RSWITCH3_GWCA_FRAME_BUF_SIZE], this queue's block */
-	uint32_t cur;  /* next slot to poll for a HW-completed frame */
+	/* [ATOMIC_BITMAP_SIZE(rx_ring_size)]: slots whose buffer is lent to the
+	 * network stack; re-armed when freed.
+	 */
+	atomic_t *lent;
+	uint32_t cur; /* next slot to poll for a HW-completed frame */
 	rswitch_gwca_rx_cb_t rx_cb;
 	void *rx_cb_user_data;
 };
@@ -383,6 +410,10 @@ struct rswitch3_gwca_config {
 	struct rswitch3_gwca_desc *linkfix_table; /* [2 * num_ports] */
 	struct rswitch3_gwca_tx_queue *tx_queues; /* [num_ports], row-indexed */
 	struct rswitch3_gwca_rx_queue *rx_queues; /* [num_ports], row-indexed */
+	atomic_t *rx_lent; /* [num_ports][ATOMIC_BITMAP_SIZE(rx_ring_size)] */
+	/* net_buf headers lent to the stack, one per RX ring slot of every row */
+	struct net_buf_pool *rx_buf_pool;
+	struct rswitch3_gwca_rx_buf_meta *rx_buf_meta; /* indexed by net_buf_id() */
 	const uint8_t *port_ids; /* [num_ports]; port_ids[row] == that row's agent index */
 	uint8_t num_ports;       /* == ARRAY_SIZE(port_ids); ports that name this gateway */
 	uint32_t reg_base;       /* RSWITCH3_GWCA0_OFFSET or RSWITCH3_GWCA1_OFFSET */
