@@ -5,6 +5,7 @@ config RH850_OSTM_SYSTEM_TIMER
 	bool "Renesas RH850 OSTM as system timer (periodic/tickless)"
 	default y
 	depends on DT_HAS_RENESAS_RH850_OSTM_TIMER_ENABLED
+	select CLOCK_CONTROL
 	select USE_RH850_FSP_OSTM
 	select TICKLESS_CAPABLE
 	help

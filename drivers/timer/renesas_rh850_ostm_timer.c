@@ -6,6 +6,7 @@
 #include <zephyr/device.h>
 #include <zephyr/spinlock.h>
 #include <zephyr/drivers/timer/system_timer.h>
+#include <zephyr/drivers/clock_control.h>
 #include <zephyr/irq.h>
 #include <zephyr/sys_clock.h>
 #include <zephyr/logging/log.h>
@@ -46,6 +47,8 @@ static const struct device *g_os_timer_dev = DEVICE_DT_INST_GET(0);
 
 struct rh850_os_timer_config {
 	const timer_api_t *fsp_api;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 };
 
 struct rh850_os_timer_data {
@@ -189,9 +192,21 @@ uint32_t sys_clock_cycle_get_32(void)
 static int sys_clock_driver_init(void)
 {
 	fsp_err_t ret;
+	int err;
 	struct rh850_os_timer_config *config =
 		(struct rh850_os_timer_config *)g_os_timer_dev->config;
 	struct rh850_os_timer_data *data = (struct rh850_os_timer_data *)g_os_timer_dev->data;
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("OSTM clock device is not ready");
+		return -ENODEV;
+	}
+
+	err = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (err < 0) {
+		LOG_ERR("OSTM module clock enable failed (err %d)", err);
+		return err;
+	}
 
 	IRQ_CONNECT(DT_IRQN(TIMER_NODE), DT_IRQ(TIMER_NODE, priority), rh850_os_timer_ostm_isr,
 		    DEVICE_DT_INST_GET(0), 0);
@@ -249,6 +264,9 @@ static int sys_clock_driver_init(void)
                                                                                                    \
 	struct rh850_os_timer_config g_rh850_os_timer_config = {                                   \
 		.fsp_api = &g_timer_on_ostm,                                                       \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(TIMER_NODE)),                            \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)                                \
+					DT_CLOCKS_CELL(TIMER_NODE, clk_id),                        \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(0, NULL, NULL, &g_rh850_os_timer_data, &g_rh850_os_timer_config,     \
