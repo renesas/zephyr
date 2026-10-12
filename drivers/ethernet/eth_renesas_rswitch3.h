@@ -203,6 +203,8 @@ enum rsw3_etha_mode {
 #define GWDIE0   0x1104
 #define GWDID0   0x1108
 #define GWCKSC   0x013c
+#define GWIDPC   0x0b80
+#define GWIDC0   0x0c00
 
 #define GWDCC_OFFS(q) (GWDCC0 + (q) * 4)
 /*
@@ -215,6 +217,7 @@ enum rsw3_etha_mode {
 #define GWDIS(q)      (GWDIS0 + ((q) / 32) * 0x10)
 #define GWDIE(q)      (GWDIE0 + ((q) / 32) * 0x10)
 #define GWDID(q)      (GWDID0 + ((q) / 32) * 0x10)
+#define GWIDC(q)      (GWIDC0 + (q) * 4)
 
 /* TOP block: routes each GWCA queue's descriptor-empty interrupt to one of
  * RSWITCH3_GWCA_NUM_IRQS physical IRQ lines.
@@ -315,7 +318,7 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_ROW_INVALID 0xffU
 
 #define RSWITCH3_GWCA_FRAME_BUF_SIZE 1536
-#define RSWITCH3_GWCA_DESC_ALIGN     64
+#define RSWITCH3_GWCA_DESC_ALIGN     64 /* >= data cache line */
 
 #ifndef CONFIG_NOCACHE_MEMORY
 #define RSWITCH3_GWCA_RAM_SECTION __attribute__((section(".eth_ram")))
@@ -323,11 +326,36 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_RAM_SECTION __nocache
 #endif
 
+/*
+ * Ring slots: one frame descriptor plus a LINKFIX to the next slot, padded to
+ * a full cache line. HW never writes LINKFIX back, so each cache line holds
+ * exactly one HW-written descriptor and the CPU's clean/invalidate of one slot
+ * can never clobber a write-back to a neighbouring slot.
+ */
+struct rswitch3_gwca_tx_slot {
+	struct rswitch3_gwca_tx_desc desc;
+	struct rswitch3_gwca_tx_desc link;
+	uint8_t reserved[RSWITCH3_GWCA_DESC_ALIGN - 2 * sizeof(struct rswitch3_gwca_tx_desc)];
+} __packed;
+
+struct rswitch3_gwca_rx_slot {
+	struct rswitch3_gwca_rx_desc desc;
+	struct rswitch3_gwca_rx_desc link;
+	uint8_t reserved[RSWITCH3_GWCA_DESC_ALIGN - 2 * sizeof(struct rswitch3_gwca_rx_desc)];
+} __packed;
+
+BUILD_ASSERT(sizeof(struct rswitch3_gwca_tx_slot) == RSWITCH3_GWCA_DESC_ALIGN);
+BUILD_ASSERT(sizeof(struct rswitch3_gwca_rx_slot) == RSWITCH3_GWCA_DESC_ALIGN);
+#if defined(CONFIG_DCACHE_LINE_SIZE)
+BUILD_ASSERT(RSWITCH3_GWCA_DESC_ALIGN >= CONFIG_DCACHE_LINE_SIZE,
+	     "a GWCA ring slot must not share a cache line with its neighbour");
+#endif
+
 struct rswitch3_gwca_tx_queue {
 	bool used;
 	uint32_t index;                     /* GWCA hardware queue index (== row) */
 	uint32_t port_id;                   /* owning port's ETHA agent index */
-	struct rswitch3_gwca_tx_desc *ring; /* tx_ring_size + 1 entries (wrap) */
+	struct rswitch3_gwca_tx_slot *ring; /* tx_ring_size slots, cyclic */
 	uint8_t *bufs; /* [tx_ring_size][RSWITCH3_GWCA_FRAME_BUF_SIZE], this queue's block */
 	uint32_t cur;  /* next slot to fill */
 };
@@ -336,7 +364,7 @@ struct rswitch3_gwca_rx_queue {
 	bool used;
 	uint32_t index;
 	uint32_t port_id;
-	struct rswitch3_gwca_rx_desc *ring; /* rx_ring_size + 1 entries (wrap) */
+	struct rswitch3_gwca_rx_slot *ring; /* rx_ring_size slots, cyclic */
 	uint8_t *bufs; /* [rx_ring_size][RSWITCH3_GWCA_FRAME_BUF_SIZE], this queue's block */
 	uint32_t cur;  /* next slot to poll for a HW-completed frame */
 	rswitch_gwca_rx_cb_t rx_cb;
@@ -345,9 +373,9 @@ struct rswitch3_gwca_rx_queue {
 
 struct rswitch3_gwca_config {
 	const struct device *rswitch_dev;         /* parent switch device */
-	struct rswitch3_gwca_tx_desc *tx_rings;   /* [num_ports][tx_ring_size + 1] */
+	struct rswitch3_gwca_tx_slot *tx_rings;   /* [num_ports][tx_ring_size] */
 	uint8_t *tx_bufs;                         /* [num_ports][tx_ring_size][FRAME_BUF_SIZE] */
-	struct rswitch3_gwca_rx_desc *rx_rings;   /* [num_ports][rx_ring_size + 1] */
+	struct rswitch3_gwca_rx_slot *rx_rings;   /* [num_ports][rx_ring_size] */
 	uint8_t *rx_bufs;                         /* [num_ports][rx_ring_size][FRAME_BUF_SIZE] */
 	struct rswitch3_gwca_desc *linkfix_table; /* [2 * num_ports] */
 	struct rswitch3_gwca_tx_queue *tx_queues; /* [num_ports], row-indexed */
@@ -367,12 +395,9 @@ struct rswitch3_gwca_data {
 	const struct device *dev; /* this gateway device */
 
 	uint8_t port_row[RSWITCH3_NUM_AGENTS];
-	struct k_work work;
 	struct k_sem rx_sem;
-	struct k_spinlock irq_lock;
-	/* Per GWDISi register: RX queue bits, and bits taken by the ISR for the work handler */
+	/* Per GWDISi register: GWDIS/GWDIE bits of every RX queue in use */
 	uint32_t rx_irq_mask[RSWITCH3_GWCA_NUM_DI_REGS];
-	uint32_t pending_bits[RSWITCH3_GWCA_NUM_DI_REGS];
 
 	struct k_spinlock tx_lock; /* TX rings may be fed from several threads */
 	struct k_thread rx_thread_data;

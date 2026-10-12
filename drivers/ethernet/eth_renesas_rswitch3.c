@@ -801,10 +801,10 @@ static inline int rswitch3_gwca_reg_wait(const struct device *gw, uint32_t offs,
 	return rswitch3_reg_wait(gw_cfg->rswitch_dev, gw_cfg->reg_base + offs, mask, expected);
 }
 
-static inline struct rswitch3_gwca_tx_desc *
+static inline struct rswitch3_gwca_tx_slot *
 rswitch3_gwca_tx_ring(const struct rswitch3_gwca_config *gw_cfg, uint32_t row)
 {
-	return &gw_cfg->tx_rings[row * (gw_cfg->tx_ring_size + 1)];
+	return &gw_cfg->tx_rings[row * gw_cfg->tx_ring_size];
 }
 
 static inline uint8_t *rswitch3_gwca_tx_buf(const struct rswitch3_gwca_config *gw_cfg, uint32_t row,
@@ -813,10 +813,10 @@ static inline uint8_t *rswitch3_gwca_tx_buf(const struct rswitch3_gwca_config *g
 	return &gw_cfg->tx_bufs[(row * gw_cfg->tx_ring_size + idx) * RSWITCH3_GWCA_FRAME_BUF_SIZE];
 }
 
-static inline struct rswitch3_gwca_rx_desc *
+static inline struct rswitch3_gwca_rx_slot *
 rswitch3_gwca_rx_ring(const struct rswitch3_gwca_config *gw_cfg, uint32_t row)
 {
-	return &gw_cfg->rx_rings[row * (gw_cfg->rx_ring_size + 1)];
+	return &gw_cfg->rx_rings[row * gw_cfg->rx_ring_size];
 }
 
 static inline uint8_t *rswitch3_gwca_rx_buf(const struct rswitch3_gwca_config *gw_cfg, uint32_t row,
@@ -911,19 +911,22 @@ static void rswitch3_gwca_tx_queue_format(const struct device *gw, uint32_t row)
 
 	q->ring = rswitch3_gwca_tx_ring(gw_cfg, row);
 	q->bufs = rswitch3_gwca_tx_buf(gw_cfg, row, 0);
-	ring_bytes = (gw_cfg->tx_ring_size + 1) * sizeof(*q->ring);
+	ring_bytes = gw_cfg->tx_ring_size * sizeof(*q->ring);
 
 	memset(q->ring, 0, ring_bytes);
 
 	for (i = 0; i < gw_cfg->tx_ring_size; i++) {
-		rswitch3_gwca_desc_set_addr(
-			&q->ring[i].hdr, (uintptr_t)(q->bufs + i * RSWITCH3_GWCA_FRAME_BUF_SIZE));
-		q->ring[i].hdr.type = RSWITCH3_GWCA_DESC_EEMPTY;
-	}
+		struct rswitch3_gwca_tx_slot *slot = &q->ring[i];
+		struct rswitch3_gwca_tx_slot *next = &q->ring[(i + 1) % gw_cfg->tx_ring_size];
 
-	/* Wrap entry so the ring is circular. */
-	rswitch3_gwca_desc_set_addr(&q->ring[gw_cfg->tx_ring_size].hdr, (uintptr_t)q->ring);
-	q->ring[gw_cfg->tx_ring_size].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+		rswitch3_gwca_desc_set_addr(
+			&slot->desc.hdr, (uintptr_t)(q->bufs + i * RSWITCH3_GWCA_FRAME_BUF_SIZE));
+		slot->desc.hdr.type = RSWITCH3_GWCA_DESC_EEMPTY;
+
+		/* Last slot links back to the first, so the ring is cyclic. */
+		rswitch3_gwca_desc_set_addr(&slot->link.hdr, (uintptr_t)next);
+		slot->link.hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+	}
 
 	rswitch3_gwca_dcache_flush(q->ring, ring_bytes);
 
@@ -942,7 +945,7 @@ static void rswitch3_gwca_tx_queue_format(const struct device *gw, uint32_t row)
 
 static void rswitch3_gwca_rx_desc_arm(struct rswitch3_gwca_rx_queue *q, uint32_t idx)
 {
-	struct rswitch3_gwca_rx_desc *desc = &q->ring[idx];
+	struct rswitch3_gwca_rx_desc *desc = &q->ring[idx].desc;
 
 	desc->hdr.size = RSWITCH3_GWCA_FRAME_BUF_SIZE;
 	rswitch3_gwca_desc_set_addr(&desc->hdr,
@@ -966,16 +969,19 @@ static void rswitch3_gwca_rx_queue_format(const struct device *gw, uint32_t row)
 	q->ring = rswitch3_gwca_rx_ring(gw_cfg, row);
 	q->bufs = rswitch3_gwca_rx_buf(gw_cfg, row, 0);
 
-	memset(q->ring, 0, (gw_cfg->rx_ring_size + 1) * sizeof(*q->ring));
+	memset(q->ring, 0, gw_cfg->rx_ring_size * sizeof(*q->ring));
 
 	for (i = 0; i < gw_cfg->rx_ring_size; i++) {
+		struct rswitch3_gwca_rx_slot *slot = &q->ring[i];
+		struct rswitch3_gwca_rx_slot *next = &q->ring[(i + 1) % gw_cfg->rx_ring_size];
+
+		/* Last slot links back to the first, so the ring is cyclic. */
+		rswitch3_gwca_desc_set_addr(&slot->link.hdr, (uintptr_t)next);
+		slot->link.hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+		rswitch3_gwca_dcache_flush(&slot->link, sizeof(slot->link));
+
 		rswitch3_gwca_rx_desc_arm(q, i);
 	}
-
-	/* Wrap entry so the ring is circular. */
-	rswitch3_gwca_desc_set_addr(&q->ring[gw_cfg->rx_ring_size].hdr, (uintptr_t)q->ring);
-	q->ring[gw_cfg->rx_ring_size].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
-	rswitch3_gwca_dcache_flush(&q->ring[gw_cfg->rx_ring_size], sizeof(q->ring[0]));
 
 	rswitch3_gwca_desc_set_addr(&gw_cfg->linkfix_table[q->index], (uintptr_t)q->ring);
 	gw_cfg->linkfix_table[q->index].type = RSWITCH3_GWCA_DESC_LINKFIX;
@@ -989,6 +995,7 @@ static void rswitch3_gwca_rx_queue_format(const struct device *gw, uint32_t row)
 	rswitch3_modify(gw_cfg->rswitch_dev, TPDEMIMC(q->index),
 			TPDEMIMC_GDICM(gw_cfg->instance, 0xf),
 			TPDEMIMC_GDICM(gw_cfg->instance, q->index % RSWITCH3_GWCA_NUM_IRQS));
+	rswitch3_gwca_write(gw, GWIDC(q->index), CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_IRQ_DELAY);
 	gw_data->rx_irq_mask[q->index / 32U] |= GWCA_Q_BIT(q->index);
 }
 
@@ -1061,13 +1068,14 @@ static struct rswitch3_gwca_rx_queue *rswitch3_gwca_rx_queue_alloc(const struct 
 	return q;
 }
 
+/* Hands every completed frame to rx_cb; at most one ring's worth per call. */
 static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_rx_queue *q)
 {
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	uint32_t i;
 
 	for (i = 0; i < gw_cfg->rx_ring_size; i++) {
-		struct rswitch3_gwca_rx_desc *desc = &q->ring[q->cur];
+		struct rswitch3_gwca_rx_desc *desc = &q->ring[q->cur].desc;
 		uint32_t len;
 
 		rswitch3_gwca_dcache_invalidate(desc, sizeof(*desc));
@@ -1103,36 +1111,25 @@ static void rswitch3_gwca_rx_thread(void *arg1, void *arg2, void *arg3)
 	ARG_UNUSED(arg3);
 
 	while (1) {
-		/* k_sem_give() wakes this promptly; the timeout is a fallback poll only. */
-		(void)k_sem_take(&gw_data->rx_sem, K_MSEC(1));
+		/* Given by the ISR. No timeout poll is needed: GWDIS latches a frame
+		 * that lands while its queue is masked, and the unmask below raises
+		 * the interrupt for it.
+		 */
+		(void)k_sem_take(&gw_data->rx_sem, K_FOREVER);
 
 		for (i = 0; i < gw_cfg->num_ports; i++) {
 			if (gw_cfg->rx_queues[i].used) {
 				rswitch3_gwca_rx_poll(gw, &gw_cfg->rx_queues[i]);
 			}
 		}
-	}
-}
 
-static void rswitch3_gwca_work_handler(struct k_work *work)
-{
-	struct rswitch3_gwca_data *gw_data = CONTAINER_OF(work, struct rswitch3_gwca_data, work);
-	const struct device *gw = gw_data->dev;
-	uint32_t status[RSWITCH3_GWCA_NUM_DI_REGS];
-	k_spinlock_key_t key;
-	uint32_t i;
-
-	key = k_spin_lock(&gw_data->irq_lock);
-	for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
-		status[i] = gw_data->pending_bits[i];
-		gw_data->pending_bits[i] = 0U;
-	}
-	k_spin_unlock(&gw_data->irq_lock, key);
-
-	for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
-		if (status[i] != 0U) {
-			k_sem_give(&gw_data->rx_sem);
-			rswitch3_gwca_write(gw, GWDIE(i * 32U), status[i]);
+		/* Unmask only now: frames that landed while masked have already
+		 * latched GWDIS, so the ISR fires again straight away.
+		 */
+		for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
+			if (gw_data->rx_irq_mask[i] != 0U) {
+				rswitch3_gwca_write(gw, GWDIE(i * 32U), gw_data->rx_irq_mask[i]);
+			}
 		}
 	}
 }
@@ -1146,7 +1143,6 @@ static void rswitch3_gwca_isr(const struct device *dev)
 	for (g = 0; g < cfg->num_gwca; g++) {
 		const struct device *gw = cfg->gwca_dev[g];
 		struct rswitch3_gwca_data *gw_data = gw->data;
-		k_spinlock_key_t key;
 		bool pending = false;
 		uint32_t status;
 		uint32_t i;
@@ -1163,21 +1159,17 @@ static void rswitch3_gwca_isr(const struct device *dev)
 				continue;
 			}
 
-			/* Disable and ack (write-1-to-clear) the queues just seen; the work
-			 * handler re-enables them once it has processed this batch.
+			/* Mask and ack (write-1-to-clear) the RX queues just seen; the RX
+			 * thread unmasks them once their rings are drained.
 			 */
 			rswitch3_gwca_write(gw, GWDID(i * 32U), status);
 			rswitch3_gwca_write(gw, GWDIS(i * 32U), status);
-
-			key = k_spin_lock(&gw_data->irq_lock);
-			gw_data->pending_bits[i] |= status;
-			k_spin_unlock(&gw_data->irq_lock, key);
 
 			pending = true;
 		}
 
 		if (pending) {
-			k_work_submit(&gw_data->work);
+			k_sem_give(&gw_data->rx_sem);
 		}
 	}
 }
@@ -1249,6 +1241,7 @@ static int rswitch3_gwca_init(const struct device *gw)
 	rswitch3_gwca_write(gw, GWMDNC, GWMDNC_TSDMN(1) | GWMDNC_TXDMN(0x1e) | GWMDNC_RXDMN(0x1f));
 	rswitch3_gwca_write(gw, GWTPC0, GWTPC_PPPL(RSWITCH3_GWCA_IPV));
 	rswitch3_gwca_modify(gw, GWCKSC, 0, GWCKSC_USMFSPE);
+	rswitch3_gwca_write(gw, GWIDPC, CONFIG_ETH_RENESAS_RSWITCH3_GWCA_IRQ_DELAY_PRESCALER);
 
 	rswitch3_gwca_linkfix_init(gw);
 
@@ -1266,7 +1259,6 @@ static int rswitch3_gwca_init(const struct device *gw)
 	 * generated by RSWITCH3_INIT(inst), via RSWITCH3_GWCA_IRQ_INIT(inst)
 	 */
 	k_sem_init(&gw_data->rx_sem, 0, 1);
-	k_work_init(&gw_data->work, rswitch3_gwca_work_handler);
 	k_thread_create(&gw_data->rx_thread_data, gw_data->rx_stack,
 			K_KERNEL_STACK_SIZEOF(gw_data->rx_stack), rswitch3_gwca_rx_thread,
 			(void *)gw, NULL, NULL, K_PRIO_COOP(RSWITCH3_GWCA_RX_PRIO), 0, K_NO_WAIT);
@@ -1336,16 +1328,107 @@ out_unlock:
 	return ret;
 }
 
-/* tx_meta: extra meta_lo flags for the direct descriptor (RSWITCH3_GWCA_META_L3CC/L4CC). */
-static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, const uint8_t *frame,
-				   size_t len, uint32_t tx_meta)
+#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
+/*
+ * Pick the L3CC/L4CC descriptor flags for an outgoing frame. Must cover every
+ * frame type the port net_if advertises as checksum-offloaded, because the
+ * stack leaves those checksum fields zero. L3CC on a non-IPv4 frame, or L4CC
+ * on an IPv4 fragment or an IPv6 frame with extension headers, is a GWCA
+ * format error (the flags get silently dropped), so those cases are filtered
+ * out here.
+ */
+static uint32_t rswitch3_gwca_tx_chksum_flags(const uint8_t *frame, size_t len)
+{
+	size_t off = 2 * NET_ETH_ADDR_LEN;
+	uint16_t type;
+	uint8_t ihl;
+	uint8_t proto;
+
+	if (len < off + sizeof(uint16_t)) {
+		return 0;
+	}
+
+	type = sys_get_be16(&frame[off]);
+	off += sizeof(uint16_t);
+
+	if (type == NET_ETH_PTYPE_VLAN) {
+		if (len < off + 4) {
+			return 0;
+		}
+		type = sys_get_be16(&frame[off + 2]);
+		off += 4;
+	}
+
+	if (type == NET_ETH_PTYPE_IP) {
+		if (len < off + sizeof(struct net_ipv4_hdr) || (frame[off] >> 4) != 4) {
+			return 0;
+		}
+
+		ihl = (frame[off] & 0x0f) * 4;
+		if (ihl < sizeof(struct net_ipv4_hdr) || len < off + ihl) {
+			return 0;
+		}
+
+		/* Fragment (MF set or offset != 0): the stack already did the L4 checksum */
+		if (sys_get_be16(&frame[off + 6]) & 0x3fff) {
+			return RSWITCH3_GWCA_META_L3CC;
+		}
+
+		proto = frame[off + 9];
+		if (proto == NET_IPPROTO_TCP || proto == NET_IPPROTO_UDP ||
+		    proto == NET_IPPROTO_ICMP) {
+			return RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC;
+		}
+
+		return RSWITCH3_GWCA_META_L3CC;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_NET_CHECKSUM_OFFLOAD */
+
+/*
+ * Where to start the frame in its DMA buffer. memcpy() is fastest when source
+ * and destination share the same word offset (aligned word or multi-word
+ * accesses on both sides). Pick the offset that aligns the fragment carrying
+ * most of the frame (without NET_L2_ETHERNET_RESERVE_HEADER the Ethernet
+ * header is a separate 14-byte fragment). PTR is a byte address (GWCA HWUM,
+ * descriptor format), so the frame need not start at the beginning of the
+ * buffer.
+ */
+static size_t rswitch3_gwca_tx_copy_offset(struct net_pkt *pkt)
+{
+	struct net_buf *big = pkt->frags;
+	size_t big_at = 0;
+	size_t at = 0;
+
+	for (struct net_buf *frag = pkt->frags; frag != NULL; frag = frag->frags) {
+		if (frag->len > big->len) {
+			big = frag;
+			big_at = at;
+		}
+		at += frag->len;
+	}
+
+	if (big == NULL) {
+		return 0;
+	}
+
+	return ((uintptr_t)big->data - big_at) & (sizeof(uint32_t) - 1U);
+}
+
+static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, struct net_pkt *pkt)
 {
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	struct rswitch3_gwca_data *gw_data = gw->data;
+	size_t len = net_pkt_get_len(pkt);
 	struct rswitch3_gwca_tx_queue *q;
 	struct rswitch3_gwca_tx_desc *desc;
 	k_spinlock_key_t key;
+	uint32_t meta_lo;
+	size_t off;
 	uint8_t type;
+	uint8_t *buf;
 	uint8_t row;
 	int ret = 0;
 
@@ -1363,13 +1446,16 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, co
 		return -ENODEV;
 	}
 
-	if (len > RSWITCH3_GWCA_FRAME_BUF_SIZE) {
+	off = rswitch3_gwca_tx_copy_offset(pkt);
+
+	if (len + off > RSWITCH3_GWCA_FRAME_BUF_SIZE) {
 		return -EMSGSIZE;
 	}
 
 	key = k_spin_lock(&gw_data->tx_lock);
 
-	desc = &q->ring[q->cur];
+	desc = &q->ring[q->cur].desc;
+	buf = q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE + off;
 
 	/* EEMPTY: never used. FEMPTY: HW has fetched the frame and written the
 	 * descriptor back. Anything else is still queued: the ring is full.
@@ -1381,14 +1467,21 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, co
 		goto out_unlock;
 	}
 
-	memcpy(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, frame, len);
-	rswitch3_gwca_dcache_flush(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len);
+	/* Single copy, straight into the DMA buffer. */
+	if (net_pkt_read(pkt, buf, len) < 0) {
+		ret = -EIO;
+		goto out_unlock;
+	}
+	rswitch3_gwca_dcache_flush(buf, len);
+
+	meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV);
+#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
+	meta_lo |= rswitch3_gwca_tx_chksum_flags(buf, len);
+#endif
 
 	desc->hdr.size = (uint16_t)len;
-	rswitch3_gwca_desc_set_addr(&desc->hdr,
-				    (uintptr_t)(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE));
-	desc->meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV) |
-			(tx_meta & (RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC));
+	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)buf);
+	desc->meta_lo = meta_lo;
 	desc->meta_hi = RSWITCH3_GWCA_META_DV(BIT(port_id));
 	rswitch3_gwca_dcache_flush(desc, sizeof(*desc));
 
@@ -1750,15 +1843,15 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		rswitch3_gwca_tx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
 	static struct rswitch3_gwca_rx_queue                                                       \
 		rswitch3_gwca_rx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
-	static struct rswitch3_gwca_tx_desc rswitch3_gwca_tx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
-		inst)][RSWITCH3_GWCA_TX_RING(inst) + 1] RSWITCH3_GWCA_RAM_SECTION                  \
+	static struct rswitch3_gwca_tx_slot rswitch3_gwca_tx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
+		inst)][RSWITCH3_GWCA_TX_RING(inst)] RSWITCH3_GWCA_RAM_SECTION                      \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
 	static uint8_t                                                                             \
 		rswitch3_gwca_tx_bufs_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_TX_RING(  \
 			inst)][RSWITCH3_GWCA_FRAME_BUF_SIZE] RSWITCH3_GWCA_RAM_SECTION             \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
-	static struct rswitch3_gwca_rx_desc rswitch3_gwca_rx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
-		inst)][RSWITCH3_GWCA_RX_RING(inst) + 1] RSWITCH3_GWCA_RAM_SECTION                  \
+	static struct rswitch3_gwca_rx_slot rswitch3_gwca_rx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
+		inst)][RSWITCH3_GWCA_RX_RING(inst)] RSWITCH3_GWCA_RAM_SECTION                      \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
 	static uint8_t                                                                             \
 		rswitch3_gwca_rx_bufs_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_RX_RING(  \
@@ -1771,9 +1864,9 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 	static struct rswitch3_gwca_data rswitch3_gwca_data_##inst;                                \
 	static const struct rswitch3_gwca_config rswitch3_gwca_config_##inst = {                   \
 		.rswitch_dev = DEVICE_DT_GET(RSWITCH3_GWCA_RSWITCH(inst)),                         \
-		.tx_rings = (struct rswitch3_gwca_tx_desc *)rswitch3_gwca_tx_rings_##inst,         \
+		.tx_rings = (struct rswitch3_gwca_tx_slot *)rswitch3_gwca_tx_rings_##inst,         \
 		.tx_bufs = (uint8_t *)rswitch3_gwca_tx_bufs_##inst,                                \
-		.rx_rings = (struct rswitch3_gwca_rx_desc *)rswitch3_gwca_rx_rings_##inst,         \
+		.rx_rings = (struct rswitch3_gwca_rx_slot *)rswitch3_gwca_rx_rings_##inst,         \
 		.rx_bufs = (uint8_t *)rswitch3_gwca_rx_bufs_##inst,                                \
 		.linkfix_table = rswitch3_gwca_linkfix_table_##inst,                               \
 		.tx_queues = rswitch3_gwca_tx_queues_##inst,                                       \
@@ -1824,7 +1917,6 @@ struct rswitch3_port_config {
 struct rswitch3_port_data {
 	struct net_if *iface;
 	bool is_started;
-	uint8_t tx_frame_buf[NET_ETH_MAX_FRAME_SIZE];
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	struct net_stats_eth stats;
 #endif
@@ -1883,93 +1975,19 @@ static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_
 #define RSWITCH3_PORT_CHKSUM_SUPPORT                                                               \
 	(ETHERNET_CHECKSUM_SUPPORT_IPV4_HEADER | ETHERNET_CHECKSUM_SUPPORT_IPV4_ICMP |             \
 	 ETHERNET_CHECKSUM_SUPPORT_TCP | ETHERNET_CHECKSUM_SUPPORT_UDP)
-
-/*
- * Pick the L3CC/L4CC descriptor flags for an outgoing frame. Must cover every
- * frame type in RSWITCH3_PORT_CHKSUM_SUPPORT, because the stack leaves those
- * checksum fields zero. L3CC on a non-IPv4 frame, or L4CC on an IPv4 fragment,
- * is a GWCA format error (the flags get silently dropped), so those cases are
- * filtered out here.
- */
-static uint32_t rswitch3_port_tx_chksum_flags(const uint8_t *frame, size_t len)
-{
-	size_t off = 2 * NET_ETH_ADDR_LEN;
-	uint16_t type;
-	uint8_t ihl;
-	uint8_t proto;
-
-	if (len < off + sizeof(uint16_t)) {
-		return 0;
-	}
-
-	type = sys_get_be16(&frame[off]);
-	off += sizeof(uint16_t);
-
-	if (type == NET_ETH_PTYPE_VLAN) {
-		if (len < off + 4) {
-			return 0;
-		}
-		type = sys_get_be16(&frame[off + 2]);
-		off += 4;
-	}
-
-	if (type == NET_ETH_PTYPE_IP) {
-		if (len < off + sizeof(struct net_ipv4_hdr) || (frame[off] >> 4) != 4) {
-			return 0;
-		}
-
-		ihl = (frame[off] & 0x0f) * 4;
-		if (ihl < sizeof(struct net_ipv4_hdr) || len < off + ihl) {
-			return 0;
-		}
-
-		/* Fragment (MF set or offset != 0): the stack already did the L4 checksum */
-		if (sys_get_be16(&frame[off + 6]) & 0x3fff) {
-			return RSWITCH3_GWCA_META_L3CC;
-		}
-
-		proto = frame[off + 9];
-		if (proto == NET_IPPROTO_TCP || proto == NET_IPPROTO_UDP ||
-		    proto == NET_IPPROTO_ICMP) {
-			return RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC;
-		}
-
-		return RSWITCH3_GWCA_META_L3CC;
-	}
-
-	return 0;
-}
 #endif /* CONFIG_NET_CHECKSUM_OFFLOAD */
 
 static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 {
 	const struct rswitch3_port_config *cfg = dev->config;
 	struct rswitch3_port_data *data = dev->data;
-	size_t len = net_pkt_get_len(pkt);
-	uint32_t tx_meta = 0;
 	int ret;
 
 	if (!data->is_started) {
 		return -ENETDOWN;
 	}
 
-	if (len > sizeof(data->tx_frame_buf)) {
-		return -EMSGSIZE;
-	}
-
-	if (net_pkt_read(pkt, data->tx_frame_buf, len)) {
-		return -EIO;
-	}
-
-#if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
-	tx_meta = rswitch3_port_tx_chksum_flags(data->tx_frame_buf, len);
-#endif
-
-	/* cfg->rswitch_dev is always this same driver's own rswitch3 parent
-	 * device (the only compatible a renesas,rcarsoc-rswitch3-port node
-	 * can have)
-	 */
-	ret = rswitch3_gwca_port_send(cfg->gwca, cfg->port_id, data->tx_frame_buf, len, tx_meta);
+	ret = rswitch3_gwca_port_send(cfg->gwca, cfg->port_id, pkt);
 	if (ret) {
 		LOG_DBG("Port %u: send failed (err %d)", cfg->port_id, ret);
 		return ret;
@@ -1977,7 +1995,7 @@ static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	data->stats.pkts.tx++;
-	data->stats.bytes.sent += len;
+	data->stats.bytes.sent += net_pkt_get_len(pkt);
 #endif
 
 	return 0;

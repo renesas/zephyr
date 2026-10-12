@@ -127,13 +127,15 @@ config ETH_RENESAS_RSWITCH3_GWCA_INIT_PRIORITY
 
 config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_STACK_SIZE
 	int "GWCA RX-processing thread stack size (bytes)"
+	default NET_RX_STACK_SIZE if NET_TC_RX_COUNT = 0
 	default 2048
 	help
 	  Stack of the thread that drains the GWCA RX rings and passes each
 	  frame to the network stack with net_recv_data(). The default of
 	  2048 bytes covers net_pkt allocation and queueing to the stack's RX
-	  thread. With CONFIG_NET_TC_RX_COUNT=0 the whole receive path runs
-	  on this thread, which then needs CONFIG_NET_RX_STACK_SIZE instead.
+	  thread. With CONFIG_NET_TC_RX_COUNT=0 the whole receive path,
+	  including TCP transmissions triggered by incoming ACKs, runs on
+	  this thread, so it defaults to CONFIG_NET_RX_STACK_SIZE then.
 
 config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_PRIORITY
 	int "GWCA RX-processing thread priority"
@@ -144,6 +146,25 @@ config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_PRIORITY
 	  Must be below CONFIG_NUM_COOP_PRIORITIES; lower values give higher
 	  priority. The default of 2 matches the RX threads of other Ethernet
 	  drivers.
+
+config ETH_RENESAS_RSWITCH3_GWCA_IRQ_DELAY_PRESCALER
+	int "GWCA interrupt delay prescaler (GWIDPC.IDPV)"
+	default 0
+	range 0 1023
+	help
+	  Interrupt delay base period = (IDPV + 1) / f(GWCA clk). Pick it so
+	  that one period is about 1 us. Only used when
+	  ETH_RENESAS_RSWITCH3_GWCA_RX_IRQ_DELAY is non-zero.
+
+config ETH_RENESAS_RSWITCH3_GWCA_RX_IRQ_DELAY
+	int "GWCA RX interrupt delay (GWIDCi.IDV, in prescaler periods)"
+	default 0
+	range 0 4095
+	help
+	  Hardware RX interrupt coalescing: the RX data interrupt is raised
+	  this many prescaler periods after the first frame lands, so one
+	  interrupt covers a burst of frames. 0 disables the delay (lowest
+	  latency).
 
 config ETH_RENESAS_RSWITCH3_GWCA_ENABLE_DMA_CACHE_OPS
 	bool "Explicit DMA cache operations for GWCA"
