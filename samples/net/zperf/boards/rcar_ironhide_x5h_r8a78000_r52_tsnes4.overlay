@@ -5,12 +5,11 @@
  */
 
 /*
- * Alternate test config: tsnes4 as the net_if instead of port5 directly.
- * port5 (enabled by the default board overlay) stays the egress -- port9
- * (TSNA9, hardwired to TSN-ES4) is what actually forwards tsnes4's traffic
- * to/from it, per its renesas,forward-ports = <BIT(5)> in rcar_gen5_cr52.dtsi.
- * port5 drops renesas,gwca, so it gets no GWCA-backed net_if of its own and
- * gwca0, which no other port uses, is disabled again.
+ * Alternate test config: tsnes4 as the net_if instead of a GWCA-backed port.
+ * port5 is the egress -- port9 (TSNA9, hardwired to TSN-ES4) is what actually
+ * forwards tsnes4's traffic to/from it, per its renesas,forward-ports =
+ * <BIT(5)> in rcar_gen5_cr52.dtsi. No port has renesas,gwca, so gwca0 is
+ * disabled again.
  *
  * Not auto-applied: build with this and rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf
  * layered on top of the default board files, e.g.
@@ -27,10 +26,48 @@
 	status = "okay";
 };
 
+/* port5 (DP83869 SGMII) instead of the Q32xx port4 of the default overlay */
+&port4 {
+	status = "disabled";
+};
+
+&pcs_ch4 {
+	status = "disabled";
+};
+
+&phy1 {
+	status = "disabled";
+};
+
 &port5 {
-	/delete-property/ renesas,gwca;
+	status = "okay";
+};
+
+&pcs_ch5 {
+	status = "okay";
+};
+
+&phy2 {
+	status = "okay";
 };
 
 &gwca0 {
 	status = "disabled";
+};
+
+/*
+ * The TSN-ES rings do not fit in the 1 MB RT-VRAM area of the default
+ * overlay: back to the DRAM area of rcar_gen5_cr52.dtsi.
+ */
+/delete-node/ &ethuram;
+
+/ {
+	soc {
+		ethuram: memory@42a00000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x42a00000 0x740000>;
+			zephyr,memory-region = "ETHURAM";
+			status = "okay";
+		};
+	};
 };

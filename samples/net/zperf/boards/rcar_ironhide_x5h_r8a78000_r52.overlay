@@ -12,7 +12,7 @@
 	status = "okay";
 };
 
-&port5 {
+&port4 {
 	status = "okay";
 	renesas,gwca = <&gwca0>;
 	local-mac-address = [74 90 50 48 df 57];
@@ -26,7 +26,7 @@
 	status = "okay";
 };
 
-&pcs_ch5 {
+&pcs_ch4 {
 	status = "okay";
 };
 
@@ -34,6 +34,30 @@
 	status = "okay";
 };
 
-&phy2 {
+&phy1 {
 	status = "okay";
+};
+
+/*
+ * GWCA descriptors and frame buffers (.eth_ram) in on-chip RT-VRAM ch1
+ * instead of DRAM: a cold cache line costs ~60 ns there instead of ~220 ns,
+ * which the per-frame copies and descriptor accesses hit on every frame.
+ */
+/delete-node/ &ethuram;
+
+/ {
+	soc {
+		ethuram: memory@12000000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x12000000 DT_SIZE_M(1)>;
+			zephyr,memory-region = "ETHURAM";
+			status = "okay";
+		};
+	};
+};
+
+/* The GWCA DMA area is 1 MB of RT-VRAM: 256 RX + 256 TX slots of 1536 bytes. */
+&gwca0 {
+	renesas,tx-ring-size = <256>;
+	renesas,rx-ring-size = <256>;
 };
