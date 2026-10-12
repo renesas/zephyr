@@ -174,6 +174,13 @@ static uint32_t __maybe_unused rswitch3_etha_cksum_err_read(const struct device 
 	return rswitch3_read(dev, RSWITCH3_ETHA_OFFSET + etha_port * RSWITCH3_ETHA_SIZE + EACKSECN);
 }
 
+/* Frames dropped at egress because the ETHA TX descriptor queue overflowed (read clears). */
+static uint32_t __maybe_unused rswitch3_etha_tx_qovf_read(const struct device *dev,
+							  uint32_t etha_port)
+{
+	return rswitch3_read(dev, RSWITCH3_ETHA_OFFSET + etha_port * RSWITCH3_ETHA_SIZE + EADQOECN);
+}
+
 static void rswitch3_fwd_allow_ports(const struct device *dev, uint32_t src_port, uint32_t dst_mask)
 {
 	if (!dst_mask || src_port >= RSWITCH3_NUM_AGENTS) {
@@ -1328,6 +1335,28 @@ out_unlock:
 	return ret;
 }
 
+/*
+ * Running totals of the RX frames GWCA had to drop, per cause:
+ * - queue_overflow: the switch-side CPU descriptor queue overflowed;
+ * - ring_full: the CPU ring had no armed slot (driver/stack too slow).
+ * Both counters are per GWCA instance and clear on read, and HW has no
+ * per-chain variant, so they are accumulated here for all ports of the gateway.
+ */
+static void __maybe_unused rswitch3_gwca_rx_drops_read(const struct device *gw,
+						       uint32_t *queue_overflow,
+						       uint32_t *ring_full)
+{
+	struct rswitch3_gwca_data *gw_data = gw->data;
+	k_spinlock_key_t key;
+
+	key = k_spin_lock(&gw_data->rx_drops_lock);
+	gw_data->rx_queue_overflow += rswitch3_gwca_read(gw, GWDQOECN);
+	gw_data->rx_ring_full += rswitch3_gwca_read(gw, GWDFECN);
+	*queue_overflow = gw_data->rx_queue_overflow;
+	*ring_full = gw_data->rx_ring_full;
+	k_spin_unlock(&gw_data->rx_drops_lock, key);
+}
+
 #if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
 /*
  * Pick the L3CC/L4CC descriptor flags for an outgoing frame. Must cover every
@@ -1956,12 +1985,10 @@ static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_
 		return;
 	}
 
-#if defined(CONFIG_NET_STATISTICS_ETHERNET)
-	port_data->stats.pkts.rx++;
-	port_data->stats.bytes.received += len;
-#endif
-
-	net_recv_data(port_data->iface, pkt);
+	/* Packet/byte counters are updated by the Ethernet L2 (ethernet.c). */
+	if (net_recv_data(port_data->iface, pkt) < 0) {
+		net_pkt_unref(pkt);
+	}
 }
 
 #if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
@@ -1993,11 +2020,7 @@ static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 		return ret;
 	}
 
-#if defined(CONFIG_NET_STATISTICS_ETHERNET)
-	data->stats.pkts.tx++;
-	data->stats.bytes.sent += net_pkt_get_len(pkt);
-#endif
-
+	/* Packet/byte counters are updated by the Ethernet L2 (ethernet.c). */
 	return 0;
 }
 
@@ -2093,10 +2116,24 @@ static const struct device *rswitch3_port_get_phy(const struct device *dev)
 }
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
-static struct net_stats_eth *rswitch3_port_get_stats(const struct device *dev)
+/*
+ * The Ethernet L2 calls this with ETHERNET_STATS_TYPE_COMMON for every frame
+ * it counts (twice per frame), so that path must not touch the hardware: the
+ * switch counter reads below are slow APB accesses (~0.5 us each). They are
+ * folded in only when a caller asks for more than the common counters
+ * ("net stats" and the net_mgmt request both use ETHERNET_STATS_TYPE_ALL).
+ * The counters clear on read, so nothing is lost in between.
+ */
+static struct net_stats_eth *rswitch3_port_get_stats_type(const struct device *dev, uint32_t type)
 {
 	const struct rswitch3_port_config *cfg = dev->config;
 	struct rswitch3_port_data *data = dev->data;
+	uint32_t queue_overflow;
+	uint32_t ring_full;
+
+	if ((type & ~ETHERNET_STATS_TYPE_COMMON) == 0U) {
+		return &data->stats;
+	}
 
 	if (IS_ENABLED(CONFIG_NET_CHECKSUM_OFFLOAD)) {
 		/* Frames the switch dropped on a bad checksum never reach rx_cb. */
@@ -2104,7 +2141,26 @@ static struct net_stats_eth *rswitch3_port_get_stats(const struct device *dev)
 			rswitch3_etha_cksum_err_read(cfg->rswitch_dev, cfg->port_id);
 	}
 
+	/* Frames GWCA dropped before they reached the CPU ring ("Over") or
+	 * because no ring slot was armed in time ("Miss"). HW cannot tell which
+	 * port they were for, so every port of a gateway reports the gateway's
+	 * totals; errors.rx gets only what was added since this port last looked.
+	 */
+	rswitch3_gwca_rx_drops_read(cfg->gwca, &queue_overflow, &ring_full);
+	data->stats.errors.rx += (queue_overflow - data->stats.error_details.rx_over_errors) +
+				 (ring_full - data->stats.error_details.rx_missed_errors);
+	data->stats.error_details.rx_over_errors = queue_overflow;
+	data->stats.error_details.rx_missed_errors = ring_full;
+
+	/* Frames accepted by send() but dropped by the ETHA egress queue. */
+	data->stats.tx_dropped += rswitch3_etha_tx_qovf_read(cfg->rswitch_dev, cfg->port_id);
+
 	return &data->stats;
+}
+
+static struct net_stats_eth *rswitch3_port_get_stats(const struct device *dev)
+{
+	return rswitch3_port_get_stats_type(dev, ETHERNET_STATS_TYPE_ALL);
 }
 #endif
 
@@ -2118,6 +2174,7 @@ static const struct ethernet_api rswitch3_port_api = {
 	.stop = rswitch3_port_stop,
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	.get_stats = rswitch3_port_get_stats,
+	.get_stats_type = rswitch3_port_get_stats_type,
 #endif
 };
 

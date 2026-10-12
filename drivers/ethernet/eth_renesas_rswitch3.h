@@ -55,6 +55,7 @@ typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id,
 #define EATTFC   0x0138
 #define EACKSC   0x013c
 #define EACKSECN 0x0414 /* checksum error counter, cleared on read */
+#define EADQOECN 0x040c /* descriptor queue overflow error counter, cleared on read */
 #define MIOC     (RMRO + 0x0010)
 #define MPIC     (RMRO + 0x0004)
 #define MRMAC0   (RMRO + 0x0084)
@@ -202,6 +203,8 @@ enum rsw3_etha_mode {
 #define GWDIS0   0x1100
 #define GWDIE0   0x1104
 #define GWDID0   0x1108
+#define GWDQOECN 0x1030 /* RX frames lost: GWCA descriptor queue overflow (read clears) */
+#define GWDFECN  0x1038 /* RX frames lost: CPU descriptor ring full (read clears) */
 #define GWCKSC   0x013c
 #define GWIDPC   0x0b80
 #define GWIDC0   0x0c00
@@ -401,6 +404,11 @@ struct rswitch3_gwca_data {
 
 	struct k_spinlock tx_lock; /* TX rings may be fed from several threads */
 	struct k_thread rx_thread_data;
+
+	/* Running totals of the gateway-wide, clear-on-read RX drop counters */
+	struct k_spinlock rx_drops_lock;
+	uint32_t rx_queue_overflow; /* GWDQOECN */
+	uint32_t rx_ring_full;      /* GWDFECN */
 
 	K_KERNEL_STACK_MEMBER(rx_stack, CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_STACK_SIZE);
 };
