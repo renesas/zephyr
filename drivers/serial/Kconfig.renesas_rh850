@@ -9,5 +9,6 @@ config UART_RLIN3_RH850
 	select SERIAL_SUPPORT_INTERRUPT
 	select USE_RH850_FSP_RLIN3_UART
 	select PINCTRL
+	select CLOCK_CONTROL
 	help
 	  Enable Renesas RH850 RLIN3 UART Driver.

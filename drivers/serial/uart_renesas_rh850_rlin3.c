@@ -18,6 +18,8 @@ LOG_MODULE_REGISTER(rh850_rlin3_uart, CONFIG_UART_LOG_LEVEL);
 struct uart_rh850_rlin3_config {
 	const struct pinctrl_dev_config *pin_config;
 	const uart_api_t *fsp_api;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 };
 
 struct uart_rh850_rlin3_int {
@@ -372,6 +374,17 @@ static int uart_rh850_rlin3_init(const struct device *dev)
 		return ret;
 	}
 
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("UART clock device is not ready");
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("UART module clock enable failed (err %d)", ret);
+		return ret;
+	}
+
 	/* uart_rh850_rlin3_apply_config must be called first before open api */
 	ret = uart_rh850_rlin3_apply_config(dev);
 	if (ret < 0) {
@@ -599,6 +612,9 @@ static void uart_rh850_rlin3_event_handler(uart_callback_args_t *p_args)
 	static const struct uart_rh850_rlin3_config uart_rh850_rlin3_config_##n = {                \
 		.pin_config = PINCTRL_DT_DEV_CONFIG_GET(DT_INST_PARENT(n)),                        \
 		.fsp_api = &g_uart_on_rlin3,                                                       \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(n))),                     \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)                                \
+				DT_CLOCKS_CELL(DT_INST_PARENT(n), clk_id),                         \
 	};                                                                                         \
                                                                                                    \
 	static struct uart_rh850_rlin3_data uart_rh850_rlin3_data_##n = {                          \
