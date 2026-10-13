@@ -19,6 +19,8 @@
 		zephyr,flash = &code_mram;
 		zephyr,console = &uart12;
 		zephyr,shell-uart = &uart12;
+		zephyr,flash-controller = &code_flash_ctrl;
+		zephyr,code-partition = &slot0_partition;
 	};
 
 	leds {
@@ -85,6 +87,32 @@
 	uart12: uart {
 		current-speed = <115200>;
 		status = "okay";
+	};
+};
+
+&code_mram {
+	partitions {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		slot0_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x0 DT_SIZE_K(448)>;
+		};
+
+		slot1_partition: partition@70000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x70000 DT_SIZE_K(448)>;
+		};
+
+		boot_partition: partition@e0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0xe0000 DT_SIZE_K(128)>;
+		};
 	};
 };
 
