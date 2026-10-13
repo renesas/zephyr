@@ -225,23 +225,23 @@ static int sdhc_rx_request(const struct device *dev, struct sdhc_command *cmd,
 			goto end;
 		}
 		/* SDResponseR2 are bits from 8-127, first 8 MSBs are reserved */
-		p_csd_reg.reg.sdrsp10 = priv->sdmmc_ctrl.p_reg->SD_RSP10;
-		p_csd_reg.reg.sdrsp32 = priv->sdmmc_ctrl.p_reg->SD_RSP32;
-		p_csd_reg.reg.sdrsp54 = priv->sdmmc_ctrl.p_reg->SD_RSP54;
-		p_csd_reg.reg.sdrsp76 = priv->sdmmc_ctrl.p_reg->SD_RSP76;
+		p_csd_reg.csd_u.reg.sdrsp10 = priv->sdmmc_ctrl.p_reg->SDRSP10;
+		p_csd_reg.csd_u.reg.sdrsp32 = priv->sdmmc_ctrl.p_reg->SDRSP32;
+		p_csd_reg.csd_u.reg.sdrsp54 = priv->sdmmc_ctrl.p_reg->SDRSP54;
+		p_csd_reg.csd_u.reg.sdrsp76 = priv->sdmmc_ctrl.p_reg->SDRSP76;
 
 		/* Get the CSD version. */
-		uint32_t csd_version = (uint32_t)(p_csd_reg.csd_v1_b.csd_structure);
+		uint32_t csd_version = (uint32_t)(p_csd_reg.csd_u.csd_v1_b.csd_structure);
 		uint32_t mult;
 		if ((SDHI_PRV_CSD_VERSION_1_0 == csd_version) ||
 		    (SDMMC_CARD_TYPE_MMC == priv->sdmmc_ctrl.device.card_type)) {
-			mult = (1U << (p_csd_reg.csd_v1_b.c_size_mult + 2));
-			uint32_t c_size = (uint32_t)((p_csd_reg.csd_v1_b.c_size_u << 2) |
-						     p_csd_reg.csd_v1_b.c_size_l);
+			mult = (1U << (p_csd_reg.csd_u.csd_v1_b.c_size_mult + 2));
+			uint32_t c_size = (uint32_t)((p_csd_reg.csd_u.csd_v1_b.c_size_u << 2) |
+						     p_csd_reg.csd_u.csd_v1_b.c_size_l);
 			priv->sdmmc_ctrl.device.sector_count = (uint32_t)((c_size + 1U) * mult);
 
 			/* Scale the sector count by the actual block size. */
-			uint32_t read_sector_size = 1U << p_csd_reg.csd_v1_b.read_bl_len;
+			uint32_t read_sector_size = 1U << p_csd_reg.csd_u.csd_v1_b.read_bl_len;
 			priv->sdmmc_ctrl.device.sector_count =
 				priv->sdmmc_ctrl.device.sector_count *
 				(read_sector_size / SDHI_MAX_BLOCK_SIZE);
@@ -259,7 +259,7 @@ static int sdhc_rx_request(const struct device *dev, struct sdhc_command *cmd,
 #if SDHI_CFG_SD_SUPPORT_ENABLE
 		else if (SDHI_PRV_CSD_VERSION_2_0 == csd_version) {
 			priv->sdmmc_ctrl.device.sector_count =
-				(uint32_t)((p_csd_reg.csd_v2_b.c_size + 1U) *
+				(uint32_t)((p_csd_reg.csd_u.csd_v2_b.c_size + 1U) *
 					   SDHI_PRV_BYTES_PER_KILOBYTE);
 		} else {
 			/* Do Nothing */
@@ -268,7 +268,7 @@ static int sdhc_rx_request(const struct device *dev, struct sdhc_command *cmd,
 		if (SDHI_PRV_CSD_VERSION_1_0 == csd_version) {
 			/* Get the minimum erasable unit (in 512 byte sectors). */
 			priv->sdmmc_ctrl.device.erase_sector_count =
-				(uint32_t)(p_csd_reg.csd_v1_b.sector_size + 1U);
+				(uint32_t)(p_csd_reg.csd_u.csd_v1_b.sector_size + 1U);
 		} else
 #endif
 		{
@@ -287,7 +287,7 @@ static int sdhc_rx_request(const struct device *dev, struct sdhc_command *cmd,
 		}
 		sdmmc_response_t response;
 		/* get response of ACMD41 (R3) */
-		response.status = priv->sdmmc_ctrl.p_reg->SD_RSP10;
+		response.status = priv->sdmmc_ctrl.p_reg->SDRSP10;
 		/*  Initialization complete? */
 		if (response.r3.power_up_status) {
 			/* High capacity card ? */
@@ -403,20 +403,20 @@ static int sdhc_rx_request(const struct device *dev, struct sdhc_command *cmd,
 
 	if (rx_cmd.opcode == SD_ALL_SEND_CID || rx_cmd.opcode == SD_SEND_CSD) {
 		/* SDResponseR2 are bits from 8-127, first 8 MSBs are reserved */
-		p_csd_reg.reg.sdrsp10 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP10 << 8;
-		p_csd_reg.reg.sdrsp32 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP32 << 8;
-		p_csd_reg.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP54 << 8;
-		p_csd_reg.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP76 << 8;
+		p_csd_reg.csd_u.reg.sdrsp10 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP10 << 8;
+		p_csd_reg.csd_u.reg.sdrsp32 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP32 << 8;
+		p_csd_reg.csd_u.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP54 << 8;
+		p_csd_reg.csd_u.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP76 << 8;
 
-		memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
+		memcpy(cmd->response, &p_csd_reg.csd_u.reg, sizeof(cmd->response));
 	} else {
 		/* Fill response buffer */
-		p_csd_reg.reg.sdrsp10 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP10;
-		p_csd_reg.reg.sdrsp32 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP32;
-		p_csd_reg.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP54;
-		p_csd_reg.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SD_RSP76;
+		p_csd_reg.csd_u.reg.sdrsp10 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP10;
+		p_csd_reg.csd_u.reg.sdrsp32 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP32;
+		p_csd_reg.csd_u.reg.sdrsp54 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP54;
+		p_csd_reg.csd_u.reg.sdrsp76 = (uint32_t)priv->sdmmc_ctrl.p_reg->SDRSP76;
 
-		memcpy(cmd->response, &p_csd_reg.reg, sizeof(cmd->response));
+		memcpy(cmd->response, &p_csd_reg.csd_u.reg, sizeof(cmd->response));
 	}
 end:
 	if (cmd->opcode == SD_APP_CMD) {
@@ -449,8 +449,8 @@ static int sdhc_rx_reset(const struct device *dev)
 	k_sem_take(&priv->thread_lock, K_USEC(50));
 
 	/* Reset SDHI. */
-	((R_SDHI0_Type *)cfg->regs)->SOFT_RST = 0x0U;
-	((R_SDHI0_Type *)cfg->regs)->SOFT_RST = 0x1U;
+	((R_SDHI0_Type *)cfg->regs)->SDRST = 0x0U;
+	((R_SDHI0_Type *)cfg->regs)->SDRST = 0x1U;
 
 	k_sem_give(&priv->thread_lock);
 
@@ -486,7 +486,7 @@ static int sdhc_rx_set_io(const struct device *dev, struct sdhc_io *ios)
 
 		if (priv->bus_width != bus_width) {
 			/* Set the bus width in the SDHI peripheral. */
-			((R_SDHI0_Type *)cfg->regs)->SD_OPTION = sd_option;
+			((R_SDHI0_Type *)cfg->regs)->SDOPT = sd_option;
 			priv->bus_width = bus_width;
 		}
 	}
@@ -731,13 +731,17 @@ static DEVICE_API(sdhc, sdhc_api) = {
 #define RX_SDMMC_DTC_STRUCT_INIT(index)                                                            \
 	.transfer_info =                                                                           \
 		{                                                                                  \
-			.transfer_settings_word_b.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED, \
-			.transfer_settings_word_b.repeat_area = TRANSFER_REPEAT_AREA_DESTINATION,  \
-			.transfer_settings_word_b.irq = TRANSFER_IRQ_END,                          \
-			.transfer_settings_word_b.chain_mode = TRANSFER_CHAIN_MODE_DISABLED,       \
-			.transfer_settings_word_b.src_addr_mode = TRANSFER_ADDR_MODE_FIXED,        \
-			.transfer_settings_word_b.size = TRANSFER_SIZE_4_BYTE,                     \
-			.transfer_settings_word_b.mode = TRANSFER_MODE_NORMAL,                     \
+			.transfer_settings_u = {                                                     \
+				.transfer_settings_word_b = {                                           \
+					.dest_addr_mode = TRANSFER_ADDR_MODE_INCREMENTED,                  \
+					.repeat_area = TRANSFER_REPEAT_AREA_DESTINATION,                   \
+					.irq = TRANSFER_IRQ_END,                                           \
+					.chain_mode = TRANSFER_CHAIN_MODE_DISABLED,                        \
+					.src_addr_mode = TRANSFER_ADDR_MODE_FIXED,                         \
+					.size = TRANSFER_SIZE_4_BYTE,                                      \
+					.mode = TRANSFER_MODE_NORMAL,                                      \
+				},                                                                     \
+			},                                                                         \
 			.p_dest = (void *)NULL,                                                    \
 			.p_src = (void const *)NULL,                                               \
 			.num_blocks = 0,                                                           \
