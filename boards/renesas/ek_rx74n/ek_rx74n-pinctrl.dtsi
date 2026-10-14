@@ -84,6 +84,32 @@
 		};
 	};
 
+	mdio_default: mdio_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 16, 4)>, /* MDC PG04 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 16, 5)>, /* MDIO PG05 */
+				<RX_PSEL(RX_PSEL_CLKOUT, 0xE, 0)>; /* PE00 as ETHPHYCLK. */
+		};
+	};
+
+	rmac0_default: rmac0_default {
+		group1 {
+			psels = <RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 0)>, /* RXD0 PB00 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 1)>, /* RXD1 PB01 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 2)>, /* RXD2 PB02 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 3)>, /* RXD3 PB03 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 4)>, /* RXC PB04 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 11, 5)>, /* RX_CTL PB05 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 1)>, /* TXD0 PC01 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 2)>, /* TXD1 PC02 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 3)>, /* TXD2 PC03 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 4)>, /* TXD3 PC04 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 5)>, /* TX_CTL PC05 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 12, 7)>, /* TXC PC07 */
+				<RX_PSEL(RX_PSEL_ETH_RMAC_RGMII, 16, 3)>; /* MDINT PG03 */
+		};
+	};
+
 	usbhs_default: usbhs_default {
 		group1 {
 			psels = <RX_PSEL(RX_PSEL_USBHS, 2, 4)>; /* VBUS-DS */

@@ -8,6 +8,8 @@
 
 /delete-node/ &escclk;
 /delete-node/ &dsmifclk;
+/delete-node/ &mdio1;
+/delete-node/ &rmac1;
 
 &mram_ctrl {
 	code_flash_ctrl: code-mram-ctrl {
