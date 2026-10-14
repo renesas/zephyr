@@ -94,6 +94,24 @@
 		freq = <DT_FREQ_M(400)>;
 		status = "okay";
 	};
+
+	pllr: pllr {
+		div = <5>;
+		freq = <DT_FREQ_M(240)>;
+		status = "okay";
+	};
+};
+
+&uclk {
+	clocks = <&pllr>;
+	div = <5>;
+	status = "okay";
+};
+
+&usb60clk {
+	clocks = <&pllr>;
+	div = <4>;
+	status = "okay";
 };
 
 &sciclk {
@@ -159,6 +177,27 @@
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&usbhs {
+	pinctrl-0 = <&usbhs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "high-speed";
+	status = "okay";
+
+	zephyr_udc0: udc {
+		status = "okay";
+	};
+};
+
+&usbfs {
+	pinctrl-0 = <&usbfs_default>;
+	pinctrl-names = "default";
+	maximum-speed = "full-speed";
+};
+
+&usbhs_phy {
+	phys-clock-src = "xtal";
 };
 
 &group_irq_al0 {
