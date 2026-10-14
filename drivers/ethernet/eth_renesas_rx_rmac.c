@@ -196,10 +196,6 @@ static void phy_type_setting(const struct device *dev)
 	const struct eth_renesas_rx_config *config = dev->config;
 	volatile uint32_t *p_miicr_register;
 
-	/* Configure pins for MII or RMII. Set PHYMODE0 if MII is selected. */
-	R_PMISC->PFENET = (uint8_t)((0 == config->phy_conn_type)
-				    << (R_PMISC_PFENET_PHYMODE0_Pos + data->fsp_cfg->channel));
-
 	/* Get pointer to a MIICRn register. */
 	p_miicr_register = &(R_ESWM->MIICR0) + data->fsp_cfg->channel;
 
@@ -697,6 +693,7 @@ static const struct ethernet_api eth_renesas_rx_api = {
 		.p_rx_queue_list = eth##n##_rx_queue_list,                                         \
 		.p_buffer_node_list = eth##n##_buffer_node_list,                                   \
 		.buffer_node_num = ETH_BUF_NUM(n),                                                 \
+		.transmission_descriptor_format = RMAC_TRANSMISSION_DESCRIPTOR_FORMAT_DIRECT,      \
 		.rmpi_irq = FSP_INVALID_VECTOR,                                                    \
 		.rmpi_ipl = BSP_IRQ_DISABLED,                                                      \
 	};                                                                                         \
