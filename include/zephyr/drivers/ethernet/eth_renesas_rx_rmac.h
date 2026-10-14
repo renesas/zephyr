@@ -34,8 +34,8 @@
 #define RENESAS_RX_ETHA_CONFIG_MODE    2 /**< RMAC configuration mode. */
 #define RENESAS_RX_ETHA_OPERATION_MODE 3 /**< RMAC operation mode. */
 
-#define RENESAS_RX_ETHA_REG_SIZE (R_ETHA1_BASE - R_ETHA0_BASE) /**< Size of ETHA register area. */
-#define RENESAS_RX_RMAC_REG_SIZE (R_RMAC1_BASE - R_RMAC0_BASE)
+#define RENESAS_RX_ETHA_REG_SIZE (0x2000UL) /**< Size of ETHA register area. */
+#define RENESAS_RX_RMAC_REG_SIZE (0x2000UL)
 
 /** @} end of renesas_rx_eth_rmac_defs group */
 
@@ -65,7 +65,7 @@ static inline void r_rmac_phy_set_operation_mode(uint8_t channel, uint8_t mode)
 {
 	R_ETHA0_Type *p_etha_reg =
 		(R_ETHA0_Type *)(R_ETHA0_BASE + (RENESAS_RX_ETHA_REG_SIZE * channel));
-	
+
 	R_RMAC0_Type *  p_reg_rmac = (R_RMAC0_Type *) (R_RMAC0_BASE + (RENESAS_RX_RMAC_REG_SIZE * channel));
 
 	/* Mode transition */
