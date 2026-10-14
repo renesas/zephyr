@@ -79,6 +79,12 @@
 		#phy-cells = <0>;
 	};
 
+	zephyr,user {
+		phy-reset-gpios = <&ioport4 13 GPIO_ACTIVE_LOW>;
+		phy-reset-assert-ms = <200>;
+		phy-reset-deassert-ms = <35>;
+	};
+
 	psram: memory@50000000 {
 		compatible = "zephyr,memory-region";
 		reg = <0x50000000 DT_SIZE_M(32)>;
@@ -119,6 +125,46 @@
 		freq = <DT_FREQ_M(240)>;
 		status = "okay";
 	};
+};
+
+&pll2 {
+	status = "okay";
+
+	/* PLL */
+	clocks = <&xtal>;
+	div = <3>;
+	mul = <125 0>;
+	freq = <DT_FREQ_M(1000)>;
+
+	pll2p: pll2p {
+		div = <2>;
+		freq = <DT_FREQ_M(500)>;
+		status = "okay";
+	};
+};
+
+&eswclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pll2p>;
+	div = <2>;
+	#clock-cells = <2>;
+	status = "okay";
+};
+
+&eswphyclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pll2p>;
+	div = <1>;
+	#clock-cells = <2>;
+	status = "okay";
+};
+
+&ethphyclk {
+	compatible = "renesas,rx-cgc-pclk";
+	clocks = <&pllq>;
+	div = <16>;
+	#clock-cells = <2>;
+	status = "okay";
 };
 
 &uclk {
@@ -258,6 +304,14 @@
 	status = "okay";
 };
 
+&group_irq_al4 {
+	status = "okay";
+};
+
+&ioport4 {
+	status = "okay";
+};
+
 &ioport6 {
 	status = "okay";
 };
@@ -276,6 +330,42 @@
 
 &trng {
 	status = "okay";
+};
+
+&eswm {
+	status = "okay";
+};
+
+&rmac0 {
+	pinctrl-0 = <&rmac0_default>;
+	pinctrl-names = "default";
+	phy-clock = <&ethphyclk>;
+	phy-clock-type = "internal";
+	txq-len = <64>;
+	rxq-len = <64>;
+	txb-num = <128>;
+	rxb-num = <128>;
+	phy-handle = <&phy0>;
+	phy-connection-type = "rgmii";
+	status = "okay";
+};
+
+&mdio0 {
+	pinctrl-0 = <&mdio_default>;
+	pinctrl-names = "default";
+	mdio-hold-time-ns = <7>;
+	mdio-capture-time-ns = <7>;
+	status = "okay";
+
+	phy0: ethernet-phy@0 {
+		compatible = "microchip,vsc8541";
+		reg = <0x0>;
+		status = "okay";
+
+		microchip,interface-type = "rgmii";
+		microchip,rgmii-tx-clk-delay = <0x4>;
+		microchip,rgmii-rx-clk-delay = <0x4>;
+	};
 };
 
 &xspi0 {
