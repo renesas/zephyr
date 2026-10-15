@@ -1,0 +1,75 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Renesas RH850 PSI5 (Peripheral Sensor Interface) controller
+
+compatible: "renesas,rh850-psi5"
+
+include:
+  - name: psi5-controller.yaml
+    child-binding:
+      # Not supported by the RH850 driver:
+      # - decoder-start-offset-us: no hardware equivalent
+      # - tx-frame = "non-standard-frame" (build error)
+      # tx-frame start condition: *-31-1s idles at '1', *-5-0s and xx-long-frame idle at '0'.
+      # tx-frame omitted: Short frame, idle '0' (same as short-5-0s).
+      property-blocklist:
+        - decoder-start-offset-us
+      child-binding:
+        # Not supported by the RH850 driver:
+        # - duration-us: slots are configured by start offset only
+        # - data-msb-first: not supported yet
+        property-blocklist:
+          - duration-us
+          - data-msb-first
+  - name: pinctrl-device.yaml
+
+properties:
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+
+  clocks:
+    required: true
+
+  renesas,unit-id:
+    type: int
+    required: true
+    min: 0
+    description: |
+      Hardware PSI5 unit number (n of PSI5n).
+
+  "#address-cells":
+    type: int
+    const: 1
+
+  "#size-cells":
+    type: int
+    const: 0
+
+child-binding:
+  properties:
+    reg:
+      const: 0
+
+    "#address-cells":
+      type: int
+      const: 1
+
+    "#size-cells":
+      type: int
+      const: 0
+
+  child-binding:
+    properties:
+      reg:
+        min: 0
+        max: 7

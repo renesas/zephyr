@@ -34,5 +34,10 @@
 		 */
 		/delete-node/ rlin31@ffc7c000;
 		/delete-node/ rlin36@ffd28600;
+
+		/* Delete PSI5 node (unit 1 is not implemented on the 144-pin package):
+		 * psi51
+		 */
+		/delete-node/ psi5@ffd52400;
 	};
 };

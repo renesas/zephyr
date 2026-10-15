@@ -1260,6 +1260,246 @@
 				status = "disabled";
 			};
 		};
+
+		psi50: psi5@ffd52000 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffd52000 0x400>;
+			interrupts = <600 1>, <601 1>, <602 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 0, PCLK)>;
+			renesas,unit-id = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi50_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi50_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
+
+		psi51: psi5@ffd52400 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffd52400 0x400>;
+			interrupts = <603 1>, <604 1>, <605 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 1, PCLK)>;
+			renesas,unit-id = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi51_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi51_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
+
+		psi52: psi5@ffd52800 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffd52800 0x400>;
+			interrupts = <606 1>, <607 1>, <608 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 2, PCLK)>;
+			renesas,unit-id = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi52_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi52_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi52_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
+
+		psi53: psi5@ffd52c00 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffd52c00 0x400>;
+			interrupts = <609 1>, <610 1>, <611 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 3, PCLK)>;
+			renesas,unit-id = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi53_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi53_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi53_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
 	};
 
 	/* External CAN clock - to be overridden by boards that provide it */

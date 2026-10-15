@@ -707,6 +707,126 @@
 			};
 		};
 
+		psi50: psi5@ffcc4000 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffcc4000 0x400>;
+			interrupts = <419 1>, <420 1>, <421 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 0, PCLK)>;
+			renesas,unit-id = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi50_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi50_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi50_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
+
+		psi51: psi5@ffcc4400 {
+			compatible = "renesas,rh850-psi5";
+			reg = <0xffcc4400 0x400>;
+			interrupts = <422 1>, <423 1>, <424 1>;
+			interrupt-names = "status", "rx", "tx";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(PSI5, 1, PCLK)>;
+			renesas,unit-id = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			psi51_ch0: ch@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+
+				psi51_ch0_rx_slot0: slot@0 {
+					reg = <0>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot1: slot@1 {
+					reg = <1>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot2: slot@2 {
+					reg = <2>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot3: slot@3 {
+					reg = <3>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot4: slot@4 {
+					reg = <4>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot5: slot@5 {
+					reg = <5>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot6: slot@6 {
+					reg = <6>;
+					status = "disabled";
+				};
+
+				psi51_ch0_rx_slot7: slot@7 {
+					reg = <7>;
+					status = "disabled";
+				};
+			};
+		};
+
 		mspi0: spi@ffc76000 {
 			compatible = "renesas,rh850-spi";
 			interrupts-extended = <&intc2 76 1>,
