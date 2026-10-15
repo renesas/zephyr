@@ -357,11 +357,15 @@ SECTIONS
 
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
 
-/* When CONFIG_RX74M_LRAM0_NS is set, itcm_ns carries zephyr,memory-region =
- * "ITCM_NS" so the generated memory region is called ITCM_NS, not ITCM.
- * GROUP_START/GROUP_LINK_IN/GROUP_END must match that name.
+/* When CONFIG_RX74M_LRAM0_NS or CONFIG_RX74N_LRAM0_NS is set, itcm_ns carries
+ * zephyr,memory-region = "ITCM_NS" so the generated memory region is called
+ * ITCM_NS, not ITCM. GROUP_START/GROUP_LINK_IN/GROUP_END must match that name.
  */
-#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS) || IS_ENABLED(CONFIG_RX74N_LRAM0_NS)
+#define RX_LRAM0_NS
+#endif
+
+#ifdef RX_LRAM0_NS
 GROUP_START(ITCM_NS)
 #else
 GROUP_START(ITCM)
@@ -380,7 +384,7 @@ GROUP_START(ITCM)
 #include <snippets-itcm-section.ld>
 
 		PLACE_SYMBOL_HERE(__itcm_end);
-#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+#ifdef RX_LRAM0_NS
 	} GROUP_LINK_IN(ITCM_NS AT> ROMABLE_REGION)
 #else
 	} GROUP_LINK_IN(ITCM AT> ROMABLE_REGION)
@@ -391,7 +395,7 @@ GROUP_START(ITCM)
 	PROVIDE(__itcm_size = ___itcm_size);
 	PROVIDE(__itcm_load_start = ___itcm_load_start);
 
-#if IS_ENABLED(CONFIG_RX74M_LRAM0_NS)
+#ifdef RX_LRAM0_NS
 GROUP_END(ITCM_NS)
 #else
 GROUP_END(ITCM)
