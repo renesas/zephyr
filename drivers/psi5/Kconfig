@@ -20,6 +20,7 @@ config PSI5_INIT_PRIORITY
 
 # zephyr-keep-sorted-start
 source "drivers/psi5/Kconfig.nxp_s32"
+source "drivers/psi5/Kconfig.renesas_rh850"
 # zephyr-keep-sorted-stop
 
 endif # PSI5

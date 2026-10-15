@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PSI5_RENESAS_RH850
+	bool "Renesas RH850 PSI5 driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_PSI5_ENABLED
+	select PINCTRL
+	select USE_RH850_FSP_PSI5
+	select CLOCK_CONTROL
+	help
+	  Enable support for the Renesas RH850 PSI5 driver.

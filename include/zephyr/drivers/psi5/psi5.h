@@ -186,6 +186,7 @@ static inline int z_impl_psi5_start_sync(const struct device *dev, uint8_t chann
  * @retval 0 successful.
  * @retval -EINVAL invalid channel.
  * @retval -EALREADY device is already started.
+ * @retval -EBUSY a TX frame is still being sent, retry later.
  * @retval -EIO general input/output error, failed to stop device.
  */
 __syscall int psi5_stop_sync(const struct device *dev, uint8_t channel);
@@ -218,6 +219,7 @@ static inline int z_impl_psi5_stop_sync(const struct device *dev, uint8_t channe
  *
  * @retval 0 successful.
  * @retval -EINVAL invalid channel.
+ * @retval -EMSGSIZE data does not fit in the configured TX frame.
  * @retval -ENOTSUP unsupported parameter was passed to the function.
  * @retval -ENETDOWN stopped state.
  * @retval -EIO general transmit error occurred.
