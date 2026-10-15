@@ -26,4 +26,5 @@ supported:
   - i2c
   - i2s
   - sent
+  - psi5
 vendor: renesas

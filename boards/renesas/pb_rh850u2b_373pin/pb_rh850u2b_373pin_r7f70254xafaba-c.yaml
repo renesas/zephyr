@@ -22,4 +22,5 @@ supported:
   - adc
   - can
   - clock
+  - psi5
 vendor: renesas

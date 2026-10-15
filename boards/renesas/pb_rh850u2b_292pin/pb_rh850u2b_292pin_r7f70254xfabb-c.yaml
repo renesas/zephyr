@@ -23,4 +23,5 @@ supported:
   - can
   - clock
   - sent
+  - psi5
 vendor: renesas
