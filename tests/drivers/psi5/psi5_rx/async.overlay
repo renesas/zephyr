@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Scenario drivers.psi5.rx.async.data_frame (T22):
+ * PSI5-A asynchronous mode on the test channel (no sync pulse, no TX).
+ * Applied on top of boards/<board>.overlay via EXTRA_DTC_OVERLAY_FILE (testcase.yaml).
+ * Driver: started in init (CHEN = 1), start_sync/stop_sync/send -> -ENOTSUP, slot@0 only.
+ */
+&psi50_ch0 {
+	async-mode;
+};

@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		psi5-0 = &psi50;
+		psi5-emu-taud = &pwm0_master;
+	};
+
+	/*
+	 * Test-only sensor emulator output. Wire P22_0 to P04_14 (PSI50RX).
+	 * The emulator generates a Manchester-coded PSI5 data frame.
+	 */
+	zephyr,user {
+		psi5-emu-gpios = <&ioport22 0 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&pwm0_master {
+	clocks = <&cgc RH850_PCLK(TAUD, 0, PCLK)>;
+	status = "okay";
+};
+
+/* PSI50: P04_15 = TX, P04_14 = RX. */
+&pinctrl {
+	psi50_default: psi50_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 15, ALT_OUT6)>,
+				<RH850_PSEL(PORT_04, 14, ALT_IN7)>;
+		};
+	};
+};
+
+&ioport22 {
+	status = "okay";
+};
+
+&psi50 {
+	pinctrl-0 = <&psi50_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+/* PSI5-P synchronous baseline copied from the verified sample. */
+&psi50_ch0 {
+	period-sync-pulse-us = <500>;
+	pulse-width-0-us = <15>;
+	pulse-width-1-us = <30>;
+	rx-bitrate-kbps = <125>;
+	status = "okay";
+};
+
+&psi50_ch0_rx_slot0 {
+	start-offset-us = <0>;
+	data-length = <10>;
+	has-parity;
+	status = "okay";
+};

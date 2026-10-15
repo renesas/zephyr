@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config SAMPLE_PSI5_CHANNEL
+	int "PSI5 channel used by the sample"
+	range 0 7
+	default 1
+	help
+	  Channel ID passed to psi5_register_callback(), psi5_start_sync()
+	  and psi5_send(). It must match the channel node enabled in the
+	  board overlay.
+
+source "Kconfig.zephyr"

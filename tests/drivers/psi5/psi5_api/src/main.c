@@ -9,8 +9,11 @@
 #include <zephyr/drivers/psi5/psi5.h>
 
 #define PSI5_NODE          DT_ALIAS(psi5_0)
-#define PSI5_CHANNEL       1
+#define PSI5_CHANNEL       CONFIG_TEST_PSI5_CHANNEL
 #define PSI5_MAX_RX_BUFFER 1
+
+/* Upper bound so the test cannot hang. A timeout is a real failure. */
+#define PSI5_STOP_RETRY_MAX 50
 
 const struct device *psi5_dev = DEVICE_DT_GET(PSI5_NODE);
 struct k_sem tx_callback_sem;
@@ -61,6 +64,24 @@ void tx_cb(const struct device *dev, uint8_t channel_id, int status, void *user_
 	k_sem_give(&tx_callback_sem);
 }
 
+/*
+ * The driver does not wait: psi5_stop_sync() returns -EBUSY while a TX frame is still in
+ * the TX buffer. The application retries until the frame has been sent.
+ */
+static int stop_sync_wait(void)
+{
+	int err = -EBUSY;
+
+	for (int i = 0; i < PSI5_STOP_RETRY_MAX && err == -EBUSY; i++) {
+		err = psi5_stop_sync(psi5_dev, PSI5_CHANNEL);
+		if (err == -EBUSY) {
+			k_msleep(1);
+		}
+	}
+
+	return err;
+}
+
 /**
  * @brief Test starting sync is not allowed while started.
  */
@@ -80,7 +101,7 @@ ZTEST_USER(psi5_api, test_stop_sync_while_stopped)
 {
 	int err;
 
-	err = psi5_stop_sync(psi5_dev, PSI5_CHANNEL);
+	err = stop_sync_wait();
 	zassert_ok(err, "Failed to stop sync (err %d)", err);
 
 	err = psi5_stop_sync(psi5_dev, PSI5_CHANNEL);
@@ -170,7 +191,7 @@ ZTEST(psi5_api, test_send_while_stopped_sync)
 	int err;
 	uint64_t send_data = 0x1234;
 
-	err = psi5_stop_sync(psi5_dev, PSI5_CHANNEL);
+	err = stop_sync_wait();
 	zassert_ok(err, "Failed to stop sync (err %d)", err);
 
 	err = psi5_send(psi5_dev, PSI5_CHANNEL, send_data, K_MSEC(100), NULL, NULL);

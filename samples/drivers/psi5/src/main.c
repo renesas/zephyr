@@ -12,7 +12,7 @@ LOG_MODULE_REGISTER(psi5_sample, LOG_LEVEL_DBG);
 #include <zephyr/drivers/psi5/psi5.h>
 
 #define PSI5_NODE          DT_ALIAS(psi5_0)
-#define PSI5_CHANNEL       1
+#define PSI5_CHANNEL       CONFIG_SAMPLE_PSI5_CHANNEL
 #define PSI5_MAX_RX_BUFFER 1
 
 struct psi5_frame serial_frame[PSI5_MAX_RX_BUFFER];

@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		psi5-0 = &psi50;
+	};
+};
+
+/*
+ * PSI5 pin mux for U2C 292-pin, taken from the U2C pin function table.
+ * PSI50 uses P10_13/P10_14: P02_5 (mspi1, irq17) and P20_4 (etnf0) are
+ * already used by this board.
+ *
+ *   Unit   RX pin  (func)     TX pin  (func)      Ball RX/TX
+ *   PSI50  P10_14  ALT_IN6    P10_13  ALT_OUT6    L2 / L1
+ */
+
+&pinctrl {
+	psi50_default: psi50_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_10, 13, ALT_OUT6)>,	/* PSI50TX */
+				<RH850_PSEL(PORT_10, 14, ALT_IN6)>;	/* PSI50RX */
+		};
+	};
+};
+
+&psi50 {
+	pinctrl-0 = <&psi50_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&psi50_ch0 {
+	period-sync-pulse-us = <500>;
+	pulse-width-0-us = <15>;
+	pulse-width-1-us = <30>;
+	/* Long frame like the upstream NXP overlay: FRMFORMAT = 010, 16-bit TXDATA, sends 0x1234 */
+	tx-frame = "long-31-1s";
+	rx-bitrate-kbps = <125>;
+	status = "okay";
+};
+
+&psi50_ch0_rx_slot0 {
+	start-offset-us = <0>;
+	data-length = <10>;
+	has-parity;
+	status = "okay";
+};

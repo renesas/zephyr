@@ -1,0 +1,18 @@
+common:
+  tags:
+    - drivers
+    - psi5
+  harness: ztest
+  platform_allow:
+    - pb_rh850u2a_516pin/r7f702300bebbc-c
+    - pb_rh850u2b_468pin/r7f70254xafabg-c
+    - pb_rh850u2c_292pin/r7f702600afabb-c
+  filter: dt_alias_exists("psi5-0")
+tests:
+  drivers.psi5.rx.sync.data_frame: {}
+  drivers.psi5.rx.async.serial_message:
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE="async.overlay;smc.overlay"
+  drivers.psi5.rx.async.data_frame:
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE="async.overlay"

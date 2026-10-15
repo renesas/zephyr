@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		psi5-0 = &psi50;
+	};
+};
+
+/* PSI50: P02_1 = TX, P02_0 = RX on U2B10 292-pin. */
+&pinctrl {
+	psi50_default: psi50_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT2)>,
+				<RH850_PSEL(PORT_02, 0, ALT_IN2)>;
+		};
+	};
+};
+
+&psi50 {
+	pinctrl-0 = <&psi50_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+/*
+ * PSI5-P synchronous mode. tx-frame follows the upstream NXP psi5_api overlay:
+ * Long frame (FRMFORMAT = 010, 16-bit TXDATA) so test_send_* data 0x1234 fits.
+ */
+&psi50_ch0 {
+	period-sync-pulse-us = <500>;
+	pulse-width-0-us = <15>;
+	pulse-width-1-us = <30>;
+	tx-frame = "long-31-1s";
+	rx-bitrate-kbps = <125>;
+	status = "okay";
+};
+
+&psi50_ch0_rx_slot0 {
+	start-offset-us = <0>;
+	data-length = <10>;
+	has-parity;
+	status = "okay";
+};

@@ -1,0 +1,58 @@
+#include <zephyr/dt-bindings/gpio/gpio.h>
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		psi5-0 = &psi50;
+	};
+};
+
+/* U2A6 QFP144: PSI50 RX=P4_14, TX=P4_15. */
+&pinctrl {
+	psi50_default: psi50_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 15, ALT_OUT6)>,
+				<RH850_PSEL(PORT_04, 14, ALT_IN7)>;
+		};
+	};
+};
+
+&psi50 {
+	pinctrl-0 = <&psi50_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&psi50_ch0 {
+	period-sync-pulse-us = <500>;
+	pulse-width-0-us = <15>;
+	pulse-width-1-us = <30>;
+	rx-bitrate-kbps = <125>;
+	status = "okay";
+};
+
+&psi50_ch0_rx_slot0 {
+	start-offset-us = <0>;
+	data-length = <10>;
+	has-parity;
+	status = "okay";
+};
+
+/* Test-only emulator P10_1; physical wiring not validated. */
+/ {
+	zephyr,user {
+		psi5-emu-gpios = <&ioport10 1 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&ioport10 {
+	status = "okay";
+};
+
+&pwm0_master {
+	clocks = <&cgc RH850_PCLK(TAUD, 0, PCLK)>;
+	status = "okay";
+};

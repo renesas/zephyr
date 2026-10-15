@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config TEST_PSI5_CHANNEL
+	int "PSI5 channel used by the test"
+	range 0 7
+	default 1
+	help
+	  Channel ID used by the psi5_api test suite. It must match the
+	  channel node enabled in the board overlay.
+
+source "Kconfig.zephyr"
