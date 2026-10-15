@@ -24,6 +24,7 @@
 		zephyr,flash-controller = &code_flash_ctrl;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,canbus = &canfdg0;
+		zephyr,entropy = &trng;
 	};
 
 	leds {
@@ -212,6 +213,10 @@
 };
 
 &rtc {
+	status = "okay";
+};
+
+&trng {
 	status = "okay";
 };
 
