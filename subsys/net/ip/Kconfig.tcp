@@ -97,10 +97,20 @@ config NET_TCP_RETRY_COUNT
 	  Should a retransmission timeout occur, the receive callback is
 	  called with -ETIMEDOUT error code and the context is dereferenced.
 
+config NET_TCP_WINDOW_SCALE
+	bool "TCP window scaling (RFC 7323)"
+	help
+	  Negotiate the window scale option in SYN / SYN-ACK so that send
+	  and receive windows larger than 64 KB can be used. Needed for
+	  high throughput when bandwidth x round-trip time exceeds 64 KB.
+	  Without it, NET_TCP_MAX_SEND_WINDOW_SIZE and
+	  NET_TCP_MAX_RECV_WINDOW_SIZE are limited to 65535.
+
 config NET_TCP_MAX_SEND_WINDOW_SIZE
 	int "Maximum sending window size to use"
 	default 0
-	range 0 $(UINT16_MAX)
+	range 0 $(UINT16_MAX) if !NET_TCP_WINDOW_SCALE
+	range 0 1073725440
 	help
 	  This value affects how the TCP selects the maximum sending window
 	  size. The default value 0 lets the TCP stack select the value
@@ -109,7 +119,8 @@ config NET_TCP_MAX_SEND_WINDOW_SIZE
 config NET_TCP_MAX_RECV_WINDOW_SIZE
 	int "Maximum receive window size to use"
 	default 0
-	range 0 $(UINT16_MAX)
+	range 0 $(UINT16_MAX) if !NET_TCP_WINDOW_SCALE
+	range 0 1073725440
 	help
 	  This value defines the maximum TCP receive window size. Increasing
 	  this value can improve connection throughput, but requires more

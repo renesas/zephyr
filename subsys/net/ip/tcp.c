@@ -500,7 +500,7 @@ static void tcp_derive_rto(struct tcp *conn)
 
 static void tcp_new_reno_log(struct tcp *conn, char *step)
 {
-	NET_DBG("[%p] ca %s, cwnd=%d, ssthres=%d, fast_pend=%i",
+	NET_DBG("[%p] ca %s, cwnd=%u, ssthres=%u, fast_pend=%u",
 		conn, step, conn->ca.cwnd, conn->ca.ssthresh,
 		conn->ca.pending_fast_retransmit_bytes);
 }
@@ -537,7 +537,7 @@ static void tcp_new_reno_dup_ack(struct tcp *conn)
 	int32_t new_win = conn->ca.cwnd;
 
 	new_win += conn_mss(conn);
-	conn->ca.cwnd = MIN(new_win, UINT16_MAX);
+	conn->ca.cwnd = MIN(new_win, NET_TCP_MAX_WIN);
 	tcp_new_reno_log(conn, "dup_ack");
 }
 
@@ -553,7 +553,7 @@ static void tcp_new_reno_pkts_acked(struct tcp *conn, uint32_t acked_len)
 			/* Implement a div_ceil	to avoid rounding to 0 */
 			new_win += ((win_inc * win_inc) + conn->ca.cwnd - 1) / conn->ca.cwnd;
 		}
-		conn->ca.cwnd = MIN(new_win, UINT16_MAX);
+		conn->ca.cwnd = MIN(new_win, NET_TCP_MAX_WIN);
 	} else {
 		/* Check if it is still in fast recovery mode */
 		if (conn->ca.pending_fast_retransmit_bytes <= acked_len) {
@@ -561,7 +561,7 @@ static void tcp_new_reno_pkts_acked(struct tcp *conn, uint32_t acked_len)
 			conn->ca.cwnd = conn->ca.ssthresh;
 		} else {
 			conn->ca.pending_fast_retransmit_bytes -= acked_len;
-			conn->ca.cwnd -= acked_len;
+			conn->ca.cwnd -= MIN(acked_len, conn->ca.cwnd);
 		}
 	}
 	tcp_new_reno_log(conn, "pkts_acked");
@@ -1158,8 +1158,15 @@ static bool tcp_options_check(struct tcp_options *recv_options,
 				goto end;
 			}
 
-			recv_options->window = opt;
+			/* RFC 7323, 2.3: log a shift above 14 but use 14 */
+			if (options[2] > NET_TCP_WINDOW_SCALE_MAX) {
+				NET_DBG("Window scale %hu clamped to %d", (uint16_t)options[2],
+					NET_TCP_WINDOW_SCALE_MAX);
+			}
+
+			recv_options->window = MIN(options[2], NET_TCP_WINDOW_SCALE_MAX);
 			recv_options->wnd_found = true;
+			NET_DBG("WS=%hu", recv_options->window);
 			break;
 		default:
 			continue;
@@ -1352,6 +1359,83 @@ static int tcp_finalize_pkt(struct net_pkt *pkt)
 	return -EINVAL;
 }
 
+/*
+ * Largest receive window: once the window scale is settled, never accept more
+ * than the peer can have been told, 64 KB without scaling (sequence checks
+ * use recv_win).
+ */
+static uint32_t tcp_recv_win_limit(struct tcp *conn)
+{
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	if (conn->wscale_done) {
+		return (uint32_t)UINT16_MAX << conn->rcv_wscale;
+	}
+#endif
+
+	return NET_TCP_MAX_WIN;
+}
+
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+/* Smallest shift that lets the window fit in the 16-bit header field */
+static uint8_t tcp_wscale_for(uint32_t win)
+{
+	uint8_t shift = 0;
+
+	while (shift < NET_TCP_WINDOW_SCALE_MAX && (win >> shift) > UINT16_MAX) {
+		shift++;
+	}
+
+	return shift;
+}
+
+/* Offer window scaling in our SYN or SYN-ACK (RFC 7323, 2.2) */
+static void tcp_wscale_offer(struct tcp *conn)
+{
+	conn->rcv_wscale = tcp_wscale_for(conn->recv_win_max);
+	conn->send_options.window = conn->rcv_wscale;
+	conn->send_options.wnd_found = true;
+}
+
+/* Scaling is in use only if both SYNs carried the option */
+static void tcp_wscale_negotiated(struct tcp *conn, bool peer_offered)
+{
+	if (peer_offered) {
+		conn->snd_wscale = conn->recv_options.window;
+	} else {
+		conn->snd_wscale = 0U;
+		conn->rcv_wscale = 0U;
+	}
+
+	conn->wscale_done = true;
+	conn->recv_win_max = MIN(conn->recv_win_max, tcp_recv_win_limit(conn));
+	conn->recv_win = MIN(conn->recv_win, conn->recv_win_max);
+	conn->recv_win_sent = MIN(conn->recv_win_sent, conn->recv_win_max);
+
+	NET_DBG("[%p] window scale: rcv %u, snd %u", conn, conn->rcv_wscale, conn->snd_wscale);
+}
+#endif /* CONFIG_NET_TCP_WINDOW_SCALE */
+
+/* The window scale option is only sent in SYN and SYN-ACK segments */
+static bool tcp_wscale_opt_needed(struct tcp *conn, uint8_t flags)
+{
+	return IS_ENABLED(CONFIG_NET_TCP_WINDOW_SCALE) && (flags & SYN) &&
+	       conn->send_options.wnd_found;
+}
+
+/* Window field to advertise: never scaled in SYN segments (RFC 7323, 2.2) */
+static uint16_t tcp_adv_win(struct tcp *conn, uint8_t flags)
+{
+	uint32_t win = conn->recv_win;
+
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	if (!(flags & SYN)) {
+		win >>= conn->rcv_wscale;
+	}
+#endif
+
+	return (uint16_t)MIN(win, UINT16_MAX);
+}
+
 static int tcp_header_add(struct tcp *conn, struct net_pkt *pkt, uint8_t flags,
 			  uint32_t seq)
 {
@@ -1373,8 +1457,12 @@ static int tcp_header_add(struct tcp *conn, struct net_pkt *pkt, uint8_t flags,
 		th->th_off++;
 	}
 
+	if (tcp_wscale_opt_needed(conn, flags)) {
+		th->th_off++;
+	}
+
 	UNALIGNED_PUT(flags, &th->th_flags);
-	UNALIGNED_PUT(net_htons(conn->recv_win), UNALIGNED_MEMBER_ADDR(th, th_win));
+	UNALIGNED_PUT(net_htons(tcp_adv_win(conn, flags)), UNALIGNED_MEMBER_ADDR(th, th_win));
 	UNALIGNED_PUT(net_htonl(seq), UNALIGNED_MEMBER_ADDR(th, th_seq));
 
 	if (ACK & flags) {
@@ -1449,6 +1537,26 @@ static int net_tcp_set_mss_opt(struct tcp *conn, struct net_pkt *pkt)
 	UNALIGNED_PUT(net_htonl(recv_mss), (uint32_t *)mss);
 
 	return net_pkt_set_data(pkt, &mss_opt_access);
+}
+
+static int net_tcp_set_wscale_opt(struct tcp *conn, struct net_pkt *pkt)
+{
+	NET_PKT_DATA_ACCESS_DEFINE(ws_opt_access, uint32_t);
+	uint32_t *opt;
+	uint32_t val;
+
+	opt = net_pkt_get_data(pkt, &ws_opt_access);
+	if (!opt) {
+		return -ENOBUFS;
+	}
+
+	/* NOP, kind 3, length 3, shift: keeps the option list 32-bit aligned */
+	val = (NET_TCP_NOP_OPT << 24) | (NET_TCP_WINDOW_SCALE_OPT << 16) |
+	      (NET_TCP_WINDOW_SCALE_SIZE << 8) | conn->send_options.window;
+
+	UNALIGNED_PUT(net_htonl(val), opt);
+
+	return net_pkt_set_data(pkt, &ws_opt_access);
 }
 
 static bool is_destination_local(struct net_pkt *pkt)
@@ -1571,6 +1679,10 @@ static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 		alloc_len += sizeof(uint32_t);
 	}
 
+	if (tcp_wscale_opt_needed(conn, flags)) {
+		alloc_len += sizeof(uint32_t);
+	}
+
 	pkt = tcp_pkt_alloc(conn, alloc_len);
 	if (!pkt) {
 		ret = -ENOBUFS;
@@ -1597,6 +1709,14 @@ static int tcp_out_ext(struct tcp *conn, uint8_t flags, struct net_pkt *data,
 
 	if (conn->send_options.mss_found) {
 		ret = net_tcp_set_mss_opt(conn, pkt);
+		if (ret < 0) {
+			tcp_pkt_unref(pkt);
+			goto out;
+		}
+	}
+
+	if (tcp_wscale_opt_needed(conn, flags)) {
+		ret = net_tcp_set_wscale_opt(conn, pkt);
 		if (ret < 0) {
 			tcp_pkt_unref(pkt);
 			goto out;
@@ -2200,10 +2320,10 @@ static struct tcp *tcp_conn_alloc(void)
 
 	conn->in_connect = false;
 	conn->state = TCP_LISTEN;
-	conn->recv_win_max = tcp_rx_window;
+	conn->recv_win_max = MIN((uint32_t)tcp_rx_window, NET_TCP_MAX_WIN);
 	conn->recv_win = conn->recv_win_max;
 	conn->recv_win_sent = conn->recv_win_max;
-	conn->send_win_max = MAX(tcp_tx_window, NET_IPV6_MTU);
+	conn->send_win_max = MIN((uint32_t)MAX(tcp_tx_window, NET_IPV6_MTU), NET_TCP_MAX_WIN);
 	conn->send_win = conn->send_win_max;
 	conn->tcp_nodelay = false;
 	conn->addr_ref_done = false;
@@ -2214,7 +2334,7 @@ static struct tcp *tcp_conn_alloc(void)
 	/* Initially set the congestion window at its max size, since only the MSS
 	 * is available as soon as the connection is established
 	 */
-	conn->ca.cwnd = UINT16_MAX;
+	conn->ca.cwnd = NET_TCP_MAX_WIN;
 #endif
 
 	/* The ISN value will be set when we get the connection attempt or
@@ -2890,6 +3010,9 @@ static void tcp_check_sock_options(struct tcp *conn)
 					     &rcvbuf_opt, NULL);
 	}
 
+	sndbuf_opt = MIN((uint32_t)sndbuf_opt, NET_TCP_MAX_WIN);
+	rcvbuf_opt = MIN((uint32_t)rcvbuf_opt, tcp_recv_win_limit(conn));
+
 	if (sndbuf_opt > 0 && sndbuf_opt != conn->send_win_max) {
 		k_mutex_lock(&conn->lock, K_FOREVER);
 
@@ -2906,7 +3029,7 @@ static void tcp_check_sock_options(struct tcp *conn)
 
 		k_mutex_lock(&conn->lock, K_FOREVER);
 
-		diff = rcvbuf_opt - conn->recv_win_max;
+		diff = rcvbuf_opt - (int)conn->recv_win_max;
 		conn->recv_win_max = rcvbuf_opt;
 		tcp_update_recv_wnd(conn, diff);
 
@@ -3066,6 +3189,11 @@ static enum net_verdict tcp_in(struct tcp *conn, struct net_pkt *pkt)
 
 	/* Both the seqnum and the acknum are valid, then do processing. */
 	conn->send_win = net_ntohs(th_win(th));
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	if (!(th_flags(th) & SYN)) {
+		conn->send_win <<= conn->snd_wscale;
+	}
+#endif
 	if (conn->send_win > conn->send_win_max) {
 		NET_DBG("[%p] Lowering send window from %u to %u",
 			conn, conn->send_win, conn->send_win_max);
@@ -3099,6 +3227,12 @@ static enum net_verdict tcp_in(struct tcp *conn, struct net_pkt *pkt)
 				tcp_backlog_dec(conn->accepted_conn);
 			}
 
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+			if (conn->recv_options.wnd_found) {
+				tcp_wscale_offer(conn);
+			}
+			tcp_wscale_negotiated(conn, conn->recv_options.wnd_found);
+#endif
 			/* Make sure our MSS is also sent in the ACK */
 			conn->send_options.mss_found = true;
 			conn->isn_peer = th_seq(th);
@@ -3214,6 +3348,9 @@ static enum net_verdict tcp_in(struct tcp *conn, struct net_pkt *pkt)
 		 */
 		if (FL(&fl, &, SYN | ACK, th && th_ack(th) == conn->seq)) {
 			k_work_cancel_delayable(&conn->send_data_timer);
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+			tcp_wscale_negotiated(conn, conn->recv_options.wnd_found);
+#endif
 			conn->isn_peer = th_seq(th);
 			conn_ack(conn, th_seq(th) + 1);
 			if (len) {
@@ -3921,6 +4058,9 @@ static int tcp_start_handshake(struct tcp *conn)
 	k_mutex_lock(&conn->lock, K_FOREVER);
 	tcp_check_sock_options(conn);
 	conn->send_options.mss_found = true;
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	tcp_wscale_offer(conn);
+#endif
 	ret = tcp_out_ext(conn, SYN, NULL /* no data */, conn->seq);
 	if (ret < 0) {
 		k_mutex_unlock(&conn->lock);

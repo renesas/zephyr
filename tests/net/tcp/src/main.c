@@ -157,6 +157,69 @@ static void verify_flags(struct tcphdr *th, uint8_t flags,
 #define test_verify_flags(_th, _flags) \
 	verify_flags(_th, _flags, __func__, __LINE__)
 
+/* TCP options of the last segment sent by the stack under test */
+static uint8_t last_tcp_opts[40];
+
+static struct net_context *accepted_ctx;
+
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+/* testcase.yaml gives the window scaling variant 256 KB windows */
+BUILD_ASSERT(CONFIG_NET_TCP_MAX_RECV_WINDOW_SIZE == 262144);
+BUILD_ASSERT(CONFIG_NET_TCP_MAX_SEND_WINDOW_SIZE == 262144);
+/* Smallest shift that fits 256 KB in 16 bits */
+#define TEST_RCV_WSCALE  3U
+/* Shift and window field in the SYN of tester_prepare_tcp_pkt() */
+#define TEST_PEER_WSCALE 7U
+#define TEST_PEER_WIN    NET_IPV6_MTU
+#endif
+
+/*
+ * SYN-ACK from the server under test: with CONFIG_NET_TCP_WINDOW_SCALE, the
+ * window scale option (NOP, 3, 3, shift after the MSS option) is present only
+ * when the peer offered it, and the window field is not scaled (RFC 7323).
+ */
+static void test_verify_syn_ack_wscale(struct tcphdr *th, bool peer_offered)
+{
+	if (!IS_ENABLED(CONFIG_NET_TCP_WINDOW_SCALE) || !peer_offered) {
+		zassert_equal(th->th_off, 6, "unexpected TCP options (off %u)", th->th_off);
+		return;
+	}
+
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	const uint8_t *opt = last_tcp_opts;
+
+	zassert_equal(th->th_off, 7, "window scale option missing (off %u)", th->th_off);
+	zassert_equal(opt[0], 2U, "MSS option expected first (kind %u)", opt[0]);
+	zassert_equal(opt[4], 1U, "no NOP before window scale (%u)", opt[4]);
+	zassert_equal(opt[5], 3U, "wrong option kind %u", opt[5]);
+	zassert_equal(opt[6], 3U, "wrong option length %u", opt[6]);
+	zassert_equal(opt[7], TEST_RCV_WSCALE, "wrong shift %u", opt[7]);
+	zassert_equal(net_ntohs(th->th_win), UINT16_MAX, "SYN-ACK window %u not unscaled",
+		      net_ntohs(th->th_win));
+#endif
+}
+
+/*
+ * First ACK from the server under test after the handshake: our window is
+ * advertised scaled, and the peer's window was scaled by the peer's shift.
+ */
+static void test_verify_ack_wscale(struct tcphdr *th)
+{
+#if defined(CONFIG_NET_TCP_WINDOW_SCALE)
+	struct tcp *conn = accepted_ctx->tcp;
+
+	zassert_equal(conn->rcv_wscale, TEST_RCV_WSCALE, "rcv shift %u", conn->rcv_wscale);
+	zassert_equal(conn->snd_wscale, TEST_PEER_WSCALE, "snd shift %u", conn->snd_wscale);
+	zassert_true(conn->recv_win > UINT16_MAX, "recv_win %u not above 64 KB", conn->recv_win);
+	zassert_equal(net_ntohs(th->th_win), conn->recv_win >> TEST_RCV_WSCALE,
+		      "window field %u, recv_win %u", net_ntohs(th->th_win), conn->recv_win);
+	zassert_equal(conn->send_win, TEST_PEER_WIN << TEST_PEER_WSCALE, "send_win %u",
+		      conn->send_win);
+#else
+	ARG_UNUSED(th);
+#endif
+}
+
 struct net_tcp_context {
 	uint8_t mac_addr[sizeof(struct net_eth_addr)];
 	struct net_linkaddr ll_addr;
@@ -414,6 +477,16 @@ static int read_tcp_header(struct net_pkt *pkt, struct tcphdr *th)
 	ret = net_pkt_read(pkt, th, sizeof(struct tcphdr));
 	if (ret < 0) {
 		goto fail;
+	}
+
+	/* Keep the options of the last segment for the checks below */
+	memset(last_tcp_opts, 0, sizeof(last_tcp_opts));
+	if (th->th_off > 5U) {
+		ret = net_pkt_read(pkt, last_tcp_opts,
+				   MIN((th->th_off - 5U) * 4U, sizeof(last_tcp_opts)));
+		if (ret < 0) {
+			goto fail;
+		}
 	}
 
 	net_pkt_cursor_init(pkt);
@@ -724,6 +797,7 @@ static void handle_server_test(net_sa_family_t af, struct tcphdr *th)
 		break;
 	case T_SYN_ACK:
 		test_verify_flags(th, SYN | ACK);
+		test_verify_syn_ack_wscale(th, test_case_no == TEST_SERVER_WITH_OPTIONS_IPV4);
 		seq++;
 		ack = net_ntohl(th->th_seq) + 1U;
 		reply = prepare_ack_packet(af, net_htons(MY_PORT),
@@ -737,6 +811,9 @@ static void handle_server_test(net_sa_family_t af, struct tcphdr *th)
 		break;
 	case T_DATA_ACK:
 		test_verify_flags(th, ACK);
+		if (test_case_no == TEST_SERVER_WITH_OPTIONS_IPV4) {
+			test_verify_ack_wscale(th);
+		}
 		seq++;
 		reply = prepare_fin_ack_packet(af, net_htons(MY_PORT),
 					       net_htons(PEER_PORT));
@@ -796,8 +873,6 @@ static void test_tcp_recv_cb(struct net_context *context,
 		net_pkt_unref(pkt);
 	}
 }
-
-static struct net_context *accepted_ctx;
 
 static void test_tcp_accept_cb(struct net_context *ctx,
 			       struct net_sockaddr *addr,
@@ -2033,11 +2108,12 @@ ZTEST(net_tcp, test_client_invalid_rst)
 {
 	struct net_context *ctx;
 	struct tcp *conn;
-	uint16_t wnd;
+	uint32_t wnd;
 
 	ctx = create_server_socket(0, 0);
 
-	conn = ctx->tcp;
+	/* The RST is checked against the accepted connection's window */
+	conn = accepted_ctx->tcp;
 	wnd = conn->recv_win;
 
 	/* Failure cases, the RST packets should be dropped */
@@ -2830,6 +2906,9 @@ static void test_seq_val_recv_cb(struct net_context *context,
 ZTEST(net_tcp, test_client_seq_validation)
 {
 	struct net_context *ctx;
+
+	/* Fills the receive window 500 bytes per round: needs a small window */
+	Z_TEST_SKIP_IFDEF(CONFIG_NET_TCP_WINDOW_SCALE);
 
 	test_case_no = TEST_CLIENT_SEQ_VALIDATION;
 
