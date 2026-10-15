@@ -25,6 +25,8 @@
 		zephyr,code-partition = &slot0_partition;
 		zephyr,canbus = &canfdg0;
 		zephyr,entropy = &trng;
+		zephyr,dtcm = &dtcm;
+		zephyr,itcm = &itcm;
 	};
 
 	leds {
