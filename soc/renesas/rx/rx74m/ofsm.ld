@@ -1,315 +1,315 @@
 #include <zephyr/devicetree.h>
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_mem_cfg_sec))
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_mem_cfg_sec))
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_dualsel))
-SECTION_DATA_PROLOGUE(.option_setting_dualsel, DT_REG_ADDR(DT_NODELABEL(option_setting_dualsel)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_dualsel))
+SECTION_DATA_PROLOGUE(.ofs_dualsel, DT_REG_ADDR(DT_NODELABEL(ofs_dualsel)),)
 {
-	KEEP(*(.option_setting_dualsel))
-} GROUP_LINK_IN(OPTION_SETTING_DUALSEL)
+	KEEP(*(.ofs_dualsel))
+} GROUP_LINK_IN(OFS_DUALSEL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_sas))
-SECTION_DATA_PROLOGUE(.option_setting_sas, DT_REG_ADDR(DT_NODELABEL(option_setting_sas)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_sas))
+SECTION_DATA_PROLOGUE(.ofs_sas, DT_REG_ADDR(DT_NODELABEL(ofs_sas)),)
 {
-	KEEP(*(.option_setting_sas))
-} GROUP_LINK_IN(OPTION_SETTING_SAS)
+	KEEP(*(.ofs_sas))
+} GROUP_LINK_IN(OFS_SAS)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_sas2))
-SECTION_DATA_PROLOGUE(.option_setting_sas2, DT_REG_ADDR(DT_NODELABEL(option_setting_sas2)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_sas2))
+SECTION_DATA_PROLOGUE(.ofs_sas2, DT_REG_ADDR(DT_NODELABEL(ofs_sas2)),)
 {
-	KEEP(*(.option_setting_sas2))
-} GROUP_LINK_IN(OPTION_SETTING_SAS2)
+	KEEP(*(.ofs_sas2))
+} GROUP_LINK_IN(OFS_SAS2)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_banksel_sec))
-SECTION_DATA_PROLOGUE(.option_setting_banksel_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_banksel_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_banksel_sec))
+SECTION_DATA_PROLOGUE(.ofs_banksel_sec, DT_REG_ADDR(DT_NODELABEL(ofs_banksel_sec)),)
 {
-	KEEP(*(.option_setting_banksel_sec))
-} GROUP_LINK_IN(OPTION_SETTING_BANKSEL_SEC)
+	KEEP(*(.ofs_banksel_sec))
+} GROUP_LINK_IN(OFS_BANKSEL_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_blsel_sec))
-SECTION_DATA_PROLOGUE(.option_setting_blsel_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_blsel_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_blsel_sec))
+SECTION_DATA_PROLOGUE(.ofs_blsel_sec, DT_REG_ADDR(DT_NODELABEL(ofs_blsel_sec)),)
 {
-	KEEP(*(.option_setting_blsel_sec))
-} GROUP_LINK_IN(OPTION_SETTING_BLSEL_SEC)
+	KEEP(*(.ofs_blsel_sec))
+} GROUP_LINK_IN(OFS_BLSEL_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_banksel_sel))
-SECTION_DATA_PROLOGUE(.option_setting_banksel_sel, DT_REG_ADDR(DT_NODELABEL(option_setting_banksel_sel)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_banksel_sel))
+SECTION_DATA_PROLOGUE(.ofs_banksel_sel, DT_REG_ADDR(DT_NODELABEL(ofs_banksel_sel)),)
 {
-	KEEP(*(.option_setting_banksel_sel))
-} GROUP_LINK_IN(OPTION_SETTING_BANKSEL_SEL)
+	KEEP(*(.ofs_banksel_sel))
+} GROUP_LINK_IN(OFS_BANKSEL_SEL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_blsel_sel))
-SECTION_DATA_PROLOGUE(.option_setting_blsel_sel, DT_REG_ADDR(DT_NODELABEL(option_setting_blsel_sel)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_blsel_sel))
+SECTION_DATA_PROLOGUE(.ofs_blsel_sel, DT_REG_ADDR(DT_NODELABEL(ofs_blsel_sel)),)
 {
-	KEEP(*(.option_setting_blsel_sel))
-} GROUP_LINK_IN(OPTION_SETTING_BLSEL_SEL)
+	KEEP(*(.ofs_blsel_sel))
+} GROUP_LINK_IN(OFS_BLSEL_SEL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_bpsdm_sec))
-SECTION_DATA_PROLOGUE(.option_setting_bpsdm_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_bpsdm_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_bpsdm_sec))
+SECTION_DATA_PROLOGUE(.ofs_bpsdm_sec, DT_REG_ADDR(DT_NODELABEL(ofs_bpsdm_sec)),)
 {
-	KEEP(*(.option_setting_bpsdm_sec))
-} GROUP_LINK_IN(OPTION_SETTING_BPSDM_SEC)
+	KEEP(*(.ofs_bpsdm_sec))
+} GROUP_LINK_IN(OFS_BPSDM_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_bps_sec))
-SECTION_DATA_PROLOGUE(.option_setting_bps_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_bps_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_bps_sec))
+SECTION_DATA_PROLOGUE(.ofs_bps_sec, DT_REG_ADDR(DT_NODELABEL(ofs_bps_sec)),)
 {
-	KEEP(*(.option_setting_bps_sec))
-} GROUP_LINK_IN(OPTION_SETTING_BPS_SEC)
+	KEEP(*(.ofs_bps_sec))
+} GROUP_LINK_IN(OFS_BPS_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_bps_sec_dual))
-SECTION_DATA_PROLOGUE(.option_setting_bps_sec_dual, DT_REG_ADDR(DT_NODELABEL(option_setting_bps_sec_dual)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_bps_sec_dual))
+SECTION_DATA_PROLOGUE(.ofs_bps_sec_dual, DT_REG_ADDR(DT_NODELABEL(ofs_bps_sec_dual)),)
 {
-	KEEP(*(.option_setting_bps_sec_dual))
-} GROUP_LINK_IN(OPTION_SETTING_BPS_SEC_DUAL)
+	KEEP(*(.ofs_bps_sec_dual))
+} GROUP_LINK_IN(OFS_BPS_SEC_DUAL)
 #endif
 
 #endif
 
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_opt_sec))
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_opt_sec))
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_hoemrtpk))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_hoemrtpk, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_hoemrtpk)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_hoemrtpk))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_hoemrtpk, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_hoemrtpk)),)
 {
-	KEEP(*(.option_setting_data_flash_hoemrtpk))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_HOEMRTPK)
+	KEEP(*(.ofs_data_flash_hoemrtpk))
+} GROUP_LINK_IN(OFS_DATA_FLASH_HOEMRTPK)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_fsblctrl0))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_fsblctrl0, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_fsblctrl0)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_fsblctrl0))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_fsblctrl0, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_fsblctrl0)),)
 {
-	KEEP(*(.option_setting_data_flash_fsblctrl0))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_FSBLCTRL0)
+	KEEP(*(.ofs_data_flash_fsblctrl0))
+} GROUP_LINK_IN(OFS_DATA_FLASH_FSBLCTRL0)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_fsblctrl1))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_fsblctrl1, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_fsblctrl1)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_fsblctrl1))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_fsblctrl1, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_fsblctrl1)),)
 {
-	KEEP(*(.option_setting_data_flash_fsblctrl1))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_FSBLCTRL1)
+	KEEP(*(.ofs_data_flash_fsblctrl1))
+} GROUP_LINK_IN(OFS_DATA_FLASH_FSBLCTRL1)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_fsblctrl2))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_fsblctrl2, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_fsblctrl2)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_fsblctrl2))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_fsblctrl2, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_fsblctrl2)),)
 {
-	KEEP(*(.option_setting_data_flash_fsblctrl2))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_FSBLCTRL2)
+	KEEP(*(.ofs_data_flash_fsblctrl2))
+} GROUP_LINK_IN(OFS_DATA_FLASH_FSBLCTRL2)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_samr))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_samr, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_samr)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_samr))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_samr, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_samr)),)
 {
-	KEEP(*(.option_setting_data_flash_samr))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SAMR)
+	KEEP(*(.ofs_data_flash_samr))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SAMR)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc0))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc0, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc0)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc0))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc0, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc0)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc0))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC0)
+	KEEP(*(.ofs_data_flash_sacc0))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC0)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc10))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc10, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc10)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc10))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc10, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc10)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc10))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC10)
+	KEEP(*(.ofs_data_flash_sacc10))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC10)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc1))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc1, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc1)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc1))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc1, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc1)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc1))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC1)
+	KEEP(*(.ofs_data_flash_sacc1))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC1)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc11))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc11, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc11)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc11))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc11, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc11)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc11))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC11)
+	KEEP(*(.ofs_data_flash_sacc11))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC11)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc2))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc2, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc2)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc2))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc2, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc2)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc2))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC2)
+	KEEP(*(.ofs_data_flash_sacc2))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC2)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc12))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc12, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc12)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc12))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc12, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc12)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc12))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC12)
+	KEEP(*(.ofs_data_flash_sacc12))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC12)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc3))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc3, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc3)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc3))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc3, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc3)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc3))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC3)
+	KEEP(*(.ofs_data_flash_sacc3))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC3)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_data_flash_sacc13))
-SECTION_DATA_PROLOGUE(.option_setting_data_flash_sacc13, DT_REG_ADDR(DT_NODELABEL(option_setting_data_flash_sacc13)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_data_flash_sacc13))
+SECTION_DATA_PROLOGUE(.ofs_data_flash_sacc13, DT_REG_ADDR(DT_NODELABEL(ofs_data_flash_sacc13)),)
 {
-	KEEP(*(.option_setting_data_flash_sacc13))
-} GROUP_LINK_IN(OPTION_SETTING_DATA_FLASH_SACC13)
+	KEEP(*(.ofs_data_flash_sacc13))
+} GROUP_LINK_IN(OFS_DATA_FLASH_SACC13)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_gpotp))
-SECTION_DATA_PROLOGUE(.option_setting_gpotp, DT_REG_ADDR(DT_NODELABEL(option_setting_gpotp)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_gpotp))
+SECTION_DATA_PROLOGUE(.ofs_gpotp, DT_REG_ADDR(DT_NODELABEL(ofs_gpotp)),)
 {
-	KEEP(*(.option_setting_gpotp))
-} GROUP_LINK_IN(OPTION_SETTING_GPOTP)
+	KEEP(*(.ofs_gpotp))
+} GROUP_LINK_IN(OFS_GPOTP)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs0))
-SECTION_DATA_PROLOGUE(.option_setting_ofs0, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs0)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs0))
+SECTION_DATA_PROLOGUE(.ofs_ofs0, DT_REG_ADDR(DT_NODELABEL(ofs_ofs0)),)
 {
-	KEEP(*(.option_setting_ofs0))
-} GROUP_LINK_IN(OPTION_SETTING_OFS0)
+	KEEP(*(.ofs_ofs0))
+} GROUP_LINK_IN(OFS_OFS0)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs2))
-SECTION_DATA_PROLOGUE(.option_setting_ofs2, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs2)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs2))
+SECTION_DATA_PROLOGUE(.ofs_ofs2, DT_REG_ADDR(DT_NODELABEL(ofs_ofs2)),)
 {
-	KEEP(*(.option_setting_ofs2))
-} GROUP_LINK_IN(OPTION_SETTING_OFS2)
+	KEEP(*(.ofs_ofs2))
+} GROUP_LINK_IN(OFS_OFS2)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_mde))
-SECTION_DATA_PROLOGUE(.option_setting_mde, DT_REG_ADDR(DT_NODELABEL(option_setting_mde)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_mde))
+SECTION_DATA_PROLOGUE(.ofs_mde, DT_REG_ADDR(DT_NODELABEL(ofs_mde)),)
 {
-	KEEP(*(.option_setting_mde))
-} GROUP_LINK_IN(OPTION_SETTING_MDE)
+	KEEP(*(.ofs_mde))
+} GROUP_LINK_IN(OFS_MDE)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs1_sec))
-SECTION_DATA_PROLOGUE(.option_setting_ofs1_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs1_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs1_sec))
+SECTION_DATA_PROLOGUE(.ofs_ofs1_sec, DT_REG_ADDR(DT_NODELABEL(ofs_ofs1_sec)),)
 {
-	KEEP(*(.option_setting_ofs1_sec))
-} GROUP_LINK_IN(OPTION_SETTING_OFS1_SEC)
+	KEEP(*(.ofs_ofs1_sec))
+} GROUP_LINK_IN(OFS_OFS1_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs3_sec))
-SECTION_DATA_PROLOGUE(.option_setting_ofs3_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs3_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs3_sec))
+SECTION_DATA_PROLOGUE(.ofs_ofs3_sec, DT_REG_ADDR(DT_NODELABEL(ofs_ofs3_sec)),)
 {
-	KEEP(*(.option_setting_ofs3_sec))
-} GROUP_LINK_IN(OPTION_SETTING_OFS3_SEC)
+	KEEP(*(.ofs_ofs3_sec))
+} GROUP_LINK_IN(OFS_OFS3_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs1_sel))
-SECTION_DATA_PROLOGUE(.option_setting_ofs1_sel, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs1_sel)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs1_sel))
+SECTION_DATA_PROLOGUE(.ofs_ofs1_sel, DT_REG_ADDR(DT_NODELABEL(ofs_ofs1_sel)),)
 {
-	KEEP(*(.option_setting_ofs1_sel))
-} GROUP_LINK_IN(OPTION_SETTING_OFS1_SEL)
+	KEEP(*(.ofs_ofs1_sel))
+} GROUP_LINK_IN(OFS_OFS1_SEL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofs3_sel))
-SECTION_DATA_PROLOGUE(.option_setting_ofs3_sel, DT_REG_ADDR(DT_NODELABEL(option_setting_ofs3_sel)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofs3_sel))
+SECTION_DATA_PROLOGUE(.ofs_ofs3_sel, DT_REG_ADDR(DT_NODELABEL(ofs_ofs3_sel)),)
 {
-	KEEP(*(.option_setting_ofs3_sel))
-} GROUP_LINK_IN(OPTION_SETTING_OFS3_SEL)
+	KEEP(*(.ofs_ofs3_sel))
+} GROUP_LINK_IN(OFS_OFS3_SEL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_pbps_sec))
-SECTION_DATA_PROLOGUE(.option_setting_pbps_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_pbps_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_pbps_sec))
+SECTION_DATA_PROLOGUE(.ofs_pbps_sec, DT_REG_ADDR(DT_NODELABEL(ofs_pbps_sec)),)
 {
-	KEEP(*(.option_setting_pbps_sec))
-} GROUP_LINK_IN(OPTION_SETTING_PBPS_SEC)
+	KEEP(*(.ofs_pbps_sec))
+} GROUP_LINK_IN(OFS_PBPS_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_pbps_sec_dual))
-SECTION_DATA_PROLOGUE(.option_setting_pbps_sec_dual, DT_REG_ADDR(DT_NODELABEL(option_setting_pbps_sec_dual)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_pbps_sec_dual))
+SECTION_DATA_PROLOGUE(.ofs_pbps_sec_dual, DT_REG_ADDR(DT_NODELABEL(ofs_pbps_sec_dual)),)
 {
-	KEEP(*(.option_setting_pbps_sec_dual))
-} GROUP_LINK_IN(OPTION_SETTING_PBPS_SEC_DUAL)
+	KEEP(*(.ofs_pbps_sec_dual))
+} GROUP_LINK_IN(OFS_PBPS_SEC_DUAL)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_pbpsdm_sec))
-SECTION_DATA_PROLOGUE(.option_setting_pbpsdm_sec, DT_REG_ADDR(DT_NODELABEL(option_setting_pbpsdm_sec)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_pbpsdm_sec))
+SECTION_DATA_PROLOGUE(.ofs_pbpsdm_sec, DT_REG_ADDR(DT_NODELABEL(ofs_pbpsdm_sec)),)
 {
-	KEEP(*(.option_setting_pbpsdm_sec))
-} GROUP_LINK_IN(OPTION_SETTING_PBPSDM_SEC)
+	KEEP(*(.ofs_pbpsdm_sec))
+} GROUP_LINK_IN(OFS_PBPSDM_SEC)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_revoke))
-SECTION_DATA_PROLOGUE(.option_setting_revoke, DT_REG_ADDR(DT_NODELABEL(option_setting_revoke)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_revoke))
+SECTION_DATA_PROLOGUE(.ofs_revoke, DT_REG_ADDR(DT_NODELABEL(ofs_revoke)),)
 {
-	KEEP(*(.option_setting_revoke))
-} GROUP_LINK_IN(OPTION_SETTING_REVOKE)
+	KEEP(*(.ofs_revoke))
+} GROUP_LINK_IN(OFS_REVOKE)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_zhuk))
-SECTION_DATA_PROLOGUE(.option_setting_zhuk, DT_REG_ADDR(DT_NODELABEL(option_setting_zhuk)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_zhuk))
+SECTION_DATA_PROLOGUE(.ofs_zhuk, DT_REG_ADDR(DT_NODELABEL(ofs_zhuk)),)
 {
-	KEEP(*(.option_setting_zhuk))
-} GROUP_LINK_IN(OPTION_SETTING_ZHUK)
+	KEEP(*(.ofs_zhuk))
+} GROUP_LINK_IN(OFS_ZHUK)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_arccs))
-SECTION_DATA_PROLOGUE(.option_setting_arccs, DT_REG_ADDR(DT_NODELABEL(option_setting_arccs)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_arccs))
+SECTION_DATA_PROLOGUE(.ofs_arccs, DT_REG_ADDR(DT_NODELABEL(ofs_arccs)),)
 {
-	KEEP(*(.option_setting_arccs))
-} GROUP_LINK_IN(OPTION_SETTING_ARCCS)
+	KEEP(*(.ofs_arccs))
+} GROUP_LINK_IN(OFS_ARCCS)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ubcsr))
-SECTION_DATA_PROLOGUE(.option_setting_ubcsr, DT_REG_ADDR(DT_NODELABEL(option_setting_ubcsr)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ubcsr))
+SECTION_DATA_PROLOGUE(.ofs_ubcsr, DT_REG_ADDR(DT_NODELABEL(ofs_ubcsr)),)
 {
-	KEEP(*(.option_setting_ubcsr))
-} GROUP_LINK_IN(OPTION_SETTING_UBCSR)
+	KEEP(*(.ofs_ubcsr))
+} GROUP_LINK_IN(OFS_UBCSR)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofsps))
-SECTION_DATA_PROLOGUE(.option_setting_ofsps, DT_REG_ADDR(DT_NODELABEL(option_setting_ofsps)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofsps))
+SECTION_DATA_PROLOGUE(.ofs_ofsps, DT_REG_ADDR(DT_NODELABEL(ofs_ofsps)),)
 {
-	KEEP(*(.option_setting_ofsps))
-} GROUP_LINK_IN(OPTION_SETTING_OFSPS)
+	KEEP(*(.ofs_ofsps))
+} GROUP_LINK_IN(OFS_OFSPS)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_ofsps2))
-SECTION_DATA_PROLOGUE(.option_setting_ofsps2, DT_REG_ADDR(DT_NODELABEL(option_setting_ofsps2)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_ofsps2))
+SECTION_DATA_PROLOGUE(.ofs_ofsps2, DT_REG_ADDR(DT_NODELABEL(ofs_ofsps2)),)
 {
-	KEEP(*(.option_setting_ofsps2))
-} GROUP_LINK_IN(OPTION_SETTING_OFSPS2)
+	KEEP(*(.ofs_ofsps2))
+} GROUP_LINK_IN(OFS_OFSPS2)
 #endif
 
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_anti_rollback_sec))
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_anti_rollback_sec))
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_arcs))
-SECTION_DATA_PROLOGUE(.option_setting_arcs, DT_REG_ADDR(DT_NODELABEL(option_setting_arcs)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_arcs))
+SECTION_DATA_PROLOGUE(.ofs_arcs, DT_REG_ADDR(DT_NODELABEL(ofs_arcs)),)
 {
-	KEEP(*(.option_setting_arcs))
-} GROUP_LINK_IN(OPTION_SETTING_ARCS)
+	KEEP(*(.ofs_arcs))
+} GROUP_LINK_IN(OFS_ARCS)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_arcnsn))
-SECTION_DATA_PROLOGUE(.option_setting_arcnsn, DT_REG_ADDR(DT_NODELABEL(option_setting_arcnsn)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_arcnsn))
+SECTION_DATA_PROLOGUE(.ofs_arcnsn, DT_REG_ADDR(DT_NODELABEL(ofs_arcnsn)),)
 {
-	KEEP(*(.option_setting_arcnsn))
-} GROUP_LINK_IN(OPTION_SETTING_ARCNSN)
+	KEEP(*(.ofs_arcnsn))
+} GROUP_LINK_IN(OFS_ARCNSN)
 #endif
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(option_setting_arcoembl))
-SECTION_DATA_PROLOGUE(.option_setting_arcoembl, DT_REG_ADDR(DT_NODELABEL(option_setting_arcoembl)),)
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ofs_arcoembl))
+SECTION_DATA_PROLOGUE(.ofs_arcoembl, DT_REG_ADDR(DT_NODELABEL(ofs_arcoembl)),)
 {
-	KEEP(*(.option_setting_arcoembl_arcnsn))
-} GROUP_LINK_IN(OPTION_SETTING_ARCOEMBL_ARCNSN)
+	KEEP(*(.ofs_arcoembl_arcnsn))
+} GROUP_LINK_IN(OFS_ARCOEMBL_ARCNSN)
 #endif
 
 #endif
