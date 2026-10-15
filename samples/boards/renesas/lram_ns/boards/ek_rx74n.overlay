@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Route LRAM0 through its non-secure CPU alias (0x00000000).
+ *
+ * itcm@80000000  (zephyr,memory-region = "ITCM")    — secure alias, default
+ * itcm_ns@0      (zephyr,memory-region = "ITCM_NS") — non-secure alias
+ *
+ * Both aliases map the same 128 KB of physical LRAM0; only one may be active.
+ * When itcm_ns is chosen, CONFIG_RX74N_LRAM0_NS must also be set so that
+ * soc_prep_hook() clears CPSCU.LRMSABAR0 before arch_data_copy() runs, and
+ * the linker script selects the correct memory group (ITCM_NS vs ITCM).
+ */
+
+/* Disable the secure alias */
+&itcm {
+	status = "disabled";
+};
+
+/* Enable the non-secure alias at 0x00000000 */
+&itcm_ns {
+	status = "okay";
+};
+
+/ {
+	chosen {
+		zephyr,itcm = &itcm_ns;
+	};
+};
