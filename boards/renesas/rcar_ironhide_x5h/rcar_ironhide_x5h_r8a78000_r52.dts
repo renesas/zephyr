@@ -20,6 +20,8 @@
 		zephyr,sram = &sram0;
 		zephyr,console = &scif1;
 		zephyr,shell-uart = &scif1;
+		zephyr,itcm = &itcm;
+		zephyr,dtcm = &btcm;
 	};
 
 	leds {

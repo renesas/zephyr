@@ -46,6 +46,19 @@ BUILD_ASSERT((DT_REG_ADDR(OSAL_MMNGR_01_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_
 #endif /* osal_mmngr_01 enabled */
 
 static const struct arm_mpu_region mpu_regions[] = {
+#if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_itcm))
+	/* Loaded by soc_reset_hook() before the MPU is enabled: read-only */
+	MPU_REGION_ENTRY("ITCM", DT_REG_ADDR(DT_CHOSEN(zephyr_itcm)),
+			 REGION_RAM_TEXT_ATTR(DT_REG_ADDR(DT_CHOSEN(zephyr_itcm)) +
+					      DT_REG_SIZE(DT_CHOSEN(zephyr_itcm)))),
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_dtcm))
+	MPU_REGION_ENTRY("DTCM", DT_REG_ADDR(DT_CHOSEN(zephyr_dtcm)),
+			 REGION_RAM_ATTR(DT_REG_ADDR(DT_CHOSEN(zephyr_dtcm)) +
+					 DT_REG_SIZE(DT_CHOSEN(zephyr_dtcm)))),
+#endif
+
 	MPU_REGION_ENTRY("SRAM_TEXT", (uintptr_t)__rom_region_start,
 			 REGION_RAM_TEXT_ATTR((uintptr_t)__rodata_region_start)),
 

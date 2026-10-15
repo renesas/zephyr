@@ -102,6 +102,20 @@
 			reg = <0x40000000 DT_SIZE_M(32)>;
 		};
 
+		itcm: memory@ffe8000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x0ffe8000 DT_SIZE_K(64)>;
+			zephyr,memory-region = "ITCM";
+			status = "okay";
+		};
+
+		btcm: memory@fff8000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x0fff8000 DT_SIZE_K(32)>;
+			zephyr,memory-region = "DTCM";
+			status = "okay";
+		};
+
 		ethuram: memory@42a00000 {
 			compatible = "zephyr,memory-region";
 			reg = <0x42a00000 0x740000>;
