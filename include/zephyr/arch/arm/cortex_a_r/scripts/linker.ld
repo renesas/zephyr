@@ -143,6 +143,29 @@ SECTIONS
 
 #endif /* CONFIG_CODE_DATA_RELOCATION */
 
+#if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
+GROUP_START(ITCM)
+
+	/* Before .text, so that input sections listed here are not taken by .text */
+	SECTION_PROLOGUE(_ITCM_SECTION_NAME,,SUBALIGN(4))
+	{
+		__itcm_start = .;
+		*(.itcm)
+		*(".itcm.*")
+
+/* Located in generated directory. This file is populated by the
+ * zephyr_linker_sources() Cmake function. */
+#include <snippets-itcm-section.ld>
+
+		__itcm_end = .;
+	} GROUP_LINK_IN(LINKER_DT_NODE_REGION_NAME(DT_CHOSEN(zephyr_itcm)) AT> ROMABLE_REGION)
+
+	__itcm_size = __itcm_end - __itcm_start;
+	__itcm_load_start = LOADADDR(_ITCM_SECTION_NAME);
+
+GROUP_END(ITCM)
+#endif
+
     SECTION_PROLOGUE(_TEXT_SECTION_NAME,,)
     {
         . = ALIGN(_region_min_align);
