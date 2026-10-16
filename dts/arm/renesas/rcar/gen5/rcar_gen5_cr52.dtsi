@@ -659,9 +659,23 @@
 			interrupt-names = "gwca_gwdis";
 			status = "disabled";
 
+			gwca0: gwca@d {
+				compatible = "renesas,rcarsoc-rswitch3-gwca";
+				reg = <13>;
+				status = "disabled";
+			};
+
+			/* Enable in an overlay to drive both gateways from this core. */
+			gwca1: gwca@e {
+				compatible = "renesas,rcarsoc-rswitch3-gwca";
+				reg = <14>;
+				status = "disabled";
+			};
+
 			port4: port@4 {
 				compatible = "renesas,rcarsoc-rswitch3-port";
 				reg = <4>;
+				renesas,gwca = <&gwca0>;
 				xpcs = <&pcs_ch4>;
 				status = "disabled";
 			};
@@ -669,6 +683,7 @@
 			port5: port@5 {
 				compatible = "renesas,rcarsoc-rswitch3-port";
 				reg = <5>;
+				renesas,gwca = <&gwca0>;
 				xpcs = <&pcs_ch5>;
 				status = "disabled";
 			};

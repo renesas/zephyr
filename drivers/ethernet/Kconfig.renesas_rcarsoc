@@ -108,6 +108,7 @@ config ETH_RENESAS_RSWITCH3_INIT_PRIORITY
 
 config ETH_RENESAS_RSWITCH3_GWCA
 	bool "Renesas R-Switch 3 GWCA (Gateway CPU Agent) DMA engine"
+	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_GWCA_ENABLED
 	help
 	  Enable the GWCA DMA engine sub-module, letting the CPU inject
 	  and receive frames through the R-Switch 3 fabric directly.
@@ -115,6 +116,14 @@ config ETH_RENESAS_RSWITCH3_GWCA
 	  TSN-ES DMA path, which does not use GWCA.
 
 if ETH_RENESAS_RSWITCH3_GWCA
+
+config ETH_RENESAS_RSWITCH3_GWCA_INIT_PRIORITY
+	int "R-Switch 3 gateway init priority"
+	default 56
+	help
+	  Must be higher than ETH_RENESAS_RSWITCH3_INIT_PRIORITY, since a gateway
+	  can only come up once the switch has reset the common block and cleared
+	  the forwarding tables.
 
 config ETH_RENESAS_RSWITCH3_GWCA_TX_RING_SIZE
 	int "GWCA TX descriptor-ring entries per queue"
@@ -173,13 +182,16 @@ config ETH_RENESAS_RSWITCH3_PORT
 	bool "Renesas R-Switch 3 physical-port net_if (GWCA-backed)"
 	default y
 	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_PORT_ENABLED
+	depends on DT_HAS_RENESAS_RCARSOC_RSWITCH3_GWCA_ENABLED
 	select ETH_RENESAS_RSWITCH3_GWCA
 	select NET_CHECKSUM_OFFLOAD_SUPPORTED if NET_L2_ETHERNET
 	help
-	  Enable one Zephyr net_if per renesas,rcarsoc-rswitch3-port child
-	  node, backed by a dedicated GWCA TX/RX queue pair, allowing the
-	  CPU to send/receive packets directly through a physical port
-	  without a TSN-ES endpoint.
+	  Enable one Zephyr net_if per external renesas,rcarsoc-rswitch3-port
+	  child node whose renesas,gwca engine is enabled, backed by a
+	  dedicated GWCA TX/RX queue pair, allowing the CPU to send/receive
+	  packets directly through a physical port without a TSN-ES endpoint.
+	  An external port that only forwards to a TSN-ES agent needs no
+	  enabled engine, and then neither this driver nor GWCA is built.
 
 	  With CONFIG_NET_CHECKSUM_OFFLOAD, IPv4 header, and TCP, UDP and
 	  ICMP over IPv4 checksums are computed by GWCA on TX and checked by

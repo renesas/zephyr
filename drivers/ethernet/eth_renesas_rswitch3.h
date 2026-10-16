@@ -341,6 +341,7 @@ struct rswitch3_gwca_rx_queue {
 };
 
 struct rswitch3_gwca_config {
+	const struct device *rswitch_dev;         /* parent switch device */
 	struct rswitch3_gwca_tx_desc *tx_rings;   /* [num_ports][TX_RING_SIZE + 1] */
 	uint8_t *tx_bufs;                         /* [num_ports][TX_RING_SIZE][FRAME_BUF_SIZE] */
 	struct rswitch3_gwca_rx_desc *rx_rings;   /* [num_ports][RX_RING_SIZE + 1] */
@@ -355,9 +356,9 @@ struct rswitch3_gwca_config {
 	uint8_t instance;        /* GWCA sub-instance (0 or 1) for TPDEMIMC_GDICM()/FWPBFCSDC() */
 };
 
-/* Per-instance GWCA runtime state, reachable via dev->data. */
+/* Per-gateway GWCA runtime state, reachable via dev->data. */
 struct rswitch3_gwca_data {
-	const struct device *dev;
+	const struct device *dev; /* this gateway device */
 
 	uint8_t port_row[RSWITCH3_NUM_AGENTS];
 	struct k_work work;
@@ -394,7 +395,8 @@ struct rswitch3_config {
 	mm_reg_t secure_base;
 	const struct device *clock_dev;
 #if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
-	struct rswitch3_gwca_config gwca;
+	const struct device *const *gwca_dev; /* [num_gwca] gateway devices of this switch */
+	uint8_t num_gwca;
 #endif
 	rcar_clk_t mod_clk;
 };
@@ -417,9 +419,6 @@ struct rswitch3_data {
 	struct rswitch3_phys_port_ctx phys_ports[RSWITCH3_NUM_AGENTS];
 	/* NET_EVENT_IF_ADMIN_UP callback, replays link state onto TSN-ES net_ifs */
 	struct net_mgmt_event_callback iface_event_cb;
-#if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
-	struct rswitch3_gwca_data gwca;
-#endif
 };
 
 #ifdef __cplusplus

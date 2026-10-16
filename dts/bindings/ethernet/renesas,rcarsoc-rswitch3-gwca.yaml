@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  One GWCA (Gateway CPU Agent) DMA engine of an R-Car R-Switch 3.
+
+  The two engines are independent. Each has its own registers, queues,
+  descriptor rings and receive thread, and both share the switch register
+  block and the merged gateway interrupt.
+
+  Enable the engines this core drives and disable the one another core owns.
+  A port selects its engine with renesas,gwca.
+
+compatible: "renesas,rcarsoc-rswitch3-gwca"
+
+include: [base.yaml]
+
+properties:
+  reg:
+    required: true
+    enum:
+      - 13
+      - 14
+    description: |
+      Forwarding-agent index of this engine, 13 for GWCA0 and 14 for GWCA1.
+      Engines and ports share one agent numbering, so no two children of the
+      switch end up with the same unit address. The driver takes this engine's
+      register block and its engine number for FWPBFCSDC() and TPDEMIMC_GDICM()
+      from it.

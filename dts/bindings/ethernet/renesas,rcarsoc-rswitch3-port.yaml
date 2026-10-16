@@ -45,6 +45,17 @@ properties:
       MAC-to-PCS interface mode for this port's ETHA agent. Required for
       external agents; not applicable to internal (renesas,tsnes) ones.
 
+  renesas,gwca:
+    type: phandle
+    description: |
+      GWCA engine that transfers this port's frames. Required on an external
+      port, so that no port falls back to an engine another core may own. Not
+      applicable to an internal (renesas,tsnes) port.
+
+      The port gets a net_if on this core only while that engine is enabled.
+      With the engine disabled the port is still brought up and can be
+      forwarded to a TSN-ES agent through renesas,forward-ports.
+
   renesas,tsnes:
     type: phandle
     description: |

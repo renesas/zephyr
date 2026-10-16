@@ -22,28 +22,9 @@ properties:
 
   interrupts:
     description: |
-      GWCA data interrupt ("RX/TX process complete for CPU") of the GWCA
-      selected by renesas,gwca-instance. All GWCA queue interrupts are
-      combined onto this one line.
+      GWCA data interrupt ("RX/TX process complete for CPU"). Every queue
+      interrupt of both engines is combined onto this one line.
     required: true
 
   interrupt-names:
     description: Interrupt names for debugging
-
-  renesas,gwca-instance:
-    type: int
-    default: 0
-    enum:
-      - 0
-      - 1
-    description: |
-      Which GWCA (Gateway CPU Agent) DMA engine this rswitch3 instance
-      drives: 0 (default) selects GWCA0, 1 selects GWCA1. The two GWCA
-      engines are independent (own registers and queues, though they
-      share the "gwca_gwdis" interrupt line above) but share this
-      node's register block; only one is usable per OS image. Defaults
-      to GWCA0 so this image doesn't contend with another OS image
-      (e.g. Linux, in an asymmetric multi-OS configuration) that
-      already owns GWCA1 -- set to 1 if that OS owns GWCA0 instead,
-      and point interrupts at the GWCA1 data interrupt of the core
-      this image runs on.
