@@ -70,6 +70,7 @@
 		led1 = &led2;
 		led2 = &led3;
 		rtc = &rtc;
+		watchdog0 = &iwdt;
 	};
 
 	transceiver0: can-phy0 {
@@ -193,6 +194,10 @@
 &octaspiclk {
 	clocks = <&pllp>;
 	div = <3>;
+	status = "okay";
+};
+
+&iwdtclk {
 	status = "okay";
 };
 
@@ -444,4 +449,8 @@ pmod_sd_shield: &sdhc0 {};
 		write-data-mask-enable;
 		status = "okay";
 	};
+};
+
+&iwdt {
+	status = "okay";
 };
