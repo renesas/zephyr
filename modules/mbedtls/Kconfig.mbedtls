@@ -8,7 +8,7 @@ config MBEDTLS_CONFIG_FILE
 	string "Mbed TLS configuration file"
 	default MBEDTLS_CFG_FILE if MBEDTLS_CFG_FILE != "" # deprecated
 	default "config-mbedtls.h" if MBEDTLS_BUILTIN
-	default "alt_config.h" if MBEDTLS_CUSTOM && SOC_SERIES_RX74M
+	default "alt_config.h" if MBEDTLS_CUSTOM && (SOC_SERIES_RX74M || SOC_SERIES_RX74N)
 	help
 	  Use a specific mbedTLS configuration file. The default config file
 	  file can be tweaked with Kconfig. The default configuration is
