@@ -12,4 +12,5 @@ tests:
     filter: CONFIG_MBEDTLS_CUSTOM
     platform_allow:
       - ek_rx74m
+      - ek_rx74n
     extra_args: EXTRA_CONF_FILE=mbedtls_custom.conf
