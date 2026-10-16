@@ -10,6 +10,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/flash_controller/xspi.h>
 #include <zephyr/dt-bindings/memory-attr/memory-attr.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "ek_rx74n-pinctrl.dtsi"
 
 / {
@@ -45,6 +46,22 @@
 		led3: led3 {
 			gpios = <&ioport6 4 GPIO_ACTIVE_HIGH>;
 			label = "LED3";
+		};
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+
+		sw1: sw1 {
+			label = "sw1";
+			gpios = <&ioport4 14 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			zephyr,code = <INPUT_KEY_0>;
+		};
+
+		sw2: sw2 {
+			label = "sw2";
+			gpios = <&ioport1 9 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			zephyr,code = <INPUT_KEY_1>;
 		};
 	};
 
