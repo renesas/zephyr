@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	usbh_billboard: usbh_billboard {
+		compatible = "zephyr,usbh-billboard";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		any_billboard_device: billboard-device@ffffffff {
+			compatible = "zephyr,usbh-billboard-device";
+			reg = <0xffffffff>;
+			status = "okay";
+			match-class;
+		};
+	};
+};
