@@ -1,0 +1,11 @@
+sample:
+  name: MRAM dispatcher with signed OSPI code
+tests:
+  sample.boards.renesas.mram_ospi_dispatch:
+    platform_allow:
+      - ek_ra8m2/r7ka8m2jflcac/cm85
+    integration_platforms:
+      - ek_ra8m2/r7ka8m2jflcac/cm85
+    sysbuild: true
+    build_only: true
+    tags: renesas linker
