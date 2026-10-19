@@ -169,6 +169,12 @@ enum rsw3_etha_mode {
 #define RSWITCH3_NUM_AGENTS 15
 #define RSWITCH3_TIMEOUT_US CONFIG_ETH_RENESAS_RSWITCH3_TIMEOUT
 
+/* Descriptor chains per gateway. A port handed to another core names a chain
+ * of that core gateway, so this count is needed even when no gateway is built
+ * here.
+ */
+#define RSWITCH3_GWCA_NUM_CHAINS 128 /* AXI_CHAIN_N */
+
 /*
  * GWCA (Gateway CPU Agent) block. GWCA0/GWCA1 are two independent DMA
  * engines sharing this node's register block, at agent indices
@@ -305,7 +311,6 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_META_DV(m)    FIELD_PREP(RSWITCH3_GWCA_META_DV_MASK, (m))
 
 #define RSWITCH3_GWCA_NUM_IRQS    8
-#define RSWITCH3_GWCA_NUM_CHAINS  128 /* AXI_CHAIN_N */
 #define RSWITCH3_GWCA_NUM_DI_REGS (RSWITCH3_GWCA_NUM_CHAINS / 32)
 #define RSWITCH3_GWCA_ROW_INVALID 0xffU
 
@@ -348,7 +353,7 @@ struct rswitch3_gwca_config {
 	struct rswitch3_gwca_tx_queue *tx_queues; /* [num_ports], row-indexed */
 	struct rswitch3_gwca_rx_queue *rx_queues; /* [num_ports], row-indexed */
 	const uint8_t *port_ids; /* [num_ports]; port_ids[row] == that row's agent index */
-	uint8_t num_ports;       /* == ARRAY_SIZE(port_ids); external rswitch3-port children only */
+	uint8_t num_ports;       /* == ARRAY_SIZE(port_ids); ports that name this gateway */
 	uint32_t reg_base;       /* RSWITCH3_GWCA0_OFFSET or RSWITCH3_GWCA1_OFFSET */
 	uint8_t agent;           /* forwarding-agent index (13 or 14) among RSWITCH3_NUM_AGENTS */
 	uint8_t instance;        /* GWCA sub-instance (0 or 1) for TPDEMIMC_GDICM()/FWPBFCSDC() */
@@ -414,10 +419,11 @@ struct rswitch3_data {
 	 * Bitmask of external ports that currently report a real PHY link.
 	 */
 	uint32_t port_link_mask;
-	/* Gateway of this core a port forwards to, indexed by agent id. Zero
-	 * when the port has no net_if on this core.
+	/* Agents a port forwards to once its link comes up, indexed by port id.
+	 * Holds the gateway of this core, or the agents of another core in
+	 * parallel mode. Zero when no agent forwards to the port.
 	 */
-	uint32_t gwca_fwd_mask[RSWITCH3_NUM_AGENTS];
+	uint32_t fwd_agent_mask[RSWITCH3_NUM_AGENTS];
 	/* Link-callback context for every physical port, indexed by agent id. */
 	struct rswitch3_phys_port_ctx phys_ports[RSWITCH3_NUM_AGENTS];
 	/* NET_EVENT_IF_ADMIN_UP callback, replays link state onto TSN-ES net_ifs */

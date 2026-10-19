@@ -347,8 +347,8 @@ static void rswitch3_update_forwarding_for_link(const struct device *dev, uint32
 		rswitch3_update_tsnes_carrier(data, ip);
 	}
 
-	if (data->gwca_fwd_mask[port_id] != 0U) {
-		rswitch3_set_port_forwarding(dev, port_id, data->gwca_fwd_mask[port_id], is_up);
+	if (data->fwd_agent_mask[port_id] != 0U) {
+		rswitch3_set_port_forwarding(dev, port_id, data->fwd_agent_mask[port_id], is_up);
 	}
 
 	k_mutex_unlock(&data->lock);
@@ -1319,7 +1319,7 @@ static int rswitch3_gwca_attach_port(const struct device *gw, uint32_t port_id,
 	 * up and closes it again on link down, so MFWD never forwards frames
 	 * still in the TX ring into a port whose MAC link is down.
 	 */
-	data->gwca_fwd_mask[port_id] = BIT(gw_cfg->agent);
+	data->fwd_agent_mask[port_id] = BIT(gw_cfg->agent);
 
 	if (data->port_link_mask & BIT(port_id)) {
 		rswitch3_set_port_forwarding(dev, port_id, BIT(gw_cfg->agent), true);
@@ -1417,7 +1417,8 @@ out_unlock:
 static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, uint32_t port_id,
 						      const char *phy_mode,
 						      const struct device *phy_dev,
-						      const struct device *pcs_dev)
+						      const struct device *pcs_dev, int peer_gwca,
+						      uint32_t peer_rx_chain, int peer_tsnes)
 {
 	int ret;
 
@@ -1425,6 +1426,39 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 	if (ret) {
 		LOG_ERR("Port %u: physical ETHA init failed (err %d)", port_id, ret);
 		return ret;
+	}
+
+	/*
+	 * Another core carries this port's traffic, through its own gateway or
+	 * its own TSN-ES endpoint. That core sets its own agent up. This core
+	 * creates no interface for the port. It only forwards between the port
+	 * and that agent.
+	 *
+	 * This core drives the PHY of the port, so only this core sees the link.
+	 * The agent mask is recorded here and the link callback opens it.
+	 */
+	if (peer_gwca >= 0 || peer_tsnes >= 0) {
+		struct rswitch3_data *data = dev->data;
+		uint32_t mask = 0;
+
+		if (peer_gwca >= 0) {
+			uint32_t agent = RSWITCH3_NUM_AGENTS - 2 + (uint32_t)peer_gwca;
+
+			rswitch3_write(dev, FWPBFCSDC(peer_gwca, port_id), peer_rx_chain);
+			mask |= BIT(agent);
+		}
+
+		if (peer_tsnes >= 0) {
+			mask |= BIT(peer_tsnes);
+		}
+
+		data->fwd_agent_mask[port_id] = mask;
+
+		if (data->port_link_mask & BIT(port_id)) {
+			rswitch3_set_port_forwarding(dev, port_id, mask, true);
+		}
+
+		LOG_INF("Port %u: handed to another core, agent mask 0x%x", port_id, mask);
 	}
 
 	if (phy_dev) {
@@ -1438,8 +1472,53 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 	if (ret == 0) {                                                                            \
 		ret = rswitch3_init_physical_port(dev, DT_REG_ADDR(n), DT_PROP(n, phy_mode),       \
 						  RSWITCH3_DT_DEV_OR_NULL(n, phy_handle),          \
-						  RSWITCH3_DT_DEV_OR_NULL(n, xpcs));               \
+						  RSWITCH3_DT_DEV_OR_NULL(n, xpcs),                \
+						  DT_PROP_OR(n, renesas_peer_gwca_instance, -1),   \
+						  DT_PROP_OR(n, renesas_peer_rx_chain, 0),         \
+						  DT_PROP_OR(n, renesas_peer_tsnes, -1));          \
 	}
+
+/*
+ * Counts the ports that feed the same chain of the same peer gateway as port
+ * n. The caller runs this over every child of the switch, so port n counts
+ * itself and a chain claimed once totals 1. A total above 1 means two ports
+ * share one chain, and the peer OS reads the frames of both on one interface.
+ * A gwca child of the switch is not a port, so it adds nothing to the total.
+ * A port that carries no renesas,peer-gwca-instance was handed to no peer
+ * gateway, so it claims no chain and adds nothing either.
+ */
+#define RSWITCH3_PEER_CHAIN_SHARED(other, n)                                                       \
+	COND_CODE_1(RSWITCH3_IS_PORT(other),                                                       \
+		    (((DT_PROP_OR(other, renesas_peer_gwca_instance, -1) ==                        \
+			      DT_PROP_OR(n, renesas_peer_gwca_instance, -2) &&                     \
+		      DT_PROP_OR(other, renesas_peer_rx_chain, 0) ==                               \
+			      DT_PROP_OR(n, renesas_peer_rx_chain, 0))                             \
+			     ? 1                                                                   \
+			     : 0) +),                                                              \
+		    ())
+
+#define RSWITCH3_CHECK_PEER_CHAIN(n)                                                               \
+	BUILD_ASSERT(                                                                              \
+		(DT_FOREACH_CHILD_STATUS_OKAY_VARGS(DT_PARENT(n), RSWITCH3_PEER_CHAIN_SHARED,      \
+						    n) 0) <= 1,                                    \
+		DT_NODE_FULL_NAME(n) ": another port already uses this renesas,peer-rx-chain");
+
+/* Validates the renesas,peer-* properties of a port handed to another core. */
+#define RSWITCH3_CHECK_PEER_PROPS(n)                                                               \
+	BUILD_ASSERT(!DT_NODE_HAS_PROP(n, renesas_peer_tsnes) ||                                   \
+			     DT_PROP_OR(n, renesas_peer_tsnes, 0) < RSWITCH3_NUM_AGENTS,           \
+		     DT_NODE_FULL_NAME(n) ": renesas,peer-tsnes must be a valid agent index");     \
+	BUILD_ASSERT(!DT_NODE_HAS_PROP(n, renesas_peer_gwca_instance) ||                           \
+			     DT_NODE_HAS_PROP(n, renesas_peer_rx_chain),                           \
+		     DT_NODE_FULL_NAME(n) ": renesas,peer-gwca-instance needs "                    \
+					  "renesas,peer-rx-chain");                                \
+	BUILD_ASSERT(DT_PROP_OR(n, renesas_peer_rx_chain, 0) < RSWITCH3_GWCA_NUM_CHAINS,           \
+		     DT_NODE_FULL_NAME(n) ": renesas,peer-rx-chain is past the last chain");       \
+	BUILD_ASSERT((!DT_NODE_HAS_PROP(n, renesas_peer_gwca_instance) &&                          \
+		      !DT_NODE_HAS_PROP(n, renesas_peer_tsnes)) ||                                 \
+			     !DT_NODE_HAS_PROP(n, renesas_gwca),                                   \
+		     DT_NODE_FULL_NAME(n) ": a port handed to another core must not set "          \
+					  "renesas,gwca");
 
 #define RSWITCH3_INIT_TSNES_PORT(n)                                                                \
 	if (ret == 0) {                                                                            \
@@ -1470,7 +1549,9 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 					  "phy-mode or renesas,gwca");
 #define RSWITCH3_CHECK_PORT(n)                                                                     \
 	COND_CODE_1(RSWITCH3_IS_PORT(n),                                                           \
-		    (COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes),                               \
+		    (RSWITCH3_CHECK_PEER_PROPS(n)                                                  \
+		     RSWITCH3_CHECK_PEER_CHAIN(n)                                                  \
+		     COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes),                               \
 				 (RSWITCH3_CHECK_PORT_INTERNAL(n)),                                \
 				 (RSWITCH3_CHECK_PORT_EXTERNAL(n)))),                              \
 		    ())
@@ -1540,7 +1621,33 @@ static int rswitch3_init_common(const struct device *dev)
 #define RSWITCH3_GWCA_IRQ_INIT(inst)
 #endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
 
+/*
+ * True when this core ends up with a net_if for the port, no matter which
+ * driver creates it. A port that names a gateway with renesas,gwca is true,
+ * and so is a port wired to a TSN-ES agent. A port handed to another core
+ * names neither and is false. A gwca child of the switch is false.
+ */
+#define RSWITCH3_PORT_IS_OURS(n)                                                                   \
+	COND_CODE_1(RSWITCH3_IS_PORT(n),                                                           \
+		    (COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_gwca), (1),                           \
+				 (DT_NODE_HAS_PROP(n, renesas_tsnes)))),                           \
+		    (0))
+
+#define RSWITCH3_PORT_COUNT_OURS(n) RSWITCH3_PORT_IS_OURS(n) +
+
+/*
+ * This core needs at least one interface of its own. A port with renesas,gwca
+ * gets one from this driver. A port with renesas,tsnes gets one from the
+ * TSN-ES driver. A port with neither only forwards, and a switch built from
+ * those alone leaves this image with no interface at all.
+ */
+#define RSWITCH3_CHECK_ANY_PORT_OURS(inst)                                                         \
+	BUILD_ASSERT(                                                                              \
+		(DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_PORT_COUNT_OURS) 0) > 0, \
+		"no port of this switch gives this core an interface; name a gateway"              \
+		" with renesas,gwca on a port, or keep a renesas,tsnes port");
 #define RSWITCH3_INIT(inst)                                                                        \
+	RSWITCH3_CHECK_ANY_PORT_OURS(inst)                                                         \
 	DT_FOREACH_CHILD_STATUS_OKAY(DT_DRV_INST(inst), RSWITCH3_CHECK_PORT)                       \
 	RSWITCH3_GWCA_DEV_LIST(inst);                                                              \
                                                                                                    \

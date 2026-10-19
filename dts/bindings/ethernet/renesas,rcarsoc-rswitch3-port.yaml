@@ -54,6 +54,49 @@ properties:
       example to a TSN-ES agent through renesas,forward-ports. Not applicable
       to an internal (renesas,tsnes) port.
 
+  renesas,peer-gwca-instance:
+    type: int
+    enum:
+      - 0
+      - 1
+    description: |
+      Another core on this SoC sends and receives on this port through the GWCA
+      instance given here. This core still brings the port up because it owns
+      the switch. It then opens forwarding between the port and that gateway.
+      No network interface is created for the port, so the port must not name
+      a gateway of this core with renesas,gwca.
+
+      This may be set together with renesas,peer-tsnes. U-Boot reaches the
+      port through a gateway, so a peer that boots through U-Boot and then
+      moves to a TSN-ES endpoint needs both agents forwarded.
+
+      Omit the property when this core itself uses the port.
+
+  renesas,peer-rx-chain:
+    type: int
+    description: |
+      Descriptor chain of the peer gateway that this port's received frames are
+      forwarded into, written to FWPBFCSDC for the port. Required alongside
+      renesas,peer-gwca-instance.
+
+      This core owns the forwarding tables but cannot see how the other core
+      allocates its chains, so take care to set the chain that core uses as the
+      receive queue for this port. Two ports handed to the same peer gateway
+      need two different chains.
+
+  renesas,peer-tsnes:
+    type: int
+    description: |
+      Another core on this SoC sends and receives on this port through a TSN-ES
+      endpoint. The value is the index of the internal R-Switch 3 agent wired
+      to that TSN-ES endpoint. This core opens forwarding between the port and
+      that agent. No network interface is created for the port.
+
+      This may be set together with renesas,peer-gwca-instance, see the
+      note there.
+
+      Omit the property when this core itself uses the port.
+
   renesas,tsnes:
     type: phandle
     description: |
