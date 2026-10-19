@@ -728,12 +728,42 @@ static int rswitch3_fwd_init(const struct device *dev)
 	return 0;
 }
 
+/*
+ * Every gateway source is merged onto one interrupt line. The line is level
+ * sensitive, so a source with no handler here would keep it asserted. Mask
+ * both engines at switch init, then let each gateway unmask its own engine
+ * as it comes up.
+ */
+#define RSW3_INTC_GWDIS_BITS(gw)   (GENMASK(7, 0) << ((gw) * 8U))
+#define RSW3_INTC_GWTSDIS_BITS(gw) (GENMASK(1, 0) << (16U + (gw) * 2U))
+#define RSW3_INTC_GWCA_BITS(gw)    (RSW3_INTC_GWDIS_BITS(gw) | RSW3_INTC_GWTSDIS_BITS(gw))
+#define RSW3_INTC_GWCA_ALL         (RSW3_INTC_GWCA_BITS(0) | RSW3_INTC_GWCA_BITS(1))
+
+/* Sets every bit of both channels, called once before any gateway starts. */
+static void rswitch3_mask_gwca_interrupts(const struct device *dev)
+{
+	const struct rswitch3_config *cfg = dev->config;
+
+	sys_write32(sys_read32(cfg->intc_gwca_cr_mask) | RSW3_INTC_GWCA_ALL,
+		    cfg->intc_gwca_cr_mask);
+}
+
 #if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
 /* The switch has to be up before a gateway, and a gateway before a port attaches. */
 BUILD_ASSERT(CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY <
 			     CONFIG_ETH_RENESAS_RSWITCH3_GWCA_INIT_PRIORITY &&
 		     CONFIG_ETH_RENESAS_RSWITCH3_GWCA_INIT_PRIORITY < CONFIG_ETH_INIT_PRIORITY,
 	     "init priority order must be switch < gateway < port");
+
+/* Clears the bits of this gateway's own channel, called once it reaches operation. */
+static void rswitch3_unmask_gwca_interrupts(const struct device *gw)
+{
+	const struct rswitch3_gwca_config *gw_cfg = gw->config;
+	const struct rswitch3_config *cfg = gw_cfg->rswitch_dev->config;
+	uint32_t bits = RSW3_INTC_GWCA_BITS(gw_cfg->instance);
+
+	sys_write32(sys_read32(cfg->intc_gwca_cr_mask) & ~bits, cfg->intc_gwca_cr_mask);
+}
 
 /*
  * GWCA (Gateway CPU Agent) core.
@@ -1241,6 +1271,8 @@ static int rswitch3_gwca_init(const struct device *gw)
 			K_KERNEL_STACK_SIZEOF(gw_data->rx_stack), rswitch3_gwca_rx_thread,
 			(void *)gw, NULL, NULL, K_PRIO_COOP(RSWITCH3_GWCA_RX_PRIO), 0, K_NO_WAIT);
 
+	rswitch3_unmask_gwca_interrupts(gw);
+
 	LOG_INF("Renesas R-Switch 3 GWCA%u initialized", gw_cfg->instance);
 
 	return 0;
@@ -1484,6 +1516,8 @@ static int rswitch3_init_common(const struct device *dev)
 		return ret;
 	}
 
+	rswitch3_mask_gwca_interrupts(dev);
+
 	return 0;
 }
 
@@ -1515,6 +1549,7 @@ static int rswitch3_init_common(const struct device *dev)
 	static const struct rswitch3_config rswitch3_config_##inst = {                             \
 		.base = DT_INST_REG_ADDR_BY_NAME(inst, base),                                      \
 		.secure_base = DT_INST_REG_ADDR_BY_NAME(inst, secure_base),                        \
+		.intc_gwca_cr_mask = DT_INST_REG_ADDR_BY_NAME(inst, intc_gwca_cr_mask),            \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR_BY_IDX(inst, 0)),                   \
 		.mod_clk = RCAR_DT_INST_CLOCKS_CELL_BY_IDX(inst, 0),                               \
 		RSWITCH3_GWCA_DEV_LIST_INIT(inst)};                                                \

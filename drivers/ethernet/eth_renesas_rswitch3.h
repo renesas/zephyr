@@ -394,6 +394,8 @@ struct rswitch3_internal_port {
 struct rswitch3_config {
 	mm_reg_t base;
 	mm_reg_t secure_base;
+	/* Merged gateway interrupt mask of the Cortex-R domain. */
+	mm_reg_t intc_gwca_cr_mask;
 	const struct device *clock_dev;
 #if defined(CONFIG_ETH_RENESAS_RSWITCH3_GWCA)
 	const struct device *const *gwca_dev; /* [num_gwca] gateway devices of this switch */
