@@ -124,6 +124,12 @@
 			status = "disabled";
 		};
 
+		pic0: pic@ffbfaf00 {
+			compatible = "renesas,rh850-pic";
+			reg = <0xffbfaf00 0x5d4>;
+			status = "disabled";
+		};
+
 		cgc: clock-controller@ff980000 {
 			compatible = "renesas,rh850-cgc";
 			reg = <0xff980000 0x734>, <0xff988000 0x30c>;
