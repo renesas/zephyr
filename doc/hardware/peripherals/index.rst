@@ -51,6 +51,7 @@ Peripherals
    otp/index.rst
    pcie.rst
    peci.rst
+   pic.rst
    ps2.rst
    psi5.rst
    pwm.rst
