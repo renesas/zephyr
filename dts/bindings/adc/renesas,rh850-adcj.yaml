@@ -48,8 +48,8 @@ properties:
       A non-zero mask requires trigger-method "th-a" and at least
       one hold-value virtual channel. Each enabled T&H circuit must
       be referenced by a hold-value channel in the selected scan group.
+
   dmas:
-    required: false
     description: DMA channel used to transfer ADC conversion results.
 
   renesas,unit:

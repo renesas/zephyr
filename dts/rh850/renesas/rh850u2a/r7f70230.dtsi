@@ -1072,6 +1072,7 @@
 			interrupts = <227 1>, <228 1>, <229 1>, <230 1>, <231 1>, <226 1>;
 			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(ADCJ_ISO, 0, ADC)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1086,6 +1087,7 @@
 			interrupts = <233 1>, <234 1>, <235 1>, <236 1>, <237 1>, <232 1>;
 			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(ADCJ_ISO, 1, ADC)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1100,6 +1102,7 @@
 			interrupts = <239 1>, <240 1>, <241 1>, <242 1>, <243 1>, <238 1>;
 			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(ADCJ_ISO, 2, ADC)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
