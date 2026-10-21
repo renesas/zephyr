@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* U2B (ADCK, PIC20 and PIC21). TAUD0 is a PIC20 source, TAUD2 a PIC21 source. */
+#include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+
+&pic0 {
+	adc-trigger-selection = <RH850_PIC_ADC_TRIG(ADC0, SG0, RISING, TAUD0_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC1, SG1, BOTH, TAUD0_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC1, SG1, BOTH, TAUD2_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC1, SG1, BOTH, TAUD2_CH3)>;
+	status = "okay";
+};

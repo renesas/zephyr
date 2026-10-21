@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* U2A (ADCJ, PIC20 only). The expected register values are in src/main.c. */
+#include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+
+&pic0 {
+	adc-trigger-selection = <RH850_PIC_ADC_TRIG(ADC0, SG0, RISING, TAUD0_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC0, SG1, BOTH, TAUD0_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC0, SG1, BOTH, TAUD1_CH5)>;
+	status = "okay";
+};

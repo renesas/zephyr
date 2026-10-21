@@ -1,0 +1,13 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* U2C (ADCK with 3 ADC units, PIC21 has the TAUD2 source only). */
+#include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+
+&pic0 {
+	adc-trigger-selection = <RH850_PIC_ADC_TRIG(ADC0, SG0, RISING, TAUD0_CH2)>,
+				<RH850_PIC_ADC_TRIG(ADC2, SG1, BOTH, TAUD2_CH2)>;
+	status = "okay";
+};
