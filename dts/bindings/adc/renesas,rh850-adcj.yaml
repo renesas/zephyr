@@ -48,6 +48,9 @@ properties:
       A non-zero mask requires trigger-method "th-a" and at least
       one hold-value virtual channel. Each enabled T&H circuit must
       be referenced by a hold-value channel in the selected scan group.
+  dmas:
+    required: false
+    description: DMA channel used to transfer ADC conversion results.
 
   renesas,unit:
     type: int
@@ -106,6 +109,14 @@ properties:
 
       2: Perform two conversions and store the average of both results.
       4: Perform four conversions and store the average of all four results.
+
+  renesas,scan-mode:
+    type: string
+    default: "multicycle"
+    enum:
+      - "continuous"
+      - "multicycle"
+    description: Select scan mode for adcj.
 
   renesas,trigger-method:
     type: string
