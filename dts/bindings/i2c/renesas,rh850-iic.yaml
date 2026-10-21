@@ -33,3 +33,9 @@ properties:
   interrupt-priority-level:
     type: int
     default: 12
+
+  clocks:
+    required: true
+
+  clock-frequency:
+    default: 100000
