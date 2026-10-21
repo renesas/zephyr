@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Renesas RH850 Peripheral Interconnect Controller config options (included by
+# soc/renesas/rh850/common_fsp/Kconfig, inside if SOC_FAMILY_RENESAS_RH850)
+
+menuconfig RENESAS_PIC
+	bool "Renesas Peripheral Interconnect Controller (PIC) drivers"
+	default y if DT_HAS_RENESAS_RH850_PIC_ENABLED
+	help
+	  Enable support for the Peripheral Interconnect Controller (PIC). Enabled
+	  automatically when a renesas,rh850-pic node is enabled in devicetree.
+
+if RENESAS_PIC
+
+module = RENESAS_PIC
+module-str = pic
+source "subsys/logging/Kconfig.template.log_config"
+
+config RENESAS_PIC_INIT_PRIORITY
+	int "PIC driver init priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  PIC driver initialization priority.
+
+# zephyr-keep-sorted-start
+rsource "Kconfig.renesas_rh850"
+# zephyr-keep-sorted-stop
+
+endif # RENESAS_PIC

@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config RENESAS_RH850_PIC
+	bool "Renesas RH850 PIC driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_PIC_ENABLED
+	select USE_RH850_FSP_PIC
+	help
+	  Enable the Renesas RH850 PIC driver. The settings come from the
+	  renesas,rh850-pic devicetree node.
