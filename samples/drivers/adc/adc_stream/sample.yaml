@@ -30,3 +30,9 @@ tests:
       - DTC_OVERLAY_FILE=boards/pb_rh850u2b_468pin_r7f70254xfabg-c.overlay
     platform_allow:
       - pb_rh850u2b_468pin/r7f70254xfabg-c
+  sample.drivers.adc.adc_stream.rh850-adcj-stream:
+    extra_args:
+      - EXTRA_CONF_FILE=rh850-adcj-stream.conf
+      - DTC_OVERLAY_FILE=boards/pb_rh850u2a_516pin_r7f702300aebbc-c.overlay
+    platform_allow:
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
