@@ -1,0 +1,63 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RH850 Peripheral Interconnect Controller (PIC).
+  The PIC routes signals between on-chip peripherals.
+
+compatible: "renesas,rh850-pic"
+
+include: base.yaml
+
+properties:
+  taud-input-control-function:
+    type: string
+    enum:
+      - "none"
+      - "timer-input-select"
+      - "pwm-output-with-dead-time"
+      - "high-accuracy-triangle-wave-pwm-with-dead-time"
+      - "delay-pulse-output-with-dead-time"
+      - "trigger-pulse-width-measurement"
+    default: "none"
+    description: |
+      Function used to control the TAUD signals. It is one setting for the whole chip.
+
+  triangle-wave-pwm:
+    type: array
+    description: |
+      Phases of the high accuracy triangle wave PWM output function of the TAUD units. One cell per
+      PIC_TRIWAVE(unit, phases, level), unit = TAUD0..TAUD3, phases = U, V, W, UV, UW, VW or UVW,
+      level = NONE, HIGH or LOW (active level). A phase that is not listed is disabled and must not
+      be listed with two different levels. Not available on every TAUD unit due to hardware support.
+
+  taud-int-signal:
+    type: array
+    description: |
+      TAUD channel used as INT signal of a TAUD unit. One cell per PIC_TAUD_INT(unit, channel),
+      channel = CH0, CH2 or CH8. At most one cell per unit. Not available on every TAUD unit
+      (checked at build time). If not set, no channel is selected.
+
+  adc-trigger-selection:
+    type: array
+    description: |
+      ADC hardware trigger routes. One cell per RH850_PIC_ADC_TRIG(adc, sg, edge, source):
+        adc    ADC0 .. ADC3 (the unit index of the ADC instance).
+        sg     SG0 .. SG4, DIAG (diagnostic scan group, only on MCUs that have one).
+        edge   RISING, FALLING or BOTH.
+        source TAUD<unit>_CH<channel> (unit 0..3, channel 0..15), or one of the other sources
+               listed in the header (INTTAUJ0I3, ADCTRG0, TSG30TRG0, ENCA, ATU, ...).
+
+# Example configuration (set it in the application overlay of the module that needs it, e.g. TAUD
+# PWM or ADC):
+#
+#   #include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+#
+#   &pic0 {
+#           taud-input-control-function = "high-accuracy-triangle-wave-pwm-with-dead-time";
+#           triangle-wave-pwm = <RH850_PIC_TRIWAVE(TAUD0, UVW, HIGH)>,
+#                               <RH850_PIC_TRIWAVE(TAUD1, UVW, HIGH)>;
+#           adc-trigger-selection = <RH850_PIC_ADC_TRIG(ADC0, SG0, FALLING, TAUD0_CH4)>,
+#                                   <RH850_PIC_ADC_TRIG(ADC1, SG1, FALLING, TAUD1_CH4)>;
+#           status = "okay";
+#   };
