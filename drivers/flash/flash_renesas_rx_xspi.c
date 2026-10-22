@@ -196,6 +196,7 @@ struct flash_renesas_rx_xspi_controller_data {
 	xspi_controller_table_t xspi_controller_erase_commands;
 	struct flash_sfdp_region sfdp;
 	struct flash_regions_layout regions_layout;
+	uint8_t jedec_id[JESD216_READ_ID_LEN];
 	uint8_t address_mode;
 	struct k_sem sem;
 	uint32_t calib_sector_size;
@@ -1016,13 +1017,13 @@ static int flash_renesas_rx_xspi_controller_sfdp_read(const struct device *dev, 
 static int flash_renesas_rx_xspi_controller_read_jedec_id(const struct device *dev,
 							  uint8_t *jedec_id)
 {
-	const struct flash_renesas_rx_xspi_controller_config *config = dev->config;
+	const struct flash_renesas_rx_xspi_controller_data *data = dev->data;
 
 	if (jedec_id == NULL) {
 		return -EINVAL;
 	}
 
-	memcpy(jedec_id, config->jedec_id, JESD216_READ_ID_LEN);
+	memcpy(jedec_id, data->jedec_id, JESD216_READ_ID_LEN);
 
 	return 0;
 }
@@ -2299,6 +2300,17 @@ static int flash_xspi_nor_probe(const struct device *dev)
 		goto out;
 	}
 
+	/* WRAPCFG = 0x00000F00 (DSSFTCS0/1 = 0xF): initial DS shift value used as
+	 * the starting point for auto-calibration, per the Renesas reference
+	 * sample. R_XSPI_CONTROLLER_Open() leaves DSSFTCSn at 0 since
+	 * data_latch_delay_clocks is fixed to XSPI_CONTROLLER_DS_TIMING_DELAY_NONE
+	 * for this driver. */
+	if (data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
+		config->ospi_pregs->WRAPCFG_b.DSSFTCS0 = 0xF;
+	} else {
+		config->ospi_pregs->WRAPCFG_b.DSSFTCS1 = 0xF;
+	}
+
 	/* Reset SPI NOR flash device by driving OM_RESET pin */
 	if (data->xspi_controller_ctrl.channel == XSPI_CONTROLLER_DEVICE_NUMBER_0) {
 		config->ospi_pregs->LIOCTL_b.RSTCS0 = 0;
@@ -2345,13 +2357,14 @@ static int flash_xspi_nor_probe(const struct device *dev)
 		goto out;
 	}
 
+	memcpy(data->jedec_id, device_id, JESD216_READ_ID_LEN);
+
+	/* Alternate flash parts are configured from SFDP, not the DTS JEDEC ID. */
 	if (memcmp(config->jedec_id, device_id, JESD216_READ_ID_LEN) != 0) {
-		LOG_ERR("JEDEC ID mismatch: expected 0x%02x 0x%02x 0x%02x, "
+		LOG_WRN("JEDEC ID differs from DTS: expected 0x%02x 0x%02x 0x%02x, "
 			"got 0x%02x 0x%02x 0x%02x",
 			config->jedec_id[0], config->jedec_id[1], config->jedec_id[2], device_id[0],
 			device_id[1], device_id[2]);
-		ret = -ENODEV;
-		goto out;
 	}
 
 	uint8_t nph = MIN((uint8_t)(sfdp_region->header.nph + 1U), (uint8_t)SFDP_MAX_PARAM_HDRS);
