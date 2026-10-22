@@ -11,8 +11,10 @@ using a custom linker script targeting the Renesas RX architecture.
 The sample relocates the content of the ``ext_code.c`` file to external PSRAM
 (copied from internal flash at startup) and executes it from there. The data
 variable from ``ext_code.c`` is placed in internal RAM. The ``sram_code.c``
-file is copied entirely to internal SRAM. All other code (e.g. ``main()``,
-Zephyr kernel) stays in the internal flash.
+file is copied entirely to internal SRAM. The RX context switch code
+(``switch.S``) and the FSP group IRQ code (``bsp_group_irq.c``) are also copied
+to internal SRAM. All other code (e.g. ``main()``, Zephyr kernel) stays in the
+internal flash.
 
 EK-RX74M platform instructions
 *******************************
@@ -34,9 +36,13 @@ Execution output
 .. code-block:: console
 
   *** Booting Zephyr OS build vX.X.X  ***
-  Address of main function 0xffe00xxx
+  Address of main function 0xfff0xxxx
   Address of function_in_ext_flash 0x50000000
-  Address of var_ext_sram_data 0x00000xxx (10)
-  Address of function_in_sram 0x00000xxx
-  Address of var_sram_data 0x00000xxx (10)
+  Address of var_ext_sram_data 0x8200xxxx (10)
+  Address of function_in_sram 0x8200xxxx
+  Address of var_sram_data 0x8200xxxx (10)
+  Address of switch_isr_wrapper 0x8200xxxx
+  Address of z_rx_arch_switch 0x8200xxxx
+  Address of group_irq_isr 0x8200xxxx
+  Address of bsp_group_irq_get_table_index 0x8200xxxx
   Hello World! ek_rx74m
