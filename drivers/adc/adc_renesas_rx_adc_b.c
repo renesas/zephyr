@@ -1174,18 +1174,46 @@ static int adc_rx_adc_b_drain_results(const struct device *dev)
 			continue;
 		}
 
+		bool overflow_flag = false;
+
 		fsp_err = R_ADC_B_Read32(&adc_b_shared.adc_ctrl, (adc_channel_t)ch->input_positive,
 					 &sample);
-		if (fsp_err != FSP_SUCCESS) {
-			if (fsp_err == FSP_ERR_INVALID_DATA) {
-				LOG_WRN("vc %u (phys %u): conversion accuracy not guaranteed, "
-					"using reported value",
-					vc_id, ch->input_positive);
+		if (fsp_err == FSP_ERR_INVALID_DATA) {
+			/*
+			 * To determine whether the error is caused by an overflow,
+			 * check the corresponding channel status bit in ADOVFCHSR0/1.
+			 *
+			 * Per the datasheet (62.6.2), overflowed conversion results are
+			 * saturated to either the upper or lower limit of the ADC data range.
+			 */
+			if (ch->input_positive < 32U) {
+				uint32_t ovf_mask = BIT(ch->input_positive);
+
+				if (R_ADC_B->ADOVFCHSR0 & ovf_mask) {
+					overflow_flag = true;
+					R_ADC_B->ADOVFCHSCR0 = ovf_mask;
+				}
 			} else {
-				LOG_ERR("R_ADC_B_Read32 failed for vc %u (phys %u): %d", vc_id,
-					ch->input_positive, fsp_err);
-				return -EIO;
+				uint32_t ovf_mask = BIT(ch->input_positive - 32U);
+
+				if (R_ADC_B->ADOVFCHSR1 & ovf_mask) {
+					overflow_flag = true;
+					R_ADC_B->ADOVFCHSCR1 = ovf_mask;
+				}
 			}
+		}
+
+		if (fsp_err != FSP_SUCCESS && !overflow_flag) {
+			LOG_ERR("R_ADC_B_Read32 failed for vc %u (phys %u): %d", vc_id,
+				ch->input_positive, fsp_err);
+			return -EIO;
+		}
+
+		/* Explicitly clamp the sample here when overflow occurs */
+		if (overflow_flag) {
+			uint32_t max_val = BIT(ch->resolution) - 1U;
+
+			sample = CLAMP(sample, 0U, max_val);
 		}
 
 		sample_buffer[data->buf_id++] = (uint16_t)sample;
