@@ -34,7 +34,8 @@ _z_rx_irq_exit:
     add #___thread_t_switch_handle_OFFSET, r2
 
     ; Call arch_switch to perform the context switch
-    bsr _z_rx_arch_switch             ; r1: new_thread->switch_handle, r2: old_thread->switch_handle
+    mov #_z_rx_arch_switch, r3        ; Indirect call — works when target is in SRAM (out of BSR range)
+    jsr r3                            ; r1: new_thread->switch_handle, r2: old_thread->switch_handle
 
 no_switch:
     rts

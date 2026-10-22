@@ -156,7 +156,8 @@ _switch_isr_wrapper:
 	mov #_coop_switched_from,r3
 	mov [r3],r2
 
-	bsr _z_rx_context_switch_isr
+	mov #_z_rx_context_switch_isr,r3	/* indirect call: target may be out of BSR range */
+	jsr r3
 
 #if (defined(CONFIG_CPU_RXV2) || defined(CONFIG_CPU_RXV3) || defined(CONFIG_CPU_RXV3E))
 #if (defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING) && defined(CONFIG_DFPU))
@@ -257,7 +258,8 @@ _z_rx_context_switch_isr:
 	mvtc r2,usp	/* set USP to the new thread stack */
 
 #ifdef CONFIG_INSTRUMENT_THREAD_SWITCHING
-	bsr _z_thread_mark_switched_in
+	mov #_z_thread_mark_switched_in,r3	/* indirect call: target may be out of BSR range */
+	jsr r3
 #endif
 
 	rts
