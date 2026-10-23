@@ -71,6 +71,7 @@
 		led2 = &led3;
 		rtc = &rtc;
 		watchdog0 = &iwdt;
+		pwm-0 = &pwm6;
 	};
 
 	transceiver0: can-phy0 {
@@ -453,4 +454,24 @@ pmod_sd_shield: &sdhc0 {};
 
 &iwdt {
 	status = "okay";
+};
+
+&gpt2 {
+	status = "okay";
+
+	pwm2: pwm {
+		pinctrl-0 = <&gtioc2a_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+&gpt6 {
+	status = "okay";
+
+	pwm6: pwm {
+		pinctrl-0 = <&gtioc6a_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
 };
