@@ -125,28 +125,6 @@ config ETH_RENESAS_RSWITCH3_GWCA_INIT_PRIORITY
 	  can only come up once the switch has reset the common block and cleared
 	  the forwarding tables.
 
-config ETH_RENESAS_RSWITCH3_GWCA_TX_RING_SIZE
-	int "GWCA TX descriptor-ring entries per queue"
-	default 1024
-	range 8 2048
-	help
-	  Number of TX descriptors per GWCA queue. Each descriptor carries one
-	  frame, so this bounds the frames queued to hardware per port. Each
-	  entry reserves a 1536-byte buffer in ETHURAM. The default of 1024
-	  (about 1.5 MiB per port) holds about 5 ms of full-size frames at
-	  2.5 Gbit/s, so a UDP burst at line rate does not fill the ring.
-
-config ETH_RENESAS_RSWITCH3_GWCA_RX_RING_SIZE
-	int "GWCA RX descriptor-ring entries per queue"
-	default 32
-	range 8 4096
-	help
-	  Number of RX descriptors per GWCA queue. Each entry reserves a
-	  1536-byte buffer in ETHURAM. The default of 32 (48 KiB per port)
-	  holds about 150 us of full-size frames at 2.5 Gbit/s. Increase it
-	  if frames are dropped because the RX thread does not drain the ring
-	  in time.
-
 config ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_STACK_SIZE
 	int "GWCA RX-processing thread stack size (bytes)"
 	default 2048

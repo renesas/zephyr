@@ -662,6 +662,8 @@
 			gwca0: gwca@d {
 				compatible = "renesas,rcarsoc-rswitch3-gwca";
 				reg = <13>;
+				renesas,tx-ring-size = <1024>;
+				renesas,rx-ring-size = <32>;
 				status = "disabled";
 			};
 
@@ -669,6 +671,8 @@
 			gwca1: gwca@e {
 				compatible = "renesas,rcarsoc-rswitch3-gwca";
 				reg = <14>;
+				renesas,tx-ring-size = <1024>;
+				renesas,rx-ring-size = <32>;
 				status = "disabled";
 			};
 

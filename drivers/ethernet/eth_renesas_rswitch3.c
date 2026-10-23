@@ -774,27 +774,25 @@ static inline int rswitch3_gwca_reg_wait(const struct device *gw, uint32_t offs,
 static inline struct rswitch3_gwca_tx_desc *
 rswitch3_gwca_tx_ring(const struct rswitch3_gwca_config *gw_cfg, uint32_t row)
 {
-	return &gw_cfg->tx_rings[row * (RSWITCH3_GWCA_TX_RING_SIZE + 1)];
+	return &gw_cfg->tx_rings[row * (gw_cfg->tx_ring_size + 1)];
 }
 
 static inline uint8_t *rswitch3_gwca_tx_buf(const struct rswitch3_gwca_config *gw_cfg, uint32_t row,
 					    uint32_t idx)
 {
-	return &gw_cfg->tx_bufs[(row * RSWITCH3_GWCA_TX_RING_SIZE + idx) *
-				RSWITCH3_GWCA_FRAME_BUF_SIZE];
+	return &gw_cfg->tx_bufs[(row * gw_cfg->tx_ring_size + idx) * RSWITCH3_GWCA_FRAME_BUF_SIZE];
 }
 
 static inline struct rswitch3_gwca_rx_desc *
 rswitch3_gwca_rx_ring(const struct rswitch3_gwca_config *gw_cfg, uint32_t row)
 {
-	return &gw_cfg->rx_rings[row * (RSWITCH3_GWCA_RX_RING_SIZE + 1)];
+	return &gw_cfg->rx_rings[row * (gw_cfg->rx_ring_size + 1)];
 }
 
 static inline uint8_t *rswitch3_gwca_rx_buf(const struct rswitch3_gwca_config *gw_cfg, uint32_t row,
 					    uint32_t idx)
 {
-	return &gw_cfg->rx_bufs[(row * RSWITCH3_GWCA_RX_RING_SIZE + idx) *
-				RSWITCH3_GWCA_FRAME_BUF_SIZE];
+	return &gw_cfg->rx_bufs[(row * gw_cfg->rx_ring_size + idx) * RSWITCH3_GWCA_FRAME_BUF_SIZE];
 }
 
 /* Cache maintenance around GWCA DMA, unless DMA is coherent or buffers are uncached. */
@@ -878,24 +876,24 @@ static void rswitch3_gwca_tx_queue_format(const struct device *gw, uint32_t row)
 {
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	struct rswitch3_gwca_tx_queue *q = &gw_cfg->tx_queues[row];
-	size_t ring_bytes = (RSWITCH3_GWCA_TX_RING_SIZE + 1) * sizeof(*q->ring);
+	size_t ring_bytes;
 	uint32_t i;
 
 	q->ring = rswitch3_gwca_tx_ring(gw_cfg, row);
-	for (i = 0; i < RSWITCH3_GWCA_TX_RING_SIZE; i++) {
-		q->bufs[i] = rswitch3_gwca_tx_buf(gw_cfg, row, i);
-	}
+	q->bufs = rswitch3_gwca_tx_buf(gw_cfg, row, 0);
+	ring_bytes = (gw_cfg->tx_ring_size + 1) * sizeof(*q->ring);
 
 	memset(q->ring, 0, ring_bytes);
 
-	for (i = 0; i < RSWITCH3_GWCA_TX_RING_SIZE; i++) {
-		rswitch3_gwca_desc_set_addr(&q->ring[i].hdr, (uintptr_t)q->bufs[i]);
+	for (i = 0; i < gw_cfg->tx_ring_size; i++) {
+		rswitch3_gwca_desc_set_addr(
+			&q->ring[i].hdr, (uintptr_t)(q->bufs + i * RSWITCH3_GWCA_FRAME_BUF_SIZE));
 		q->ring[i].hdr.type = RSWITCH3_GWCA_DESC_EEMPTY;
 	}
 
 	/* Wrap entry so the ring is circular. */
-	rswitch3_gwca_desc_set_addr(&q->ring[RSWITCH3_GWCA_TX_RING_SIZE].hdr, (uintptr_t)q->ring);
-	q->ring[RSWITCH3_GWCA_TX_RING_SIZE].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+	rswitch3_gwca_desc_set_addr(&q->ring[gw_cfg->tx_ring_size].hdr, (uintptr_t)q->ring);
+	q->ring[gw_cfg->tx_ring_size].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
 
 	rswitch3_gwca_dcache_flush(q->ring, ring_bytes);
 
@@ -917,7 +915,8 @@ static void rswitch3_gwca_rx_desc_arm(struct rswitch3_gwca_rx_queue *q, uint32_t
 	struct rswitch3_gwca_rx_desc *desc = &q->ring[idx];
 
 	desc->hdr.size = RSWITCH3_GWCA_FRAME_BUF_SIZE;
-	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)q->bufs[idx]);
+	rswitch3_gwca_desc_set_addr(&desc->hdr,
+				    (uintptr_t)(q->bufs + idx * RSWITCH3_GWCA_FRAME_BUF_SIZE));
 	desc->meta_lo = 0;
 	desc->meta_hi = RSWITCH3_GWCA_META_SPN(q->port_id);
 	desc->tsns = 0;
@@ -935,20 +934,18 @@ static void rswitch3_gwca_rx_queue_format(const struct device *gw, uint32_t row)
 	uint32_t i;
 
 	q->ring = rswitch3_gwca_rx_ring(gw_cfg, row);
-	for (i = 0; i < RSWITCH3_GWCA_RX_RING_SIZE; i++) {
-		q->bufs[i] = rswitch3_gwca_rx_buf(gw_cfg, row, i);
-	}
+	q->bufs = rswitch3_gwca_rx_buf(gw_cfg, row, 0);
 
-	memset(q->ring, 0, (RSWITCH3_GWCA_RX_RING_SIZE + 1) * sizeof(*q->ring));
+	memset(q->ring, 0, (gw_cfg->rx_ring_size + 1) * sizeof(*q->ring));
 
-	for (i = 0; i < RSWITCH3_GWCA_RX_RING_SIZE; i++) {
+	for (i = 0; i < gw_cfg->rx_ring_size; i++) {
 		rswitch3_gwca_rx_desc_arm(q, i);
 	}
 
 	/* Wrap entry so the ring is circular. */
-	rswitch3_gwca_desc_set_addr(&q->ring[RSWITCH3_GWCA_RX_RING_SIZE].hdr, (uintptr_t)q->ring);
-	q->ring[RSWITCH3_GWCA_RX_RING_SIZE].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
-	rswitch3_gwca_dcache_flush(&q->ring[RSWITCH3_GWCA_RX_RING_SIZE], sizeof(q->ring[0]));
+	rswitch3_gwca_desc_set_addr(&q->ring[gw_cfg->rx_ring_size].hdr, (uintptr_t)q->ring);
+	q->ring[gw_cfg->rx_ring_size].hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+	rswitch3_gwca_dcache_flush(&q->ring[gw_cfg->rx_ring_size], sizeof(q->ring[0]));
 
 	rswitch3_gwca_desc_set_addr(&gw_cfg->linkfix_table[q->index], (uintptr_t)q->ring);
 	gw_cfg->linkfix_table[q->index].type = RSWITCH3_GWCA_DESC_LINKFIX;
@@ -1039,7 +1036,7 @@ static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	uint32_t i;
 
-	for (i = 0; i < RSWITCH3_GWCA_RX_RING_SIZE; i++) {
+	for (i = 0; i < gw_cfg->rx_ring_size; i++) {
 		struct rswitch3_gwca_rx_desc *desc = &q->ring[q->cur];
 		uint32_t len;
 
@@ -1052,14 +1049,16 @@ static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_
 		/* Drop frames whose descriptor reports an AXI, data size or frame error. */
 		if (((desc->hdr.type & RSWITCH3_GWCA_DESC_ERR_MASK) == 0U) && (q->rx_cb != NULL)) {
 			len = MIN(desc->hdr.size, RSWITCH3_GWCA_FRAME_BUF_SIZE);
-			rswitch3_gwca_dcache_invalidate(q->bufs[q->cur], len);
-			q->rx_cb(gw_cfg->rswitch_dev, q->port_id, q->bufs[q->cur], len,
+			rswitch3_gwca_dcache_invalidate(
+				q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len);
+			q->rx_cb(gw_cfg->rswitch_dev, q->port_id,
+				 q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len,
 				 q->rx_cb_user_data);
 		}
 
 		rswitch3_gwca_rx_desc_arm(q, q->cur);
 
-		q->cur = (q->cur + 1) % RSWITCH3_GWCA_RX_RING_SIZE;
+		q->cur = (q->cur + 1) % gw_cfg->rx_ring_size;
 	}
 }
 
@@ -1350,11 +1349,12 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, co
 		goto out_unlock;
 	}
 
-	memcpy(q->bufs[q->cur], frame, len);
-	rswitch3_gwca_dcache_flush(q->bufs[q->cur], len);
+	memcpy(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, frame, len);
+	rswitch3_gwca_dcache_flush(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE, len);
 
 	desc->hdr.size = (uint16_t)len;
-	rswitch3_gwca_desc_set_addr(&desc->hdr, (uintptr_t)q->bufs[q->cur]);
+	rswitch3_gwca_desc_set_addr(&desc->hdr,
+				    (uintptr_t)(q->bufs + q->cur * RSWITCH3_GWCA_FRAME_BUF_SIZE));
 	desc->meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV) |
 			(tx_meta & (RSWITCH3_GWCA_META_L3CC | RSWITCH3_GWCA_META_L4CC));
 	desc->meta_hi = RSWITCH3_GWCA_META_DV(BIT(port_id));
@@ -1364,7 +1364,7 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, co
 	desc->hdr.type = RSWITCH3_GWCA_DESC_FSINGLE;
 	rswitch3_gwca_dcache_flush(&desc->hdr.type, sizeof(desc->hdr.type));
 
-	q->cur = (q->cur + 1) % RSWITCH3_GWCA_TX_RING_SIZE;
+	q->cur = (q->cur + 1) % gw_cfg->tx_ring_size;
 
 out_unlock:
 	k_spin_unlock(&gw_data->tx_lock, key);
@@ -1585,7 +1585,15 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 
 #define RSWITCH3_GWCA_NUM_ROWS(inst) ARRAY_SIZE(rswitch3_gwca_port_ids_##inst)
 
+/* Each ring size comes from this gateway's own node. */
+#define RSWITCH3_GWCA_TX_RING(inst) DT_INST_PROP(inst, renesas_tx_ring_size)
+#define RSWITCH3_GWCA_RX_RING(inst) DT_INST_PROP(inst, renesas_rx_ring_size)
+
 #define RSWITCH3_GWCA_INIT(inst)                                                                   \
+	BUILD_ASSERT(RSWITCH3_GWCA_TX_RING(inst) >= 8 && RSWITCH3_GWCA_TX_RING(inst) <= 2048,      \
+		     "renesas,tx-ring-size must be 8..2048");                                      \
+	BUILD_ASSERT(RSWITCH3_GWCA_RX_RING(inst) >= 8 && RSWITCH3_GWCA_RX_RING(inst) <= 4096,      \
+		     "renesas,rx-ring-size must be 8..4096");                                      \
 	static const uint8_t rswitch3_gwca_port_ids_##inst[] = {                                   \
 		DT_FOREACH_CHILD_STATUS_OKAY_VARGS(RSWITCH3_GWCA_RSWITCH(inst),                    \
 						   RSWITCH3_GWCA_PORT_ID_ENTRY,                    \
@@ -1595,18 +1603,18 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 	static struct rswitch3_gwca_rx_queue                                                       \
 		rswitch3_gwca_rx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
 	static struct rswitch3_gwca_tx_desc rswitch3_gwca_tx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
-		inst)][RSWITCH3_GWCA_TX_RING_SIZE + 1] RSWITCH3_GWCA_RAM_SECTION                   \
+		inst)][RSWITCH3_GWCA_TX_RING(inst) + 1] RSWITCH3_GWCA_RAM_SECTION                  \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
-	static uint8_t rswitch3_gwca_tx_bufs_##inst                                                \
-		[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_TX_RING_SIZE]                         \
-		[RSWITCH3_GWCA_FRAME_BUF_SIZE] RSWITCH3_GWCA_RAM_SECTION                           \
+	static uint8_t                                                                             \
+		rswitch3_gwca_tx_bufs_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_TX_RING(  \
+			inst)][RSWITCH3_GWCA_FRAME_BUF_SIZE] RSWITCH3_GWCA_RAM_SECTION             \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
 	static struct rswitch3_gwca_rx_desc rswitch3_gwca_rx_rings_##inst[RSWITCH3_GWCA_NUM_ROWS(  \
-		inst)][RSWITCH3_GWCA_RX_RING_SIZE + 1] RSWITCH3_GWCA_RAM_SECTION                   \
+		inst)][RSWITCH3_GWCA_RX_RING(inst) + 1] RSWITCH3_GWCA_RAM_SECTION                  \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
-	static uint8_t rswitch3_gwca_rx_bufs_##inst                                                \
-		[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_RX_RING_SIZE]                         \
-		[RSWITCH3_GWCA_FRAME_BUF_SIZE] RSWITCH3_GWCA_RAM_SECTION                           \
+	static uint8_t                                                                             \
+		rswitch3_gwca_rx_bufs_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)][RSWITCH3_GWCA_RX_RING(  \
+			inst)][RSWITCH3_GWCA_FRAME_BUF_SIZE] RSWITCH3_GWCA_RAM_SECTION             \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
 	static struct rswitch3_gwca_desc                                                           \
 		rswitch3_gwca_linkfix_table_##inst[2 * RSWITCH3_GWCA_NUM_ROWS(                     \
@@ -1628,6 +1636,8 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 							 : RSWITCH3_GWCA0_OFFSET,                  \
 		.agent = DT_INST_REG_ADDR(inst),                                                   \
 		.instance = RSWITCH3_GWCA_INSTANCE(inst),                                          \
+		.tx_ring_size = RSWITCH3_GWCA_TX_RING(inst),                                       \
+		.rx_ring_size = RSWITCH3_GWCA_RX_RING(inst),                                       \
 	};                                                                                         \
 	DEVICE_DT_INST_DEFINE(inst, rswitch3_gwca_init, NULL, &rswitch3_gwca_data_##inst,          \
 			      &rswitch3_gwca_config_##inst, POST_KERNEL,                           \
@@ -1641,6 +1651,8 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_GWCA_INIT)
 #undef RSWITCH3_PORT_USES_GWCA
 #undef RSWITCH3_GWCA_RSWITCH
 #undef RSWITCH3_GWCA_INSTANCE
+#undef RSWITCH3_GWCA_TX_RING
+#undef RSWITCH3_GWCA_RX_RING
 #endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
 
 #undef DT_DRV_COMPAT

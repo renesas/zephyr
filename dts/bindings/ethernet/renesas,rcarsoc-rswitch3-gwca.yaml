@@ -27,3 +27,21 @@ properties:
       switch end up with the same unit address. The driver takes this engine's
       register block and its engine number for FWPBFCSDC() and TPDEMIMC_GDICM()
       from it.
+
+  renesas,tx-ring-size:
+    type: int
+    required: true
+    description: |
+      Transmit descriptors in every queue of this engine. One queue serves one
+      port. The depth sets how many frames the engine holds for transmission
+      before software has to wait. It can range from 8 to 2048, and every
+      descriptor reserves a frame buffer in the dedicated Ethernet RAM.
+
+  renesas,rx-ring-size:
+    type: int
+    required: true
+    description: |
+      Receive descriptors in every queue of this engine. One queue serves one
+      port. The depth sets how many frames may arrive between two runs of the
+      receive thread without overrunning the ring. It can range from 8 to 4096,
+      and every descriptor reserves a frame buffer in the dedicated Ethernet RAM.

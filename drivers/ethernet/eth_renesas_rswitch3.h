@@ -309,8 +309,6 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_NUM_DI_REGS (RSWITCH3_GWCA_NUM_CHAINS / 32)
 #define RSWITCH3_GWCA_ROW_INVALID 0xffU
 
-#define RSWITCH3_GWCA_TX_RING_SIZE   CONFIG_ETH_RENESAS_RSWITCH3_GWCA_TX_RING_SIZE
-#define RSWITCH3_GWCA_RX_RING_SIZE   CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_RING_SIZE
 #define RSWITCH3_GWCA_FRAME_BUF_SIZE 1536
 #define RSWITCH3_GWCA_DESC_ALIGN     64
 
@@ -324,28 +322,28 @@ struct rswitch3_gwca_tx_queue {
 	bool used;
 	uint32_t index;                     /* GWCA hardware queue index (== row) */
 	uint32_t port_id;                   /* owning port's ETHA agent index */
-	struct rswitch3_gwca_tx_desc *ring; /* RSWITCH3_GWCA_TX_RING_SIZE + 1 entries (wrap) */
-	uint8_t *bufs[RSWITCH3_GWCA_TX_RING_SIZE];
-	uint32_t cur; /* next slot to fill */
+	struct rswitch3_gwca_tx_desc *ring; /* tx_ring_size + 1 entries (wrap) */
+	uint8_t *bufs; /* [tx_ring_size][RSWITCH3_GWCA_FRAME_BUF_SIZE], this queue's block */
+	uint32_t cur;  /* next slot to fill */
 };
 
 struct rswitch3_gwca_rx_queue {
 	bool used;
 	uint32_t index;
 	uint32_t port_id;
-	struct rswitch3_gwca_rx_desc *ring; /* RSWITCH3_GWCA_RX_RING_SIZE + 1 entries (wrap) */
-	uint8_t *bufs[RSWITCH3_GWCA_RX_RING_SIZE];
-	uint32_t cur; /* next slot to poll for a HW-completed frame */
+	struct rswitch3_gwca_rx_desc *ring; /* rx_ring_size + 1 entries (wrap) */
+	uint8_t *bufs; /* [rx_ring_size][RSWITCH3_GWCA_FRAME_BUF_SIZE], this queue's block */
+	uint32_t cur;  /* next slot to poll for a HW-completed frame */
 	rswitch_gwca_rx_cb_t rx_cb;
 	void *rx_cb_user_data;
 };
 
 struct rswitch3_gwca_config {
 	const struct device *rswitch_dev;         /* parent switch device */
-	struct rswitch3_gwca_tx_desc *tx_rings;   /* [num_ports][TX_RING_SIZE + 1] */
-	uint8_t *tx_bufs;                         /* [num_ports][TX_RING_SIZE][FRAME_BUF_SIZE] */
-	struct rswitch3_gwca_rx_desc *rx_rings;   /* [num_ports][RX_RING_SIZE + 1] */
-	uint8_t *rx_bufs;                         /* [num_ports][RX_RING_SIZE][FRAME_BUF_SIZE] */
+	struct rswitch3_gwca_tx_desc *tx_rings;   /* [num_ports][tx_ring_size + 1] */
+	uint8_t *tx_bufs;                         /* [num_ports][tx_ring_size][FRAME_BUF_SIZE] */
+	struct rswitch3_gwca_rx_desc *rx_rings;   /* [num_ports][rx_ring_size + 1] */
+	uint8_t *rx_bufs;                         /* [num_ports][rx_ring_size][FRAME_BUF_SIZE] */
 	struct rswitch3_gwca_desc *linkfix_table; /* [2 * num_ports] */
 	struct rswitch3_gwca_tx_queue *tx_queues; /* [num_ports], row-indexed */
 	struct rswitch3_gwca_rx_queue *rx_queues; /* [num_ports], row-indexed */
@@ -354,6 +352,9 @@ struct rswitch3_gwca_config {
 	uint32_t reg_base;       /* RSWITCH3_GWCA0_OFFSET or RSWITCH3_GWCA1_OFFSET */
 	uint8_t agent;           /* forwarding-agent index (13 or 14) among RSWITCH3_NUM_AGENTS */
 	uint8_t instance;        /* GWCA sub-instance (0 or 1) for TPDEMIMC_GDICM()/FWPBFCSDC() */
+	/* Ring depths, both from this gateway's devicetree node. */
+	uint32_t tx_ring_size;
+	uint32_t rx_ring_size;
 };
 
 /* Per-gateway GWCA runtime state, reachable via dev->data. */
