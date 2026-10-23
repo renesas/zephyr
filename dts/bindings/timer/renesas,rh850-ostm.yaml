@@ -17,3 +17,8 @@ properties:
 
   interrupts:
     required: true
+
+  clock-frequency:
+    type: int
+    description: |
+      Initial input clock frequency of the OSTM counter in Hz.
