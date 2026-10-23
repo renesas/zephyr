@@ -8,6 +8,46 @@
 
 /* Peripheral definition following RH850/U2B10 devices */
 / {
+	clocks {
+		sscg1: sscg1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			status = "disabled";
+			clock-frequency = <0>;
+			clocks = <&mosc>;
+		};
+	};
+};
+
+&cgc {
+	clk_sys_sscg1: clk-sys-sscg1 {
+		compatible = "renesas,rh850-cgc-sysclk";
+		clock-source = <&iosc>;
+		#clock-cells = <0>;
+		status = "okay";
+		modulation-value = <30>;
+		modulation-dithered-range = <0>;
+		div = <1>;
+	};
+
+	clk_dfp: clk-dfp {
+		compatible = "renesas,rh850-cgc-pclk";
+		#clock-cells = <0>;
+		status = "okay";
+		clock-source = <&clk_sys_sscg1>;
+		div = <2>;
+	};
+
+	clk_dfp_div_2: clk-dfp-div-2 {
+		compatible = "renesas,rh850-cgc-pclk";
+		#clock-cells = <0>;
+		status = "okay";
+		clock-source = <&clk_dfp>;
+		div = <2>;
+	};
+};
+
+/ {
 	cpus {
 		cpu3: cpu@3 {
 			status = "disabled";

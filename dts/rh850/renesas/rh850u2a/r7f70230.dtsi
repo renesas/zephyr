@@ -13,39 +13,38 @@
 	clocks {
 		mosc: main-osc {
 			compatible = "fixed-clock";
-			clock-frequency = <DT_FREQ_M(20)>;
 			#clock-cells = <0>;
 			status = "okay";
+			clock-frequency = <DT_FREQ_M(20)>;
 		};
 
 		hsiosc: hs-int-osc {
 			compatible = "fixed-clock";
-			clock-frequency = <DT_FREQ_M(200)>;
 			#clock-cells = <0>;
 			status = "okay";
+			clock-frequency = <DT_FREQ_M(200)>;
 		};
 
 		lsiosc: ls-int-osc {
 			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			status = "okay";
 			clock-frequency = <DT_FREQ_K(240)>;
-			#clock-cells = <0>;
-			status = "okay";
-		};
-
-		iosc: int-osc {
-			compatible = "fixed-clock";
-			clock-frequency = <DT_FREQ_M(200)>;
-			clocks = <&hsiosc>;
-			#clock-cells = <0>;
-			status = "okay";
 		};
 
 		pll: pll {
 			compatible = "fixed-clock";
-			clock-frequency = <DT_FREQ_M(800)>;
-			clocks = <&mosc>;
 			#clock-cells = <0>;
 			status = "okay";
+			clock-frequency = <DT_FREQ_M(800)>;
+			clocks = <&mosc>;
+		};
+
+		hviosc: hviosc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			status = "okay";
+			clock-frequency = <DT_FREQ_M(16)>;
 		};
 	};
 
@@ -127,89 +126,201 @@
 
 			clk_sys: clk-sys {
 				compatible = "renesas,rh850-cgc-sysclk";
-				clk-source = <0>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&pllo>;
+				renesas,cyclicrun-clock-source = <&iosc>;
+				div = <1>;
+				renesas,cyclicrun-div = <1>;
+			};
+
+			pllo: pllo {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				renesas,pll0-divider = <0>;
+				clock-source = <&pll>;
+				div = <1>;
+			};
+
+			clk_cpu: clk-cpu {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <2>;
+			};
+
+			clka_lps: clka-lps {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&hsiosc>;
+				div = <20>;
+			};
+
+			clk_ecmcnt: clk-ecmcnt {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&hsiosc>;
+				div = <20>;
+			};
+
+			clk_sbus: clk-sbus {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <4>;
+			};
+
+			clk_hbus: clk-hbus {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <8>;
+			};
+
+			clk_uhsb: clk-uhsb {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <5>;
+			};
+
+			clk_hsb: clk-hsb {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <10>;
+			};
+
+			clk_lsb: clk-lsb {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&clk_sys>;
+				div = <20>;
+			};
+
+			iosc: int-osc {
+				compatible = "renesas,rh850-cgc-pclk";
+				#clock-cells = <0>;
+				status = "okay";
+				clock-source = <&hsiosc>;
+				renesas,cyclicrun-clock-source = <&hsiosc>;
+				div = <1>;
+				renesas,cyclicrun-div = <1>;
 			};
 
 			clk_mspi: clk-mspi {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&clk_hsb>;
+				renesas,cyclicrun-clock-source = <&clk_hsb>;
+				div = <1>;
+				renesas,cyclicrun-div = <1>;
 			};
 
 			clk_rlin3: clk-rlin3 {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&clk_hsb>;
+				renesas,cyclicrun-clock-source = <&clk_hsb>;
+				div = <1>;
+				renesas,cyclicrun-div = <1>;
 			};
 
 			clk_wdt: clk-wdt {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&hsiosc>;
+				div = <640>;
+				renesas,cyclicrun-clock-source = <&hsiosc>;
+				renesas,cyclicrun-div = <640>;
 			};
 
 			clka_wdt: clka-wdt {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&lsiosc>;
+				renesas,cyclicrun-clock-source = <&lsiosc>;
+				div = <128>;
+				renesas,cyclicrun-div = <128>;
 			};
 
 			clka_tauj: clka-tauj {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&hsiosc>;
+				renesas,cyclicrun-clock-source = <&hsiosc>;
+				div = <20>;
+				renesas,cyclicrun-div = <20>;
 			};
 
 			clka_rtca: clka-rtca {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&lsiosc>;
+				renesas,cyclicrun-clock-source = <&lsiosc>;
+				div = <1>;
+				renesas,cyclicrun-div = <1>;
 			};
 
 			clka_adc: clka-adc {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
-				div = <1>;
+				div = <20>;
 				#clock-cells = <0>;
 				status = "okay";
+				renesas,cyclicrun-div = <20>;
+				clock-source = <&hsiosc>;
+				renesas,cyclicrun-clock-source = <&hsiosc>;
 			};
 
 			clk_adc: clk-adc {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&clk_lsb>;
+				div = <2>;
 			};
 
 			clk_rcanosc: clk-rcanosc {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				#clock-cells = <0>;
 				status = "okay";
+				clock-source = <&mosc>;
+				div = <1>;
 			};
 
 			extclk0: extclk0 {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				div = <0>;
 				#clock-cells = <0>;
 				status = "okay";
+				renesas,cyclicrun-div = <0>;
+				clock-source = <&clk_hsb>;
+				renesas,cyclicrun-clock-source = <&clk_hsb>;
 			};
 
 			extclk1: extclk1 {
 				compatible = "renesas,rh850-cgc-pclk";
-				clk-source = <1>;
 				div = <0>;
 				#clock-cells = <0>;
 				status = "okay";
+				renesas,cyclicrun-div = <0>;
+				clock-source = <&clk_hsb>;
+				renesas,cyclicrun-clock-source = <&clk_hsb>;
 			};
 		};
 
@@ -874,7 +985,7 @@
 				interrupts = <299 1>, <298 1>, <300 1>;
 				interrupt-names = "rxi", "eri", "txi";
 				interrupt-parent = <&intc2>;
-				clock-frequency = <80000000>;
+				clock-frequency = <DT_FREQ_M(800)>;
 				status = "disabled";
 			};
 		};

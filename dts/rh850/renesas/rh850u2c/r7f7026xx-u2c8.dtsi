@@ -7,6 +7,16 @@
 #include <rh850/renesas/rh850u2c/r7f7026xx-u2c4.dtsi>
 
 /* Peripheral definition following RH850/U2C8 devices */
+&clkc_canxl_ch0 {
+	clock-source = <&clkc_uhsb>;
+	div = <1>;
+};
+
+&clkc_canxl_ch1 {
+	clock-source = <&clkc_uhsb>;
+	div = <1>;
+};
+
 / {
 	soc {
 		/* Delete gpio node P00, P19 */

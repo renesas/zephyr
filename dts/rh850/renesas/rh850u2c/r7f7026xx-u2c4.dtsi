@@ -7,6 +7,16 @@
 #include <rh850/renesas/rh850u2c/r7f7026xx-u2c2.dtsi>
 
 /* Peripheral definition following RH850/U2C4 devices */
+&cgc {
+	clkc_canxl_ch1: clkc-canxl-ch1 {
+		compatible = "renesas,rh850-cgc-pclk";
+		clock-source = <&clkc_hsb>;
+		#clock-cells = <0>;
+		status = "okay";
+		div = <1>;
+	};
+};
+
 / {
 	soc {
 		ioport0: gpio@ffd90000 {
@@ -187,5 +197,15 @@
 				status = "okay";
 			};
 		};
+	};
+};
+
+&cgc {
+	clkc_canxl_ch1: clkc-canxl-ch1 {
+		compatible = "renesas,rh850-cgc-pclk";
+		clock-source = <&clkc_hsb>;
+		#clock-cells = <0>;
+		status = "okay";
+		div = <1>;
 	};
 };
