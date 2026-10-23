@@ -14,153 +14,102 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/init.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
 #include <zephyr/dt-bindings/clock/renesas_rh850_clock_common.h>
 #include <zephyr/drivers/clock_control/renesas_rh850_cgc.h>
-#include "rp_bsp_module_standby.h"
+#include "rp_bsp_clock_control.h"
+#include "bsp_clock_cfg.h"
 
-#define RH850_CGC_MAX_CHANNEL 31U
+/*
+ * RH850 CGC driver responsibilities
+ * ---------------------------------
+ * The Zephyr layer decodes the clock subsystem ID, validates the requested
+ * domain, serializes API operations, and dispatches to the portable RH850 HAL.
+ *
+ * PCLK subsystem fields:
+ *   module  - logical RH850 module-standby group
+ *   channel - bit index in the corresponding module-standby register
+ *   clock   - logical peripheral functional-clock identifier
+ *
+ * SoC-specific module mappings, clock mappings, selector/divider
+ * register access, and runtime clock-rate calculation are intentionally kept
+ * in the portable HAL. This keeps this source common for the RH850 family.
+ */
+
+/*
+ * PCLK channel is an MSR bit index, not a count of supported modules.
+ * Each RH850 module standby register is 32 bits wide, so valid channel
+ * values are 0..31. Future modules spanning multiple MSR registers must be
+ * represented as separate module IDs/groups rather than increasing this limit.
+ */
+#define RH850_CGC_MSR_BIT_MAX 31U
+
+/* DT uses physical division factors; runtime payloads retain HAL encodings. */
+struct rh850_cgc_pclk_dt_cfg {
+	uint32_t clock_id;
+	uint32_t source_clock_id;
+	uint32_t div;
+};
+
+struct rh850_cgc_config {
+	const cgc_api_t *fsp_api;
+	const struct rh850_cgc_pclk_dt_cfg *pclk_cfgs;
+	size_t pclk_cfg_count;
+};
 
 struct rh850_cgc_data {
 	cgc_instance_ctrl_t cgc_ctrl;
-	bool opened;
+	atomic_t open_state;
+	uint32_t pclk_cfg_applied_mask;
+	struct k_spinlock lock;
 };
 
-struct rh850_cgc_module_map {
-	uint32_t module;
-	bsp_module_standby_t fsp_module;
+enum rh850_cgc_open_state {
+	RH850_CGC_OPEN_STATE_CLOSED,
+	RH850_CGC_OPEN_STATE_OPENING,
+	RH850_CGC_OPEN_STATE_OPEN,
 };
 
-static enum clock_control_status rh850_cgc_get_status(
-	const struct device *dev,
-	clock_control_subsys_t sys);
+/** Zephyr clock_control_get_status() callback. */
+static enum clock_control_status clock_control_rh850_cgc_get_status(const struct device *dev,
+								    clock_control_subsys_t sys);
 
-static const struct rh850_cgc_module_map rh850_cgc_module_map[] = {
-#if defined(CONFIG_SOC_SERIES_RH850U2A)
-	{ RH850_MODULE_RSCFD, BSP_MODULE_STANDBY_MSR_RSCFD },
-	{ RH850_MODULE_FLXA, BSP_MODULE_STANDBY_MSR_FLXA },
-	{ RH850_MODULE_GTM, BSP_MODULE_STANDBY_MSR_GTM },
-#if defined(BSP_FEATURE_ETNB_IS_AVAILABLE) && BSP_FEATURE_ETNB_IS_AVAILABLE
-	{ RH850_MODULE_ETNB, BSP_MODULE_STANDBY_MSR_ETNB },
-#endif
-	{ RH850_MODULE_RSENT, BSP_MODULE_STANDBY_MSR_RSENT },
-	{ RH850_MODULE_MSPI, BSP_MODULE_STANDBY_MSR_MSPI },
-	{ RH850_MODULE_RLIN3, BSP_MODULE_STANDBY_MSR_RLIN3 },
-	{ RH850_MODULE_ADCJ_ISO, BSP_MODULE_STANDBY_MSR_ADCJ_ISO },
-#if defined(BSP_FEATURE_CXPI_IS_AVAILABLE) && BSP_FEATURE_CXPI_IS_AVAILABLE
-	{ RH850_MODULE_CXPI, BSP_MODULE_STANDBY_MSR_CXPI },
-#endif
-#if defined(BSP_FEATURE_MMCA_IS_AVAILABLE) && BSP_FEATURE_MMCA_IS_AVAILABLE
-	{ RH850_MODULE_MMCA, BSP_MODULE_STANDBY_MSR_MMCA },
-#endif
-#if defined(BSP_FEATURE_ENCA_IS_AVAILABLE) && BSP_FEATURE_ENCA_IS_AVAILABLE
-	{ RH850_MODULE_ENCA, BSP_MODULE_STANDBY_MSR_ENCA },
-#endif
-	{ RH850_MODULE_PSI5, BSP_MODULE_STANDBY_MSR_PSI5 },
-	{ RH850_MODULE_PSI5S, BSP_MODULE_STANDBY_MSR_PSI5S },
-	{ RH850_MODULE_PWMD, BSP_MODULE_STANDBY_MSR_PWMD },
-#if defined(BSP_FEATURE_RHSIF_IS_AVAILABLE) && BSP_FEATURE_RHSIF_IS_AVAILABLE
-	{ RH850_MODULE_RHSIF, BSP_MODULE_STANDBY_MSR_RHSIF },
-#endif
-	{ RH850_MODULE_RIIC, BSP_MODULE_STANDBY_MSR_RIIC },
-#if defined(BSP_FEATURE_SCI3_IS_AVAILABLE) && BSP_FEATURE_SCI3_IS_AVAILABLE
-	{ RH850_MODULE_SCI3, BSP_MODULE_STANDBY_MSR_SCI3 },
-#endif
-	{ RH850_MODULE_TAPA, BSP_MODULE_STANDBY_MSR_TAPA },
-	{ RH850_MODULE_TAUD, BSP_MODULE_STANDBY_MSR_TAUD },
-	{ RH850_MODULE_TAUJ_ISO, BSP_MODULE_STANDBY_MSR_TAUJ_ISO },
-	{ RH850_MODULE_TPBA, BSP_MODULE_STANDBY_MSR_TPBA },
-	{ RH850_MODULE_TSG3, BSP_MODULE_STANDBY_MSR_TSG3 },
-	{ RH850_MODULE_OSTM, BSP_MODULE_STANDBY_MSR_OSTM },
-	{ RH850_MODULE_ADCJ_AWO, BSP_MODULE_STANDBY_MSR_ADCJ_AWO },
-	{ RH850_MODULE_RTCA, BSP_MODULE_STANDBY_MSR_RTCA },
-	{ RH850_MODULE_TAUJ_AWO, BSP_MODULE_STANDBY_MSR_TAUJ_AWO },
-	{ RH850_MODULE_WDTB_AWO, BSP_MODULE_STANDBY_MSR_WDTB_AWO },
-#elif defined(CONFIG_SOC_SERIES_RH850U2B)
-	{ RH850_MODULE_RSCFD, BSP_MODULE_STANDBY_MSR_RSCFD },
-	{ RH850_MODULE_FLXA, BSP_MODULE_STANDBY_MSR_FLXA },
-	{ RH850_MODULE_GTM, BSP_MODULE_STANDBY_MSR_GTM },
-	{ RH850_MODULE_ETN, BSP_MODULE_STANDBY_MSR_ETN },
-	{ RH850_MODULE_RSENT, BSP_MODULE_STANDBY_MSR_RSENT },
-	{ RH850_MODULE_MSPI, BSP_MODULE_STANDBY_MSR_MSPI },
-	{ RH850_MODULE_RLIN3, BSP_MODULE_STANDBY_MSR_RLIN3 },
-	{ RH850_MODULE_DSADC_CADC, BSP_MODULE_STANDBY_MSR_DSADC_CADC },
-	{ RH850_MODULE_ADCK_ISO, BSP_MODULE_STANDBY_MSR_ADCK_ISO },
-#if defined(BSP_FEATURE_MMCA_IS_AVAILABLE) && BSP_FEATURE_MMCA_IS_AVAILABLE
-	{ RH850_MODULE_MMCA, BSP_MODULE_STANDBY_MSR_MMCA },
-#endif
-	{ RH850_MODULE_ENCA, BSP_MODULE_STANDBY_MSR_ENCA },
-#if defined(BSP_FEATURE_PSI5_IS_AVAILABLE) && BSP_FEATURE_PSI5_IS_AVAILABLE
-	{ RH850_MODULE_PSI5, BSP_MODULE_STANDBY_MSR_PSI5 },
-#endif
-#if defined(BSP_FEATURE_PSI5S_IS_AVAILABLE) && BSP_FEATURE_PSI5S_IS_AVAILABLE
-	{ RH850_MODULE_PSI5S, BSP_MODULE_STANDBY_MSR_PSI5S },
-#endif
-#if defined(BSP_FEATURE_RHSIF_IS_AVAILABLE) && BSP_FEATURE_RHSIF_IS_AVAILABLE
-	{ RH850_MODULE_RHSIF, BSP_MODULE_STANDBY_MSR_RHSIF },
-#endif
-	{ RH850_MODULE_RHSB, BSP_MODULE_STANDBY_MSR_RHSB },
-#if defined(BSP_FEATURE_RIIC_IS_AVAILABLE) && BSP_FEATURE_RIIC_IS_AVAILABLE
-	{ RH850_MODULE_RIIC, BSP_MODULE_STANDBY_MSR_RIIC },
-#endif
-	{ RH850_MODULE_SFMA, BSP_MODULE_STANDBY_MSR_SFMA },
-	{ RH850_MODULE_TAPA, BSP_MODULE_STANDBY_MSR_TAPA },
-	{ RH850_MODULE_TAUD, BSP_MODULE_STANDBY_MSR_TAUD },
-	{ RH850_MODULE_TPBA, BSP_MODULE_STANDBY_MSR_TPBA },
-	{ RH850_MODULE_TSG3, BSP_MODULE_STANDBY_MSR_TSG3 },
-	{ RH850_MODULE_OSTM, BSP_MODULE_STANDBY_MSR_OSTM },
-	{ RH850_MODULE_ATU, BSP_MODULE_STANDBY_MSR_ATU },
-	{ RH850_MODULE_DFE, BSP_MODULE_STANDBY_MSR_DFE },
-#if defined(BSP_FEATURE_DFP_IS_AVAILABLE) && BSP_FEATURE_DFP_IS_AVAILABLE
-	{ RH850_MODULE_DFP, BSP_MODULE_STANDBY_MSR_DFP },
-#endif
-	{ RH850_MODULE_RDC, BSP_MODULE_STANDBY_MSR_RDC },
-	{ RH850_MODULE_FCOMP, BSP_MODULE_STANDBY_MSR_FCOMP },
-#if defined(BSP_FEATURE_TSG3_EMU3S_IS_AVAILABLE) && BSP_FEATURE_TSG3_EMU3S_IS_AVAILABLE
-	{ RH850_MODULE_EMU, BSP_MODULE_STANDBY_MSR_EMU },
-#endif
-	{ RH850_MODULE_HRPWM, BSP_MODULE_STANDBY_MSR_HRPWM },
-#if defined(BSP_FEATURE_DSMIF_IS_AVAILABLE) && BSP_FEATURE_DSMIF_IS_AVAILABLE
-	{ RH850_MODULE_DSMIF, BSP_MODULE_STANDBY_MSR_DSMIF },
-#endif
-#elif defined(CONFIG_SOC_SERIES_RH850U2C)
-	{ RH850_MODULE_RSCFD, BSP_MODULE_STANDBY_MSR_RSCFD },
-#if defined(BSP_FEATURE_FLXA_IS_AVAILABLE) && BSP_FEATURE_FLXA_IS_AVAILABLE
-	{ RH850_MODULE_FLXA, BSP_MODULE_STANDBY_MSR_FLXA },
-#endif
-	{ RH850_MODULE_GTM, BSP_MODULE_STANDBY_MSR_GTM },
-#if defined(BSP_FEATURE_ETND_IS_AVAILABLE) && BSP_FEATURE_ETND_IS_AVAILABLE
-	{ RH850_MODULE_ETND, BSP_MODULE_STANDBY_MSR_ETND },
-#endif
-	{ RH850_MODULE_ETNF, BSP_MODULE_STANDBY_MSR_ETNF },
-	{ RH850_MODULE_RSENT, BSP_MODULE_STANDBY_MSR_RSENT },
-	{ RH850_MODULE_MSPI, BSP_MODULE_STANDBY_MSR_MSPI },
-	{ RH850_MODULE_RLIN3, BSP_MODULE_STANDBY_MSR_RLIN3 },
-	{ RH850_MODULE_ADCK_ISO, BSP_MODULE_STANDBY_MSR_ADCK_ISO },
-	{ RH850_MODULE_CXPI, BSP_MODULE_STANDBY_MSR_CXPI },
-#if defined(BSP_FEATURE_MMCA_IS_AVAILABLE) && BSP_FEATURE_MMCA_IS_AVAILABLE
-	{ RH850_MODULE_MMCA, BSP_MODULE_STANDBY_MSR_MMCA },
-#endif
-	{ RH850_MODULE_ENCA, BSP_MODULE_STANDBY_MSR_ENCA },
-	{ RH850_MODULE_PSI5, BSP_MODULE_STANDBY_MSR_PSI5 },
-#if defined(BSP_FEATURE_PSI5S_IS_AVAILABLE) && BSP_FEATURE_PSI5S_IS_AVAILABLE
-	{ RH850_MODULE_PSI5S, BSP_MODULE_STANDBY_MSR_PSI5S },
-#endif
-	{ RH850_MODULE_PWMD, BSP_MODULE_STANDBY_MSR_PWMD },
-	{ RH850_MODULE_SFMA, BSP_MODULE_STANDBY_MSR_SFMA },
-	{ RH850_MODULE_TAPA, BSP_MODULE_STANDBY_MSR_TAPA },
-	{ RH850_MODULE_TAUD, BSP_MODULE_STANDBY_MSR_TAUD },
-	{ RH850_MODULE_TAUJ_ISO, BSP_MODULE_STANDBY_MSR_TAUJ_ISO },
-	{ RH850_MODULE_TSG3, BSP_MODULE_STANDBY_MSR_TSG3 },
-	{ RH850_MODULE_OSTM, BSP_MODULE_STANDBY_MSR_OSTM },
-	{ RH850_MODULE_RI3C, BSP_MODULE_STANDBY_MSR_RI3C },
-	{ RH850_MODULE_SSIF, BSP_MODULE_STANDBY_MSR_SSIF },
-	{ RH850_MODULE_ADCK_AWO, BSP_MODULE_STANDBY_MSR_ADCK_AWO },
-	{ RH850_MODULE_RTCA, BSP_MODULE_STANDBY_MSR_RTCA },
-	{ RH850_MODULE_TAUJ_AWO, BSP_MODULE_STANDBY_MSR_TAUJ_AWO },
-	{ RH850_MODULE_WDTB_AWO, BSP_MODULE_STANDBY_MSR_WDTB_AWO },
-#endif
+/* Only clocks with a portable runtime selector/divider API are replayed.
+ * CPU and bus ratios remain part of the BSP/option-byte clock profile.
+ */
+#define RH850_CGC_PCLK_NODE(label, fn) \
+	COND_CODE_1(DT_NODE_HAS_COMPAT_STATUS(DT_NODELABEL(label), \
+					    renesas_rh850_cgc_pclk, okay), \
+		    (fn(DT_NODELABEL(label))), ())
+#define RH850_CGC_FOREACH_PCLK(fn) \
+	FOR_EACH_FIXED_ARG(RH850_CGC_PCLK_NODE, (), fn, \
+		clk_mspi, clk_rlin3, clk_rlin3_ch23, clk_rcanosc, clk_canfd_c, clk_canfd_xin, \
+		clk_adc, clka_adc, clk_wdt, clka_wdtb, clk_wdtb, clka_wdt, clka_wdtba, \
+		clka_tauj, clka_rtca, clk_swdt, clkc_canxl_ch0, clkc_canxl_ch1, extclk0, extclk1)
+
+#define RH850_CGC_SOURCE_CLOCK_ID(node_id) \
+	BSP_CLOCK_DT_ID(DT_PHANDLE(node_id, clock_source))
+
+#define RH850_CGC_VALIDATE_PCLK_SOURCE(node_id) \
+	BUILD_ASSERT(BSP_CLOCK_DT_ID(node_id) > RH850_CLOCK_NONE, \
+		     "Unsupported RH850 peripheral clock node"); \
+	BUILD_ASSERT(RH850_CGC_SOURCE_CLOCK_ID(node_id) > RH850_CLOCK_NONE, \
+		     "Unsupported RH850 peripheral clock-source node");
+
+RH850_CGC_FOREACH_PCLK(RH850_CGC_VALIDATE_PCLK_SOURCE)
+
+#define RH850_CGC_PCLK_CFG_INIT(node_id) \
+	{ \
+		.clock_id = BSP_CLOCK_DT_ID(node_id), \
+		.source_clock_id = RH850_CGC_SOURCE_CLOCK_ID(node_id), \
+		.div = DT_PROP(node_id, div), \
+	},
+
+static const struct rh850_cgc_pclk_dt_cfg rh850_cgc_pclk_cfgs[] = {
+	RH850_CGC_FOREACH_PCLK(RH850_CGC_PCLK_CFG_INIT)
 };
 
 static int rh850_cgc_fsp_err_to_errno(fsp_err_t err)
@@ -214,25 +163,6 @@ static uint32_t rh850_cgc_subsys_clock(clock_control_subsys_t sys)
 	return RH850_CGC_CLOCK(rh850_cgc_subsys_id(sys));
 }
 
-static int rh850_cgc_module_to_fsp(uint32_t module, bsp_module_standby_t *fsp_module)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(rh850_cgc_module_map); i++) {
-		if (rh850_cgc_module_map[i].module == module) {
-			*fsp_module = rh850_cgc_module_map[i].fsp_module;
-			return 0;
-		}
-	}
-
-	return -EINVAL;
-}
-
-static int rh850_cgc_return_bsp_rate(uint32_t *rate, uint32_t hz)
-{
-	*rate = hz;
-
-	return 0;
-}
-
 static int rh850_cgc_clock_to_cgc(uint32_t clock_id, cgc_clock_t *cgc_clock)
 {
 	switch (clock_id) {
@@ -248,8 +178,21 @@ static int rh850_cgc_clock_to_cgc(uint32_t clock_id, cgc_clock_t *cgc_clock)
 		return 0;
 	case RH850_CLOCK_PLL:
 	case RH850_CLOCK_PLLO:
+		/* FSP U2x exposes PLL lock/status for the PLL output path. */
 		*cgc_clock = CGC_CLOCK_PLL;
 		return 0;
+#if defined(BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG) && BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG
+	case RH850_CLOCK_SSCG:
+	case RH850_CLOCK_SSCG1:
+		/* FSP U2B exposes one CGC_CLOCK_SSCG for SSCG/SSCG1. */
+		*cgc_clock = CGC_CLOCK_SSCG;
+		return 0;
+#endif
+#if defined(BSP_FEATURE_CGC_SUB_OSC_IS_AVAILABLE) && BSP_FEATURE_CGC_SUB_OSC_IS_AVAILABLE
+	case RH850_CLOCK_SOSC:
+		*cgc_clock = CGC_CLOCK_SUBCLOCK;
+		return 0;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -257,55 +200,188 @@ static int rh850_cgc_clock_to_cgc(uint32_t clock_id, cgc_clock_t *cgc_clock)
 
 static int rh850_cgc_open(const struct device *dev)
 {
+	const struct rh850_cgc_config *config = dev->config;
 	struct rh850_cgc_data *data = dev->data;
-	const cgc_cfg_t cfg = { 0 };
+	const cgc_cfg_t cfg = {0};
 	fsp_err_t err;
 
-	if (data->opened) {
+	for (;;) {
+		atomic_val_t state = atomic_get(&data->open_state);
+
+		if (state == RH850_CGC_OPEN_STATE_OPEN) {
+			return 0;
+		}
+
+		if (state == RH850_CGC_OPEN_STATE_CLOSED &&
+		    atomic_cas(&data->open_state, RH850_CGC_OPEN_STATE_CLOSED,
+			       RH850_CGC_OPEN_STATE_OPENING)) {
+			break;
+		}
+
+		/* Another caller is opening the shared FSP control block. */
+		k_busy_wait(1);
+	}
+
+	err = config->fsp_api->open((cgc_ctrl_t *)&data->cgc_ctrl, &cfg);
+	if ((err == FSP_SUCCESS) || (err == FSP_ERR_ALREADY_OPEN)) {
+		atomic_set(&data->open_state, RH850_CGC_OPEN_STATE_OPEN);
 		return 0;
 	}
 
-	err = g_cgc_on_cgc.open((cgc_ctrl_t *)&data->cgc_ctrl, &cfg);
-	if ((err == FSP_SUCCESS) || (err == FSP_ERR_ALREADY_OPEN)) {
-		data->opened = true;
-		return 0;
+	atomic_set(&data->open_state, RH850_CGC_OPEN_STATE_CLOSED);
+	return rh850_cgc_fsp_err_to_errno(err);
+}
+
+/** Enable one peripheral module gate through the portable HAL. */
+static int rh850_cgc_pclk_gate_on(const struct device *dev, clock_control_subsys_t sys)
+{
+	uint32_t module = rh850_cgc_subsys_module(sys);
+	uint32_t channel = rh850_cgc_subsys_channel(sys);
+	fsp_err_t err;
+
+	ARG_UNUSED(dev);
+
+	if (channel > RH850_CGC_MSR_BIT_MAX) {
+		return -EINVAL;
 	}
+
+	err = RP_BSP_ModuleStandbyEnableById(module, channel);
+	return rh850_cgc_fsp_err_to_errno(err);
+}
+
+/** Disable one peripheral module gate through the portable HAL. */
+static int rh850_cgc_pclk_gate_off(const struct device *dev, clock_control_subsys_t sys)
+{
+	uint32_t module = rh850_cgc_subsys_module(sys);
+	uint32_t channel = rh850_cgc_subsys_channel(sys);
+	fsp_err_t err;
+
+	ARG_UNUSED(dev);
+
+	if (channel > RH850_CGC_MSR_BIT_MAX) {
+		return -EINVAL;
+	}
+
+	err = RP_BSP_ModuleStandbyDisableById(module, channel);
+	return rh850_cgc_fsp_err_to_errno(err);
+}
+
+/** Return the current MSR gate status for one peripheral channel. */
+static enum clock_control_status rh850_cgc_pclk_gate_status(const struct device *dev,
+							    clock_control_subsys_t sys)
+{
+	uint32_t module = rh850_cgc_subsys_module(sys);
+	uint32_t channel = rh850_cgc_subsys_channel(sys);
+	bool module_standby;
+	fsp_err_t err;
+
+	ARG_UNUSED(dev);
+
+	if (channel > RH850_CGC_MSR_BIT_MAX) {
+		return CLOCK_CONTROL_STATUS_UNKNOWN;
+	}
+
+	err = RP_BSP_ModuleStandbyStatusGetById(module, channel, &module_standby);
+	if (err != FSP_SUCCESS) {
+		return CLOCK_CONTROL_STATUS_UNKNOWN;
+	}
+
+	return module_standby ? CLOCK_CONTROL_STATUS_OFF : CLOCK_CONTROL_STATUS_ON;
+}
+
+/** Apply one DTS/runtime peripheral selector and divider configuration. */
+static int rh850_cgc_apply_pclk_cfg(const struct rh850_cgc_pclk_configure *cfg)
+{
+	fsp_err_t err;
+
+	err = RP_BSP_PeripheralClockConfigure(cfg->clock_id, cfg->source_clock_id, cfg->div);
 
 	return rh850_cgc_fsp_err_to_errno(err);
 }
 
-static int rh850_cgc_on(const struct device *dev, clock_control_subsys_t sys)
+static const struct rh850_cgc_pclk_dt_cfg *
+rh850_cgc_find_pclk_cfg(const struct rh850_cgc_config *config, uint32_t clock_id, size_t *index)
+{
+	for (size_t i = 0; i < config->pclk_cfg_count; i++) {
+		if (config->pclk_cfgs[i].clock_id == clock_id) {
+			if (index != NULL) {
+				*index = i;
+			}
+
+			return &config->pclk_cfgs[i];
+		}
+	}
+
+	return NULL;
+}
+
+static int rh850_cgc_apply_pclk_cfg_from_dts(const struct device *dev, uint32_t clock_id)
+{
+	const struct rh850_cgc_config *config = dev->config;
+	struct rh850_cgc_data *data = dev->data;
+	const struct rh850_cgc_pclk_dt_cfg *cfg;
+	struct rh850_cgc_pclk_configure raw_cfg;
+	fsp_err_t err;
+	size_t index;
+	uint32_t bit = 0U;
+	k_spinlock_key_t key;
+	int ret;
+
+	cfg = rh850_cgc_find_pclk_cfg(config, clock_id, &index);
+	if (cfg == NULL) {
+		return 0;
+	}
+
+	err = RP_BSP_PeripheralClockDividerEncode(cfg->clock_id, cfg->source_clock_id,
+						 cfg->div, &raw_cfg.div);
+	if (err != FSP_SUCCESS) {
+		return rh850_cgc_fsp_err_to_errno(err);
+	}
+	raw_cfg.clock_id = cfg->clock_id;
+	raw_cfg.source_clock_id = cfg->source_clock_id;
+
+	bit = BIT(index);
+	key = k_spin_lock(&data->lock);
+
+	/* Avoid reprogramming a selector/divider already applied by this driver. */
+	if ((data->pclk_cfg_applied_mask & bit) != 0U) {
+		k_spin_unlock(&data->lock, key);
+		return 0;
+	}
+
+	ret = rh850_cgc_apply_pclk_cfg(&raw_cfg);
+	if (ret == 0) {
+		data->pclk_cfg_applied_mask |= bit;
+	}
+
+	k_spin_unlock(&data->lock, key);
+	return ret;
+}
+
+/** Zephyr clock_control_on() callback. */
+static int clock_control_rh850_cgc_on(const struct device *dev, clock_control_subsys_t sys)
 {
 	uint32_t domain = rh850_cgc_subsys_domain(sys);
 	int ret;
 
 	if (domain == RH850_CGC_DOMAIN_PCLK) {
-		bsp_module_standby_t module;
-		uint32_t channel = rh850_cgc_subsys_channel(sys);
-
-		if (channel > RH850_CGC_MAX_CHANNEL) {
-			return -EINVAL;
-		}
-
-		ret = rh850_cgc_module_to_fsp(rh850_cgc_subsys_module(sys), &module);
+		/*
+		 * Do not replay all DTS pclk nodes at CGC init. Apply the
+		 * matching DTS source/divider only when a consumer requests this
+		 * clock through clock_control_on(). This keeps R_BSP_InitClock() as
+		 * the boot baseline while still allowing module drivers to opt in to
+		 * DTS-driven peripheral clock source/divider configuration.
+		 */
+		ret = rh850_cgc_apply_pclk_cfg_from_dts(dev, rh850_cgc_subsys_clock(sys));
 		if (ret < 0) {
 			return ret;
 		}
 
-		if (rh850_cgc_get_status(dev, sys) == CLOCK_CONTROL_STATUS_ON) {
-			return 0;
-		}
-
-		/*
-		 * FSP RH850:
-		 * Enable clears the MSR channel bit and supplies the module clock.
-		 */
-		R_BSP_ModuleStandbyEnable(module, channel);
-
-		return 0;
+		return rh850_cgc_pclk_gate_on(dev, sys);
 	}
 
 	if (domain == RH850_CGC_DOMAIN_OSC) {
+		const struct rh850_cgc_config *config = dev->config;
 		struct rh850_cgc_data *data = dev->data;
 		cgc_clock_t cgc_clock_id;
 		fsp_err_t err;
@@ -320,12 +396,31 @@ static int rh850_cgc_on(const struct device *dev, clock_control_subsys_t sys)
 			return ret;
 		}
 
-		/* PLL start needs cgc_pll_cfg_t; use clock_control_configure(). */
-		if (cgc_clock_id == CGC_CLOCK_PLL) {
+		/* Internal oscillators already run; verify readiness instead of starting. */
+		if ((cgc_clock_id == CGC_CLOCK_HOCO) || (cgc_clock_id == CGC_CLOCK_LOCO)) {
+			k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+			err = config->fsp_api->clockCheck(
+						(cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id);
+			k_spin_unlock(&data->lock, key);
+			return rh850_cgc_fsp_err_to_errno(err);
+		}
+
+		/* PLL/PLLO/SSCG start needs a PLL/SSCG configuration payload. */
+		if ((cgc_clock_id == CGC_CLOCK_PLL)
+#if defined(BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG) && BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG
+		    || (cgc_clock_id == CGC_CLOCK_SSCG)
+#endif
+		) {
 			return -EINVAL;
 		}
 
-		err = g_cgc_on_cgc.clockStart((cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id, NULL);
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+		err = config->fsp_api->clockStart(
+				(cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id, NULL);
+
+		k_spin_unlock(&data->lock, key);
 		if ((err == FSP_SUCCESS) || (err == FSP_ERR_CGC_CLOCK_IN_USE)) {
 			return 0;
 		}
@@ -336,44 +431,26 @@ static int rh850_cgc_on(const struct device *dev, clock_control_subsys_t sys)
 	return -ENOTSUP;
 }
 
-static int rh850_cgc_off(const struct device *dev, clock_control_subsys_t sys)
+/** Zephyr clock_control_off() callback. */
+static int clock_control_rh850_cgc_off(const struct device *dev, clock_control_subsys_t sys)
 {
 	uint32_t domain = rh850_cgc_subsys_domain(sys);
 	int ret;
 
 	if (domain == RH850_CGC_DOMAIN_PCLK) {
-		bsp_module_standby_t module;
-		uint32_t channel = rh850_cgc_subsys_channel(sys);
-
-		if (channel > RH850_CGC_MAX_CHANNEL) {
-			return -EINVAL;
-		}
-
-		ret = rh850_cgc_module_to_fsp(rh850_cgc_subsys_module(sys), &module);
-		if (ret < 0) {
-			return ret;
-		}
-
-		if (rh850_cgc_get_status(dev, sys) == CLOCK_CONTROL_STATUS_OFF) {
-			return 0;
-		}
-
-		/*
-		 * FSP RH850:
-		 * Disable sets the MSR channel bit and stops the module clock.
-		 */
-		R_BSP_ModuleStandbyDisable(module, channel);
-
-		return 0;
+		return rh850_cgc_pclk_gate_off(dev, sys);
 	}
 
 	if (domain == RH850_CGC_DOMAIN_OSC) {
+		const struct rh850_cgc_config *config = dev->config;
 		struct rh850_cgc_data *data = dev->data;
 		uint32_t clock_id = rh850_cgc_subsys_clock(sys);
 		cgc_clock_t cgc_clock_id;
 		fsp_err_t err;
 
-		if (clock_id == RH850_CLOCK_LSIOSC) {
+		/* LOCO/LSIOSC is always running/in-use on RH850 U2x HAL. */
+		if ((clock_id == RH850_CLOCK_LSIOSC) || (clock_id == RH850_CLOCK_HSIOSC) ||
+		    (clock_id == RH850_CLOCK_IOSC) || (clock_id == RH850_CLOCK_HVIOSC)) {
 			return -ENOTSUP;
 		}
 
@@ -387,7 +464,10 @@ static int rh850_cgc_off(const struct device *dev, clock_control_subsys_t sys)
 			return ret;
 		}
 
-		err = g_cgc_on_cgc.clockStop((cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id);
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+		err = config->fsp_api->clockStop((cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id);
+		k_spin_unlock(&data->lock, key);
 		if ((err == FSP_SUCCESS) || (err == FSP_ERR_CGC_CLOCK_INACTIVE)) {
 			return 0;
 		}
@@ -398,205 +478,19 @@ static int rh850_cgc_off(const struct device *dev, clock_control_subsys_t sys)
 	return -ENOTSUP;
 }
 
-static int rh850_cgc_clock_to_rate(uint32_t clock_id, uint32_t *rate)
-{
-	fsp_priv_clock_t fsp_clock;
-	uint32_t hz;
-
-	if (rate == NULL) {
-		return -EINVAL;
-	}
-
-	switch (clock_id) {
-#if defined(BSP_CFG_CLOCK_CLK_MOSC_HZ)
-	case RH850_CLOCK_MOSC:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_MOSC;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_HSIOSC_HZ)
-	case RH850_CLOCK_HSIOSC:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_HSIOSC;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_LSIOSC_HZ)
-	case RH850_CLOCK_LSIOSC:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_LSIOSC;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_HVIOSC_HZ)
-	case RH850_CLOCK_HVIOSC:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_HVIOSC;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_PLL_HZ)
-	case RH850_CLOCK_PLL:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_PLL;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_PLLO_HZ)
-	case RH850_CLOCK_PLLO:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_PLLO;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_SSCG_HZ)
-	case RH850_CLOCK_SSCG:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_SSCG;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_SYS_HZ)
-	case RH850_CLOCK_SYS:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_SYS;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_SYS_SSCG_HZ)
-	case RH850_CLOCK_SYS_SSCG:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_SYS_SSCG;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_CPU_HZ)
-	case RH850_CLOCK_CPU:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_CPU;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_SBUS_HZ)
-	case RH850_CLOCK_SBUS:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_SBUS;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_HBUS_HZ)
-	case RH850_CLOCK_HBUS:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_HBUS;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_UHSB_HZ)
-	case RH850_CLOCK_UHSB:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_UHSB;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_HSB_HZ)
-	case RH850_CLOCK_HSB:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_HSB;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_LSB_HZ)
-	case RH850_CLOCK_LSB:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_LSB;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_MSPI_HZ)
-	case RH850_CLOCK_MSPI:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_MSPI;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_RLIN3_HZ)
-	case RH850_CLOCK_RLIN3:
-		return rh850_cgc_return_bsp_rate(rate, BSP_CFG_CLOCK_CLK_RLIN3_HZ);
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_CH23_RLIN3_HZ)
-	case RH850_CLOCK_CH23_RLIN3:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_CH23_RLIN3;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_GTM_HZ)
-	case RH850_CLOCK_GTM:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_GTM;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_WDT_HZ)
-	case RH850_CLOCK_WDT:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_WDT;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_WDTB_HZ)
-	case RH850_CLOCK_WDTB:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_WDTB;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_CANFD_C_HZ)
-	case RH850_CLOCK_CANFD_C:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_CANFD_C;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_CANFD_XIN_HZ)
-	case RH850_CLOCK_CANFD_XIN:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_CANFD_XIN;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLKA_TAUJ_HZ)
-	case RH850_CLOCK_CLKA_TAUJ:
-		fsp_clock = FSP_PRIV_CLOCK_CLKA_TAUJ;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLKA_RTCA_HZ)
-	case RH850_CLOCK_CLKA_RTCA:
-		return rh850_cgc_return_bsp_rate(rate, BSP_CFG_CLOCK_CLKA_RTCA_HZ);
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLKA_ADC_HZ)
-	case RH850_CLOCK_CLKA_ADC:
-		fsp_clock = FSP_PRIV_CLOCK_CLKA_ADC;
-		break;
-#endif
-
-#if defined(BSP_CFG_CLOCK_CLK_ADC_HZ)
-	case RH850_CLOCK_ADC:
-		fsp_clock = FSP_PRIV_CLOCK_CLK_ADC;
-		break;
-#endif
-
-	default:
-		return -ENOTSUP;
-	}
-
-	hz = R_FSP_SystemClockHzGet(fsp_clock);
-	if (hz == 0U) {
-		return -EINVAL;
-	}
-
-	*rate = hz;
-
-	return 0;
-}
-
-/*
- * Limitation:
- * - get_rate() returns the BSP configured clock rate only when the
- *   encoded clock ID maps to a concrete RH850_CLOCK_* entry.
- * - For module-standby-only IDs, the driver can enable/disable the
- *   module clock gate but cannot infer the final peripheral clock rate.
- * - Runtime clock source/divider changes are not reflected unless the
- *   BSP clock configuration macros are updated consistently.
+/**
+ * Return the effective active clock frequency.
+ *
+ * The portable HAL reads active selector/divider status registers and keeps
+ * all SoC-specific and FSP-private mappings out of the common Zephyr driver.
  */
-static int rh850_cgc_get_rate(const struct device *dev,
-			      clock_control_subsys_t sys,
-			      uint32_t *rate)
+static int clock_control_rh850_cgc_get_rate(const struct device *dev, clock_control_subsys_t sys,
+					    uint32_t *rate)
 {
 	uint32_t domain = rh850_cgc_subsys_domain(sys);
 	uint32_t clock_id = rh850_cgc_subsys_clock(sys);
+	fsp_err_t err;
+	uint32_t hz;
 
 	ARG_UNUSED(dev);
 
@@ -604,51 +498,55 @@ static int rh850_cgc_get_rate(const struct device *dev,
 		return -EINVAL;
 	}
 
-	/*
-	 * This driver can return a rate only when the clk_id contains a
-	 * concrete RH850_CLOCK_* value that has a corresponding BSP clock
-	 * configuration macro.
-	 */
-	if ((domain != RH850_CGC_DOMAIN_PCLK) &&
-	    (domain != RH850_CGC_DOMAIN_SYSCLK) &&
+	if ((domain != RH850_CGC_DOMAIN_PCLK) && (domain != RH850_CGC_DOMAIN_SYSCLK) &&
 	    (domain != RH850_CGC_DOMAIN_OSC)) {
 		return -ENOTSUP;
 	}
 
-	return rh850_cgc_clock_to_rate(clock_id, rate);
+	/* Existing pointer and domain validation remains above this call. */
+	err = RP_BSP_ClockHzGet(clock_id, &hz);
+	if (err != FSP_SUCCESS) {
+		return rh850_cgc_fsp_err_to_errno(err);
+	}
+
+	if (hz == 0U) {
+		return -EAGAIN;
+	}
+
+	*rate = hz;
+	return 0;
 }
 
-static enum clock_control_status rh850_cgc_get_status(const struct device *dev,
-						      clock_control_subsys_t sys)
+static enum clock_control_status rh850_cgc_sysclk_status(const struct device *dev,
+							 clock_control_subsys_t sys)
+{
+	uint32_t rate;
+	int ret;
+
+	ret = clock_control_rh850_cgc_get_rate(dev, sys, &rate);
+	if (ret != 0) {
+		return CLOCK_CONTROL_STATUS_UNKNOWN;
+	}
+
+	return (rate != 0U) ? CLOCK_CONTROL_STATUS_ON : CLOCK_CONTROL_STATUS_OFF;
+}
+
+static enum clock_control_status clock_control_rh850_cgc_get_status(const struct device *dev,
+								    clock_control_subsys_t sys)
 {
 	uint32_t domain = rh850_cgc_subsys_domain(sys);
 	int ret;
 
 	if (domain == RH850_CGC_DOMAIN_PCLK) {
-		bsp_module_standby_t module;
-		uint32_t channel = rh850_cgc_subsys_channel(sys);
-		bool module_standby;
+		return rh850_cgc_pclk_gate_status(dev, sys);
+	}
 
-		ARG_UNUSED(dev);
-
-		if (channel > RH850_CGC_MAX_CHANNEL) {
-			return CLOCK_CONTROL_STATUS_UNKNOWN;
-		}
-
-		ret = rh850_cgc_module_to_fsp(rh850_cgc_subsys_module(sys), &module);
-		if (ret < 0) {
-			return CLOCK_CONTROL_STATUS_UNKNOWN;
-		}
-
-		ret = RP_BSP_ModuleStandbyGet(module, channel, &module_standby);
-		if (ret != FSP_SUCCESS) {
-			return CLOCK_CONTROL_STATUS_UNKNOWN;
-		}
-
-		return module_standby ? CLOCK_CONTROL_STATUS_OFF : CLOCK_CONTROL_STATUS_ON;
+	if (domain == RH850_CGC_DOMAIN_SYSCLK) {
+		return rh850_cgc_sysclk_status(dev, sys);
 	}
 
 	if (domain == RH850_CGC_DOMAIN_OSC) {
+		const struct rh850_cgc_config *config = dev->config;
 		struct rh850_cgc_data *data = dev->data;
 		cgc_clock_t cgc_clock_id;
 		fsp_err_t err;
@@ -663,30 +561,42 @@ static enum clock_control_status rh850_cgc_get_status(const struct device *dev,
 			return CLOCK_CONTROL_STATUS_UNKNOWN;
 		}
 
-		err = g_cgc_on_cgc.clockCheck((cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id);
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
 
-		return (err == FSP_SUCCESS) ? CLOCK_CONTROL_STATUS_ON :
-					      CLOCK_CONTROL_STATUS_OFF;
+		err = config->fsp_api->clockCheck((cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id);
+		k_spin_unlock(&data->lock, key);
+
+		switch (err) {
+		case FSP_SUCCESS:
+			return CLOCK_CONTROL_STATUS_ON;
+		case FSP_ERR_CGC_CLOCK_INACTIVE:
+		case FSP_ERR_CGC_NOT_STABILIZED:
+			return CLOCK_CONTROL_STATUS_OFF;
+		default:
+			return CLOCK_CONTROL_STATUS_UNKNOWN;
+		}
 	}
 
 	return CLOCK_CONTROL_STATUS_UNKNOWN;
 }
 
-static int rh850_cgc_set_rate(const struct device *dev,
-			      clock_control_subsys_t sys,
-			      clock_control_subsys_rate_t rate)
+/** Zephyr clock_control_set_rate() callback; exact-Hz changes are unsupported. */
+static int clock_control_rh850_cgc_set_rate(const struct device *dev, clock_control_subsys_t sys,
+					    clock_control_subsys_rate_t rate)
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(sys);
 	ARG_UNUSED(rate);
 
+	/* RH850 U2x FSP supports gear changes, not an exact rate in Hz. */
 	return -ENOTSUP;
 }
 
-static int rh850_cgc_configure(const struct device *dev,
-			       clock_control_subsys_t sys,
-			       void *data_in)
+/** Zephyr clock_control_configure() callback. */
+static int clock_control_rh850_cgc_configure(const struct device *dev, clock_control_subsys_t sys,
+					     void *data_in)
 {
+	const struct rh850_cgc_config *config = dev->config;
 	struct rh850_cgc_data *data = dev->data;
 	const struct rh850_cgc_configure *cfg = data_in;
 	uint32_t domain = rh850_cgc_subsys_domain(sys);
@@ -698,13 +608,44 @@ static int rh850_cgc_configure(const struct device *dev,
 		return ret;
 	}
 
+	if (domain == RH850_CGC_DOMAIN_PCLK) {
+		if ((cfg == NULL) || (cfg->pclk_cfg == NULL)) {
+			/* Apply the matching DTS source/divider for this clock. */
+			return rh850_cgc_apply_pclk_cfg_from_dts(dev, rh850_cgc_subsys_clock(sys));
+		}
+
+		if (cfg->pclk_cfg->clock_id != rh850_cgc_subsys_clock(sys)) {
+			return -EINVAL;
+		}
+
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+		ret = rh850_cgc_apply_pclk_cfg(cfg->pclk_cfg);
+		if (ret == 0) {
+			size_t index;
+
+			if (rh850_cgc_find_pclk_cfg(dev->config, cfg->pclk_cfg->clock_id, &index) !=
+				    NULL &&
+			    index < 32U) {
+				data->pclk_cfg_applied_mask |= BIT(index);
+			}
+		}
+		k_spin_unlock(&data->lock, key);
+
+		return ret;
+	}
+
 	if (domain == RH850_CGC_DOMAIN_OSC) {
 		ret = rh850_cgc_clock_to_cgc(rh850_cgc_subsys_clock(sys), &cgc_clock_id);
 		if (ret < 0) {
 			return ret;
 		}
 
-		if (cgc_clock_id != CGC_CLOCK_PLL) {
+		if ((cgc_clock_id != CGC_CLOCK_PLL)
+#if defined(BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG) && BSP_FEATURE_CGC_HAS_CLK_SYS_SSCG
+		    && (cgc_clock_id != CGC_CLOCK_SSCG)
+#endif
+		) {
 			return -ENOTSUP;
 		}
 
@@ -712,17 +653,22 @@ static int rh850_cgc_configure(const struct device *dev,
 			return -EINVAL;
 		}
 
-		return rh850_cgc_fsp_err_to_errno(
-			g_cgc_on_cgc.clockStart((cgc_ctrl_t *)&data->cgc_ctrl,
-						cgc_clock_id, cfg->pll_cfg));
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+		fsp_err_t err = config->fsp_api->clockStart((cgc_ctrl_t *)&data->cgc_ctrl,
+							 cgc_clock_id, cfg->pll_cfg);
+		k_spin_unlock(&data->lock, key);
+
+		return rh850_cgc_fsp_err_to_errno(err);
 	}
 
 	if (domain == RH850_CGC_DOMAIN_SYSCLK) {
 		if ((cfg != NULL) && (cfg->system_clock_cfg != NULL)) {
-			return rh850_cgc_fsp_err_to_errno(
-				g_cgc_on_cgc.systemClockGearSet(
-					(cgc_ctrl_t *)&data->cgc_ctrl,
-					cfg->system_clock_cfg));
+			k_spinlock_key_t key = k_spin_lock(&data->lock);
+			fsp_err_t err = config->fsp_api->systemClockGearSet(
+				(cgc_ctrl_t *)&data->cgc_ctrl, cfg->system_clock_cfg);
+			k_spin_unlock(&data->lock, key);
+
+			return rh850_cgc_fsp_err_to_errno(err);
 		}
 
 		ret = rh850_cgc_clock_to_cgc(rh850_cgc_subsys_clock(sys), &cgc_clock_id);
@@ -730,11 +676,13 @@ static int rh850_cgc_configure(const struct device *dev,
 			return -ENOTSUP;
 		}
 
-		return rh850_cgc_fsp_err_to_errno(
-			g_cgc_on_cgc.systemClockSet(
-				(cgc_ctrl_t *)&data->cgc_ctrl,
-				cgc_clock_id,
-				(cfg != NULL) ? cfg->divider_cfg : NULL));
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+		fsp_err_t err = config->fsp_api->systemClockSet(
+			(cgc_ctrl_t *)&data->cgc_ctrl, cgc_clock_id,
+			(cfg != NULL) ? cfg->divider_cfg : NULL);
+		k_spin_unlock(&data->lock, key);
+
+		return rh850_cgc_fsp_err_to_errno(err);
 	}
 
 	return -ENOTSUP;
@@ -742,27 +690,42 @@ static int rh850_cgc_configure(const struct device *dev,
 
 static int rh850_cgc_init(const struct device *dev)
 {
-	return rh850_cgc_open(dev);
+	int ret;
+
+	ret = rh850_cgc_open(dev);
+	if (ret < 0) {
+		return ret;
+	}
+
+	/*
+	 * R_BSP_InitClock() applies the DTS system clock sources and SSCG
+	 * modulation through bsp_clock_cfg.h in soc_early_init_hook().
+	 * Peripheral DTS settings are applied when a consumer requests them
+	 * through clock_control_on()/configure().
+	 */
+	return 0;
 }
 
-static DEVICE_API(clock_control, rh850_cgc_api) = {
-	.on = rh850_cgc_on,
-	.off = rh850_cgc_off,
-	.get_rate = rh850_cgc_get_rate,
-	.get_status = rh850_cgc_get_status,
-	.set_rate = rh850_cgc_set_rate,
-	.configure = rh850_cgc_configure,
+static DEVICE_API(clock_control, clock_control_rh850_cgc_api) = {
+	.on = clock_control_rh850_cgc_on,
+	.off = clock_control_rh850_cgc_off,
+	.get_rate = clock_control_rh850_cgc_get_rate,
+	.get_status = clock_control_rh850_cgc_get_status,
+	.set_rate = clock_control_rh850_cgc_set_rate,
+	.configure = clock_control_rh850_cgc_configure,
 };
 
-#define RH850_CGC_INIT(inst)							\
-	static struct rh850_cgc_data rh850_cgc_data_##inst;			\
-	DEVICE_DT_INST_DEFINE(inst,						\
-			      rh850_cgc_init,					\
-			      NULL,						\
-			      &rh850_cgc_data_##inst,				\
-			      NULL,						\
-			      PRE_KERNEL_1,					\
-			      CONFIG_CLOCK_CONTROL_INIT_PRIORITY,			\
-			      &rh850_cgc_api);
+#define RH850_CGC_INIT(inst)                                                                       \
+	BUILD_ASSERT(ARRAY_SIZE(rh850_cgc_pclk_cfgs) <= 32U,                                  \
+		     "pclk_cfg_applied_mask only tracks 32 entries");                             \
+	static struct rh850_cgc_data rh850_cgc_data_##inst;                                        \
+	static const struct rh850_cgc_config rh850_cgc_config_##inst = {                           \
+		.fsp_api = &g_cgc_on_cgc,                                                          \
+		.pclk_cfgs = rh850_cgc_pclk_cfgs,                                                  \
+		.pclk_cfg_count = ARRAY_SIZE(rh850_cgc_pclk_cfgs),                                 \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(inst, rh850_cgc_init, NULL, &rh850_cgc_data_##inst,                  \
+			      &rh850_cgc_config_##inst, PRE_KERNEL_1,                              \
+			      CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &clock_control_rh850_cgc_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RH850_CGC_INIT)
