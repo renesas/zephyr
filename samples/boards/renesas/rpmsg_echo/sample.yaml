@@ -1,0 +1,14 @@
+sample:
+  description: Echo RPMsg messages between Linux and Zephyr using the OpenAMP library.
+  name: R-Car RPMsg echo
+tests:
+  sample.boards.renesas.rpmsg_echo:
+    build_only: true
+    sysbuild: true
+    platform_allow:
+      - rcar_ironhide_x5h/r8a78000/r52
+    integration_platforms:
+      - rcar_ironhide_x5h/r8a78000/r52
+    tags:
+      - mbox
+      - openamp

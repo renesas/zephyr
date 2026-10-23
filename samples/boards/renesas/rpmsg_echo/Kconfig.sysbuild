@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+source "share/sysbuild/Kconfig"
+
+config RPMSG_ECHO_KERNELSPACE_IMAGE
+	bool "Build the kernel-space RPMsg image"
+	default y
+	help
+	  Build the RPMsg echo image for use with Linux kernel-space RPMsg.

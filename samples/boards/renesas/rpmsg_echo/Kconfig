@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "R-Car RPMsg echo sample"
+
+config SAMPLE_RPMSG_ECHO_KERNELSPACE
+	bool "Build the Linux kernel-space RPMsg variant"
+	help
+	  Build the RPMsg echo sample for use with Linux kernel-space RPMsg.
+
+source "Kconfig.zephyr"
