@@ -75,6 +75,18 @@
 		};
 	};
 
+	taud3p0_default: taud3p0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT7)>,  /* U high */
+				<RH850_PSEL(PORT_02, 3, ALT_OUT7)>,  /* U low  */
+				<RH850_PSEL(PORT_02, 4, ALT_OUT7)>,  /* V high */
+				<RH850_PSEL(PORT_02, 5, ALT_OUT7)>,  /* V low  */
+				<RH850_PSEL(PORT_02, 6, ALT_OUT7)>,  /* W high */
+				<RH850_PSEL(PORT_02, 7, ALT_OUT7)>;  /* W low  */
+			renesas,direct-control;
+		};
+	};
+
 	canfd0_default: canfd0_default {
 		group1 {
 			psels = <RH850_PSEL(PORT_02, 7, ALT_OUT3)>,	/* TX */

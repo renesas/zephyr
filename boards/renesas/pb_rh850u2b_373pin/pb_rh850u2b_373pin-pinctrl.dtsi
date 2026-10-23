@@ -47,6 +47,45 @@
 		};
 	};
 
+	taud3p0_default: taud3p0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_14, 11, ALT_OUT7)>,  /* U high */
+				<RH850_PSEL(PORT_14, 12, ALT_OUT7)>,  /* U low  */
+				<RH850_PSEL(PORT_14, 6,  ALT_OUT7)>,  /* V high */
+				<RH850_PSEL(PORT_14, 7,  ALT_OUT8)>,  /* V low  */
+				<RH850_PSEL(PORT_14, 9,  ALT_OUT8)>,  /* W high */
+				<RH850_PSEL(PORT_14, 10, ALT_OUT7)>;  /* W low  */
+			renesas,direct-control;
+			drive-strength = "medium";
+		};
+	};
+
+	taud3p1_default: taud3p1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 10, ALT_OUT10)>, /* U high */
+				<RH850_PSEL(PORT_11, 9,  ALT_OUT15)>, /* U low  */
+				<RH850_PSEL(PORT_11, 8,  ALT_OUT15)>, /* V high */
+				<RH850_PSEL(PORT_11, 4,  ALT_OUT15)>, /* V low  */
+				<RH850_PSEL(PORT_11, 5,  ALT_OUT15)>, /* W high */
+				<RH850_PSEL(PORT_11, 0,  ALT_OUT15)>; /* W low  */
+			renesas,direct-control;
+			drive-strength = "medium";
+		};
+	};
+
+	taud3p2_default: taud3p2_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_22, 10, ALT_OUT4)>, /* U high */
+				<RH850_PSEL(PORT_22, 9,  ALT_OUT4)>, /* U low  */
+				<RH850_PSEL(PORT_22, 8,  ALT_OUT4)>, /* V high */
+				<RH850_PSEL(PORT_22, 7,  ALT_OUT4)>, /* V low  */
+				<RH850_PSEL(PORT_22, 6,  ALT_OUT4)>, /* W high */
+				<RH850_PSEL(PORT_22, 5,  ALT_OUT4)>; /* W low  */
+			renesas,direct-control;
+			drive-strength = "medium";
+		};
+	};
+
 	irq36_ioport: irq36_ioport {
 		group1 {
 			psels = <RH850_PSEL(PORT_34, 1, ALT_IN11)>;
