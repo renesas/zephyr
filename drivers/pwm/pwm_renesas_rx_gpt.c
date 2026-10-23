@@ -70,11 +70,11 @@ static int pwm_renesas_rx_apply_gtior_config(gpt_instance_ctrl_t *const p_ctrl,
 					     timer_cfg_t const *const p_cfg)
 {
 	gpt_extended_cfg_t *p_extend = (gpt_extended_cfg_t *)p_cfg->p_extend;
-	uint32_t gtior = p_extend->gtior_setting.gtior;
+	uint32_t gtior = p_extend->gtior_setting.gpt_gtior_setting_u.gtior;
 
 #if GPT_CFG_OUTPUT_SUPPORT_ENABLE
 	/* Check if custom GTIOR settings are provided. */
-	if (p_extend->gtior_setting.gtior == 0) {
+	if (p_extend->gtior_setting.gpt_gtior_setting_u.gtior == 0) {
 		/* If custom GTIOR settings are not provided, calculate GTIOR. */
 		if (p_extend->gtioca.output_enabled) {
 			uint32_t gtioca_gtior =
@@ -97,7 +97,7 @@ static int pwm_renesas_rx_apply_gtior_config(gpt_instance_ctrl_t *const p_ctrl,
 
 	if (NULL != p_pwm_cfg) {
 		/* Check if custom GTIOR settings are provided. */
-		if (p_extend->gtior_setting.gtior == 0) {
+		if (p_extend->gtior_setting.gpt_gtior_setting_u.gtior == 0) {
 			/* If custom GTIOR settings are not provided, set gtioca_disable_settings
 			 * and gtiocb_disable_settings.
 			 */
@@ -110,7 +110,7 @@ static int pwm_renesas_rx_apply_gtior_config(gpt_instance_ctrl_t *const p_ctrl,
 #endif
 
 	/* Check if custom GTIOR settings are provided. */
-	if (p_extend->gtior_setting.gtior == 0) {
+	if (p_extend->gtior_setting.gpt_gtior_setting_u.gtior == 0) {
 		/*
 		 * If custom GTIOR settings are not provided, configure the noise filter for
 		 * the GTIOC pins.
@@ -584,7 +584,7 @@ static void pwm_rx_gpt_ccmpa_isr(const struct device *dev)
 		.capture_filter_gtioca = GPT_CAPTURE_FILTER_NONE,                                  \
 		.capture_filter_gtiocb = GPT_CAPTURE_FILTER_NONE,                                  \
 		.p_pwm_cfg = NULL,                                                                 \
-		.gtior_setting.gtior = (0x0U),                                                     \
+		.gtior_setting.gpt_gtior_setting_u.gtior = (0x0U),                                 \
 	};                                                                                         \
 	static struct pwm_renesas_rx_data pwm_renesas_rx_data_##index = {                          \
 		.fsp_cfg =                                                                         \
