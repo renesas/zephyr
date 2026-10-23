@@ -11,6 +11,12 @@ import re
 
 import pytest
 from can import Bus, BusABC
+from can.interfaces.pcan.basic import (
+    PCAN_ALLOW_STATUS_FRAMES,
+    PCAN_ERROR_OK,
+    PCAN_PARAMETER_OFF,
+)
+from can.interfaces.pcan.pcan import PcanBus
 from can_shell import CanShellBus
 from twister_harness import DeviceAdapter, Shell
 
@@ -71,5 +77,17 @@ def can_dut(dut: DeviceAdapter, shell: Shell, chosen: str) -> BusABC:
 def can_host(context: str) -> BusABC:
     """Return host CAN bus."""
     bus = Bus(config_context=context)
-    yield bus
-    bus.shutdown()
+    try:
+        if isinstance(bus, PcanBus):
+            result = bus.m_objPCANBasic.SetValue(
+                bus.m_PcanHandle,
+                PCAN_ALLOW_STATUS_FRAMES,
+                PCAN_PARAMETER_OFF,
+            )
+
+            if result != PCAN_ERROR_OK:
+                pytest.fail(f'failed to disable PCAN status frames: {result}')
+
+        yield bus
+    finally:
+        bus.shutdown()
