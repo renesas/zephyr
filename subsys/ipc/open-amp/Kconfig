@@ -43,6 +43,14 @@ config OPENAMP_RSC_TABLE_IPM_TX_ID
 	   This option specifies the IPM TX channel ID used in a VRING
 	   for interprocessor communication
 
+config OPENAMP_RSC_TABLE_VDEV_NOTIFY_ID
+	int "Resource table virtio device notification ID"
+	default 255
+	depends on OPENAMP_RSC_TABLE
+	help
+	  Notification ID used for virtio device-level status and feature
+	  changes. This ID must not conflict with a vring notification ID.
+
 config OPENAMP_VRING_ALIGNMENT
 	int "IPM VRing Alignment"
 	default 16

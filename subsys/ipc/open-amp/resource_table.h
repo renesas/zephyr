@@ -16,7 +16,7 @@ extern "C" {
 
 #if (CONFIG_OPENAMP_RSC_TABLE_NUM_RPMSG_BUFF > 0)
 
-#define VDEV_ID                 0xFF
+#define VDEV_ID                 CONFIG_OPENAMP_RSC_TABLE_VDEV_NOTIFY_ID
 #define VRING0_ID               CONFIG_OPENAMP_RSC_TABLE_IPM_RX_ID /* (host to remote) */
 #define VRING1_ID               CONFIG_OPENAMP_RSC_TABLE_IPM_TX_ID /* (remote to host) */
 
@@ -71,10 +71,13 @@ struct fw_resource_table {
 	#define CM_TRACE_OFFSET
 #endif
 
-#define VDEV_ENTRY_HELPER(x)							\
-	.vdev = {RSC_VDEV, VIRTIO_ID_RPMSG, 0, RPMSG_IPU_C0_FEATURES, 0, 0, 0,	\
-		VRING_COUNT, {0, 0},},						\
-	.vring0 = {VRING_TX_ADDRESS, VRING_ALIGNMENT, x, VRING0_ID, 0},		\
+#define VDEV_ENTRY_HELPER(x)                                                                       \
+	.vdev =                                                                                    \
+		{                                                                                  \
+			RSC_VDEV, VIRTIO_ID_RPMSG, VDEV_ID, RPMSG_IPU_C0_FEATURES, 0, 0,           \
+			0,        VRING_COUNT,     {0, 0},                                         \
+	},                                                                                         \
+	.vring0 = {VRING_TX_ADDRESS, VRING_ALIGNMENT, x, VRING0_ID, 0},                            \
 	.vring1 = {VRING_RX_ADDRESS, VRING_ALIGNMENT, x, VRING1_ID, 0},
 
 #if (CONFIG_OPENAMP_RSC_TABLE_NUM_RPMSG_BUFF > 0)
