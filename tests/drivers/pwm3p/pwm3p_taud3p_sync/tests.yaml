@@ -1,0 +1,52 @@
+tests:
+  drivers.pwm3p.taud3p_sync:
+    tags:
+      - drivers
+      - pwm3p
+    platform_allow:
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
+      - pb_rh850u2c_100pin/r7f702606afafd-c
+      - pb_rh850u2c_100pin/r7f702608afafd-c
+      - pb_rh850u2c_100pin/r7f702613afafd-c
+      - pb_rh850u2c_100pin/r7f702616afafd-c
+      - pb_rh850u2c_144pin/r7f702606afafb-c
+      - pb_rh850u2c_144pin/r7f702606afafm-c
+      - pb_rh850u2c_144pin/r7f702614afafb-c
+      - pb_rh850u2c_144pin/r7f702614afafm-c
+      - pb_rh850u2c_144pin/r7f702615afafb-c
+      - pb_rh850u2c_144pin/r7f702615afafm-c
+      - pb_rh850u2c_144pin/r7f702616afafb-c
+      - pb_rh850u2c_144pin/r7f702616afafm-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2c_292pin/r7f702606afabb-c
+      - pb_rh850u2c_292pin/r7f702613afabb-c
+      - pb_rh850u2c_292pin/r7f702616afabb-c
+    integration_platforms:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+    harness: ztest
+    depends_on: pwm3p

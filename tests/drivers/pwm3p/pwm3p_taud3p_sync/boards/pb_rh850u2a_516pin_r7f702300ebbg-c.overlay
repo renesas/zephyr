@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+
+/*
+ * Opt-in: enable the PIC and PWM3P nodes, they are disabled at board level. The PWM3P master
+ * channel is the same timer channel used by pwm1_slave, and the pins (P02_2, P02_3, P02_6, P02_7)
+ * are also used by mspi0, mspi1, canfd0. Disable them so that they do not conflict with PWM3P.
+ */
+&pwm1_slave {
+	status = "disabled";
+};
+
+&mspi0 {
+	status = "disabled";
+};
+
+&mspi1 {
+	status = "disabled";
+};
+
+&canfd0 {
+	status = "disabled";
+};
+
+&pic0 {
+	taud-input-control-function = "high-accuracy-triangle-wave-pwm-with-dead-time";
+	triangle-wave-pwm = <RH850_PIC_TRIWAVE(TAUD0, UVW, HIGH)>;
+	status = "okay";
+};
+
+&taud3p0 {
+	pic = <&pic0>;
+	status = "okay";
+};
