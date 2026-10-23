@@ -143,6 +143,36 @@
 			status = "disabled";
 		};
 
+		rpmsg_rsc_table0: memory@96600000 {
+			compatible = "mmio-sram";
+			reg = <0x96600000 0x1000>;
+		};
+
+		rpmsg_shm0: memory@96601000 {
+			compatible = "mmio-sram";
+			reg = <0x96601000 0x48000>;
+		};
+
+		rpmsg_rsc_table1: memory@96650000 {
+			compatible = "mmio-sram";
+			reg = <0x96650000 0x1000>;
+		};
+
+		rpmsg_shm1: memory@96651000 {
+			compatible = "mmio-sram";
+			reg = <0x96651000 0x48000>;
+		};
+
+		rpmsg_rsc_table2: memory@966a0000 {
+			compatible = "mmio-sram";
+			reg = <0x966a0000 0x1000>;
+		};
+
+		rpmsg_shm2: memory@966a1000 {
+			compatible = "mmio-sram";
+			reg = <0x966a1000 0x48000>;
+		};
+
 		gic: interrupt-controller@f0000000 {
 			compatible = "arm,gic", "arm,gic-v3";
 			reg = <0xf0000000 0x100000>,
