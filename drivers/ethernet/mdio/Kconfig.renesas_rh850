@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config MDIO_RENESAS_RH850_ETND
+	bool "Renesas RH850 MCU ETND MDIO controller driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_ETND_MDIO_ENABLED
+	select PINCTRL
+	select CLOCK_CONTROL
+	select USE_RH850_FSP_ETHER_ETND
+	help
+	  Enable the MDIO controller driver for the Renesas RH850 MCU ETND
+	  (TSN) Ethernet MAC. The MDIO state machine is part of the RMACAn
+	  register block; this driver bridges the Zephyr MDIO API to the FSP
+	  r_ether_phy register access path.
