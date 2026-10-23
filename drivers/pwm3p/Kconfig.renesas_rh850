@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config PWM3P_RENESAS_RH850_TAUD3P
+	bool "Renesas RH850 TAUD3P 3-Phase PWM (PWM3P) driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_TAUD3P_PWM3P_ENABLED
+	select PINCTRL
+	select CLOCK_CONTROL
+	select USE_RH850_FSP_TAUD_THREE_PHASE
+	select USE_RH850_FSP_TAUD
+	select USE_RH850_FSP_TAPA
+	help
+	  Enable the Renesas RH850 TAUD3P (13 coordinated TAUD channels) 3-phase PWM (PWM3P) driver.

@@ -1,0 +1,25 @@
+# PWM3P (3-phase PWM) configuration options
+
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig PWM3P
+	bool "3-phase PWM (PWM3P) drivers"
+	help
+	  Enable config options for 3-phase PWM (PWM3P) drivers.
+
+if PWM3P
+
+module = PWM3P
+module-str = pwm3p
+source "subsys/logging/Kconfig.template.log_config"
+
+config PWM3P_INIT_PRIORITY
+	int "PWM3P initialization priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  System initialization priority for PWM3P drivers.
+
+source "drivers/pwm3p/Kconfig.renesas_rh850"
+
+endif # PWM3P
