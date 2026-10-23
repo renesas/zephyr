@@ -55,6 +55,7 @@ Peripherals
    ps2.rst
    psi5.rst
    pwm.rst
+   pwm3p.rst
    rtc.rst
    regulators.rst
    reset.rst
