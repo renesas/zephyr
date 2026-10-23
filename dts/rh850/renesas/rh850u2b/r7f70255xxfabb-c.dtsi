@@ -6,7 +6,7 @@
 
 #include <rh850/renesas/rh850u2b/r7f70255.dtsi>
 
-/* Peripheral definition following RH850/U2A 292pin devices */
+/* Peripheral definition following RH850/U2B6 292pin devices */
 / {
 	soc {
 		flash0: flash@0 {
