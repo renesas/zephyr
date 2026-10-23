@@ -314,6 +314,7 @@ static int eth_renesas_rx_send(const struct device *dev, struct net_pkt *pkt)
 	fsp_err_t fsp_err = FSP_ERR_NOT_INITIALIZED;
 	int ret = 0;
 	uint8_t *tx_buf;
+	unsigned int key;
 
 #if defined(CONFIG_ETH_RENESAS_RX_USE_ZERO_COPY)
 	tx_buf = data->tx_buf_header[data->tx_buf_idx].buf;
@@ -338,7 +339,13 @@ static int eth_renesas_rx_send(const struct device *dev, struct net_pkt *pkt)
 		goto tx_end;
 	}
 
+	/* The FSP RMAC driver updates its buffer lists and queue indices without locking, from
+	 * this (TX) thread, the RX thread and the RMAC interrupt. Make the call atomic so it stays
+	 * consistent when the network TX thread is preemptible.
+	 */
+	key = irq_lock();
 	fsp_err = R_RMAC_Write(data->fsp_ctrl, tx_buf, (uint32_t)len);
+	irq_unlock(key);
 	if (fsp_err != FSP_SUCCESS) {
 		ret = (fsp_err == FSP_ERR_ETHER_ERROR_TRANSMIT_BUFFER_FULL) ? -ENOBUFS : -EIO;
 		LOG_DBG("write to FIFO failed, err=%d", fsp_err);
@@ -375,17 +382,25 @@ static void renesas_rx_eth_receive(const struct device *dev)
 	fsp_err_t fsp_err = FSP_SUCCESS;
 	int ret = 0;
 	uint8_t *rx_buf;
+	unsigned int key;
 
+	/* FSP RMAC calls are made atomic, see eth_renesas_rx_send() */
+	key = irq_lock();
 #if defined(CONFIG_ETH_RENESAS_RX_USE_ZERO_COPY)
 	fsp_err = R_RMAC_Read(data->fsp_ctrl, &rx_buf, (uint32_t *)&len);
 #else
 	rx_buf = data->rx_frame;
 	fsp_err = R_RMAC_Read(data->fsp_ctrl, rx_buf, (uint32_t *)&len);
 #endif
+	if (fsp_err == FSP_ERR_ETHER_ERROR_NO_DATA) {
+		/* Nothing to receive, all desc in queue was read. Reset the semaphore while
+		 * interrupts are still locked, so a frame received right after is not missed.
+		 */
+		k_sem_reset(&data->rx_sem);
+	}
+	irq_unlock(key);
 
 	if (fsp_err == FSP_ERR_ETHER_ERROR_NO_DATA) {
-		/* Nothing to receive, all desc in queue was read */
-		k_sem_reset(&data->rx_sem);
 		return;
 	} else if (fsp_err != FSP_SUCCESS) {
 		LOG_DBG("Failed to read from FIFO");
@@ -399,22 +414,33 @@ static void renesas_rx_eth_receive(const struct device *dev)
 	pkt = net_pkt_rx_alloc_with_buffer(data->iface, (size_t)len, AF_UNSPEC, 0, K_MSEC(100));
 	if (pkt == NULL) {
 		LOG_DBG("Failed to obtain RX buffer");
-		goto rx_end;
+		ret = -ENOMEM;
+		goto rx_release;
 	}
 
 	ret = net_pkt_write(pkt, rx_buf, len);
 	if (ret < 0) {
 		LOG_DBG("Failed to append RX buffer to packet");
 		net_pkt_unref(pkt);
-		goto rx_end;
+		pkt = NULL;
 	}
 
+rx_release:
 #if defined(CONFIG_ETH_RENESAS_RX_USE_ZERO_COPY)
+	/* Always give the DMA buffer back, also when the frame is dropped, otherwise it is lost
+	 * for reception.
+	 */
+	key = irq_lock();
 	fsp_err = R_RMAC_RxBufferUpdate(data->fsp_ctrl, (void *)rx_buf);
+	irq_unlock(key);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_DBG("Failed to release RX buffer");
 	}
 #endif
+
+	if (pkt == NULL) {
+		goto rx_end;
+	}
 
 	ret = net_recv_data(net_pkt_iface(pkt), pkt);
 	if (ret < 0) {
@@ -447,7 +473,7 @@ static void eth_rx_thread(void *arg1, void *unused1, void *unused2)
 
 		/* renesas_rx_eth_receive() re-gives rx_sem whenever more data is
 		 * pending, so under sustained traffic k_sem_take() above never
-		 * blocks. Since this thread runs at cooperative priority, yield
+		 * blocks. When this thread runs at cooperative priority, yield
 		 * periodically so it cannot starve other threads indefinitely.
 		 */
 		if (++work >= CONFIG_ETH_RENESAS_RX_RECEIVE_BUDGET) {
@@ -548,8 +574,11 @@ static int renesas_rx_eth_init(const struct device *dev)
 
 	k_thread_create(&data->rx_thread, data->rx_thread_stack,
 			K_KERNEL_STACK_SIZEOF(data->rx_thread_stack), eth_rx_thread, (void *)dev,
-			NULL, NULL, K_PRIO_COOP(CONFIG_ETH_RENESAS_RX_RX_THREAD_PRIORITY), 0,
-			K_NO_WAIT);
+			NULL, NULL,
+			COND_CODE_1(CONFIG_ETH_RENESAS_RX_RX_THREAD_PREEMPTIVE,
+				    (K_PRIO_PREEMPT(CONFIG_ETH_RENESAS_RX_RX_THREAD_PRIORITY)),
+				    (K_PRIO_COOP(CONFIG_ETH_RENESAS_RX_RX_THREAD_PRIORITY))),
+			0, K_NO_WAIT);
 	k_thread_name_set(&data->rx_thread, "eth_renesas_rx_receive_thread");
 
 	return 0;
