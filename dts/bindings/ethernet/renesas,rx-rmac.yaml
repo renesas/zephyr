@@ -69,6 +69,16 @@ properties:
     description: |
       Number of RX buffers
 
+  power-fail-gpios:
+    type: phandle-array
+    description: |
+      Optional input that is active while a power fail is in progress. The ETHA registers
+      are not accessed during a power fail: a PHY link change reported in that time is
+      deferred, and the current link state is read back from the PHY when the input goes
+      inactive. Example:
+
+        power-fail-gpios = <&port0 0 GPIO_ACTIVE_LOW>;
+
   gwdis:
     type: phandle-array
     description: |

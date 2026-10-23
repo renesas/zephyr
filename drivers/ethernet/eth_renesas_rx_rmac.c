@@ -12,6 +12,7 @@
 #include <zephyr/net/ethernet.h>
 #include <ethernet/eth_stats.h>
 #include <zephyr/drivers/ethernet/eth_renesas_rx_rmac.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/sys/util.h>
@@ -70,6 +71,13 @@ struct eth_renesas_rx_data {
 	struct k_sem tx_sem;
 #endif
 	uint8_t phy_link_up;
+	const struct device *dev;
+	/* Serializes PHY link callbacks and the link resync after a power fail */
+	struct k_mutex link_lock;
+	struct k_work_delayable link_work;
+	struct gpio_callback power_fail_cb;
+	/* A PHY link change was not applied because of a power fail */
+	bool link_dirty;
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	struct net_stats_eth stats;
 #endif
@@ -87,6 +95,8 @@ struct eth_renesas_rx_config {
 	uint8_t random_mac; /* 0 if not using random mac */
 	uint8_t valid_mac;  /* 1 if mac is valid */
 	const struct device *eswm_dev;
+	/* Optional, port is NULL if "power-fail-gpios" is not set */
+	struct gpio_dt_spec power_fail;
 };
 
 extern void rmac_init_buffers(rmac_instance_ctrl_t *const p_instance_ctrl);
@@ -97,9 +107,16 @@ extern fsp_err_t rmac_do_link(rmac_instance_ctrl_t *const p_instance_ctrl,
 			      const layer3_switch_magic_packet_detection_t mode);
 extern ether_switch_instance_t eswm_inst;
 
-static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *state, void *eth_dev)
+#define LINK_RESYNC_RETRY_MS 100
+
+/* No power fail input or a read error is treated as no power fail */
+static bool eth_renesas_rx_power_fail_active(const struct eth_renesas_rx_config *config)
 {
-	const struct device *dev = (struct device *)eth_dev;
+	return config->power_fail.port != NULL && gpio_pin_get_dt(&config->power_fail) > 0;
+}
+
+static void eth_renesas_rx_link_apply(const struct device *dev, const struct phy_link_state *state)
+{
 	struct eth_renesas_rx_data *data = dev->data;
 	fsp_err_t fsp_err = FSP_SUCCESS;
 
@@ -166,6 +183,111 @@ static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *sta
 			net_eth_carrier_off(data->iface);
 		}
 	}
+}
+
+/* Runs when the power fail input goes inactive: apply the PHY link change deferred meanwhile */
+static void eth_renesas_rx_link_resync(struct k_work *work)
+{
+	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+	struct eth_renesas_rx_data *data =
+		CONTAINER_OF(dwork, struct eth_renesas_rx_data, link_work);
+	const struct device *dev = data->dev;
+	const struct eth_renesas_rx_config *config = dev->config;
+	struct phy_link_state state;
+	bool resync;
+	int ret;
+
+	k_mutex_lock(&data->link_lock, K_FOREVER);
+	resync = data->link_dirty && !eth_renesas_rx_power_fail_active(config);
+	k_mutex_unlock(&data->link_lock);
+
+	if (!resync) {
+		/* Nothing deferred, or the power fail is back and its next end runs this again */
+		return;
+	}
+
+	ret = phy_get_link_state(config->phy_dev, &state);
+	if (ret < 0) {
+		LOG_WRN("Failed to read PHY link state, err=%d", ret);
+		k_work_reschedule(dwork, K_MSEC(LINK_RESYNC_RETRY_MS));
+		return;
+	}
+
+	k_mutex_lock(&data->link_lock, K_FOREVER);
+
+	if (data->link_dirty && !eth_renesas_rx_power_fail_active(config)) {
+		data->link_dirty = false;
+		eth_renesas_rx_link_apply(dev, &state);
+	}
+	k_mutex_unlock(&data->link_lock);
+}
+
+static void eth_renesas_rx_power_fail_isr(const struct device *port, struct gpio_callback *cb,
+					  uint32_t pins)
+{
+	struct eth_renesas_rx_data *data =
+		CONTAINER_OF(cb, struct eth_renesas_rx_data, power_fail_cb);
+
+	ARG_UNUSED(port);
+	ARG_UNUSED(pins);
+
+	k_work_reschedule(&data->link_work, K_NO_WAIT);
+}
+
+static int eth_renesas_rx_power_fail_init(const struct device *dev)
+{
+	struct eth_renesas_rx_data *data = dev->data;
+	const struct eth_renesas_rx_config *config = dev->config;
+	int ret;
+
+	if (!gpio_is_ready_dt(&config->power_fail)) {
+		LOG_ERR("Power fail GPIO is not ready");
+		return -ENODEV;
+	}
+
+	ret = gpio_pin_configure_dt(&config->power_fail, GPIO_INPUT);
+	if (ret < 0) {
+		LOG_ERR("Failed to configure power fail GPIO, err=%d", ret);
+		return ret;
+	}
+
+	gpio_init_callback(&data->power_fail_cb, eth_renesas_rx_power_fail_isr,
+			   BIT(config->power_fail.pin));
+	ret = gpio_add_callback_dt(&config->power_fail, &data->power_fail_cb);
+	if (ret < 0) {
+		LOG_ERR("Failed to add power fail GPIO callback, err=%d", ret);
+		return ret;
+	}
+
+	ret = gpio_pin_interrupt_configure_dt(&config->power_fail, GPIO_INT_EDGE_TO_INACTIVE);
+	if (ret < 0) {
+		LOG_ERR("Failed to enable power fail GPIO interrupt, err=%d", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void phy_link_cb(const struct device *phy_dev, struct phy_link_state *state, void *eth_dev)
+{
+	const struct device *dev = (struct device *)eth_dev;
+	const struct eth_renesas_rx_config *config = dev->config;
+	struct eth_renesas_rx_data *data = dev->data;
+
+	k_mutex_lock(&data->link_lock, K_FOREVER);
+
+	if (eth_renesas_rx_power_fail_active(config)) {
+		/* Do not touch the ETHA registers during a power fail. Remember that the link
+		 * changed, the current state is read from the PHY when the power fail is over.
+		 */
+		LOG_DBG("Power fail active, deferring %s link callback", dev->name);
+		data->link_dirty = true;
+	} else {
+		data->link_dirty = false;
+		eth_renesas_rx_link_apply(dev, state);
+	}
+
+	k_mutex_unlock(&data->link_lock);
 }
 
 static void eth_rmac_cb(ether_callback_args_t *args)
@@ -567,6 +689,16 @@ static int renesas_rx_eth_init(const struct device *dev)
 		return -EIO;
 	}
 
+	k_mutex_init(&data->link_lock);
+	k_work_init_delayable(&data->link_work, eth_renesas_rx_link_resync);
+
+	if (config->power_fail.port != NULL) {
+		ret = eth_renesas_rx_power_fail_init(dev);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+
 	k_sem_init(&data->rx_sem, 0, K_SEM_MAX_LIMIT);
 #if defined(CONFIG_ETH_RENESAS_RX_USE_HW_WRITEBACK)
 	k_sem_init(&data->tx_sem, 0, 1);
@@ -745,6 +877,7 @@ static const struct ethernet_api eth_renesas_rx_api = {
 	};                                                                                         \
 	static struct eth_renesas_rx_data eth##n##_renesas_rx_data = {                             \
 		.mac_addr = DT_INST_PROP_OR(n, local_mac_address, {0}),                            \
+		.dev = DEVICE_DT_INST_GET(n),                                                      \
 		.fsp_ctrl = &eth##n##_ctrl,                                                        \
 		.fsp_cfg = &eth##n##_cfg,                                                          \
 		ETH_RENESAS_RX_DATA_BUF_PROP_DECLARE(n)};					   \
@@ -757,6 +890,7 @@ static const struct ethernet_api eth_renesas_rx_api = {
 		.phy_clock = DEVICE_DT_GET(DT_INST_PHANDLE(n, phy_clock)),                         \
 		.phy_clock_type = ETH_PHY_CLOCK_TYPE(n),                                           \
 		.eswm_dev = DEVICE_DT_GET(DT_INST_PARENT(n)),                                      \
+		.power_fail = GPIO_DT_SPEC_INST_GET_OR(n, power_fail_gpios, {0}),                  \
 	};                                                                                         \
 	ETH_NET_DEVICE_DT_INST_DEFINE(n, renesas_rx_eth_init, NULL, &eth##n##_renesas_rx_data,     \
 				      &eth##n##_renesas_rx_config, CONFIG_ETH_INIT_PRIORITY,       \
