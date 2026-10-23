@@ -124,6 +124,34 @@
 			status = "disabled";
 		};
 
+		taud3p0: taud3p0@ffbf4008 {
+			compatible = "renesas,rh850-taud3p-pwm3p";
+			reg = <0xffbf4008 0x2000>;
+			taud-three-phase-unit = <0>;
+			clocks = <&cgc RH850_PCLK(TAUD, 0, PCLK)>;
+			period-counts = <0xfa0>;
+			deadtime-counts = <240>;
+			operation-clk = <0>;
+			clk-div = <0>;
+			interrupts = <11 1>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
+		taud3p1: taud3p1@ffbf5008 {
+			compatible = "renesas,rh850-taud3p-pwm3p";
+			reg = <0xffbf5008 0x2000>;
+			taud-three-phase-unit = <1>;
+			clocks = <&cgc RH850_PCLK(TAUD, 1, PCLK)>;
+			period-counts = <0xfa0>;
+			deadtime-counts = <240>;
+			operation-clk = <0>;
+			clk-div = <0>;
+			interrupts = <386 1>;
+			interrupt-parent = <&intc2>;
+			status = "disabled";
+		};
+
 		cgc: clock-controller@ff980000 {
 			compatible = "renesas,rh850-cgc";
 			reg = <0xff980000 0x830c>;
