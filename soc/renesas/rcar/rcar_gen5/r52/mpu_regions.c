@@ -45,6 +45,25 @@ BUILD_ASSERT((DT_REG_ADDR(OSAL_MMNGR_01_NODE) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_
 	     "OSAL_MMNGR_01 base and size must be MPU-region aligned");
 #endif /* osal_mmngr_01 enabled */
 
+#if DT_HAS_CHOSEN(zephyr_ipc_rsc_table) && DT_HAS_CHOSEN(zephyr_ipc_shm)
+
+#define IPC_RSC_NODE DT_CHOSEN(zephyr_ipc_rsc_table)
+#define IPC_SHM_NODE DT_CHOSEN(zephyr_ipc_shm)
+
+#define IPC_RSC_REGION_START DT_REG_ADDR(IPC_RSC_NODE)
+#define IPC_RSC_REGION_END   (DT_REG_ADDR(IPC_RSC_NODE) + DT_REG_SIZE(IPC_RSC_NODE))
+#define IPC_SHM_REGION_START DT_REG_ADDR(IPC_SHM_NODE)
+#define IPC_SHM_REGION_END   (DT_REG_ADDR(IPC_SHM_NODE) + DT_REG_SIZE(IPC_SHM_NODE))
+
+BUILD_ASSERT((IPC_RSC_REGION_START % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0 &&
+		     (IPC_RSC_REGION_END % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0,
+	     "OpenAMP resource table must be MPU-region aligned");
+BUILD_ASSERT((IPC_SHM_REGION_START % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0 &&
+		     (IPC_SHM_REGION_END % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE) == 0,
+	     "OpenAMP shared memory must be MPU-region aligned");
+
+#endif /* IPC share memory enabled */
+
 static const struct arm_mpu_region mpu_regions[] = {
 #if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_itcm))
 	/* Loaded by soc_reset_hook() before the MPU is enabled: read-only */
@@ -89,6 +108,14 @@ static const struct arm_mpu_region mpu_regions[] = {
 	MPU_REGION_ENTRY("OSAL_MMNGR_01", DT_REG_ADDR(OSAL_MMNGR_01_NODE),
 			 REGION_RAM_NOCACHE_ATTR(DT_REG_ADDR(OSAL_MMNGR_01_NODE) +
 						 DT_REG_SIZE(OSAL_MMNGR_01_NODE))),
+#endif
+
+#if defined(IPC_RSC_NODE)
+	MPU_REGION_ENTRY("OPENAMP_RSC_TABLE", IPC_RSC_REGION_START,
+			 REGION_RAM_NOCACHE_ATTR(IPC_RSC_REGION_END)),
+
+	MPU_REGION_ENTRY("OPENAMP_SHM", IPC_SHM_REGION_START,
+			 REGION_RAM_NOCACHE_ATTR(IPC_SHM_REGION_END)),
 #endif
 };
 
