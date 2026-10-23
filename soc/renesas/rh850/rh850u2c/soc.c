@@ -23,12 +23,6 @@ void soc_early_init_hook(void)
 	/* Enable Guard write access for all configured modules */
 	R_BSP_GuardEnableAccessAll();
 
-	/* Enable clock supply for all configured modules */
-	R_BSP_ModuleStandbyEnableAll();
-
-	/* Initialize interrupt controller (INTC1/INTC2/FEINT/FENMI) */
-	bsp_irq_cfg();
-
 	irq_unlock(key);
 }
 

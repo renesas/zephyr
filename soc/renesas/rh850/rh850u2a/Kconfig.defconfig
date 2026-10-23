@@ -8,10 +8,22 @@ config CLOCK_CONTROL_INIT_PRIORITY
 config NUM_IRQS
 	default 1024
 
-DT_ICLK_PATH := $(dt_nodelabel_path,iclk)
+DT_CHOSEN_SYSTEM_TIMER := zephyr,system-timer
+DT_SYSTEM_TIMER_PATH := $(dt_chosen_path,$(DT_CHOSEN_SYSTEM_TIMER))
+
+# System timer clock: pll -> pllo -> clk_sys -> clk_hsb.
+DT_CLK_HSB_PATH := $(dt_nodelabel_path,clk_hsb)
+DT_CLK_HSB_PARENT_PATH := $(dt_node_ph_prop_path,$(DT_CLK_HSB_PATH),clock-source)
+DT_CLK_HSB_SOURCE_PATH := $(dt_node_ph_prop_path,$(DT_CLK_HSB_PARENT_PATH),clock-source)
+DT_CLK_HSB_ROOT_PATH := $(dt_node_ph_prop_path,$(DT_CLK_HSB_SOURCE_PATH),clock-source)
+DT_CLK_HSB_ROOT_FREQ := $(dt_node_int_prop_int,$(DT_CLK_HSB_ROOT_PATH),clock-frequency)
+DT_CLK_HSB_SOURCE_DIV := $(max,1,$(dt_node_int_prop_int,$(DT_CLK_HSB_SOURCE_PATH),div))
+DT_CLK_HSB_PARENT_DIV := $(max,1,$(dt_node_int_prop_int,$(DT_CLK_HSB_PARENT_PATH),div))
+DT_CLK_HSB_DIV := $(max,1,$(dt_node_int_prop_int,$(DT_CLK_HSB_PATH),div))
 
 config SYS_CLOCK_HW_CYCLES_PER_SEC
-	default $(dt_node_int_prop_int,$(DT_ICLK_PATH),clock-frequency)
+	default $(div,$(DT_CLK_HSB_ROOT_FREQ),$(DT_CLK_HSB_SOURCE_DIV),\
+			$(DT_CLK_HSB_PARENT_DIV),$(DT_CLK_HSB_DIV))
 
 config BUILD_OUTPUT_HEX
 	default y
