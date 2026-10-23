@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Ethernet TSN (ETND) with an external LAN8700 PHY module at MDIO address
+ * 0x1f, connected over RMII, for the r7f702606, r7f702613 and r7f702616 SoC
+ * variants of this board (the r7f702608 variant has no Ethernet). Selects
+ * ETND as the Ethernet interface instead of the default 10BASE-T1S (ETNF),
+ * which is disabled so that ETND is the only network interface.
+ *
+ * Usage (board target pb_rh850u2c_100pin/<soc>):
+ *   west build ... -- -DEXTRA_DTC_OVERLAY_FILE="etnd.overlay"
+ */
+
+&etnf0 {
+	status = "disabled";
+};
+
+&ct25205 {
+	status = "disabled";
+};
+
+&ioport17 {
+	status = "okay";
+};
+
+&etnd0_mdio {
+	status = "okay";
+};
+
+&eth_phy0 {
+	status = "okay";
+};
+
+&etnd0 {
+	status = "okay";
+};

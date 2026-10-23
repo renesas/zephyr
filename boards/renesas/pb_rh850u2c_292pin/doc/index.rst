@@ -76,6 +76,25 @@ Supported Features
 
 .. zephyr:board-supported-hw::
 
+Ethernet TSN (ETND)
+===================
+
+The Ethernet interface is selected at build time. By default, the board uses its 10BASE-T1S
+Ethernet interface (ETNF). All SoC variants of this board also integrate an Ethernet TSN MAC
+(ETND), which can be used instead with an external LAN8700 PHY module at MDIO address ``0x1f``.
+To select ETND, add the board overlay
+:zephyr_file:`boards/renesas/pb_rh850u2c_292pin/dts/etnd.overlay` to the build. It disables ETNF
+and enables ETND, its MDIO controller and the PHY, so ETND becomes the only, and therefore
+default, network interface:
+
+.. code-block:: console
+
+   west build -b pb_rh850u2c_292pin/<soc> samples/net/zperf -- \
+      -DEXTRA_DTC_OVERLAY_FILE="etnd.overlay"
+
+where ``<soc>`` is one of ``r7f702600afabb-c``, ``r7f702606afabb-c``, ``r7f702613afabb-c`` or
+``r7f702616afabb-c``.
+
 Programming and Debugging
 *************************
 

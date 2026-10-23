@@ -92,6 +92,42 @@
 		};
 	};
 
+	etnd0_mii_default: etnd0_mii_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_21, 2, ALT_OUT6)>,	/* ETH0_MII_TXD0 */
+				<RH850_PSEL(PORT_21, 3, ALT_OUT4)>,	/* ETH0_MII_TXD1 */
+				<RH850_PSEL(PORT_20, 9, ALT_OUT7)>,	/* ETH0_MII_TXD2 */
+				<RH850_PSEL(PORT_20, 10, ALT_OUT7)>,	/* ETH0_MII_TXD3 */
+				<RH850_PSEL(PORT_20, 5, ALT_OUT4)>,	/* ETH0_MII_TX_EN */
+				<RH850_PSEL(PORT_20, 6, ALT_OUT3)>;	/* ETH0_MII_TX_ER */
+			drive-strength = "high";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 0, ALT_IN3)>,	/* ETH0_MII_RXD0 */
+				<RH850_PSEL(PORT_20, 1, ALT_IN3)>,	/* ETH0_MII_RXD1 */
+				<RH850_PSEL(PORT_10, 1, ALT_IN5)>,	/* ETH0_MII_RXD2 */
+				<RH850_PSEL(PORT_10, 2, ALT_IN9)>,	/* ETH0_MII_RXD3 */
+				<RH850_PSEL(PORT_10, 3, ALT_IN4)>,	/* ETH0_MII_RX_CLK */
+				<RH850_PSEL(PORT_21, 1, ALT_IN5)>,	/* ETH0_MII_TX_CLK */
+				<RH850_PSEL(PORT_20, 12, ALT_IN3)>,	/* ETH0_MII_RX_ER */
+				<RH850_PSEL(PORT_20, 2, ALT_IN2)>;	/* ETH0_MII_RX_DV */
+		};
+	};
+
+	etnd0_mdio_default: etnd0_mdio_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_22, 0, ALT_OUT3)>; /* ETH0_MDC */
+			drive-strength = "high";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_22, 1, ALT_OUT3)>; /* ETH0_MDIO */
+			drive-strength = "high";
+			renesas,direct-control;
+		};
+	};
+
 	etnf0_default: etnf0_default {
 		group1 {
 			psels = <RH850_PSEL(PORT_20, 4, ALT_OUT3)>,
