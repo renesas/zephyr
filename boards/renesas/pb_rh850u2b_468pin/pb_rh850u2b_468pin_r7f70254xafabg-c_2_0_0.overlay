@@ -1,0 +1,11 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Board revision 2: the Ethernet PHY reset is wired to P12_3 */
+
+&eth_phy0 {
+	reset-gpios = <&ioport12 3 GPIO_ACTIVE_LOW>;
+};

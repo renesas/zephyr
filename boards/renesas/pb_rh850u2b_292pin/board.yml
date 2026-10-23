@@ -8,3 +8,10 @@ board:
   - name: r7f70255xafabb-c
   - name: r7f70255xbfabb-c
   - name: r7f70255xfabb-c
+  revision:
+    format: major.minor.patch
+    default: "3.0.0"
+    revisions:
+    - name: "1.0.0"
+    - name: "2.0.0"
+    - name: "3.0.0"
