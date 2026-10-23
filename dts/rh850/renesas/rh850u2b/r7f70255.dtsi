@@ -17,4 +17,27 @@
 			status = "disabled";
 		};
 	};
+
+	soc {
+		etnd0: ethernet@ff940000 {
+			compatible = "renesas,rh850-ethernet-etnd";
+			reg = <0xff940000 0xc1c>;
+			interrupts = <708 0>;
+			interrupt-parent = <&intc2>;
+			interrupt-names = "data";
+			clocks = <&cgc RH850_PCLK(ETN, 0, CLKC_HBUS)>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		etnd0_mdio: mdio@ff943810 {
+			compatible = "renesas,rh850-etnd-mdio";
+			reg = <0xff943810 0x8>;
+			clocks = <&cgc RH850_PCLK(ETN, 0, CLKC_HBUS)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel = <0>;
+			status = "disabled";
+		};
+	};
 };
