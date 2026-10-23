@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  MDIO controller of the Renesas RH850 MCU ETND (TSN) Ethernet MAC.
+
+  The MDIO state machine is part of the RMACAn register block of the ETND
+  MAC, so this controller belongs to one ETND channel. It is a sibling of the
+  ETND MAC node in the SoC devicetree and owns the MDC/MDIO pinctrl. PHY nodes
+  are children of this node and are referenced from the MAC through its
+  "phy-handle" property.
+
+compatible: "renesas,rh850-etnd-mdio"
+
+include: [mdio-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+    description: |
+      Clock for module.
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+  channel:
+    type: int
+    default: 0
+    description: ETND controller channel this MDIO block belongs to.

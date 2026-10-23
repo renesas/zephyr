@@ -1,0 +1,96 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Renesas RH850 MCU Ethernet TSN (ETND) MAC controller.
+
+compatible: "renesas,rh850-ethernet-etnd"
+
+include: [ethernet-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+    description: |
+      "data" - ETND TX/RX/error (FSP ether_cfg_t.irq).
+
+  clocks:
+    required: true
+    description: |
+      Clock for module.
+
+  phy-handle:
+    type: phandle
+    required: true
+    description: phandle to the external PHY node.
+
+  channel:
+    type: int
+    default: 0
+    description: ETND controller channel index.
+
+  loopback:
+    type: boolean
+    description: Enable MAC internal loopback (test only).
+
+  zephyr,mac-address-filter:
+    type: uint8-array
+    description: |
+      Multicast destination MAC addresses to accept, 6 bytes per entry, at
+      most 32 entries. Only used when CONFIG_ETH_RENESAS_RH850_ETND_ADDR_FILTER
+      is enabled; the table is programmed once at R_ETHER_TSN_Open() and is
+      not updated at runtime. Broadcast and the interface's own unicast
+      address are always accepted; unicast entries are ignored by the HAL.
+
+      Example (IPv6 all-nodes, IPv6 solicited-node for MAC ..:54:53:4e,
+      IPv4 all-hosts):
+        zephyr,mac-address-filter = [33 33 00 00 00 01
+                                      33 33 ff 54 53 4e
+                                      01 00 5e 00 00 01];
+
+  txq-num:
+    type: int
+    default: 1
+    const: 1
+    description: |
+      Number of TX queues. Only support 1 queue for this version.
+
+  txb0-num:
+    type: int
+    default: 8
+    description: |
+      TX buffer/descriptor count for queue 0. Range from 1 to 64.
+
+  txq0-max-frame-size:
+    type: int
+    default: 1518
+    description: |
+      Max TX frame size in bytes for queue 0. Range from 64 to 4095.
+
+  rxq-num:
+    type: int
+    default: 1
+    const: 1
+    description: |
+      Number of RX queues. Only support 1 queue for this version.
+
+  rxb0-num:
+    type: int
+    default: 8
+    description: |
+      Number of RX descriptors count for queue 0. Range from 1 to 64.
+
+  rxq0-max-frame-size:
+    type: int
+    default: 1514
+    description: |
+      Max RX frame size in bytes for queue 0, FCS excluded. Range from 64 to 4095.
+      Longer frames are truncated by the MAC. The default matches
+      NET_ETH_MAX_FRAME_SIZE without CONFIG_NET_VLAN; set it to 1518 when
+      CONFIG_NET_VLAN is enabled.
