@@ -8,6 +8,9 @@ compatible: "renesas,rh850-cgc"
 include: [base.yaml, clock-controller.yaml]
 
 properties:
+  reg:
+    required: true
+
   "#clock-cells":
     const: 1
 

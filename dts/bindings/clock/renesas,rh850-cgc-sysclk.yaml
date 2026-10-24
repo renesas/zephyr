@@ -6,25 +6,22 @@ description: |
 
 compatible: "renesas,rh850-cgc-sysclk"
 
-include: [base.yaml, clock-controller.yaml]
+include: [base.yaml, clock-controller.yaml, "renesas,rh850-cgc-clock-config.yaml"]
 
 properties:
-  clk-source:
-    type: int
-    default: 1
-    enum:
-      - 0
-      - 1
+  clock-source:
+    type: phandle
+    required: true
     description: |
-      Select the hardware source supplied to the system clock.
-      The numeric encoding is device-specific and must match the selected
-      RH850 U2x hardware user's manual and FSP BSP clock configuration.
-      The default corresponds to the reset value of the CLK_IOSC
-      register field.
+      Parent/source clock node, for example pll, sscg0, sscg1 or iosc.
+      This is intentionally a phandle instead of a raw selector number so the
+      DTS describes the clock tree clearly. If a future SoC register operation
+      needs a raw selector value, the driver should map this phandle plus
+      the destination node to the SoC-specific selector encoding.
 
   modulation-enable:
     type: boolean
-    description: Enable SSCG modulation.
+    description: Enable SSCG modulation for SYS_SSCG/SYS_SSCG1 paths.
 
   modulation-value:
     type: int
@@ -32,8 +29,8 @@ properties:
     description: |
       Raw hardware encoding for SSCG modulation frequency selection.
       Valid values depend on the selected SSCG input clock.
-      The default corresponds to the reset value of the SELMFREQ
-      register field.
+      The default corresponds to the reset value of the SELMFREQ register
+      field used by the current FSP BSP clock configuration.
 
   modulation-dithered-range:
     type: int
@@ -47,8 +44,8 @@ properties:
     description: |
       Raw SSCG dithered-range encoding:
       0 = -1%, 1 = -2%, 2 = -3%, 3 = -4%, 4 = -5%.
-      The default corresponds to the reset value of the SELMPERCENT
-      register field.
+      The default corresponds to the reset value of the SELMPERCENT register
+      field used by the current FSP BSP clock configuration.
 
   "#clock-cells":
     const: 0

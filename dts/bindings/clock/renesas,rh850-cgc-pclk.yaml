@@ -2,31 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Renesas RH850 peripheral functional clock configuration.
+  Renesas RH850 peripheral and bus clock configuration.
 
 compatible: "renesas,rh850-cgc-pclk"
 
-include: [base.yaml, clock-controller.yaml]
+include: [base.yaml, clock-controller.yaml, "renesas,rh850-cgc-clock-config.yaml"]
 
 properties:
-  clk-source:
-    type: int
-    default: 1
-    enum:
-      - 0
-      - 1
-      - 2
-      - 4
-      - 5
+  clock-source:
+    type: phandle
+    required: true
     description: |
-      Select the hardware clock source supplied to the peripheral clock.
-      The numeric encoding is device-specific and must match the selected
-      RH850 U2x hardware user's manual and FSP BSP clock configuration.
-
-  div:
-    type: int
-    default: 0
-    description: Raw hardware divider encoding for the peripheral clock.
+      Parent/source clock node for this clock in the Zephyr clock
+      tree model, for example clk_hsb, clkc_hsb, mosc, hsiosc or lsiosc.
 
   "#clock-cells":
     const: 0

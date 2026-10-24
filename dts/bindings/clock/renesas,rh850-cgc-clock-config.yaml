@@ -1,0 +1,38 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+description: Shared RH850 derived clock configuration
+
+properties:
+  clock-source:
+    type: phandle
+    required: true
+    description: Parent clock node, validated against the destination's hardware inputs.
+
+  div:
+    type: int
+    required: true
+    description: |
+      Physical division factor relative to clock-source, including any fixed
+      prescaler. The derived rate is the parent's rate divided by this value,
+      rounded down to integer Hz. This is not a register encoding. Zero is
+      valid only for EXTCLK outputs and stops the output. For example WDT
+      HSIOSC/640 uses 640; EXTCLK HSIOSC/20/10 uses 200; RLIN MOSC/8 uses 8.
+      Fixed bus ratios must match the programmed option-byte clock profile.
+
+  renesas,cyclicrun-clock-source:
+    type: phandle
+    description: |
+      Parent in cyclic-run mode. If absent, use clock-source and evaluate
+      that parent's cyclic-run rate.
+
+  renesas,cyclicrun-div:
+    type: int
+    description: Physical cyclic-run division factor; if absent, use div.
+
+  renesas,pll0-divider:
+    type: int
+    enum: [0]
+    description: |
+      Legacy U2A BSP PLL0 divider setting (0 means no division). This field
+      currently has no FSP consumer and is not the raw CKD_PLLC encoding.
