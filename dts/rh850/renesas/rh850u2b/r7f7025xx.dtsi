@@ -854,7 +854,7 @@
 			interrupt-parent = <&intc2>;
 			dma-unit = <0>;
 			dma-channels = <16>;
-			#dma-cells = <2>;
+			#dma-cells = <3>;
 			status = "disabled";
 		};
 
