@@ -15,7 +15,7 @@ LOG_MODULE_REGISTER(rh850_dma, CONFIG_DMA_LOG_LEVEL);
 
 #define DT_DRV_COMPAT renesas_rh850_dma
 
-void dmac_int_isr(void);
+extern void dmac_int_isr(void);
 
 struct dma_rh850_channel_config {
 	int irq;
@@ -126,7 +126,11 @@ static int dma_rh850_config_prepare(const struct device *dev, uint32_t channel,
 	struct dma_rh850_data *data = dev->data;
 	struct dma_rh850_channel_data *ch = &data->channels[channel];
 	uint32_t transfers_count = (config->head_block->block_size / config->source_data_size);
+	const struct dma_rh850_config *dev_cfg = dev->config;
 	bool activation_with_software_trigger = true;
+
+	/*Repurpose the linked_channel field to store the internal DMA group*/
+	uint32_t group = config->linked_channel;
 
 	/* Set source address adjustment mode */
 	switch (config->head_block->source_addr_adj) {
@@ -259,8 +263,8 @@ static int dma_rh850_config_prepare(const struct device *dev, uint32_t channel,
 
 	/* Set trigger source to software trigger or hardware trigger */
 	ch->fsp_extend.activation_source = activation_with_software_trigger
-					      ? DMAC_TRIGGER_EVENT_SOFTWARE
-					      : config->dma_slot;
+					? DMAC_TRIGGER_EVENT_SOFTWARE
+					: ((group << 8) | config->dma_slot);
 
 	/* Initialize context for DMA callbacks */
 	ch->context.channel = channel;
@@ -288,6 +292,7 @@ static int dma_rh850_config_prepare(const struct device *dev, uint32_t channel,
 		TRANSFER_SWITCHABLE_REDUNDANT_OPERATION_DISABLE;
 
 	/* Link transfer info and extension structure to the FSP configuration */
+	ch->fsp_info.transfer_count_per_hw_request = transfers_count;
 	ch->fsp_cfg.p_info = &ch->fsp_info;
 	ch->fsp_cfg.p_extend = &ch->fsp_extend;
 
@@ -584,7 +589,9 @@ static int dma_rh850_init(const struct device *dev)
 #define DMA_CH_IRQ_CONFIG(n, inst)                                                                 \
 	COND_CODE_1(DT_INST_IRQ_HAS_NAME(inst, ch##n),                                             \
 		(IRQ_CONNECT(DT_INST_IRQ_BY_NAME(inst, ch##n, irq),                                \
-		DT_INST_IRQ_BY_NAME(inst, ch##n, priority), dmac_int_isr, NULL, 0);), ())
+		DT_INST_IRQ_BY_NAME(inst, ch##n, priority), dmac_int_isr, NULL, 0);                \
+		irq_enable(DT_INST_IRQ_BY_NAME(inst, ch##n, irq));                                 \
+	), ())
 
 /* Macro to configure IRQs for all DMA channels in a list */
 #define DMA_CH_IRQ_CONFIG_LIST(inst)                                                               \
