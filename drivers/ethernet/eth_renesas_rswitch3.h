@@ -12,6 +12,7 @@
 #include <zephyr/drivers/clock_control/renesas_cpg_mssr.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_mgmt.h>
+#include <zephyr/net/ptp_time.h>
 #include <zephyr/net_buf.h>
 #include <zephyr/sys/atomic.h>
 
@@ -22,10 +23,12 @@ extern "C" {
 /*
  * Receive callback. @p buf wraps the frame in its GWCA DMA buffer (no copy)
  * and is owned by the callee: it must be handed to the stack or unref'd.
- * Freeing it gives the ring slot back to hardware.
+ * Freeing it gives the ring slot back to hardware. @p ts is the time the port
+ * received the frame, or NULL when no valid timestamp came with it.
  */
 typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id,
-				     struct net_buf *buf, void *user_data);
+				     struct net_buf *buf, const struct net_ptp_time *ts,
+				     void *user_data);
 
 /* Register offsets */
 #define RSWITCH3_ETHA_OFFSET 0x1d000
@@ -69,6 +72,7 @@ typedef void (*rswitch_gwca_rx_cb_t)(const struct device *dev, uint32_t port_id,
 #define MRMAC1   (RMRO + 0x0088)
 #define MRAFC    (RMRO + 0x008c)
 #define MLVC     (RMRO + 0x0180)
+#define MTRC     (RMRO + 0x00a4)
 #define EATDQC   0x0018
 
 #define EATMFSC(q) (EATMFSC0 + (q) * 0x04)
@@ -104,6 +108,12 @@ enum rsw3_etha_mode {
 #define MLVC_PLV      BIT(16)
 #define MLVC_PASE     BIT(8)
 #define MLVC_LVT_10MS 0x09U /* 10ms wait time, IEEE 802.3 default */
+
+/*
+ * MTRC: TRDDE/TRDDP stay 0, so every received frame carries a timestamp of
+ * timer DTN. TCTSE/TCTSP stay 0: TX capture is requested per frame (TXC).
+ */
+#define MTRC_DTN BIT(28)
 
 /* MPIC */
 #define MPIC_PIS      GENMASK(2, 0)
@@ -216,6 +226,18 @@ enum rsw3_etha_mode {
 #define GWIDPC   0x0b80
 #define GWIDC0   0x0c00
 
+/* Timestamp reception */
+#define GWTDCAC0(s) (0x0140 + (s) * 8) /* TS chain s address, upper bits */
+#define GWTDCAC1(s) (0x0144 + (s) * 8) /* TS chain s address, lower 32 bits */
+#define GWTSDCC(t)  (0x0160 + (t) * 4)
+#define GWTSDIS     0x1180
+#define GWTSDIE     0x1184
+#define GWTSDID     0x1188
+
+/* GWTSDCCt: receive the TX timestamps of timer t, into TS chain DCS. */
+#define GWTSDCC_TE     BIT(0)
+#define GWTSDCC_DCS(s) FIELD_PREP(BIT(1), (s))
+
 #define GWDCC_OFFS(q) (GWDCC0 + (q) * 4)
 /*
  * GWTRCi, GWDISi, GWDIEi and GWDIDi hold one bit per descriptor chain, 32
@@ -256,7 +278,13 @@ enum rsw3_gwca_mode {
 /* GWVCC */
 #define GWVCC_VEM_SC_TAG (0x3 << 16)
 
-/* GWMDNC (DMA-number config; fixed values required for correct operation) */
+/*
+ * GWMDNC (DMA-number config; fixed values required for correct operation).
+ * TSDMN + 1 is how many descriptors one timestamp may take. A TS ring slot is
+ * reached through the LINKFIX of the previous one, so each timestamp takes 2;
+ * leave room above that.
+ */
+#define RSWITCH3_GWCA_TSDMN 3
 #define GWMDNC_TSDMN(n) (((n) << 16) & GENMASK(17, 16))
 #define GWMDNC_TXDMN(n) (((n) << 8) & GENMASK(12, 8))
 #define GWMDNC_RXDMN(n) ((n) & GENMASK(4, 0))
@@ -302,8 +330,19 @@ struct rswitch3_gwca_rx_desc {
 	uint32_t tss;  /* HW RX timestamp */
 } __packed;
 
+/* TS descriptor: HW writes the TSUN, the ports and the timer into the address field. */
+struct rswitch3_gwca_ts_desc {
+	struct rswitch3_gwca_desc hdr;
+	uint32_t tsns;
+	uint32_t tss;
+} __packed;
+
+#define RSWITCH3_GWCA_TS_TSUN_MASK GENMASK(7, 0)  /* hdr.addr_lo */
+#define RSWITCH3_GWCA_TS_SPN_MASK  GENMASK(11, 8) /* hdr.addr_lo: agent that sent the frame */
+
 /* Descriptor `type` field values */
 #define RSWITCH3_GWCA_DESC_TYPE_MASK 0xf0
+#define RSWITCH3_GWCA_DESC_FEMPTY_ND 0x30 /* TS: armed, awaiting a timestamp */
 #define RSWITCH3_GWCA_DESC_FSINGLE   0x80 /* single-descriptor frame */
 #define RSWITCH3_GWCA_DESC_FEMPTY    0x40 /* RX: armed, awaiting HW fill / TX: HW-completed */
 #define RSWITCH3_GWCA_DESC_EEMPTY    0xd0 /* SW-owned, free for reuse */
@@ -314,6 +353,9 @@ struct rswitch3_gwca_rx_desc {
 
 /* Descriptor metadata fields */
 #define RSWITCH3_GWCA_META_FMT      BIT(2)          /* meta_lo */
+#define RSWITCH3_GWCA_META_TXC      BIT(3)          /* meta_lo: capture the TX timestamp */
+#define RSWITCH3_GWCA_META_TN(t)    FIELD_PREP(BIT(6), (t))         /* meta_lo: gPTP timer */
+#define RSWITCH3_GWCA_META_TSUN(n)  FIELD_PREP(GENMASK(15, 8), (n)) /* meta_lo */
 #define RSWITCH3_GWCA_META_L3CC     BIT(24)         /* meta_lo: insert IPv4 header checksum */
 #define RSWITCH3_GWCA_META_L4CC     BIT(25)         /* meta_lo: insert TCP/UDP/ICMP checksum */
 #define RSWITCH3_GWCA_META_IPV_MASK GENMASK(30, 28) /* meta_lo */
@@ -322,6 +364,10 @@ struct rswitch3_gwca_rx_desc {
 #define RSWITCH3_GWCA_META_SPN(p)   FIELD_PREP(RSWITCH3_GWCA_META_SPN_MASK, (p))
 #define RSWITCH3_GWCA_META_DV_MASK  GENMASK(31, 16) /* meta_hi */
 #define RSWITCH3_GWCA_META_DV(m)    FIELD_PREP(RSWITCH3_GWCA_META_DV_MASK, (m))
+
+/* TS field of an RX or TS descriptor: TSNS[29:0], then the TSV/TSD flags. */
+#define RSWITCH3_GWCA_TSNS_MASK GENMASK(29, 0)
+#define RSWITCH3_GWCA_TSNS_TSV  BIT(30) /* RX: the frame came with a timestamp */
 
 #define RSWITCH3_GWCA_NUM_IRQS    8
 #define RSWITCH3_GWCA_NUM_DI_REGS (RSWITCH3_GWCA_NUM_CHAINS / 32)
@@ -360,8 +406,32 @@ struct rswitch3_gwca_rx_slot {
 	uint8_t reserved[RSWITCH3_GWCA_DESC_ALIGN - 2 * sizeof(struct rswitch3_gwca_rx_desc)];
 } __packed;
 
+struct rswitch3_gwca_ts_slot {
+	struct rswitch3_gwca_ts_desc desc;
+	struct rswitch3_gwca_ts_desc link;
+	uint8_t reserved[RSWITCH3_GWCA_DESC_ALIGN - 2 * sizeof(struct rswitch3_gwca_ts_desc)];
+} __packed;
+
 BUILD_ASSERT(sizeof(struct rswitch3_gwca_tx_slot) == RSWITCH3_GWCA_DESC_ALIGN);
 BUILD_ASSERT(sizeof(struct rswitch3_gwca_rx_slot) == RSWITCH3_GWCA_DESC_ALIGN);
+BUILD_ASSERT(sizeof(struct rswitch3_gwca_ts_slot) == RSWITCH3_GWCA_DESC_ALIGN);
+
+/*
+ * TX timestamps a gateway can wait for at once. The TSUN of a frame is its
+ * slot; a timestamp is matched on TSUN and on SPN, the agent of the gateway,
+ * because the TS chain also gets the timestamps of frames other agents sent.
+ */
+#define RSWITCH3_GWCA_TS_SLOTS      64U
+/* TS ring slots per gateway; at most RSWITCH3_GWCA_TS_SLOTS are outstanding. */
+#define RSWITCH3_GWCA_TS_RING_SIZE  RSWITCH3_GWCA_TS_SLOTS
+/* gPTP timers of the switch (PTP_TN), and so TX timestamp chains per GWCA. */
+#define RSWITCH3_PTP_TN             2U
+/* TS chain of a gateway; every timer it captures with is steered there. */
+#define RSWITCH3_GWCA_TS_CHAIN      0
+/* A TX timestamp not back after this long is given up. */
+#define RSWITCH3_GWCA_TS_TIMEOUT_MS 100U
+/* Poll period of the TS ring while timestamps are outstanding. */
+#define RSWITCH3_GWCA_TS_POLL_MS    2U
 #if defined(CONFIG_DCACHE_LINE_SIZE)
 BUILD_ASSERT(RSWITCH3_GWCA_DESC_ALIGN >= CONFIG_DCACHE_LINE_SIZE,
 	     "a GWCA ring slot must not share a cache line with its neighbour");
@@ -422,6 +492,12 @@ struct rswitch3_gwca_config {
 	/* Ring depths, both from this gateway's devicetree node. */
 	uint32_t tx_ring_size;
 	uint32_t rx_ring_size;
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	/* [RSWITCH3_GWCA_TS_RING_SIZE] TX timestamp ring, if ts_timers != 0 */
+	struct rswitch3_gwca_ts_slot *ts_ring;
+	/* gPTP timers (bit t = timer t) the ports of this gateway capture with */
+	uint8_t ts_timers;
+#endif
 };
 
 /* Per-gateway GWCA runtime state, reachable via dev->data. */
@@ -433,13 +509,25 @@ struct rswitch3_gwca_data {
 	/* Per GWDISi register: GWDIS/GWDIE bits of every RX queue in use */
 	uint32_t rx_irq_mask[RSWITCH3_GWCA_NUM_DI_REGS];
 
-	struct k_spinlock tx_lock; /* TX rings may be fed from several threads */
+	/* TX rings may be fed from several threads; also guards the ts_* fields. */
+	struct k_spinlock tx_lock;
 	struct k_thread rx_thread_data;
 
 	/* Running totals of the gateway-wide, clear-on-read RX drop counters */
 	struct k_spinlock rx_drops_lock;
 	uint32_t rx_queue_overflow; /* GWDQOECN */
 	uint32_t rx_ring_full;      /* GWDFECN */
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	/* Drains the TS ring: on the TS interrupt, and polled while needed. */
+	struct k_work_delayable ts_work;
+	/* Frames waiting for their TX timestamp, by TSUN slot. */
+	struct net_pkt *ts_pkt[RSWITCH3_GWCA_TS_SLOTS];
+	uint32_t ts_sent_ms[RSWITCH3_GWCA_TS_SLOTS]; /* k_uptime_get_32() at send */
+	uint32_t ts_inflight;                        /* non-NULL entries of ts_pkt */
+	uint32_t ts_next;                            /* next TSUN slot to hand out */
+	uint32_t ts_cur;                             /* next TS ring slot to read (ts_work only) */
+#endif
 
 	K_KERNEL_STACK_MEMBER(rx_stack, CONFIG_ETH_RENESAS_RSWITCH3_GWCA_RX_THREAD_STACK_SIZE);
 };

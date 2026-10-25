@@ -97,6 +97,14 @@ properties:
 
       Omit the property when this core itself uses the port.
 
+  ptp-clock:
+    type: phandle
+    description: |
+      Channel (renesas,rcar-ptp-clock-channel) of the gPTP timer of the parent
+      switch, gptp_rsw3, that timestamps the frames of this port and is the
+      PTP clock of its net_if. External ports only; without it the port does
+      not timestamp. Checked at build time.
+
   renesas,tsnes:
     type: phandle
     description: |

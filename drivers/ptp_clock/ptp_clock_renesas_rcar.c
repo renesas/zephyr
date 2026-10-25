@@ -56,6 +56,8 @@ struct ptp_clock_renesas_rcar_config {
 
 struct ptp_clock_renesas_rcar_data {
 	DEVICE_MMIO_NAMED_RAM(reg_base);
+	/* Serializes the offset read-modify-write and the latched time reads. */
+	struct k_spinlock lock;
 	struct net_ptp_time current_offset;
 };
 
@@ -70,18 +72,42 @@ static inline void ptp_clock_renesas_rcar_write(const struct device *dev, uint32
 	sys_write32(value, DEVICE_MMIO_NAMED_GET(dev, reg_base) + offs);
 }
 
-static int ptp_clock_renesas_rcar_set(const struct device *dev, struct net_ptp_time *tm);
-static int ptp_clock_renesas_rcar_get(const struct device *dev, struct net_ptp_time *tm);
-static int ptp_clock_renesas_rcar_adjust(const struct device *dev, int increment);
-static int ptp_clock_renesas_rcar_rate_adjust(const struct device *dev, double rate);
+/* Reading PTPGPTPTM0 latches PTPGPTPTM1/2, so it is read first. Called with data->lock held. */
+static void ptp_clock_renesas_rcar_read_time(const struct device *dev, struct net_ptp_time *tm)
+{
+	const struct ptp_clock_renesas_rcar_config *config = dev->config;
+
+	tm->nanosecond = ptp_clock_renesas_rcar_read(dev, PTPGPTPTM0(config->channel));
+	tm->_sec.low = ptp_clock_renesas_rcar_read(dev, PTPGPTPTM1(config->channel));
+	tm->_sec.high = (ptp_clock_renesas_rcar_read(dev, PTPGPTPTM2(config->channel)) &
+			 PTP_SECONDS_HIGH_MAX);
+
+	/*
+	 * Set unused 0 to avoid containing garbage value
+	 * which could lead to wrong tm->second value
+	 */
+	tm->_sec.unused = 0;
+}
+
+/* Writing PTPTOVC0 loads the whole offset, so it is written last. Called with data->lock held. */
+static void ptp_clock_renesas_rcar_write_offset(const struct device *dev,
+						const struct net_ptp_time *offset)
+{
+	const struct ptp_clock_renesas_rcar_config *config = dev->config;
+
+	ptp_clock_renesas_rcar_write(dev, PTPTOVC2(config->channel), offset->_sec.high);
+	ptp_clock_renesas_rcar_write(dev, PTPTOVC1(config->channel), offset->_sec.low);
+	ptp_clock_renesas_rcar_write(dev, PTPTOVC0(config->channel), offset->nanosecond);
+}
 
 static int ptp_clock_renesas_rcar_set(const struct device *dev, struct net_ptp_time *tm)
 {
-	const struct ptp_clock_renesas_rcar_config *config = dev->config;
 	struct ptp_clock_renesas_rcar_data *data = dev->data;
 	struct net_ptp_time curr;
+	k_spinlock_key_t key;
 	int64_t nsec_offset;
 	int64_t sec_offset;
+	int ret = 0;
 
 	if (tm->second > PTP_SECONDS_MAX) {
 		return -EINVAL;
@@ -91,8 +117,10 @@ static int ptp_clock_renesas_rcar_set(const struct device *dev, struct net_ptp_t
 		return -EINVAL;
 	}
 
+	key = k_spin_lock(&data->lock);
+
 	/* Get current time */
-	ptp_clock_renesas_rcar_get(dev, &curr);
+	ptp_clock_renesas_rcar_read_time(dev, &curr);
 
 	/* Re-calculate offset to achieve the requested time */
 	sec_offset =
@@ -112,46 +140,43 @@ static int ptp_clock_renesas_rcar_set(const struct device *dev, struct net_ptp_t
 
 	/* Validate the second offset */
 	if (sec_offset < 0 || sec_offset > PTP_SECONDS_MAX) {
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	data->current_offset.second = (uint64_t)sec_offset;
 	data->current_offset.nanosecond = (uint32_t)nsec_offset;
 
 	/* Update new value to hardware */
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC2(config->channel),
-				     data->current_offset._sec.high);
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC1(config->channel), data->current_offset._sec.low);
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC0(config->channel),
-				     data->current_offset.nanosecond);
+	ptp_clock_renesas_rcar_write_offset(dev, &data->current_offset);
 
-	return 0;
+out:
+	k_spin_unlock(&data->lock, key);
+
+	return ret;
 }
 
 static int ptp_clock_renesas_rcar_get(const struct device *dev, struct net_ptp_time *tm)
 {
-	const struct ptp_clock_renesas_rcar_config *config = dev->config;
+	struct ptp_clock_renesas_rcar_data *data = dev->data;
+	k_spinlock_key_t key;
 
-	tm->nanosecond = ptp_clock_renesas_rcar_read(dev, PTPGPTPTM0(config->channel));
-	tm->_sec.low = ptp_clock_renesas_rcar_read(dev, PTPGPTPTM1(config->channel));
-	tm->_sec.high = (ptp_clock_renesas_rcar_read(dev, PTPGPTPTM2(config->channel)) &
-			 PTP_SECONDS_HIGH_MAX);
-
-	/*
-	 * Set unused 0 to avoid containing garbarge value
-	 * which could lead to wrong tm->second value
-	 */
-	tm->_sec.unused = 0;
+	key = k_spin_lock(&data->lock);
+	ptp_clock_renesas_rcar_read_time(dev, tm);
+	k_spin_unlock(&data->lock, key);
 
 	return 0;
 }
 
 static int ptp_clock_renesas_rcar_adjust(const struct device *dev, int increment)
 {
-	const struct ptp_clock_renesas_rcar_config *config = dev->config;
 	struct ptp_clock_renesas_rcar_data *data = dev->data;
+	k_spinlock_key_t key;
 	int64_t temp_ns;
 	int64_t sec_adjust;
+	int ret = 0;
+
+	key = k_spin_lock(&data->lock);
 
 	/* Calculate nanosecond value after increment */
 	temp_ns = (int64_t)data->current_offset.nanosecond + increment;
@@ -169,13 +194,15 @@ static int ptp_clock_renesas_rcar_adjust(const struct device *dev, int increment
 	if (sec_adjust > 0) {
 		if (data->current_offset.second > PTP_SECONDS_MAX - (uint64_t)sec_adjust) {
 			/* Second offset will be out of range after update */
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		data->current_offset.second += (uint64_t)sec_adjust;
 	} else if (sec_adjust < 0) {
 		if (data->current_offset.second < (uint64_t)(-sec_adjust)) {
 			/* Second offset will be negative */
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		data->current_offset.second -= (uint64_t)(-sec_adjust);
 	}
@@ -183,13 +210,12 @@ static int ptp_clock_renesas_rcar_adjust(const struct device *dev, int increment
 	data->current_offset.nanosecond = (uint32_t)temp_ns;
 
 	/* Configure hardware offset with new value */
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC2(config->channel),
-				     data->current_offset._sec.high);
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC1(config->channel), data->current_offset._sec.low);
-	ptp_clock_renesas_rcar_write(dev, PTPTOVC0(config->channel),
-				     data->current_offset.nanosecond);
+	ptp_clock_renesas_rcar_write_offset(dev, &data->current_offset);
 
-	return 0;
+out:
+	k_spin_unlock(&data->lock, key);
+
+	return ret;
 }
 
 static int ptp_clock_renesas_rcar_rate_adjust(const struct device *dev, double rate)
@@ -226,6 +252,7 @@ static DEVICE_API(ptp_clock, ptp_clock_renesas_rcar_api) = {
 static int ptp_clock_renesas_rcar_init(const struct device *dev)
 {
 	const struct ptp_clock_renesas_rcar_config *config = dev->config;
+	struct ptp_clock_renesas_rcar_data *data = dev->data;
 	uint32_t val;
 	uint32_t period_q27;
 
@@ -234,6 +261,12 @@ static int ptp_clock_renesas_rcar_init(const struct device *dev)
 	/* Set the nominal clock */
 	period_q27 = NSEC_PER_SEC_Q27 / config->nominal_freq;
 	ptp_clock_renesas_rcar_write(dev, PTPTIVC(config->channel), period_q27);
+
+	/*
+	 * set() and adjust() work relative to current_offset, which starts at
+	 * zero, so drop any offset an earlier boot stage left in the timer.
+	 */
+	ptp_clock_renesas_rcar_write_offset(dev, &data->current_offset);
 
 	/* Enable timer */
 	val = ptp_clock_renesas_rcar_read(dev, PTPTMEC);

@@ -27,6 +27,11 @@ LOG_MODULE_REGISTER(eth_rswitch3, CONFIG_ETHERNET_LOG_LEVEL);
 
 #define DT_DRV_COMPAT renesas_rcarsoc_rswitch3
 
+/* gPTP timer (channel) of the ptp-clock of port node @p node_id, 0 if it has none. */
+#define RSWITCH3_PORT_PTP_TIMER(node_id)                                                           \
+	COND_CODE_1(DT_NODE_HAS_PROP(node_id, ptp_clock),                                          \
+		    (DT_REG_ADDR(DT_PHANDLE(node_id, ptp_clock))), (0))
+
 /* Device behind the phandle property @p prop of node @p node_id, or NULL if it has none. */
 #define RSWITCH3_DT_DEV_OR_NULL(node_id, prop)                                                     \
 	COND_CODE_1(DT_NODE_HAS_PROP(node_id, prop), (DEVICE_DT_GET(DT_PHANDLE(node_id, prop))),   \
@@ -409,7 +414,7 @@ static int rswitch3_etha_hw_init_tsn_internal(const struct device *dev, uint32_t
 }
 
 static int rswitch3_etha_hw_init_physical(const struct device *dev, uint32_t port_id,
-					  const char *phy_mode)
+					  const char *phy_mode, uint8_t ptp_timer)
 {
 	const struct rswitch3_config *config = dev->config;
 	mm_reg_t etha_base =
@@ -454,6 +459,9 @@ static int rswitch3_etha_hw_init_physical(const struct device *dev, uint32_t por
 
 	rswitch3_etha_init_tsn_egress_path(dev, port_id);
 	sys_write32(EAVCC_VEM_SC_TAG, etha_base + EAVCC);
+
+	/* Received frames are timestamped with the gPTP timer of the port. */
+	sys_write32(FIELD_PREP(MTRC_DTN, ptp_timer), etha_base + MTRC);
 
 	/*
 	 * Ingress checksum check: frames failing it are tagged CKSE and dropped
@@ -771,6 +779,12 @@ static void rswitch3_unmask_gwca_interrupts(const struct device *gw)
 
 	sys_write32(sys_read32(cfg->intc_gwca_cr_mask) & ~bits, cfg->intc_gwca_cr_mask);
 }
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+/* The gPTP timer is clocked through the switch module clock the switch enables. */
+BUILD_ASSERT(CONFIG_ETH_RENESAS_RSWITCH3_INIT_PRIORITY < CONFIG_PTP_CLOCK_INIT_PRIORITY,
+	     "the switch must come up before the PTP clock");
+#endif
 
 /*
  * GWCA (Gateway CPU Agent) core.
@@ -1114,6 +1128,8 @@ static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_
 		uint32_t idx = q->cur;
 		struct rswitch3_gwca_rx_desc *desc = &q->ring[idx].desc;
 		struct rswitch3_gwca_rx_buf_meta *meta;
+		const struct net_ptp_time *tsp = NULL;
+		struct net_ptp_time ts = {0};
 		struct net_buf *buf = NULL;
 		uint32_t len = 0;
 
@@ -1150,10 +1166,17 @@ static void rswitch3_gwca_rx_poll(const struct device *gw, struct rswitch3_gwca_
 		meta = &gw_cfg->rx_buf_meta[net_buf_id(buf)];
 		meta->q = q;
 		meta->idx = idx;
+		if (IS_ENABLED(CONFIG_ETH_RENESAS_RSWITCH3_PTP) &&
+		    ((desc->tsns & RSWITCH3_GWCA_TSNS_TSV) != 0U)) {
+			ts.second = desc->tss;
+			ts.nanosecond = desc->tsns & RSWITCH3_GWCA_TSNS_MASK;
+			tsp = &ts;
+		}
+
 		/* Mark before the callback: it may free the buffer synchronously. */
 		atomic_set_bit(q->lent, idx);
 
-		q->rx_cb(gw_cfg->rswitch_dev, q->port_id, buf, q->rx_cb_user_data);
+		q->rx_cb(gw_cfg->rswitch_dev, q->port_id, buf, tsp, q->rx_cb_user_data);
 	}
 }
 
@@ -1191,6 +1214,141 @@ static void rswitch3_gwca_rx_thread(void *arg1, void *arg2, void *arg3)
 	}
 }
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+static void rswitch3_gwca_ts_desc_arm(struct rswitch3_gwca_ts_desc *desc)
+{
+	desc->hdr.size = 0;
+	rswitch3_gwca_desc_set_addr(&desc->hdr, 0);
+	desc->tsns = 0;
+	desc->tss = 0;
+	desc->hdr.type = RSWITCH3_GWCA_DESC_FEMPTY_ND | RSWITCH3_GWCA_DESC_DIE;
+
+	rswitch3_gwca_dcache_flush(desc, sizeof(*desc));
+}
+
+/*
+ * Hands the TX timestamps the gateway wrote back to the stack, then gives up
+ * on those that never came (frame dropped, link down). Runs from the TS
+ * interrupt, and every RSWITCH3_GWCA_TS_POLL_MS while timestamps are
+ * outstanding, so that a lost interrupt only delays a timestamp.
+ */
+static void rswitch3_gwca_ts_work_handler(struct k_work *work)
+{
+	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+	struct rswitch3_gwca_data *gw_data =
+		CONTAINER_OF(dwork, struct rswitch3_gwca_data, ts_work);
+	const struct device *gw = gw_data->dev;
+	const struct rswitch3_gwca_config *gw_cfg = gw->config;
+	uint32_t now = k_uptime_get_32();
+	uint32_t inflight = 0U;
+	k_spinlock_key_t key;
+	uint32_t i;
+
+	for (i = 0U; i < RSWITCH3_GWCA_TS_RING_SIZE; i++) {
+		struct rswitch3_gwca_ts_desc *desc = &gw_cfg->ts_ring[gw_data->ts_cur].desc;
+		struct net_pkt *pkt = NULL;
+		uint32_t tsun;
+		uint32_t spn;
+
+		rswitch3_gwca_dcache_invalidate(desc, sizeof(*desc));
+
+		if ((desc->hdr.type & RSWITCH3_GWCA_DESC_TYPE_MASK) != RSWITCH3_GWCA_DESC_FSINGLE) {
+			break;
+		}
+
+		tsun = FIELD_GET(RSWITCH3_GWCA_TS_TSUN_MASK, desc->hdr.addr_lo);
+		spn = FIELD_GET(RSWITCH3_GWCA_TS_SPN_MASK, desc->hdr.addr_lo);
+		if ((spn == gw_cfg->agent) && (tsun < RSWITCH3_GWCA_TS_SLOTS)) {
+			key = k_spin_lock(&gw_data->tx_lock);
+			pkt = gw_data->ts_pkt[tsun];
+			if (pkt != NULL) {
+				gw_data->ts_pkt[tsun] = NULL;
+				gw_data->ts_inflight--;
+			}
+			k_spin_unlock(&gw_data->tx_lock, key);
+		}
+
+		if (pkt != NULL) {
+			pkt->timestamp.second = desc->tss;
+			pkt->timestamp.nanosecond = desc->tsns & RSWITCH3_GWCA_TSNS_MASK;
+			net_if_add_tx_timestamp(pkt);
+			net_pkt_unref(pkt);
+		}
+
+		/* One descriptor per cache line, so it can be re-armed on its own. */
+		rswitch3_gwca_ts_desc_arm(desc);
+		gw_data->ts_cur = (gw_data->ts_cur + 1U) % RSWITCH3_GWCA_TS_RING_SIZE;
+	}
+
+	for (i = 0U; i < RSWITCH3_GWCA_TS_SLOTS; i++) {
+		struct net_pkt *pkt = NULL;
+
+		key = k_spin_lock(&gw_data->tx_lock);
+		if ((gw_data->ts_pkt[i] != NULL) &&
+		    ((now - gw_data->ts_sent_ms[i]) >= RSWITCH3_GWCA_TS_TIMEOUT_MS)) {
+			pkt = gw_data->ts_pkt[i];
+			gw_data->ts_pkt[i] = NULL;
+			gw_data->ts_inflight--;
+		}
+		inflight = gw_data->ts_inflight;
+		k_spin_unlock(&gw_data->tx_lock, key);
+
+		if (pkt != NULL) {
+			LOG_DBG("GWCA%u: TX timestamp %u timed out", gw_cfg->instance, i);
+			net_pkt_unref(pkt);
+		}
+	}
+
+	if (inflight != 0U) {
+		k_work_schedule(dwork, K_MSEC(RSWITCH3_GWCA_TS_POLL_MS));
+	}
+}
+
+/* All timers the ports of this gateway capture with go to one TS chain. */
+static void rswitch3_gwca_ts_init(const struct device *gw)
+{
+	const struct rswitch3_gwca_config *gw_cfg = gw->config;
+	struct rswitch3_gwca_data *gw_data = gw->data;
+	struct rswitch3_gwca_ts_slot *ring = gw_cfg->ts_ring;
+	uint32_t t;
+	uint32_t i;
+
+	k_work_init_delayable(&gw_data->ts_work, rswitch3_gwca_ts_work_handler);
+
+	if (gw_cfg->ts_timers == 0U) {
+		return;
+	}
+
+	memset(ring, 0, RSWITCH3_GWCA_TS_RING_SIZE * sizeof(*ring));
+
+	for (i = 0U; i < RSWITCH3_GWCA_TS_RING_SIZE; i++) {
+		struct rswitch3_gwca_ts_slot *next = &ring[(i + 1U) % RSWITCH3_GWCA_TS_RING_SIZE];
+
+		/* Last slot links back to the first, so the ring is cyclic. */
+		rswitch3_gwca_desc_set_addr(&ring[i].link.hdr, (uintptr_t)next);
+		ring[i].link.hdr.type = RSWITCH3_GWCA_DESC_LINKFIX;
+		rswitch3_gwca_dcache_flush(&ring[i].link, sizeof(ring[i].link));
+
+		rswitch3_gwca_ts_desc_arm(&ring[i].desc);
+	}
+
+	/* GWTDCAC1 = lower 32 bits, GWTDCAC0 = upper bits of the chain address. */
+	rswitch3_gwca_write(gw, GWTDCAC1(RSWITCH3_GWCA_TS_CHAIN), (uint32_t)(uintptr_t)ring);
+	rswitch3_gwca_write(gw, GWTDCAC0(RSWITCH3_GWCA_TS_CHAIN),
+			    (uint32_t)((uint64_t)(uintptr_t)ring >> 32));
+
+	for (t = 0U; t < RSWITCH3_PTP_TN; t++) {
+		if ((gw_cfg->ts_timers & BIT(t)) != 0U) {
+			rswitch3_gwca_write(gw, GWTSDCC(t),
+					    GWTSDCC_TE | GWTSDCC_DCS(RSWITCH3_GWCA_TS_CHAIN));
+		}
+	}
+
+	/* TPTEMIMC stays at reset: the TS interrupt shares the gateway data interrupt. */
+	rswitch3_gwca_write(gw, GWTSDIE, BIT(RSWITCH3_GWCA_TS_CHAIN));
+}
+#endif /* CONFIG_ETH_RENESAS_RSWITCH3_PTP */
+
 /* Every gateway of this switch is merged onto one line, so each one is polled. */
 static void rswitch3_gwca_isr(const struct device *dev)
 {
@@ -1203,6 +1361,17 @@ static void rswitch3_gwca_isr(const struct device *dev)
 		bool pending = false;
 		uint32_t status;
 		uint32_t i;
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+		if (((const struct rswitch3_gwca_config *)gw->config)->ts_timers != 0U) {
+			status = rswitch3_gwca_read(gw, GWTSDIS) & BIT(RSWITCH3_GWCA_TS_CHAIN);
+			if (status != 0U) {
+				/* Write-1-to-clear; ts_work drains the whole ring. */
+				rswitch3_gwca_write(gw, GWTSDIS, status);
+				k_work_reschedule(&gw_data->ts_work, K_NO_WAIT);
+			}
+		}
+#endif
 
 		/* Only RX queues raise data interrupts; rx_irq_mask has a bit for each of them. */
 		for (i = 0U; i < RSWITCH3_GWCA_NUM_DI_REGS; i++) {
@@ -1295,12 +1464,18 @@ static int rswitch3_gwca_init(const struct device *gw)
 
 	rswitch3_gwca_write(gw, GWVCC, GWVCC_VEM_SC_TAG);
 	rswitch3_gwca_write(gw, GWTTFC, 0);
-	rswitch3_gwca_write(gw, GWMDNC, GWMDNC_TSDMN(1) | GWMDNC_TXDMN(0x1e) | GWMDNC_RXDMN(0x1f));
+	rswitch3_gwca_write(gw, GWMDNC,
+			    GWMDNC_TSDMN(RSWITCH3_GWCA_TSDMN) | GWMDNC_TXDMN(0x1e) |
+				    GWMDNC_RXDMN(0x1f));
 	rswitch3_gwca_write(gw, GWTPC0, GWTPC_PPPL(RSWITCH3_GWCA_IPV));
 	rswitch3_gwca_modify(gw, GWCKSC, 0, GWCKSC_USMFSPE);
 	rswitch3_gwca_write(gw, GWIDPC, CONFIG_ETH_RENESAS_RSWITCH3_GWCA_IRQ_DELAY_PRESCALER);
 
 	rswitch3_gwca_linkfix_init(gw);
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	rswitch3_gwca_ts_init(gw);
+#endif
 
 	ret = rswitch3_gwca_change_mode(gw, GWMC_OPC_DISABLE);
 	if (ret) {
@@ -1496,11 +1671,36 @@ static size_t rswitch3_gwca_tx_copy_offset(struct net_pkt *pkt)
 	return ((uintptr_t)big->data - big_at) & (sizeof(uint32_t) - 1U);
 }
 
-static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, struct net_pkt *pkt)
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+/* First TSUN slot from ts_next on with no frame waiting, or RSWITCH3_GWCA_TS_SLOTS. */
+static uint32_t rswitch3_gwca_ts_slot_find(const struct rswitch3_gwca_data *gw_data)
+{
+	for (uint32_t i = 0U; i < RSWITCH3_GWCA_TS_SLOTS; i++) {
+		uint32_t slot = (gw_data->ts_next + i) % RSWITCH3_GWCA_TS_SLOTS;
+
+		if (gw_data->ts_pkt[slot] == NULL) {
+			return slot;
+		}
+	}
+
+	return RSWITCH3_GWCA_TS_SLOTS;
+}
+#endif
+
+/*
+ * Queues @p pkt on the TX ring of @p port_id. With @p ts_timer >= 0 the port
+ * captures the TX timestamp with that gPTP timer, and the packet is passed to
+ * net_if_add_tx_timestamp() once it comes back.
+ */
+static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, struct net_pkt *pkt,
+				   int ts_timer)
 {
 	const struct rswitch3_gwca_config *gw_cfg = gw->config;
 	struct rswitch3_gwca_data *gw_data = gw->data;
 	size_t len = net_pkt_get_len(pkt);
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	uint32_t ts_slot = 0U;
+#endif
 	struct rswitch3_gwca_tx_queue *q;
 	struct rswitch3_gwca_tx_desc *desc;
 	k_spinlock_key_t key;
@@ -1546,6 +1746,17 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, st
 		goto out_unlock;
 	}
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	/* A TSUN still waiting for its timestamp must not be reused. */
+	if (ts_timer >= 0) {
+		ts_slot = rswitch3_gwca_ts_slot_find(gw_data);
+		if (ts_slot == RSWITCH3_GWCA_TS_SLOTS) {
+			ret = -ENOBUFS;
+			goto out_unlock;
+		}
+	}
+#endif
+
 	/* Single copy, straight into the DMA buffer. */
 	if (net_pkt_read(pkt, buf, len) < 0) {
 		ret = -EIO;
@@ -1556,6 +1767,19 @@ static int rswitch3_gwca_port_send(const struct device *gw, uint32_t port_id, st
 	meta_lo = RSWITCH3_GWCA_META_FMT | RSWITCH3_GWCA_META_IPV(RSWITCH3_GWCA_IPV);
 #if defined(CONFIG_NET_CHECKSUM_OFFLOAD)
 	meta_lo |= rswitch3_gwca_tx_chksum_flags(buf, len);
+#endif
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	if (ts_timer >= 0) {
+		gw_data->ts_next = (ts_slot + 1U) % RSWITCH3_GWCA_TS_SLOTS;
+		gw_data->ts_inflight++;
+		gw_data->ts_pkt[ts_slot] = net_pkt_ref(pkt);
+		gw_data->ts_sent_ms[ts_slot] = k_uptime_get_32();
+
+		meta_lo |= RSWITCH3_GWCA_META_TXC | RSWITCH3_GWCA_META_TN(ts_timer) |
+			   RSWITCH3_GWCA_META_TSUN(ts_slot);
+	}
+#else
+	ARG_UNUSED(ts_timer);
 #endif
 
 	desc->hdr.size = (uint16_t)len;
@@ -1578,6 +1802,13 @@ out_unlock:
 		rswitch3_gwca_write(gw, GWTRC(q->index), GWCA_Q_BIT(q->index));
 	}
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	if ((ret == 0) && (ts_timer >= 0)) {
+		/* Polls for the timestamp in case the TS interrupt does not come. */
+		k_work_schedule(&gw_data->ts_work, K_MSEC(RSWITCH3_GWCA_TS_POLL_MS));
+	}
+#endif
+
 	return ret;
 }
 #endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
@@ -1587,14 +1818,14 @@ out_unlock:
  * link-state callback. Necessary for TSN-ES forwarding to work.
  */
 static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, uint32_t port_id,
-						      const char *phy_mode,
+						      const char *phy_mode, uint8_t ptp_timer,
 						      const struct device *phy_dev,
 						      const struct device *pcs_dev, int peer_gwca,
 						      uint32_t peer_rx_chain, int peer_tsnes)
 {
 	int ret;
 
-	ret = rswitch3_etha_hw_init_physical(dev, port_id, phy_mode);
+	ret = rswitch3_etha_hw_init_physical(dev, port_id, phy_mode, ptp_timer);
 	if (ret) {
 		LOG_ERR("Port %u: physical ETHA init failed (err %d)", port_id, ret);
 		return ret;
@@ -1642,12 +1873,12 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 
 #define RSWITCH3_INIT_PHYSICAL_PORT(n)                                                             \
 	if (ret == 0) {                                                                            \
-		ret = rswitch3_init_physical_port(dev, DT_REG_ADDR(n), DT_PROP(n, phy_mode),       \
-						  RSWITCH3_DT_DEV_OR_NULL(n, phy_handle),          \
-						  RSWITCH3_DT_DEV_OR_NULL(n, xpcs),                \
-						  DT_PROP_OR(n, renesas_peer_gwca_instance, -1),   \
-						  DT_PROP_OR(n, renesas_peer_rx_chain, 0),         \
-						  DT_PROP_OR(n, renesas_peer_tsnes, -1));          \
+		ret = rswitch3_init_physical_port(                                                 \
+			dev, DT_REG_ADDR(n), DT_PROP(n, phy_mode), RSWITCH3_PORT_PTP_TIMER(n),     \
+			RSWITCH3_DT_DEV_OR_NULL(n, phy_handle), RSWITCH3_DT_DEV_OR_NULL(n, xpcs),  \
+			DT_PROP_OR(n, renesas_peer_gwca_instance, -1),                             \
+			DT_PROP_OR(n, renesas_peer_rx_chain, 0),                                   \
+			DT_PROP_OR(n, renesas_peer_tsnes, -1));                                    \
 	}
 
 /*
@@ -1907,6 +2138,39 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 #define RSWITCH3_GWCA_TX_RING(inst) DT_INST_PROP(inst, renesas_tx_ring_size)
 #define RSWITCH3_GWCA_RX_RING(inst) DT_INST_PROP(inst, renesas_rx_ring_size)
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+/* BIT(timer) for an external port of the parent switch on this gateway with a ptp-clock, else 0. */
+#define RSWITCH3_GWCA_PORT_TS_TIMER(n, gwca_node)                                                  \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes), (0),                                       \
+		    (COND_CODE_1(DT_NODE_HAS_COMPAT(n, renesas_rcarsoc_rswitch3_port),             \
+				 (COND_CODE_1(RSWITCH3_PORT_USES_GWCA(n, gwca_node),               \
+					      (COND_CODE_1(DT_NODE_HAS_PROP(n, ptp_clock),         \
+							   (BIT(RSWITCH3_PORT_PTP_TIMER(n))),      \
+							   (0))),                                  \
+					      (0))),                                               \
+				 (0))))
+
+/* The gateway itself is a child of the switch, so the list is never empty. */
+#define RSWITCH3_GWCA_TS_TIMERS(inst)                                                              \
+	(DT_FOREACH_CHILD_STATUS_OKAY_SEP_VARGS(                                                   \
+		RSWITCH3_GWCA_RSWITCH(inst), RSWITCH3_GWCA_PORT_TS_TIMER, (|), DT_DRV_INST(inst)))
+
+/* The TS ring of a gateway none of whose ports timestamps is never used. */
+#define RSWITCH3_GWCA_TS_RING_LEN(inst)                                                            \
+	((RSWITCH3_GWCA_TS_TIMERS(inst) != 0) ? RSWITCH3_GWCA_TS_RING_SIZE : 1)
+
+#define RSWITCH3_GWCA_TS_RING_DEFINE(inst)                                                         \
+	static struct rswitch3_gwca_ts_slot                                                        \
+		rswitch3_gwca_ts_ring_##inst[RSWITCH3_GWCA_TS_RING_LEN(inst)]                      \
+			RSWITCH3_GWCA_RAM_SECTION __aligned(RSWITCH3_GWCA_DESC_ALIGN);
+
+#define RSWITCH3_GWCA_TS_CONFIG(inst)                                                              \
+	.ts_ring = rswitch3_gwca_ts_ring_##inst, .ts_timers = RSWITCH3_GWCA_TS_TIMERS(inst),
+#else
+#define RSWITCH3_GWCA_TS_RING_DEFINE(inst)
+#define RSWITCH3_GWCA_TS_CONFIG(inst)
+#endif /* CONFIG_ETH_RENESAS_RSWITCH3_PTP */
+
 #define RSWITCH3_GWCA_INIT(inst)                                                                   \
 	BUILD_ASSERT(RSWITCH3_GWCA_TX_RING(inst) >= 8 && RSWITCH3_GWCA_TX_RING(inst) <= 2048,      \
 		     "renesas,tx-ring-size must be 8..2048");                                      \
@@ -1953,6 +2217,7 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		rswitch3_gwca_linkfix_table_##inst[2 * RSWITCH3_GWCA_NUM_ROWS(                     \
 							       inst)] RSWITCH3_GWCA_RAM_SECTION    \
 		__aligned(RSWITCH3_GWCA_DESC_ALIGN);                                               \
+	RSWITCH3_GWCA_TS_RING_DEFINE(inst)                                                         \
 	static struct rswitch3_gwca_data rswitch3_gwca_data_##inst;                                \
 	static const struct rswitch3_gwca_config rswitch3_gwca_config_##inst = {                   \
 		.rswitch_dev = DEVICE_DT_GET(RSWITCH3_GWCA_RSWITCH(inst)),                         \
@@ -1974,6 +2239,7 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		.instance = RSWITCH3_GWCA_INSTANCE(inst),                                          \
 		.tx_ring_size = RSWITCH3_GWCA_TX_RING(inst),                                       \
 		.rx_ring_size = RSWITCH3_GWCA_RX_RING(inst),                                       \
+		RSWITCH3_GWCA_TS_CONFIG(inst)                                                      \
 	};                                                                                         \
 	DEVICE_DT_INST_DEFINE(inst, rswitch3_gwca_init, NULL, &rswitch3_gwca_data_##inst,          \
 			      &rswitch3_gwca_config_##inst, POST_KERNEL,                           \
@@ -1989,6 +2255,11 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_GWCA_INIT)
 #undef RSWITCH3_GWCA_INSTANCE
 #undef RSWITCH3_GWCA_TX_RING
 #undef RSWITCH3_GWCA_RX_RING
+#undef RSWITCH3_GWCA_PORT_TS_TIMER
+#undef RSWITCH3_GWCA_TS_TIMERS
+#undef RSWITCH3_GWCA_TS_RING_LEN
+#undef RSWITCH3_GWCA_TS_RING_DEFINE
+#undef RSWITCH3_GWCA_TS_CONFIG
 #endif /* CONFIG_ETH_RENESAS_RSWITCH3_GWCA */
 
 #undef DT_DRV_COMPAT
@@ -2007,6 +2278,10 @@ struct rswitch3_port_config {
 	uint32_t port_id;
 	uint8_t mac_addr[RSWITCH3_PORT_MAC_ADDR_LEN];
 	const struct device *phy_dev;
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	const struct device *ptp_clock; /* NULL: the port does not timestamp */
+	uint8_t ptp_timer;              /* gPTP timer of ptp_clock */
+#endif
 };
 
 struct rswitch3_port_data {
@@ -2017,8 +2292,22 @@ struct rswitch3_port_data {
 #endif
 };
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+static bool rswitch3_port_is_ptp_frame(struct net_pkt *pkt)
+{
+	struct net_eth_hdr *hdr = NET_ETH_HDR(pkt);
+	uint16_t type = net_ntohs(hdr->type);
+
+	if (type == NET_ETH_PTYPE_VLAN) {
+		type = net_ntohs(((struct net_eth_vlan_hdr *)hdr)->type);
+	}
+
+	return type == NET_ETH_PTYPE_PTP;
+}
+#endif
+
 static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_id,
-				struct net_buf *buf, void *user_data)
+				struct net_buf *buf, const struct net_ptp_time *ts, void *user_data)
 {
 	const struct device *dev = user_data;
 	struct rswitch3_port_data *port_data = dev->data;
@@ -2057,6 +2346,23 @@ static void rswitch3_port_rx_cb(const struct device *rswitch_dev, uint32_t port_
 		return;
 	}
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	const struct rswitch3_port_config *cfg = dev->config;
+
+	/* A port without ptp-clock still gets timer 0 timestamps (MTRC.DTN = 0). */
+	if (cfg->ptp_clock != NULL) {
+		if (ts != NULL) {
+			pkt->timestamp = *ts;
+		}
+
+		if (rswitch3_port_is_ptp_frame(pkt)) {
+			net_pkt_set_priority(pkt, NET_PRIORITY_CA);
+		}
+	}
+#else
+	ARG_UNUSED(ts);
+#endif
+
 	/* Packet/byte counters are updated by the Ethernet L2 (ethernet.c). */
 	if (net_recv_data(port_data->iface, pkt) < 0) {
 		net_pkt_unref(pkt);
@@ -2080,13 +2386,21 @@ static int rswitch3_port_send(const struct device *dev, struct net_pkt *pkt)
 {
 	const struct rswitch3_port_config *cfg = dev->config;
 	struct rswitch3_port_data *data = dev->data;
+	int ts_timer = -1;
 	int ret;
 
 	if (!data->is_started) {
 		return -ENETDOWN;
 	}
 
-	ret = rswitch3_gwca_port_send(cfg->gwca, cfg->port_id, pkt);
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	if ((cfg->ptp_clock != NULL) &&
+	    (rswitch3_port_is_ptp_frame(pkt) || net_pkt_is_tx_timestamping(pkt))) {
+		ts_timer = cfg->ptp_timer;
+	}
+#endif
+
+	ret = rswitch3_gwca_port_send(cfg->gwca, cfg->port_id, pkt, ts_timer);
 	if (ret) {
 		LOG_DBG("Port %u: send failed (err %d)", cfg->port_id, ret);
 		return ret;
@@ -2131,10 +2445,16 @@ static enum ethernet_hw_caps rswitch3_port_get_capabilities(const struct device 
 {
 	enum ethernet_hw_caps caps;
 
-	ARG_UNUSED(dev);
-
 	/* Matches the speeds rswitch3_set_link_state() actually programs into MPIC. */
 	caps = ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE | ETHERNET_LINK_2500BASE;
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	if (((const struct rswitch3_port_config *)dev->config)->ptp_clock != NULL) {
+		caps |= ETHERNET_PTP;
+	}
+#else
+	ARG_UNUSED(dev);
+#endif
 
 	if (IS_ENABLED(CONFIG_NET_CHECKSUM_OFFLOAD)) {
 		/* TX: GWCA direct descriptor L3CC/L4CC. RX: ETHA EACKSC ingress check. */
@@ -2186,6 +2506,15 @@ static const struct device *rswitch3_port_get_phy(const struct device *dev)
 
 	return cfg->phy_dev;
 }
+
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+static const struct device *rswitch3_port_get_ptp_clock(const struct device *dev)
+{
+	const struct rswitch3_port_config *cfg = dev->config;
+
+	return cfg->ptp_clock;
+}
+#endif
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 /*
@@ -2244,6 +2573,9 @@ static const struct ethernet_api rswitch3_port_api = {
 	.get_phy = rswitch3_port_get_phy,
 	.start = rswitch3_port_start,
 	.stop = rswitch3_port_stop,
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+	.get_ptp_clock = rswitch3_port_get_ptp_clock,
+#endif
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	.get_stats = rswitch3_port_get_stats,
 	.get_stats_type = rswitch3_port_get_stats_type,
@@ -2274,10 +2606,36 @@ static int rswitch3_port_init(const struct device *dev)
 	return 0;
 }
 
+#if defined(CONFIG_ETH_RENESAS_RSWITCH3_PTP)
+/*
+ * The RMAC of a port captures with the gPTP timers of the switch, so the
+ * ptp-clock of a port must be a channel of the gptp_base block of its switch.
+ */
+#define RSWITCH3_PORT_CHECK_PTP_CLOCK(n)                                                           \
+	BUILD_ASSERT(DT_NODE_HAS_COMPAT(DT_INST_PHANDLE(n, ptp_clock),                             \
+					renesas_rcar_ptp_clock_channel) &&                         \
+			     (DT_REG_ADDR(DT_PARENT(DT_INST_PHANDLE(n, ptp_clock))) ==             \
+			      DT_REG_ADDR_BY_NAME(DT_INST_PARENT(n), gptp_base)) &&                \
+			     (DT_REG_ADDR(DT_INST_PHANDLE(n, ptp_clock)) < RSWITCH3_PTP_TN),       \
+		     DT_NODE_FULL_NAME(DT_DRV_INST(n)) ": ptp-clock must be a channel of the "     \
+						       "R-Switch 3 gPTP timer");
+
+#define RSWITCH3_PORT_PTP_CONFIG(n)                                                                \
+	.ptp_clock = RSWITCH3_DT_DEV_OR_NULL(DT_DRV_INST(n), ptp_clock),                           \
+	.ptp_timer = RSWITCH3_PORT_PTP_TIMER(DT_DRV_INST(n)),
+
+#define RSWITCH3_PORT_PTP_CHECK(n)                                                                 \
+	IF_ENABLED(DT_INST_NODE_HAS_PROP(n, ptp_clock), (RSWITCH3_PORT_CHECK_PTP_CLOCK(n)))
+#else
+#define RSWITCH3_PORT_PTP_CONFIG(n)
+#define RSWITCH3_PORT_PTP_CHECK(n)
+#endif /* CONFIG_ETH_RENESAS_RSWITCH3_PTP */
+
 /*
  * Only external rswitch3-port instances that name a gateway with renesas,gwca.
  */
 #define RSWITCH3_PORT_INIT_EXTERNAL(n)                                                             \
+	RSWITCH3_PORT_PTP_CHECK(n)                                                                 \
 	static struct rswitch3_port_data rswitch3_port_data_##n;                                   \
 	static const struct rswitch3_port_config rswitch3_port_config_##n = {                      \
 		.rswitch_dev = DEVICE_DT_GET(DT_INST_PARENT(n)),                                   \
@@ -2285,6 +2643,7 @@ static int rswitch3_port_init(const struct device *dev)
 		.port_id = DT_INST_REG_ADDR(n),                                                    \
 		.mac_addr = DT_INST_PROP_OR(n, local_mac_address, {0}),                            \
 		.phy_dev = RSWITCH3_DT_DEV_OR_NULL(DT_DRV_INST(n), phy_handle),                    \
+		RSWITCH3_PORT_PTP_CONFIG(n)                                                        \
 	};                                                                                         \
 	ETH_NET_DEVICE_DT_INST_DEFINE(n, rswitch3_port_init, NULL, &rswitch3_port_data_##n,        \
 				      &rswitch3_port_config_##n, CONFIG_ETH_INIT_PRIORITY,         \
@@ -2297,5 +2656,8 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_PORT_INIT)
 
 #undef RSWITCH3_PORT_INIT
 #undef RSWITCH3_PORT_INIT_EXTERNAL
+#undef RSWITCH3_PORT_CHECK_PTP_CLOCK
+#undef RSWITCH3_PORT_PTP_CONFIG
+#undef RSWITCH3_PORT_PTP_CHECK
 #undef DT_DRV_COMPAT
 #endif /* CONFIG_ETH_RENESAS_RSWITCH3_PORT */

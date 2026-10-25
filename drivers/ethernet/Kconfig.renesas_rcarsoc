@@ -216,4 +216,18 @@ config ETH_RENESAS_RSWITCH3_PORT
 	  the ETHA ingress on RX (bad frames are dropped in the switch).
 	  IPv6 checksums stay in software.
 
+config ETH_RENESAS_RSWITCH3_PTP
+	bool "Hardware timestamping on R-Switch 3 ports"
+	default y
+	depends on ETH_RENESAS_RSWITCH3_PORT
+	depends on PTP_CLOCK_RENESAS_RCAR
+	help
+	  Timestamp the frames of each port net_if that has a ptp-clock
+	  property, with that channel of the R-Switch 3 gPTP timer, and
+	  report it as the PTP clock of the interface (ETHERNET_PTP). Every
+	  received frame carries its timestamp; a TX timestamp is captured
+	  for PTP frames and for packets marked for TX timestamping, and
+	  comes back through a timestamp descriptor ring of the gateway.
+	  Required for gPTP (CONFIG_NET_GPTP) on a port.
+
 endif # ETH_RENESAS_RCARSOC_RSWITCH3

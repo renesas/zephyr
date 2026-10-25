@@ -6,6 +6,6 @@ config PTP_CLOCK_RENESAS_RCAR
 	default y
 	depends on DT_HAS_RENESAS_RCAR_PTP_CLOCK_CHANNEL_ENABLED
 	depends on NET_L2_PTP
-	depends on ETH_RENESAS_RCARSOC_TSNES
+	depends on ETH_RENESAS_RCARSOC_TSNES || ETH_RENESAS_RSWITCH3_PORT
 	help
 	  Enable Renesas R-Car PTP Clock support.
