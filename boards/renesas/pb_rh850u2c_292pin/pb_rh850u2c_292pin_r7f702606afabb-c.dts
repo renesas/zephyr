@@ -27,7 +27,7 @@
 	};
 
 	aliases {
-		led0 = &led10;
+		led0 = &led17;
 		watchdog0 = &wdtb0;
 		pwm-led0 = &pwm_led_0;
 		pwm-led1 = &pwm_led_1;
@@ -36,9 +36,9 @@
 	leds {
 		compatible = "gpio-leds";
 
-		led10: led10 {
-			gpios = <&ioaport4 0 GPIO_ACTIVE_HIGH>;
-			label = "LED10";
+		led17: led17 {
+			gpios = <&ioport21 9 GPIO_ACTIVE_HIGH>;
+			label = "LED17";
 		};
 	};
 
@@ -125,7 +125,7 @@
 	status = "okay";
 };
 
-&ioaport4 {
+&ioport21 {
 	status = "okay";
 };
 
