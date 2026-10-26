@@ -47,7 +47,7 @@
 		zephyr,vref-mv = <5000>;
 
 		renesas,virtual-channel = <0>;
-		renesas,physical-channel = <4>; /* ADCK0 AN10 */
+		renesas,physical-channel = <4>; /* ADCK0 AN010 */
 	};
 
 	channel@1 {
@@ -60,6 +60,6 @@
 		zephyr,vref-mv = <5000>;
 
 		renesas,virtual-channel = <1>;
-		renesas,physical-channel = <5>; /* ADCK0 AN11 */
+		renesas,physical-channel = <5>; /* ADCK0 AN011 */
 	};
 };

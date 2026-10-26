@@ -18,11 +18,11 @@
 	vref-mv = <5000>;
 	channel-available-mask = <0x1>;
 
-	renesas,unit = <0>;
 	renesas,scan-group = <0>;
 	renesas,start-virtual-channel = <0>;
 	renesas,end-virtual-channel = <0>;
-	renesas,data-format = "12-bit";
+	renesas,data-format = "12-bit-unsigned-right-justified";
+	renesas,trigger-method = "software";
 
 	channel@0 {
 		reg = <0>;
@@ -34,6 +34,7 @@
 		zephyr,vref-mv = <5000>;
 
 		renesas,virtual-channel = <0>;
-		renesas,physical-channel = <4>; /* ADCK0 AN10 = AN010 = CN13 pin 13 */
+		renesas,physical-channel = <4>; /* ADCK0 AN010 = CN13 pin 13 */
+		renesas,conversion-type = "normal";
 	};
 };
