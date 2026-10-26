@@ -27,11 +27,6 @@ config ETH_RENESAS_RH850_ETNF_RX_THREAD_PRIORITY
 	int "RX thread cooperative priority"
 	default 2
 
-config ETH_RENESAS_RH850_ETNF_CFG_QOS_SUPPORT
-	bool "Renesas RH850 Ethernet T1S Config QOS support"
-	help
-	  Config QOS support
-
 config ETH_RENESAS_RH850_ETNF_USE_ZEROCOPY
 	bool "RH850 Ethernet T1S zero-copy TX/RX mode"
 	help

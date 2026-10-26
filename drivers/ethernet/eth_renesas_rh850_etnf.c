@@ -25,6 +25,9 @@ LOG_MODULE_REGISTER(eth_renesas_etnf, CONFIG_ETHERNET_LOG_LEVEL);
 
 #define ETH_ETNF_FRAME_BUF_SIZE 1536
 
+/* Largest frame R_ETHER_T1S_Read() can return: ETH_RX_BUF_LENGTH in r_ether_t1s, without FCS */
+#define ETH_ETNF_RX_FRAME_MAX 1518U
+
 #define ETH_ETNF_MDIO_IF(n) ((ether_t1s_mdio_interface_type_t)DT_INST_ENUM_IDX(n, mdio_interface))
 
 #define ETH_ETNF_PMA_TYPE(n)                                                                       \
@@ -63,7 +66,7 @@ struct eth_etnf_data {
 
 	const struct device *phy_dev;
 	bool link_up;
-	uint8_t rx_frame_buf[NET_ETH_MAX_FRAME_SIZE];
+	uint8_t rx_frame_buf[ETH_ETNF_RX_FRAME_MAX];
 	uint8_t tx_frame_buf[NET_ETH_MAX_FRAME_SIZE];
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	struct net_stats_eth stats;
@@ -84,6 +87,7 @@ static void eth_etnf_phy_link_callback(const struct device *phy_dev, struct phy_
 {
 	const struct device *dev = (const struct device *)user_data;
 	struct eth_etnf_data *data = dev->data;
+	fsp_err_t fsp_err;
 
 	ARG_UNUSED(phy_dev);
 
@@ -93,17 +97,21 @@ static void eth_etnf_phy_link_callback(const struct device *phy_dev, struct phy_
 		if (data->link_up) {
 			LOG_INF("Link UP — 10BASE-T1S half-duplex 10 Mbps");
 			data->fsp_ctrl.link_change = ETHER_T1S_LINK_CHANGE_LINK_UP;
-			data->fsp_ctrl.previous_link_status = data->fsp_ctrl.link_establish_status;
-			data->fsp_ctrl.link_establish_status = ETHER_T1S_LINK_ESTABLISH_STATUS_UP;
-			R_ETHER_T1S_LinkProcess(&data->fsp_ctrl);
+			data->fsp_ctrl.previous_link_status = ETHER_T1S_PREVIOUS_LINK_STATUS_UP;
+
+			fsp_err = R_ETHER_T1S_LinkProcess(&data->fsp_ctrl);
+			if (fsp_err != FSP_SUCCESS) {
+				LOG_ERR("R_ETHER_T1S_LinkProcess failed: %d", fsp_err);
+				data->link_up = false;
+				return;
+			}
 
 			net_if_carrier_on(data->iface);
 		} else {
 			LOG_INF("Link DOWN");
 			data->fsp_ctrl.link_change = ETHER_T1S_LINK_CHANGE_LINK_DOWN;
-			data->fsp_ctrl.previous_link_status = data->fsp_ctrl.link_establish_status;
-			data->fsp_ctrl.link_establish_status = ETHER_T1S_LINK_ESTABLISH_STATUS_DOWN;
-			R_ETHER_T1S_LinkProcess(&data->fsp_ctrl);
+			data->fsp_ctrl.previous_link_status = ETHER_T1S_PREVIOUS_LINK_STATUS_DOWN;
+			(void)R_ETHER_T1S_LinkProcess(&data->fsp_ctrl);
 
 			net_if_carrier_off(data->iface);
 		}
@@ -239,6 +247,8 @@ static struct net_pkt *eth_etnf_receive(const struct device *dev)
 	 */
 	uint8_t *buf_ptr = data->rx_frame_buf;
 
+	/* In non-zero-copy mode *length_bytes is the capacity of the user buffer */
+	frame_len = sizeof(data->rx_frame_buf);
 	fsp_err = R_ETHER_T1S_Read((ether_ctrl_t *)&data->fsp_ctrl, buf_ptr, &frame_len);
 #endif
 
@@ -322,9 +332,8 @@ void eth_etnf_fsp_callback(ether_callback_args_t *p_args)
 		k_sem_give(&data->rx_sem);
 		break;
 
-	case ETHER_EVENT_TX_INTERRUPT:
+	case ETHER_EVENT_TX_COMPLETE:
 		k_sem_give(&data->tx_sem);
-		/* TX descriptor interrupt — handled internally by FSP */
 		break;
 
 	default:
@@ -356,13 +365,14 @@ static int eth_etnf_init(const struct device *dev)
 		return ret;
 	}
 
+	k_sem_init(&data->rx_sem, 0, K_SEM_MAX_LIMIT);
+	k_sem_init(&data->tx_sem, 0, 8);
+
 	fsp_err = R_ETHER_T1S_Open(&data->fsp_ctrl, cfg->p_fsp_cfg);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ETHER_T1S_Open failed: %d", fsp_err);
 		return -EIO;
 	}
-
-	cfg->irq_config();
 
 	fsp_err = R_ETHER_T1S_CallbackSet(&data->fsp_ctrl, eth_etnf_fsp_callback, dev, NULL);
 	if (fsp_err != FSP_SUCCESS) {
@@ -371,8 +381,7 @@ static int eth_etnf_init(const struct device *dev)
 		return -EIO;
 	}
 
-	k_sem_init(&data->rx_sem, 0, K_SEM_MAX_LIMIT);
-	k_sem_init(&data->tx_sem, 0, 8);
+	cfg->irq_config();
 
 	k_thread_create(&data->rx_thread, data->rx_stack,
 			CONFIG_ETH_RENESAS_RH850_ETNF_RX_THREAD_STACK_SIZE, eth_etnf_rx_thread,
@@ -383,13 +392,6 @@ static int eth_etnf_init(const struct device *dev)
 	LOG_INF("ETNF0 10BASE-T1S driver initialized");
 	return 0;
 }
-
-#if (CONFIG_ETH_RENESAS_RH850_ETNF_CFG_QOS_SUPPORT)
-#define ETHER_T1S_PRIORITY_INIT                                                                    \
-	.ctrl_priority.number_of_priorities = 1U, .ctrl_priority.dfl_tx_queue = 0U,
-#else
-#define ETHER_T1S_PRIORITY_INIT
-#endif
 
 #if (CONFIG_RH850)
 #define DEFINE_ETNF_POOL_BUFFERS(n) static uint32_t g_ether_t1s_mem_pool_buffer_##n[6375];
@@ -412,13 +414,7 @@ static int eth_etnf_init(const struct device *dev)
 	DEFINE_ETNF_POOL_BUFFERS(n)                                                                \
 	static const ether_t1s_tx_queue_type_etnf eth_etnf_tx_q_##n[] = {                          \
 		[0] = {.eth_tx_queue_id = (uint8_t)ETHER_T1S_TX_BE,                                \
-		       .eth_tx_queue_bufs = (uint16_t)ETH_ETNF_TXB_NUM(n),                         \
-		       IF_ENABLED(CONFIG_ETH_RENESAS_RH850_ETNF_CFG_QOS_SUPPORT, (     \
-			.tx_queue_shaper = {                               \
-				.tx_q_policy = ETHER_T1S_NONE,             \
-				.civ         = 0U,                         \
-				.cdv         = 0,                          \
-			},)) },                                \
+		       .eth_tx_queue_bufs = (uint16_t)ETH_ETNF_TXB_NUM(n)},                        \
 	};                                                                                         \
                                                                                                    \
 	static const ether_t1s_rx_queue_type_etnf eth_etnf_rx_q_##n[] = {                          \
@@ -436,11 +432,12 @@ static int eth_etnf_init(const struct device *dev)
 				.encf = ETHER_T1S_DISABLE,                                         \
 				.esf = ETHER_T1S_AVBNMQUE0,                                        \
 				.ets0 = ETHER_T1S_DISABLE,                                         \
+				.ets2 = ETHER_T1S_DISABLE,                                         \
 				.rfcl = 0x1800U,                                                   \
 			},                                                                         \
 		.tx_config = ETHER_T1S_AVBDEF,                                                     \
 		.ecbs = ETHER_T1S_DISABLE,                                                         \
-		ETHER_T1S_PRIORITY_INIT};                                                          \
+	};                                                                                         \
                                                                                                    \
 	static const ether_t1s_extended_cfg_t eth_etnf_ext_cfg_##n = {                             \
 		.eth_mac_addr = DT_INST_PROP(n, local_mac_address),                                \
@@ -462,6 +459,9 @@ static int eth_etnf_init(const struct device *dev)
 		.mdio_slave_address = DT_PROP(DT_INST_CHILD(n, phy), phy_lsi_addr),                \
 		.ether_t1s_ram_size = ETH_ETNF_RAM_SIZE(n),                                        \
 		.p_mem_pool_buffer_table = (uint8_t *)g_ether_t1s_mem_pool_buffer_##n,             \
+		.other_irq = FSP_INVALID_VECTOR, /* management IRQ, timestamp only */              \
+		.interrupt_priority = BSP_IRQ_DISABLED,                                            \
+		.time_stamp_sel = ETHER_T1S_TIME_STAMP_MII,                                        \
 	};                                                                                         \
                                                                                                    \
 	/* Runtime data — MAC address populated from DT */                                         \
