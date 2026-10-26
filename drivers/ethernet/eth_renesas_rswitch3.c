@@ -1427,13 +1427,15 @@ static int __maybe_unused rswitch3_init_physical_port(const struct device *dev, 
 #define RSWITCH3_CHECK_PORT_EXTERNAL(n)                                                            \
 	BUILD_ASSERT(DT_NODE_HAS_PROP(n, phy_mode) && DT_NODE_HAS_PROP(n, phy_handle),             \
 		     DT_NODE_FULL_NAME(n) ": external port needs phy-mode and phy-handle");        \
-	BUILD_ASSERT(DT_NODE_HAS_PROP(n, renesas_gwca),                                            \
-		     DT_NODE_FULL_NAME(n) ": external port needs renesas,gwca");
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_gwca),                                             \
+		    (BUILD_ASSERT(DT_NODE_HAS_STATUS_OKAY(DT_PHANDLE(n, renesas_gwca)),            \
+				  DT_NODE_FULL_NAME(n) ": gateway in renesas,gwca is disabled");), \
+		    ())
 #define RSWITCH3_CHECK_PORT_INTERNAL(n)                                                            \
 	BUILD_ASSERT(!DT_NODE_HAS_PROP(n, xpcs) && !DT_NODE_HAS_PROP(n, phy_handle) &&             \
-			     !DT_NODE_HAS_PROP(n, phy_mode),                                       \
-		     DT_NODE_FULL_NAME(n) ": renesas,tsnes port must not set xpcs, phy-handle "    \
-					  "or phy-mode");
+			     !DT_NODE_HAS_PROP(n, phy_mode) && !DT_NODE_HAS_PROP(n, renesas_gwca), \
+		     DT_NODE_FULL_NAME(n) ": renesas,tsnes port must not set xpcs, phy-handle, "   \
+					  "phy-mode or renesas,gwca");
 #define RSWITCH3_CHECK_PORT(n)                                                                     \
 	COND_CODE_1(RSWITCH3_IS_PORT(n),                                                           \
 		    (COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_tsnes),                               \
@@ -1572,8 +1574,10 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 /* Parent switch node of this gateway. */
 #define RSWITCH3_GWCA_RSWITCH(inst) DT_INST_PARENT(inst)
 
-/* renesas,gwca is required on a port, so the phandle is always there to compare. */
-#define RSWITCH3_PORT_USES_GWCA(n, gwca_node) DT_SAME_NODE(DT_PHANDLE(n, renesas_gwca), gwca_node)
+/* A port without renesas,gwca has no net_if and uses no gateway. */
+#define RSWITCH3_PORT_USES_GWCA(n, gwca_node)                                                      \
+	COND_CODE_1(DT_NODE_HAS_PROP(n, renesas_gwca),                                             \
+		    (DT_SAME_NODE(DT_PHANDLE(n, renesas_gwca), gwca_node)), (0))
 
 /* One row per external port of the parent switch that this gateway serves. */
 #define RSWITCH3_GWCA_PORT_ID_ENTRY(n, gwca_node)                                                  \
@@ -1598,6 +1602,8 @@ DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_INIT)
 		DT_FOREACH_CHILD_STATUS_OKAY_VARGS(RSWITCH3_GWCA_RSWITCH(inst),                    \
 						   RSWITCH3_GWCA_PORT_ID_ENTRY,                    \
 						   DT_DRV_INST(inst))};                            \
+	BUILD_ASSERT(RSWITCH3_GWCA_NUM_ROWS(inst) > 0,                                             \
+		     DT_NODE_FULL_NAME(DT_DRV_INST(inst)) ": no port names this gateway");         \
 	static struct rswitch3_gwca_tx_queue                                                       \
 		rswitch3_gwca_tx_queues_##inst[RSWITCH3_GWCA_NUM_ROWS(inst)];                      \
 	static struct rswitch3_gwca_rx_queue                                                       \
@@ -1980,7 +1986,7 @@ static int rswitch3_port_init(const struct device *dev)
 }
 
 /*
- * Only external rswitch3-port instances whose gateway is enabled.
+ * Only external rswitch3-port instances that name a gateway with renesas,gwca.
  */
 #define RSWITCH3_PORT_INIT_EXTERNAL(n)                                                             \
 	static struct rswitch3_port_data rswitch3_port_data_##n;                                   \
@@ -1996,9 +2002,7 @@ static int rswitch3_port_init(const struct device *dev)
 				      &rswitch3_port_api, NET_ETH_MTU);
 
 #define RSWITCH3_PORT_INIT(n)                                                                      \
-	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, renesas_tsnes), (),                                   \
-		    (COND_CODE_1(DT_NODE_HAS_STATUS_OKAY(DT_INST_PHANDLE(n, renesas_gwca)),        \
-				 (RSWITCH3_PORT_INIT_EXTERNAL(n)), ())))
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, renesas_gwca), (RSWITCH3_PORT_INIT_EXTERNAL(n)), ())
 
 DT_INST_FOREACH_STATUS_OKAY(RSWITCH3_PORT_INIT)
 

@@ -165,11 +165,12 @@ config ETH_RENESAS_RSWITCH3_PORT
 	select NET_CHECKSUM_OFFLOAD_SUPPORTED if NET_L2_ETHERNET
 	help
 	  Enable one Zephyr net_if per external renesas,rcarsoc-rswitch3-port
-	  child node whose renesas,gwca engine is enabled, backed by a
+	  child node that names a GWCA engine with renesas,gwca, backed by a
 	  dedicated GWCA TX/RX queue pair, allowing the CPU to send/receive
 	  packets directly through a physical port without a TSN-ES endpoint.
-	  An external port that only forwards to a TSN-ES agent needs no
-	  enabled engine, and then neither this driver nor GWCA is built.
+	  An external port without renesas,gwca is only brought up and
+	  forwarded, for example to a TSN-ES agent. With no engine enabled,
+	  neither this driver nor GWCA is built.
 
 	  With CONFIG_NET_CHECKSUM_OFFLOAD, IPv4 header, and TCP, UDP and
 	  ICMP over IPv4 checksums are computed by GWCA on TX and checked by

@@ -48,13 +48,11 @@ properties:
   renesas,gwca:
     type: phandle
     description: |
-      GWCA engine that transfers this port's frames. Required on an external
-      port, so that no port falls back to an engine another core may own. Not
-      applicable to an internal (renesas,tsnes) port.
-
-      The port gets a net_if on this core only while that engine is enabled.
-      With the engine disabled the port is still brought up and can be
-      forwarded to a TSN-ES agent through renesas,forward-ports.
+      GWCA engine that transfers this port's frames to and from a net_if on
+      this core. The engine must be enabled. An external port without this
+      property gets no net_if: it is only brought up and forwarded, for
+      example to a TSN-ES agent through renesas,forward-ports. Not applicable
+      to an internal (renesas,tsnes) port.
 
   renesas,tsnes:
     type: phandle
