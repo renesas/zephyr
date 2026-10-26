@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+
+/ {
+	aliases {
+		adc0 = &adcka;
+	};
+
+	zephyr,user {
+		io-channels = <&adcka 0>, <&adcka 1>, <&adcka 2>;
+	};
+};
+
+&dma0 {
+	status = "okay";
+};
+
+&adcka {
+	status = "okay";
+
+	vref-mv = <5000>;
+	channel-available-mask = <0x07>;
+
+	renesas,unit = <0>;
+	renesas,scan-group = <3>;
+	renesas,start-virtual-channel = <0>;
+	renesas,end-virtual-channel = <2>;
+	renesas,data-format = "12-bit-unsigned-right-justified";
+	renesas,trigger-method = "ad-timer";
+	renesas,ad-timer-initial-phase = <0>;
+	renesas,ad-timer-cycle = <400>;
+	renesas,scan-mode = "continuous";
+	dmas = <&dma0 3 45 0>;  /* End scan group 3*/
+
+	channel@0 {
+		reg = <0>;
+
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <0>;
+		renesas,physical-channel = <4>; /* ADCK0 AN10 */
+	};
+
+	channel@1 {
+		reg = <1>;
+
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <1>;
+		renesas,physical-channel = <1>; /* ADCK0 AN01 */
+	};
+
+	channel@2 {
+		reg = <2>;
+
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,vref-mv = <5000>;
+
+		renesas,virtual-channel = <2>;
+		renesas,physical-channel = <5>; /* ADCK0 AN11 */
+	};
+};

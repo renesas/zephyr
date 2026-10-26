@@ -24,3 +24,9 @@ tests:
       - DTC_OVERLAY_FILE=boards/apard32690_max32690_m4_max32.overlay
     platform_allow:
       - apard32690/max32690/m4
+    sample.drivers.adc.adc_stream.rh850-adck-stream:
+    extra_args:
+      - EXTRA_CONF_FILE=rh850-adck-stream.conf
+      - DTC_OVERLAY_FILE=boards/pb_rh850u2b_468pin_r7f70254xfabg-c.overlay
+    platform_allow:
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
