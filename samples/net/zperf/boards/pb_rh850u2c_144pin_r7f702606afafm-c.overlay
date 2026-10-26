@@ -5,14 +5,11 @@
  */
 
 &etnf0 {
-	pinctrl-0 = <&etnf0_default>;
-	pinctrl-names = "default";
-	local-mac-address = [74 90 50 12 34 56];
 	status = "okay";
+};
 
-	ct25205: phy {
-		status = "okay";
-	};
+&ct25205 {
+	status = "okay";
 };
 
 &etnd0 {
