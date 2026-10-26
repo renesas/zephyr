@@ -43,6 +43,8 @@ LOG_MODULE_REGISTER(adc_renesas_rh850_adck, CONFIG_ADC_LOG_LEVEL);
 /* One stream frame carries at most one sample for each Zephyr channel. */
 #define ADC_RENESAS_ADCK_STREAM_MAX_CHANNELS ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS
 
+#define ADCK_AD_TIMER_MAX 0x1FFFFFULL
+
 /* FSP ADCK has 64 virtual channel data registers. */
 #define ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS ADCK_NUMBER_OF_VIRTUAL_CHANNEL
 
@@ -81,11 +83,14 @@ extern void adck_sg1_scan_end_isr(void);
 extern void adck_sg2_scan_end_isr(void);
 extern void adck_sg3_scan_end_isr(void);
 extern void adck_sg4_scan_end_isr(void);
+extern void adck_error_isr(void);
 
 enum adc_adck_request_mode {
 	ADC_ADCK_REQUEST_IDLE = 0,
 	ADC_ADCK_REQUEST_FINITE,
 	ADC_ADCK_REQUEST_STREAM,
+	ADC_ADCK_REQUEST_STREAM_STOPPING,
+	ADC_ADCK_REQUEST_FAULT,
 };
 
 enum adc_adck_data_format {
@@ -178,6 +183,7 @@ struct adc_adck_data {
 	adc_info_t adc_info;
 	void *dma_src;
 	uint32_t dma_length;
+	bool dma_active;
 
 #endif
 };
@@ -220,9 +226,9 @@ static void adc_adck_stream_reset(struct adc_adck_data *data)
 	data->stream_channels = 0U;
 	data->stream_frame_size = 0U;
 
-	data->request_mode = ADC_ADCK_REQUEST_IDLE;
 	data->active = false;
 	data->status = 0;
+	data->request_mode = ADC_ADCK_REQUEST_IDLE;
 }
 
 static void adc_adck_stream_fail(const struct device *dev, int error)
@@ -230,6 +236,7 @@ static void adc_adck_stream_fail(const struct device *dev, int error)
 	const struct adc_adck_config *config;
 	struct adc_adck_data *data;
 	struct rtio_iodev_sqe *sqe;
+	fsp_err_t fsp_err;
 
 	if (dev == NULL) {
 		return;
@@ -243,34 +250,113 @@ static void adc_adck_stream_fail(const struct device *dev, int error)
 	}
 
 	/*
-	 * Preserve the current SQE before resetting the stream state.
-	 * adc_adck_stream_reset() clears data->stream_sqe.
+	 * Only a stream request or an already stopping stream request may
+	 * enter this cleanup path.
 	 */
-	sqe = data->stream_sqe;
+	if ((data->request_mode != ADC_ADCK_REQUEST_STREAM) &&
+	    (data->request_mode != ADC_ADCK_REQUEST_STREAM_STOPPING)) {
+		return;
+	}
 
-	if (data->request_mode == ADC_ADCK_REQUEST_STREAM) {
-		(void)R_ADCK_ScanGroupStop(&data->fsp_ctrl, config->scan_group_mask);
+	/*
+	 * Preserve the first stream error. If DMA cannot be stopped, this
+	 * error will be reported later from the DMA callback.
+	 */
+	if (data->status == 0) {
+		data->status = error;
+	}
+
+	/*
+	 * Do not accept new requests while stopping the hardware. Keep the
+	 * SQE and RX buffer owned by the driver until DMA is quiescent.
+	 */
+	data->active = false;
+	data->request_mode = ADC_ADCK_REQUEST_STREAM_STOPPING;
+
+	/*
+	 * Stop ADCK first so that it cannot generate another DMA request.
+	 */
+	fsp_err = R_ADCK_ScanGroupStop(
+		&data->fsp_ctrl,
+		config->scan_group_mask);
+
+	if (fsp_err != FSP_SUCCESS) {
+		LOG_ERR("ADCK stream cleanup failed: %d", fsp_err);
+
+		/*
+		 * ADCK is not confirmed stopped. Keep the device faulted and
+		 * do not accept another request.
+		 */
+		data->request_mode = ADC_ADCK_REQUEST_FAULT;
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM_DMA)
+		/*
+		 * If DMA is still active, retain the SQE and buffer until its
+		 * callback confirms that the transfer has ended.
+		 */
+		if (data->dma_active) {
+			return;
+		}
+#endif
+
+		/*
+		 * DMA is not using the buffer, so the SQE can be completed,
+		 * but the device remains faulted because ADCK did not stop.
+		 */
+		sqe = data->stream_sqe;
+
+		data->stream_sqe = NULL;
+		data->stream_buffer = NULL;
+		data->stream_buffer_len = 0U;
+
+		if (sqe != NULL) {
+			rtio_iodev_sqe_err(sqe, data->status);
+		}
+
+		return;
 	}
 
 #if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM_DMA)
-	/*
-	 * Stop DMA if the DMA device exists and is ready.
-	 * The DMA channel might not have started yet, so its stop result
-	 * is intentionally ignored.
-	 */
-	if ((data->dma_dev != NULL) &&
-		device_is_ready(data->dma_dev)) {
-		(void)dma_stop(
+	if (data->dma_active) {
+		int dma_err;
+
+		if ((data->dma_dev == NULL) ||
+		    !device_is_ready(data->dma_dev)) {
+			LOG_ERR("DMA device is not ready during cleanup");
+			data->request_mode = ADC_ADCK_REQUEST_FAULT;
+			return;
+		}
+
+		dma_err = dma_stop(
 			data->dma_dev,
 			data->dma_channel);
+
+		if (dma_err != 0) {
+			LOG_ERR("DMA stop failed: %d", dma_err);
+
+			/*
+			 * Keep STREAM_STOPPING and retain stream_sqe and
+			 * stream_buffer. The DMA callback will complete the
+			 * SQE after the in-flight transfer has ended.
+			 */
+			return;
+		}
+
+		/*
+		 * A successful dma_stop() confirms that the channel no longer
+		 * owns the current RX buffer.
+		 */
+		data->dma_active = false;
 	}
 #endif
 
 	/*
-	 * Clear all internal stream state before completing the SQE.
-	 * This allows a new stream request to be submitted immediately
-	 * after the error completion is delivered.
+	 * ADCK is stopped and DMA no longer owns the buffer. It is now safe
+	 * to reset the stream state and return the buffer to RTIO.
 	 */
+	sqe = data->stream_sqe;
+	error = data->status;
+
 	adc_adck_stream_reset(data);
 
 	if (sqe != NULL) {
@@ -314,7 +400,6 @@ static int adc_adck_stream_prepare_frame(const struct device *dev)
 	struct adc_adck_data *data;
 	struct adc_adck_stream_header *header;
 	struct adc_adck_stream_channel *channel_info;
-	uint32_t pending_channels;
 	size_t expected_frame_size;
 	size_t payload_size;
 	uint8_t channel_count;
@@ -433,39 +518,35 @@ static int adc_adck_stream_prepare_frame(const struct device *dev)
 	 * channel_info[0] <-> raw_sample[0]
 	 * channel_info[1] <-> raw_sample[1]
 	 */
-	pending_channels = data->stream_channels;
 
-	for (uint8_t channel = 0U;
-		 pending_channels != 0U;
-		 channel++, pending_channels >>= 1U) {
-		uint8_t virtual_channel;
-
-		if ((pending_channels & 1U) == 0U) {
-			continue;
-		}
-
-		if (channel >= ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS) {
-			return -EINVAL;
-		}
-
-		virtual_channel = config->channel_to_vc[channel];
-
-		if (virtual_channel >=
-			ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS) {
-			return -EINVAL;
-		}
+	for (uint8_t virtual_channel = sg_cfg->start_vc_ptr; virtual_channel <= sg_cfg->end_vc_ptr;
+		 virtual_channel++) {
+		uint8_t channel;
 
 		if (sample_index >= channel_count) {
 			return -EOVERFLOW;
 		}
 
+		for (channel = 0U;
+		channel < ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS;
+		channel++) {
+			if (((data->stream_channels & BIT(channel)) != 0U) &&
+			(config->channel_to_vc[channel] == virtual_channel)) {
+				break;
+			}
+		}
+
+		if (channel == ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS) {
+			return -EINVAL;
+		}
+
 		channel_info[sample_index].channel_id = channel;
-		channel_info[sample_index].virtual_channel =
-			virtual_channel;
-		channel_info[sample_index].resolution =
-			config->resolution;
+		channel_info[sample_index].virtual_channel = virtual_channel;
+		channel_info[sample_index].resolution = config->resolution;
 		channel_info[sample_index].conversion_type =
-		(uint8_t)sg_cfg->p_vc_cfg[virtual_channel - sg_cfg->start_vc_ptr].vcr_b.conv_type;
+			 (uint8_t)sg_cfg->p_vc_cfg[virtual_channel - sg_cfg->start_vc_ptr]
+			 .vcr_b.conv_type;
+
 		sample_index++;
 	}
 
@@ -588,55 +669,65 @@ static int adc_adck_stream_read_frame(const struct device *dev)
 	const struct adc_adck_config *config = dev->config;
 	struct adc_adck_data *data = dev->data;
 	struct adc_adck_stream_header *header;
+	struct adc_adck_stream_channel *channels;
 	uint8_t *sample_payload;
-	uint32_t pending_channels;
-	uint8_t sample_index = 0U;
+	uint8_t sample_index;
+	const adck_sg_generic_cfg_t *sg_cfg;
+
+	if ((config == NULL) || (data == NULL)) {
+		return -EINVAL;
+	}
 
 	if ((data->stream_buffer == NULL) ||
-		(data->stream_buffer_len < data->stream_frame_size)) {
+		 (data->stream_buffer_len < data->stream_frame_size)) {
 		return -ENOMEM;
+	}
+
+	sg_cfg = config->fsp_sg_cfg->p_sg_cfg[config->scan_group];
+
+	if ((sg_cfg == NULL) || (sg_cfg->p_vc_cfg == NULL)) {
+		return -EINVAL;
 	}
 
 	header = adc_adck_stream_header(data->stream_buffer);
 
 	if ((header->num_channels == 0U) ||
-	(header->num_channels > ADC_RENESAS_ADCK_STREAM_MAX_CHANNELS)) {
+		 (header->num_channels >
+		 ADC_RENESAS_ADCK_STREAM_MAX_CHANNELS)) {
 		return -EINVAL;
 	}
 
 	if (header->payload_size !=
-		((uint16_t)header->num_channels *
+		 ((uint16_t)header->num_channels *
 		 sizeof(uint16_t))) {
 		return -EINVAL;
 	}
+
+	channels = adc_adck_stream_channels(data->stream_buffer);
 
 	sample_payload =
 		adc_adck_stream_sample_payload(
 			data->stream_buffer,
 			header->num_channels);
 
-	pending_channels = data->stream_channels;
+	for (sample_index = 0U;
+		 sample_index < header->num_channels;
+		 sample_index++) {
 
-	for (uint8_t channel = 0U;
-		 pending_channels != 0U;
-		 channel++, pending_channels >>= 1U) {
 		uint8_t virtual_channel;
 		uint16_t raw;
 		fsp_err_t fsp_err;
 
-		if ((pending_channels & 1U) == 0U) {
-			continue;
-		}
-
-		if (sample_index >= header->num_channels) {
-			return -EOVERFLOW;
-		}
-
 		virtual_channel =
-			config->channel_to_vc[channel];
+			channels[sample_index].virtual_channel;
 
 		if (virtual_channel >=
-			ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS) {
+		    ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS) {
+			return -EINVAL;
+		}
+
+		if ((virtual_channel < sg_cfg->start_vc_ptr) ||
+			 (virtual_channel > sg_cfg->end_vc_ptr)) {
 			return -EINVAL;
 		}
 
@@ -651,22 +742,17 @@ static int adc_adck_stream_read_frame(const struct device *dev)
 		}
 
 		/*
-		 * Preserve the native 16-bit ADCK representation
-		 * selected by ADCR2.DFMT.
+		 * Store the sample at the same index as the
+		 * corresponding channel descriptor.
 		 *
-		 * memcpy() uses native-endian representation, which
-		 * is also compatible with direct DMA transfers.
+		 * channel_info[i] <-> sample_payload[i]
 		 */
-		memcpy(sample_payload +
-				   sample_index * sizeof(raw),
-			   &raw,
-			   sizeof(raw));
-
-		sample_index++;
-	}
-
-	if (sample_index != header->num_channels) {
-		return -EINVAL;
+		memcpy(
+			sample_payload +
+				((size_t)sample_index *
+				 sizeof(raw)),
+			&raw,
+			sizeof(raw));
 	}
 
 	header->timestamp_ns =
@@ -678,6 +764,13 @@ static int adc_adck_stream_read_frame(const struct device *dev)
 }
 
 #endif
+
+static void adc_adck_error_dispatch_isr(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+
+	adck_error_isr();
+}
 
 static int adc_adck_channel_setup(const struct device *dev,
 				  const struct adc_channel_cfg *channel_cfg)
@@ -801,29 +894,165 @@ static int adc_adck_validate_sequence(const struct device *dev, const struct adc
 	return 0;
 }
 
+static int adc_adck_raw_to_count_from_metadata(
+			enum adc_adck_data_format data_format,
+			uint8_t conversion_type,
+			uint8_t addition_count,
+			bool wiring_break_addition,
+			uint16_t raw,
+			uint16_t *sample)
+{
+	uint8_t conversion_count = 1U;
+	uint8_t extra_bits = 0U;
+	uint8_t result_bits = 12U;
+	uint8_t shift;
+	uint32_t mask;
+	uint16_t sum;
+	bool addition;
+
+	if (sample == NULL) {
+		return -EINVAL;
+	}
+
+	addition =
+		(conversion_type == ADCK_VC_CONV_TYPE_ADDITION_MODE) ||
+		(conversion_type == ADCK_VC_CONV_TYPE_MPX_ADDITION_MODE);
+
+	if ((conversion_type >=
+		ADCK_VC_CONV_TYPE_WIRING_BREAK_DETECT_MODE_1) &&
+		(conversion_type <=
+		ADCK_VC_CONV_TYPE_SELF_DIAG_WIRING_BREAK_DETECT_MODE_2_PULL_UP) &&
+		wiring_break_addition) {
+		addition = true;
+	}
+
+	if (addition) {
+		conversion_count =
+		(addition_count == ADCK_ADDITION_COUNT_FOUR) ? 4U : 2U;
+
+		extra_bits = (conversion_count == 4U) ? 2U : 1U;
+	}
+
+	switch (data_format) {
+	case ADC_ADCK_DATA_FORMAT_12_BIT_SIGNED_FIXED:
+		shift = 3U - extra_bits;
+		break;
+
+	case ADC_ADCK_DATA_FORMAT_12_BIT_SIGNED_INTEGER:
+	case ADC_ADCK_DATA_FORMAT_12_BIT_UNSIGNED_RIGHT:
+		shift = 0U;
+		break;
+
+	case ADC_ADCK_DATA_FORMAT_12_BIT_UNSIGNED_LEFT:
+	case ADC_ADCK_DATA_FORMAT_12_BIT_UNSIGNED_FIXED:
+		shift = 4U - extra_bits;
+		break;
+
+	case ADC_ADCK_DATA_FORMAT_10_BIT_UNSIGNED_FIXED:
+		shift = 6U - extra_bits;
+		result_bits = 10U;
+		break;
+
+	default:
+		return -ENOTSUP;
+	}
+
+	result_bits += extra_bits;
+	mask = (1UL << result_bits) - 1UL;
+
+	/* Decode the accumulation, then normalize to the ADC resolution. */
+	sum = (uint16_t)(((uint32_t)raw >> shift) & mask);
+	*sample = (uint16_t)(sum / conversion_count);
+
+	return 0;
+}
+
+static int adc_adck_raw_to_count(const struct device *dev,
+			uint8_t channel,
+			uint16_t raw,
+			uint16_t *sample)
+{
+	const struct adc_adck_config *config = dev->config;
+	const adck_extended_cfg_t *extend;
+	const adck_sg_generic_cfg_t *sg_cfg;
+	enum adc_adck_data_format data_format;
+	adck_vc_conv_type_t conv_type;
+	uint8_t addition_count;
+	uint8_t vc;
+	bool wiring_break_addition;
+
+	if ((sample == NULL) ||
+		(channel >= ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS) ||
+		(config->scan_group >= ADCK_NUMBER_OF_SG)) {
+		return -EINVAL;
+	}
+
+	extend = config->fsp_cfg->p_extend;
+	sg_cfg = config->fsp_sg_cfg->p_sg_cfg[config->scan_group];
+
+	if ((extend == NULL) || (sg_cfg == NULL) ||
+		(sg_cfg->p_vc_cfg == NULL)) {
+		return -EINVAL;
+	}
+
+	vc = config->channel_to_vc[channel];
+
+	if ((vc >= ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS) ||
+		(vc < sg_cfg->start_vc_ptr) ||
+		(vc > sg_cfg->end_vc_ptr)) {
+		return -EINVAL;
+	}
+
+	conv_type =
+		sg_cfg->p_vc_cfg[vc - sg_cfg->start_vc_ptr].vcr_b.conv_type;
+
+	data_format = (enum adc_adck_data_format)
+		extend->data_format_addition_count.adcr2_b.data_format;
+
+	addition_count =
+		extend->data_format_addition_count.adcr2_b.addition_count;
+
+	wiring_break_addition =
+		(extend->wiring_break_detect_cfg.odcr_b.addition_mode ==
+		ADCK_WIRING_BREAK_ADDITION_MODE_ENABLE);
+
+	return adc_adck_raw_to_count_from_metadata(
+		data_format, conv_type, addition_count,
+		wiring_break_addition, raw, sample);
+}
+
 static int adc_adck_read_channels(const struct device *dev)
 {
 	const struct adc_adck_config *config = dev->config;
 	struct adc_adck_data *data = dev->data;
 	uint32_t channels = data->channels;
 	uint16_t *buffer = data->buffer;
-	adc_channel_t ch;
 
-	for (ch = 0; channels != 0U; ch++, channels >>= 1) {
-		if ((channels & 0x1U) == 0U) {
+	for (uint8_t ch = 0U; channels != 0U; ch++, channels >>= 1U) {
+		uint8_t vc;
+		uint16_t raw;
+		fsp_err_t fsp_err;
+		int err;
+
+		if ((channels & 1U) == 0U) {
 			continue;
 		}
 
-		uint8_t vc = config->channel_to_vc[ch];
-		fsp_err_t fsp_err;
+		vc = config->channel_to_vc[ch];
 
 		if (vc >= ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS) {
 			return -EINVAL;
 		}
 
-		fsp_err = R_ADCK_Read(&data->fsp_ctrl, (adc_channel_t)vc, data);
+		fsp_err = R_ADCK_Read(&data->fsp_ctrl,
+				(adc_channel_t)vc, &raw);
 		if (fsp_err != FSP_SUCCESS) {
 			return adc_adck_fsp_err_to_errno(fsp_err);
+		}
+
+		err = adc_adck_raw_to_count(dev, ch, raw, buffer);
+		if (err != 0) {
+			return err;
 		}
 
 		buffer++;
@@ -831,6 +1060,7 @@ static int adc_adck_read_channels(const struct device *dev)
 
 	return 0;
 }
+
 #if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM_DMA)
 
 static void adc_adck_dma_callback(const struct device *dma_dev, void *user_data,
@@ -839,11 +1069,65 @@ static void adc_adck_dma_callback(const struct device *dma_dev, void *user_data,
 	struct adc_adck_data *data = user_data;
 	struct adc_adck_stream_header *header;
 	struct rtio_iodev_sqe *completed_sqe;
+	int completion_error;
 
 	ARG_UNUSED(dma_dev);
 	ARG_UNUSED(channel);
 
 	if (data == NULL) {
+		return;
+	}
+
+	/*
+	 * Confirm according to the RH850 DMA callback contract that reaching
+	 * this callback means the transfer no longer accesses its destination.
+	 */
+	data->dma_active = false;
+
+	if ((data->request_mode ==
+		 ADC_ADCK_REQUEST_STREAM_STOPPING) ||
+		 (data->request_mode ==
+		 ADC_ADCK_REQUEST_FAULT)) {
+		completed_sqe = data->stream_sqe;
+
+		/*
+		 * Prefer the original stream error. If none was stored, use
+		 * the DMA callback error or a generic I/O error.
+		 */
+		if (data->status != 0) {
+			completion_error = data->status;
+		} else if (status < 0) {
+			completion_error = status;
+		} else {
+			completion_error = -EIO;
+		}
+
+		/*
+		 * The DMA transfer has finished, so it is now safe to release
+		 * the destination buffer.
+		 *
+		 * Only return to IDLE if ADCK was also confirmed stopped.
+		 */
+		if (data->request_mode ==
+			 ADC_ADCK_REQUEST_STREAM_STOPPING) {
+			adc_adck_stream_reset(data);
+		} else {
+			/*
+			 * DMA is done but another hardware cleanup operation
+			 * failed. Release the buffer while retaining FAULT.
+			 */
+			data->stream_sqe = NULL;
+			data->stream_buffer = NULL;
+			data->stream_buffer_len = 0U;
+			data->active = false;
+		}
+
+		if (completed_sqe != NULL) {
+			rtio_iodev_sqe_err(
+				completed_sqe,
+				completion_error);
+		}
+
 		return;
 	}
 
@@ -890,9 +1174,10 @@ static void adc_adck_fsp_callback(adc_callback_args_t *args)
 		return;
 	}
 
-	if ((args->event == ADC_EVENT_ID_ERROR) || (args->event == ADC_EVENT_OVERWRITE_ERROR) ||
-		(args->event == ADC_EVENT_TRIGGER_OVERLAP_ERROR) ||
-		(args->event == ADC_EVENT_UPPER_LOWER_LIMIT_ERROR)) {
+	if ((args->event == ADC_EVENT_ID_ERROR) ||
+	    (args->event == ADC_EVENT_OVERWRITE_ERROR) ||
+	    (args->event == ADC_EVENT_TRIGGER_OVERLAP_ERROR) ||
+	    (args->event == ADC_EVENT_UPPER_LOWER_LIMIT_ERROR)) {
 		data->status = -EIO;
 		data->active = false;
 #if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM)
@@ -969,38 +1254,72 @@ static int adc_adck_start_read(const struct device *dev, const struct adc_sequen
 		return err;
 	}
 
-	data->status = 0;
-	data->active = false;
+	/*
+	 * Reject the finite request before modifying shared state if the
+	 * ADC is currently owned by a stream or another finite request.
+	 */
+	if (data->request_mode != ADC_ADCK_REQUEST_IDLE) {
+		return -EBUSY;
+	}
+
+	/*
+	 * Claim ownership before updating finite-request state or starting
+	 * the ADC context.
+	 */
+	data->request_mode = ADC_ADCK_REQUEST_FINITE;
+
 	data->buffer = sequence->buffer;
 	data->channels = sequence->channels;
+	data->status = 0;
+	data->active = false;
 
 	adc_context_start_read(&data->ctx, sequence);
 
 	return adc_context_wait_for_completion(&data->ctx);
 }
 
-static int adc_adck_read_async(const struct device *dev, const struct adc_sequence *sequence,
-			       struct k_poll_signal *async)
+static int adc_adck_read_common(const struct device *dev,
+		const struct adc_sequence *sequence,
+		bool asynchronous,
+		struct k_poll_signal *sig)
 {
 	struct adc_adck_data *data = dev->data;
 	int err;
 
-	adc_context_lock(&data->ctx, async != NULL, async);
+	if (sequence == NULL) {
+		return -EINVAL;
+	}
+
+	adc_context_lock(&data->ctx, asynchronous, sig);
 	err = adc_adck_start_read(dev, sequence);
 	adc_context_release(&data->ctx, err);
 
 	return err;
 }
 
-static int adc_adck_read(const struct device *dev, const struct adc_sequence *sequence)
+#ifdef CONFIG_ADC_ASYNC
+static int adc_adck_read_async(const struct device *dev,
+		const struct adc_sequence *sequence,
+		struct k_poll_signal *async)
+{
+	return adc_adck_read_common(dev, sequence, true, async);
+}
+#endif
+
+static int adc_adck_read(const struct device *dev,
+			const struct adc_sequence *sequence)
 {
 	const struct adc_adck_config *config = dev->config;
+
+	if (sequence == NULL) {
+		return -EINVAL;
+	}
 
 	if (!config->software_trigger) {
 		return -ENOTSUP;
 	}
 
-	return adc_adck_read_async(dev, sequence, NULL);
+	return adc_adck_read_common(dev, sequence, false, NULL);
 }
 
 #if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM)
@@ -1042,14 +1361,13 @@ static void adc_adck_submit(const struct device *dev,
 			return;
 		}
 #endif
-
+		data->request_mode = ADC_ADCK_REQUEST_STREAM;
 		data->stream_sqe = iodev_sqe;
 		data->stream_config = read_cfg;
 		data->stream_channels = channels;
 		data->stream_frame_size =
 			adc_adck_stream_frame_size(channels);
 		data->status = 0;
-		data->request_mode = ADC_ADCK_REQUEST_STREAM;
 		data->active = true;
 
 		/* Acquire next RTIO frame buffer */
@@ -1124,6 +1442,7 @@ static void adc_adck_submit(const struct device *dev,
 			adc_adck_stream_fail(dev, err);
 			return;
 		}
+		data->dma_active = true;
 #endif
 		/* Start ADCK only once */
 
@@ -1188,6 +1507,7 @@ static void adc_adck_submit(const struct device *dev,
 			adc_adck_stream_fail(dev, err);
 			return;
 		}
+		data->dma_active = true;
 #endif
 	} else {
 		rtio_iodev_sqe_err(iodev_sqe, -EBUSY);
@@ -1630,20 +1950,22 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 	const struct adc_adck_config *config = dev->config;
 	fsp_err_t fsp_err;
 
-	if (data->request_mode != ADC_ADCK_REQUEST_IDLE &&
-		data->request_mode != ADC_ADCK_REQUEST_FINITE) {
+	/*
+	 * Finite ownership must have been claimed by
+	 * adc_adck_start_read() before the ADC context was started.
+	 */
+	if (data->request_mode != ADC_ADCK_REQUEST_FINITE) {
 		data->status = -EBUSY;
 		adc_context_complete(ctx, -EBUSY);
 		return;
 	}
 
-	data->request_mode = ADC_ADCK_REQUEST_FINITE;
 	data->channels = ctx->sequence.channels;
 	data->active = true;
 
 	if (config->uses_th) {
 		fsp_err = R_ADCK_THEnable(&data->fsp_ctrl);
-		if ((fsp_err != FSP_SUCCESS) && (fsp_err != FSP_ERR_IN_USE)) {
+		if (fsp_err != FSP_SUCCESS) {
 			int err = adc_adck_fsp_err_to_errno(fsp_err);
 
 			data->status = err;
@@ -1666,14 +1988,28 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 static void adc_context_on_complete(struct adc_context *ctx, int status)
 {
 	struct adc_adck_data *data = CONTAINER_OF(ctx, struct adc_adck_data, ctx);
-	const struct device *dev = data->dev;
-	const struct adc_adck_config *config = dev->config;
+	const struct adc_adck_config *config = data->dev->config;
+	fsp_err_t fsp_err;
 
 	ARG_UNUSED(status);
 
 	data->active = false;
+
+	/*
+	 * The ADC context may only release hardware owned by a finite
+	 * request. Never stop hardware owned by an active stream.
+	 */
+	if (data->request_mode != ADC_ADCK_REQUEST_FINITE) {
+		return;
+	}
+
+	data->active = false;
+	fsp_err = R_ADCK_ScanGroupStop(&data->fsp_ctrl,
+			config->scan_group_mask);
+	if (fsp_err != FSP_SUCCESS) {
+		LOG_ERR("ADCK cleanup failed: %d", fsp_err);
+	}
 	data->request_mode = ADC_ADCK_REQUEST_IDLE;
-	(void)R_ADCK_ScanGroupStop(&data->fsp_ctrl, config->scan_group_mask);
 }
 
 static void adc_context_update_buffer_pointer(struct adc_context *ctx, bool repeat_sampling)
@@ -1750,7 +2086,8 @@ static int adc_adck_init(const struct device *dev)
 	fsp_err = R_ADCK_Open(&data->fsp_ctrl, config->fsp_cfg);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADCK_Open failed: %d", fsp_err);
-		return adc_adck_fsp_err_to_errno(fsp_err);
+		err = adc_adck_fsp_err_to_errno(fsp_err);
+		return err;
 	}
 
 	fsp_err = R_ADCK_CallbackSet(&data->fsp_ctrl, adc_adck_fsp_callback, (void *)dev,
@@ -1758,21 +2095,21 @@ static int adc_adck_init(const struct device *dev)
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADCK_CallbackSet failed: %d", fsp_err);
 		err = adc_adck_fsp_err_to_errno(fsp_err);
-		goto close;
+		(void)R_ADCK_Close(&data->fsp_ctrl);
+		return err;
 	}
 
 	fsp_err = R_ADCK_ScanCfg(&data->fsp_ctrl, config->fsp_sg_cfg);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("R_ADCK_ScanCfg failed: %d", fsp_err);
 		err = adc_adck_fsp_err_to_errno(fsp_err);
-		goto close;
-	}
-
-	if (config->irq_config_func != NULL) {
-		config->irq_config_func(dev);
+		(void)R_ADCK_Close(&data->fsp_ctrl);
+		return err;
 	}
 
 #if defined(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM_DMA)
+
+	data->dma_active = false;
 
 	fsp_err = R_ADCK_InfoGet(
 			&data->fsp_ctrl,
@@ -1780,6 +2117,7 @@ static int adc_adck_init(const struct device *dev)
 
 	if (fsp_err != FSP_SUCCESS) {
 		err = adc_adck_fsp_err_to_errno(fsp_err);
+		(void)R_ADCK_Close(&data->fsp_ctrl);
 		return err;
 	}
 
@@ -1793,13 +2131,13 @@ static int adc_adck_init(const struct device *dev)
 
 #endif
 
+	if (config->irq_config_func != NULL) {
+		config->irq_config_func(dev);
+	}
+
 	adc_context_unlock_unconditionally(&data->ctx);
 
 	return 0;
-
-close:
-	(void)R_ADCK_Close(&data->fsp_ctrl);
-	return err;
 }
 
 #define ADCK_GROUP_MASK_0 ADC_GROUP_MASK_0
@@ -1846,6 +2184,11 @@ close:
 #define ADCK_FSP_RESOLUTION_10_bit_unsigned_fixed_point  ADC_RESOLUTION_10_BIT
 #define ADCK_FSP_RESOLUTION_12_bit_unsigned_right_justified ADC_RESOLUTION_12_BIT
 #define ADCK_FSP_RESOLUTION_12_bit_unsigned_left_justified  ADC_RESOLUTION_12_BIT
+#define ADCK_ADDITION_COUNT_2 0U
+#define ADCK_ADDITION_COUNT_4 1U
+#define ADCK_WAIT_TIME_MAX               0x3FFFU
+#define ADCK_DIRECT_MPX_MIN_WAIT_CYCLES  40U
+#define ADCK_TH_IMPLEMENTED_MASK 0x0FU
 #define ADCK_DATA_FORMAT(idx)                                                                      \
 	UTIL_CAT(ADCK_DATA_FORMAT_, DT_INST_STRING_TOKEN(idx, renesas_data_format))
 #define ADCK_RESOLUTION(idx)                                                                       \
@@ -1854,6 +2197,58 @@ close:
 	UTIL_CAT(ADCK_FSP_RESOLUTION_, DT_INST_STRING_TOKEN(idx, renesas_data_format))
 #define ADCK_SCAN_MODE(idx)                                              \
 	UTIL_CAT(ADCK_SCAN_MODE_, DT_INST_STRING_TOKEN(idx, renesas_scan_mode))
+#define ADCK_ADDITION_COUNT(idx) \
+	UTIL_CAT(ADCK_ADDITION_COUNT_, DT_INST_PROP(idx, renesas_addition_count))
+#define ADCK_NODE_WAIT_TIME(node_id, entry) \
+	COND_CODE_1(DT_PROP_HAS_IDX(node_id, renesas_wait_time_cycles, entry), \
+		(DT_PROP_BY_IDX(node_id, renesas_wait_time_cycles, entry)), \
+		(0U))
+#define ADCK_WAIT_TIME(idx, entry) \
+	ADCK_NODE_WAIT_TIME(DT_DRV_INST(idx), entry)
+#define ADCK_NODE_WAIT_TABLE_COUNT(node_id) \
+	COND_CODE_1(DT_NODE_HAS_PROP(node_id, renesas_wait_time_cycles), \
+		(DT_PROP_LEN(node_id, renesas_wait_time_cycles)), \
+		(0U))
+#define ADCK_WAIT_ENTRY_VALIDATE(idx, entry) \
+	BUILD_ASSERT(ADCK_WAIT_TIME(idx, entry) <= ADCK_WAIT_TIME_MAX, \
+		"ADCK wait value exceeds the 14-bit WAITTIME field");
+
+#define ADCK_CHILD_OR_NON_HOLD_PHYSICAL_MASK(child) \
+		| ((!ADCK_CHILD_IS_HOLD(child) && \
+		!ADCK_CHILD_IS_AD_CORE_DIAG(child) && \
+		!ADCK_CHILD_IS_ADVAL(child)) ? \
+		BIT64(ADCK_CHILD_PHYSICAL_CHANNEL(child) & 0x3fU) : 0ULL)
+
+#define ADCK_NON_HOLD_PHYSICAL_MASK(idx) \
+		(0ULL DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_NON_HOLD_PHYSICAL_MASK))
+
+#define ADCK_CHILD_OR_VC_MASK(child) \
+	| BIT64(ADCK_CHILD_VC(child) & 0x3fU)
+
+#define ADCK_CONFIGURED_VC_MASK(idx) \
+	(0ULL DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_VC_MASK))
+
+#define ADCK_CHILD_ADD_COUNT(child) + 1U
+
+#define ADCK_CHANNEL_CHILD_COUNT(idx) \
+	(0U DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_ADD_COUNT))
+
+#define ADCK_CHILD_ADD_HOLD_COUNT(child) \
+	+ (ADCK_CHILD_IS_HOLD(child) ? 1U : 0U)
+
+#define ADCK_HOLD_CHANNEL_COUNT(idx) \
+	(0U DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_ADD_HOLD_COUNT))
+
+#define ADCK_CHILD_OR_CHANNEL_MASK(child) \
+	| BIT(DT_REG_ADDR(child) & 0x1fU)
+
+#define ADCK_CONFIGURED_CHANNEL_MASK(idx) \
+	(0U DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_CHANNEL_MASK))
 
 #define ADCK_TRIGGER_METHOD_software ADCK_SG_TRIGGER_METHOD_SW
 #define ADCK_TRIGGER_METHOD_hardware ADCK_SG_TRIGGER_METHOD_HW
@@ -1875,6 +2270,62 @@ close:
 #define ADCK_TRIGGER_SOURCE_pic2     ADCK_ADCK0_TRIGGER_SRC_PIC2
 #define ADCK_TRIGGER_SOURCE(idx)                                                                   \
 	UTIL_CAT(ADCK_TRIGGER_SOURCE_, DT_INST_STRING_TOKEN(idx, renesas_trigger_source))
+
+#define ADCK_TRIGGER_IS_TH_B(idx) \
+	DT_INST_ENUM_HAS_VALUE(idx, renesas_trigger_method, th_b)
+
+#define ADCK_SELECTED_TH_GROUP(idx) \
+	(ADCK_TRIGGER_IS_TH_B(idx) ? ADCK_TH_GROUP_B : ADCK_TH_GROUP_A)
+
+#define ADCK_TRIGGER_IS_SOFTWARE_STARTED(idx) \
+	(ADCK_TRIGGER_IS_SOFTWARE(idx) || ADCK_TRIGGER_IS_TH(idx))
+
+#define ADCK_TH_SUPPORTED_MASK(idx) \
+	DT_INST_PROP(idx, renesas_th_supported_mask)
+
+#define ADCK_INSTANCE_USES_TH(idx) \
+	(ADCK_TH_CHANNEL_MASK(idx) != 0U)
+
+#define ADCK_CHILD_IS_IO_DIAGNOSTIC(child) \
+	((ADCK_CHILD_CONVERSION_TYPE(child) >= 7U) && \
+	(ADCK_CHILD_CONVERSION_TYPE(child) <= 13U))
+
+#define ADCK_CHILD_IS_VMON_INPUT(child) \
+	((DT_PROP(DT_PARENT(child), renesas_unit) == 0U) && \
+	(ADCK_CHILD_PHYSICAL_CHANNEL(child) >= 28U) && \
+	(ADCK_CHILD_PHYSICAL_CHANNEL(child) <= 31U))
+
+#define ADCK_LIMIT_TABLE_ENTRY(idx, n) \
+	[n] = { \
+		.vcullmtbr = \
+		((uint32_t)DT_INST_PROP_BY_IDX( \
+			idx, renesas_upper_limit_values, n) << 16) | \
+		(uint32_t)DT_INST_PROP_BY_IDX( \
+			idx, renesas_lower_limit_values, n), \
+	}
+
+#define ADCK_LIMIT_VALUE_VALIDATE(node_id, prop, index)                 \
+	BUILD_ASSERT(                                                  \
+		(uint64_t)DT_PROP_BY_IDX(node_id, prop, index) <=         \
+		0xFFFFULL,                                      \
+		"ADCK limit threshold must fit in 16 bits");
+
+#define ADCK_NODE_RESOLUTION(node_id) \
+	UTIL_CAT(ADCK_RESOLUTION_, \
+		DT_STRING_TOKEN(node_id, renesas_data_format))
+
+#define ADCK_CHILD_LIMIT_IRQ_MASK(child) \
+	| (DT_PROP_OR(child, renesas_limit_interrupt, 0) ? \
+	BIT64(ADCK_CHILD_VC(child)) : 0ULL)
+
+#define ADCK_LIMIT_IRQ_MASK(idx) \
+	(0ULL DT_INST_FOREACH_CHILD_STATUS_OKAY( \
+		idx, ADCK_CHILD_LIMIT_IRQ_MASK))
+
+#define ADCK0_TRIGGER_SOURCE_disabled ADCK_ADCK0_TRIGGER_SRC_DISABLE
+#define ADCK0_TRIGGER_SOURCE_pic2     ADCK_ADCK0_TRIGGER_SRC_PIC2
+#define ADCK0_TRIGGER_SOURCE(idx)                                                                  \
+	UTIL_CAT(ADCK0_TRIGGER_SOURCE_, DT_INST_STRING_TOKEN(idx, renesas_adck0_trigger_source))
 
 #define ADCK_AD_TIMER_TRIGGER_software ADCK_AD_TIMER_TRIGGER_METHOD_SW
 #define ADCK_AD_TIMER_TRIGGER_hardware ADCK_AD_TIMER_TRIGGER_METHOD_HW
@@ -1931,9 +2382,63 @@ close:
 #define ADCK_CHILD_IS_HOLD(child)                                                                  \
 	(ADCK_CHILD_CONVERSION_TYPE(child) == ADCK_CHILD_CONVERSION_TYPE_HOLD)
 
-#define ADCK_CHILD_USES_PHYSICAL_INPUT(child)                                                      \
-	(!ADCK_CHILD_IS_HOLD(child) && (ADCK_CHILD_CONVERSION_TYPE(child) != 3U) &&                \
-	 (ADCK_CHILD_CONVERSION_TYPE(child) != 7U) && (ADCK_CHILD_CONVERSION_TYPE(child) != 14U))
+#define ADCK_CHILD_USES_PHYSICAL_INPUT(child) \
+	(!ADCK_CHILD_IS_HOLD(child) && \
+	!ADCK_CHILD_IS_AD_CORE_DIAG(child) && \
+	!ADCK_CHILD_IS_ADVAL(child))
+
+#define ADCK_CHILD_WAIT_TABLE(child) \
+	DT_PROP_OR(child, renesas_wait_table, 0)
+
+#define ADCK_CHILD_MPX_VALUE(child) \
+	DT_PROP_OR(child, renesas_mpx_value, 0)
+
+#define ADCK_CHILD_IS_MPX(child) \
+	(DT_ENUM_HAS_VALUE(child, renesas_conversion_type, mpx_normal) || \
+	DT_ENUM_HAS_VALUE(child, renesas_conversion_type, mpx_addition))
+
+#define ADCK_CHILD_IS_AD_CORE_DIAG(child) \
+	DT_ENUM_HAS_VALUE(child, renesas_conversion_type, \
+		ad_core_self_diagnostic)
+
+#define ADCK_CHILD_IS_ADVAL(child) \
+	DT_ENUM_HAS_VALUE(child, renesas_conversion_type, \
+		ad_conversion_path_diagnostic)
+
+#define ADCK_NODE_WAIT_VALUE_0(node_id) 0U
+#define ADCK_NODE_WAIT_VALUE_1(node_id) ADCK_NODE_WAIT_TIME(node_id, 0)
+#define ADCK_NODE_WAIT_VALUE_2(node_id) ADCK_NODE_WAIT_TIME(node_id, 1)
+#define ADCK_NODE_WAIT_VALUE_3(node_id) ADCK_NODE_WAIT_TIME(node_id, 2)
+#define ADCK_NODE_WAIT_VALUE_4(node_id) ADCK_NODE_WAIT_TIME(node_id, 3)
+#define ADCK_NODE_WAIT_VALUE_5(node_id) ADCK_NODE_WAIT_TIME(node_id, 4)
+#define ADCK_NODE_WAIT_VALUE_6(node_id) ADCK_NODE_WAIT_TIME(node_id, 5)
+#define ADCK_NODE_WAIT_VALUE_7(node_id) ADCK_NODE_WAIT_TIME(node_id, 6)
+#define ADCK_NODE_WAIT_VALUE_8(node_id) ADCK_NODE_WAIT_TIME(node_id, 7)
+
+#define ADCK_CHILD_SELECTED_WAIT_VALUE(child) \
+	UTIL_CAT(ADCK_NODE_WAIT_VALUE_, \
+		ADCK_CHILD_WAIT_TABLE(child))(DT_PARENT(child))
+
+#define ADCK_CHILD_OR_IS_MPX(child) \
+	|| ADCK_CHILD_IS_MPX(child)
+
+#define ADCK_CHILD_OR_IS_HOLD(child) \
+	|| ADCK_CHILD_IS_HOLD(child)
+
+#define ADCK_CHILD_OR_HAS_WAIT(child) \
+	|| (ADCK_CHILD_WAIT_TABLE(child) != 0U)
+
+#define ADCK_INSTANCE_HAS_MPX(idx) \
+	(false DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_IS_MPX))
+
+#define ADCK_INSTANCE_HAS_HOLD(idx) \
+	(false DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_IS_HOLD))
+
+#define ADCK_INSTANCE_HAS_WAIT(idx) \
+	(false DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_HAS_WAIT))
 
 #define ADCK_VC_CONV_TYPE_0  ADCK_VC_CONV_TYPE_NORMAL
 #define ADCK_VC_CONV_TYPE_1  ADCK_VC_CONV_TYPE_HOLD
@@ -1960,8 +2465,9 @@ close:
 			    ? DT_PROP_OR(child, renesas_adval_data, 0)                             \
 			    : ADCK_CHILD_PHYSICAL_CHANNEL(child)))
 
-#define ADCK_CHILD_TH_CHANNEL_MASK_OR(child)                                                       \
-	| (ADCK_CHILD_IS_HOLD(child) ? BIT(ADCK_CHILD_PHYSICAL_CHANNEL(child)) : 0U)
+#define ADCK_CHILD_TH_CHANNEL_MASK_OR(child) \
+	| (ADCK_CHILD_IS_HOLD(child) ? \
+	BIT(ADCK_CHILD_PHYSICAL_CHANNEL(child) & 0x1fU) : 0U)
 
 #define ADCK_TH_CHILD_CHANNEL_MASK(idx)                                                            \
 	(0U DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, ADCK_CHILD_TH_CHANNEL_MASK_OR))
@@ -1972,6 +2478,19 @@ close:
 #define ADCK_TH_ENABLE_FROM_MASK(idx, th)                                                          \
 	(((ADCK_TH_CHANNEL_MASK(idx) & BIT(th)) != 0U) ? ADC_TH_UNIT_CFG_ENABLE                    \
 						       : ADC_TH_UNIT_CFG_DISABLE)
+
+#define ADCK_TH_GROUP_FROM_MASK(idx, th) \
+		(((ADCK_TH_CHANNEL_MASK(idx) & BIT(th)) != 0U) ? \
+		ADCK_SELECTED_TH_GROUP(idx) : ADCK_TH_GROUP_A)
+
+#define ADCK_CHILD_OR_MPX_PHYSICAL_MASK(child) \
+	| (ADCK_CHILD_IS_MPX(child) ? \
+	BIT64(ADCK_CHILD_PHYSICAL_CHANNEL(child) & 0x3fU) : \
+	0ULL)
+
+#define ADCK_MPX_PHYSICAL_MASK(idx) \
+	(0ULL DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, \
+		ADCK_CHILD_OR_MPX_PHYSICAL_MASK))
 
 #define ADCK_CHILD_START_VC(child) DT_PROP(DT_PARENT(child), renesas_start_virtual_channel)
 
@@ -1992,8 +2511,45 @@ close:
 			     ADCK_CHILD_PHYSICAL_CHANNEL_IS_VALID(child),                          \
 		     "ADCK physical channel is unavailable on this instance");                     \
 	BUILD_ASSERT(!ADCK_CHILD_IS_HOLD(child) ||                                                 \
-			     (ADCK_CHILD_PHYSICAL_CHANNEL(child) < ADCK_NUMBER_OF_TH_UNIT),        \
-		     "ADCK T&H channel is out of range");
+		(ADCK_CHILD_PHYSICAL_CHANNEL(child) < ADCK_NUMBER_OF_TH_UNIT),        \
+		"ADCK T&H channel is out of range"); \
+	BUILD_ASSERT(ADCK_CHILD_MPX_VALUE(child) <= 7U, \
+		"ADCK MPX value must be in range 0..7"); \
+	BUILD_ASSERT(ADCK_CHILD_WAIT_TABLE(child) <= 8U, \
+		"ADCK wait selector must be in range 0..8"); \
+	BUILD_ASSERT(ADCK_CHILD_IS_MPX(child) || \
+		(ADCK_CHILD_MPX_VALUE(child) == 0U), \
+		"ADCK non-MPX conversion requires MPX value zero"); \
+	BUILD_ASSERT(!ADCK_CHILD_IS_MPX(child) || \
+		(ADCK_CHILD_WAIT_TABLE(child) != 0U), \
+		"ADCK MPX conversion requires a wait table"); \
+	BUILD_ASSERT(!ADCK_CHILD_IS_MPX(child) || \
+		(ADCK_CHILD_SELECTED_WAIT_VALUE(child) >= \
+		ADCK_DIRECT_MPX_MIN_WAIT_CYCLES), \
+		"ADCK direct MPX requires at least 40 CLKAD wait cycles"); \
+	BUILD_ASSERT(!(ADCK_CHILD_IS_HOLD(child) || \
+		ADCK_CHILD_IS_AD_CORE_DIAG(child) || \
+		ADCK_CHILD_IS_ADVAL(child)) || \
+		(ADCK_CHILD_WAIT_TABLE(child) == 0U), \
+		"ADCK hold, AD-core diagnostic and ADVAL cannot use wait"); \
+	BUILD_ASSERT(DT_PROP_OR(child, renesas_upper_lower_limit_table, 0) <= 8U, \
+		"ADCK upper/lower limit selector must be in range 0..8"); \
+	BUILD_ASSERT(!ADCK_CHILD_IS_IO_DIAGNOSTIC(child) || \
+		!ADCK_CHILD_IS_VMON_INPUT(child), \
+		"ADCK pin-level and wiring-break diagnosis require an external input"); \
+	BUILD_ASSERT(!ADCK_CHILD_IS_ADVAL(child) || \
+		!DT_ENUM_HAS_VALUE(DT_PARENT(child), renesas_data_format, \
+			10_bit_unsigned_fixed_point), \
+		"ADCK ADVAL requires a 12-bit data format"); \
+	BUILD_ASSERT(                                                         \
+		!DT_PROP_OR(child, renesas_limit_interrupt, 0) ||                     \
+		(DT_PROP_OR(child, renesas_upper_lower_limit_table, 0) != 0U),  \
+		"ADCK limit interrupt requires a non-zero limit table"); \
+	BUILD_ASSERT(                                                         \
+		DT_PROP_OR(child, zephyr_resolution,                           \
+		ADCK_NODE_RESOLUTION(DT_PARENT(child))) ==          \
+		ADCK_NODE_RESOLUTION(DT_PARENT(child)),                \
+		"ADCK channel resolution must match controller data format");
 
 #define ADCK_CHILD_CHANNEL_TO_VC_INIT(child) [DT_REG_ADDR(child)] = ADCK_CHILD_VC(child),
 
@@ -2049,7 +2605,33 @@ close:
 			DT_CLOCKS_CELL_BY_IDX(DT_DRV_INST(idx), i, clk_id),	\
 	}
 
+#define ADCK_HAS_ERROR_IRQ(idx) \
+	DT_INST_IRQ_HAS_NAME(idx, error)
+
+#define ADCK_ERROR_IRQ(idx) \
+	COND_CODE_1(ADCK_HAS_ERROR_IRQ(idx), \
+		(DT_INST_IRQ_BY_NAME(idx, error, irq)), \
+		(FSP_INVALID_VECTOR))
+
+#define ADCK_ERROR_IPL(idx) \
+	COND_CODE_1(ADCK_HAS_ERROR_IRQ(idx), \
+		(DT_INST_IRQ_BY_NAME(idx, error, priority)), \
+		(BSP_IRQ_DISABLED))
+
+#define ADCK_CONNECT_ERROR_IRQ(idx) \
+	COND_CODE_1(ADCK_HAS_ERROR_IRQ(idx), \
+		(IRQ_CONNECT(DT_INST_IRQ_BY_NAME(idx, error, irq), \
+			DT_INST_IRQ_BY_NAME(idx, error, priority), \
+			adc_adck_error_dispatch_isr, \
+			DEVICE_DT_INST_GET(idx), 0); \
+		irq_enable(DT_INST_IRQ_BY_NAME(idx, error, irq));), \
+		())
+
 #define ADCK_DEVICE_INIT(idx)                                                                      \
+	IF_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM_DMA, \
+		(BUILD_ASSERT( \
+			DT_INST_NODE_HAS_PROP(idx, dmas), \
+			"ADCK DMA mode requires a dmas property");)) \
 	BUILD_ASSERT(!IS_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM) ||                          \
 		!DT_INST_ENUM_HAS_VALUE(idx, renesas_scan_mode, multicycle),                       \
 			"ADCK streaming does not support multicycle scan mode");                   \
@@ -2067,6 +2649,89 @@ close:
 	BUILD_ASSERT(IS_ENABLED(CONFIG_ADC_ASYNC) || ADCK_TRIGGER_IS_SOFTWARE(idx) ||              \
 				IS_ENABLED(CONFIG_ADC_STREAM),		\
 			 "Hardware-triggered ADCK requires CONFIG_ADC_ASYNC");                     \
+	BUILD_ASSERT(ADCK_NODE_WAIT_TABLE_COUNT(DT_DRV_INST(idx)) <= 8U, \
+		"ADCK supports at most eight wait table entries"); \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 0) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 1) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 2) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 3) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 4) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 5) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 6) \
+	ADCK_WAIT_ENTRY_VALIDATE(idx, 7) \
+	BUILD_ASSERT(!(ADCK_INSTANCE_HAS_HOLD(idx) && \
+		ADCK_INSTANCE_HAS_WAIT(idx)), \
+		"ADCK wait is prohibited in a scan group containing hold conversion"); \
+	BUILD_ASSERT((ADCK_MPX_PHYSICAL_MASK(idx) & \
+		ADCK_TH_CHANNEL_MASK(idx)) == 0ULL, \
+		"ADCK MPX cannot use a T&H-enabled physical input"); \
+	BUILD_ASSERT((ADCK_TH_CHANNEL_MASK(idx) & \
+		~ADCK_TH_IMPLEMENTED_MASK) == 0U, \
+		"Current ADCK FSP integration supports only T&H0..T&H3"); \
+	BUILD_ASSERT((ADCK_TH_CHANNEL_MASK(idx) & \
+		~ADCK_TH_SUPPORTED_MASK(idx)) == 0U, \
+		"ADCK requested T&H circuit is unavailable on this instance"); \
+	BUILD_ASSERT(!ADCK_INSTANCE_USES_TH(idx) || \
+		ADCK_TRIGGER_IS_TH(idx), \
+		"ADCK T&H requires trigger-method th-a or th-b"); \
+	BUILD_ASSERT(!ADCK_TRIGGER_IS_TH(idx) || \
+		ADCK_INSTANCE_USES_TH(idx), \
+		"ADCK T&H trigger requires at least one enabled circuit"); \
+	BUILD_ASSERT(!ADCK_INSTANCE_USES_TH(idx) || \
+		ADCK_INSTANCE_HAS_HOLD(idx), \
+		"ADCK T&H requires at least one hold-value channel"); \
+	BUILD_ASSERT(ADCK_TH_CHANNEL_MASK(idx) == \
+		ADCK_TH_CHILD_CHANNEL_MASK(idx), \
+		"ADCK enabled T&H circuits must match hold-value channels"); \
+	BUILD_ASSERT((ADCK_NON_HOLD_PHYSICAL_MASK(idx) & \
+		ADCK_TH_CHANNEL_MASK(idx)) == 0ULL, \
+		"ADCK T&H-enabled inputs require hold-value conversion"); \
+	BUILD_ASSERT(ADCK_HOLD_CHANNEL_COUNT(idx) == \
+		POPCOUNT(ADCK_TH_CHILD_CHANNEL_MASK(idx)), \
+		"ADCK each T&H circuit may be used only once per scan"); \
+	BUILD_ASSERT(DT_INST_PROP_LEN(idx, renesas_physical_channel_mask) == 2U, \
+		"ADCK physical-channel-mask must contain two cells"); \
+	BUILD_ASSERT(DT_INST_PROP(idx, channel_available_mask) == \
+		ADCK_CONFIGURED_CHANNEL_MASK(idx), \
+		"ADCK channel-available-mask must match configured children"); \
+	BUILD_ASSERT(ADCK_START_VC(idx) < \
+		ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS, \
+		"ADCK start VC is out of range"); \
+	BUILD_ASSERT(ADCK_END_VC(idx) < \
+		ADC_RENESAS_ADCK_MAX_VIRTUAL_CHANNELS, \
+		"ADCK end VC is out of range"); \
+	BUILD_ASSERT(ADCK_CONFIGURED_VC_MASK(idx) == \
+		GENMASK64(ADCK_END_VC(idx) & 0x3fU, \
+		ADCK_START_VC(idx) & 0x3fU), \
+		"ADCK must configure every VC in the scan range"); \
+	BUILD_ASSERT(ADCK_CHANNEL_CHILD_COUNT(idx) == \
+		(ADCK_END_VC(idx) - ADCK_START_VC(idx) + 1U), \
+		"ADCK VC mappings must be unique"); \
+	BUILD_ASSERT(                                                        \
+		DT_INST_PROP_LEN(idx, renesas_lower_limit_values) ==           \
+		ADCK_UPPER_LOWER_LIMIT_TABLE_ENTRIES,                  \
+		"ADCK requires exactly eight lower-limit entries");           \
+	BUILD_ASSERT(                                                        \
+		DT_INST_PROP_LEN(idx, renesas_upper_limit_values) ==                               \
+		ADCK_UPPER_LOWER_LIMIT_TABLE_ENTRIES,                                              \
+		"ADCK requires exactly eight upper-limit entries");                                \
+	DT_FOREACH_PROP_ELEM(DT_DRV_INST(idx), renesas_lower_limit_values,                         \
+			ADCK_LIMIT_VALUE_VALIDATE)                                                 \
+	DT_FOREACH_PROP_ELEM(DT_DRV_INST(idx), renesas_upper_limit_values,                         \
+			ADCK_LIMIT_VALUE_VALIDATE)                                                 \
+	BUILD_ASSERT(                                                                              \
+		((ADCK_LIMIT_IRQ_MASK(idx) == 0ULL) &&                                             \
+		!DT_INST_PROP_OR(idx, renesas_trigger_overlap_interrupt, 0)) ||                    \
+		ADCK_HAS_ERROR_IRQ(idx),                                                           \
+		"ADCK enabled error sources require an error IRQ");                                \
+	BUILD_ASSERT(                                                                              \
+		(uint64_t)DT_INST_PROP(idx, renesas_ad_timer_initial_phase) <=                     \
+		ADCK_AD_TIMER_MAX,                                                                 \
+		"ADCK A/D timer initial phase exceeds the 21-bit field");                          \
+	BUILD_ASSERT(                                                                              \
+		(uint64_t)DT_INST_PROP(idx, renesas_ad_timer_cycle) <=                             \
+		ADCK_AD_TIMER_MAX,                                                                 \
+		"ADCK A/D timer cycle exceeds the 21-bit field");                                  \
 	DT_INST_FOREACH_CHILD_STATUS_OKAY(idx, ADCK_CHILD_VALIDATE)                                \
 	static const uint8_t adc_adck_channel_to_vc_##idx[ADC_RENESAS_ADCK_MAX_ZEPHYR_CHANNELS] =  \
 		{ADCK_CHANNEL_TO_VC_INVALID_INIT,                                                  \
@@ -2077,11 +2742,11 @@ close:
 		.adck_trigger_src = ADCK_TRIGGER_SOURCE(idx),                                      \
 		.trigger_method = ADCK_TRIGGER_METHOD(idx),                                        \
 		.sg_ctrl =                                                                         \
-			{									\
-				.sgcr_b.end_int = ADCK_SG_END_INT_ENABLE,			\
+			{                                                                          \
+				.sgcr_b.end_int = ADCK_SG_END_INT_ENABLE,                          \
 				.sgcr_b.scan_mode = ADCK_SCAN_MODE(idx),			\
 			},									\
-		.scan_cycle = 0U,								\
+		.scan_cycle = 0U,                                                               \
 		.start_vc_ptr = ADCK_START_VC(idx),						\
 		.end_vc_ptr = ADCK_END_VC(idx),							\
 		.p_vc_cfg = &adc_adck_vc_cfg_##idx[ADCK_START_VC(idx)],				\
@@ -2097,11 +2762,13 @@ close:
 		.tsn0_measure_cfg = ADCK_TSN0_MEASURE_CFG_DISABLE,				\
 	};											\
 	static const adck_extended_cfg_t adc_adck_extend_cfg_##idx = {				\
-		.suspend_method = ADCK_SUSPEND_METHOD_SYNCHRONOUS,				\
+		.suspend_method = ADCK_INSTANCE_USES_TH(idx) ?                                  \
+				ADCK_SUSPEND_METHOD_ASYNCHRONOUS :                              \
+				ADCK_SUSPEND_METHOD_SYNCHRONOUS,                                \
 		.data_format_addition_count =							\
 			{									\
 				.adcr2_b.data_format = ADCK_DATA_FORMAT(idx),			\
-				.adcr2_b.addition_count = ADCK_ADDITION_COUNT_TWICE,		\
+				.adcr2_b.addition_count = ADCK_ADDITION_COUNT(idx),             \
 			},									\
 		.safety_cfg =									\
 			{									\
@@ -2109,12 +2776,24 @@ close:
 				.sftcr_b.parity = ADCK_PARITY_ERROR_INT_DISABLE,		\
 				.sftcr_b.overwrite = ADCK_OVERWRITE_ERROR_INT_DISABLE,		\
 				.sftcr_b.read_clear = ADCK_CLEAR_AFTER_READ_DISABLE,		\
-				.sftcr_b.trigger_overlap = ADCK_TRIGGER_OVERLAP_DISABLE,	\
+				.sftcr_b.trigger_overlap = DT_INST_PROP_OR(idx,                 \
+							renesas_trigger_overlap_interrupt, 0) ? \
+							ADCK_TRIGGER_OVERLAP_ENABLE :           \
+							ADCK_TRIGGER_OVERLAP_DISABLE,           \
 			},									\
-		.ul_limit_cfg =									\
-			{									\
-				.vc_ul_limit_int_0 = 0U,					\
-				.vc_ul_limit_int_1 = 0U,					\
+		.ul_limit_cfg = {                                                               \
+			.ul_limit_tb = {                                                        \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 0), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 1), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 2), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 3), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 4), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 5), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 6), \
+				ADCK_LIMIT_TABLE_ENTRY(idx, 7), \
+			}, \
+				.vc_ul_limit_int_0 = (uint32_t)ADCK_LIMIT_IRQ_MASK(idx),           \
+				.vc_ul_limit_int_1 = (uint32_t)(ADCK_LIMIT_IRQ_MASK(idx) >> 32),   \
 				.pwm_diag_ul_limit_int = ADCK_PWM_DIAG_UL_LIMIT_INT_DISABLE,	\
 				.sg_diag_ul_limit_int = ADCK_SG_DIAG_UL_LIMIT_INT_DISABLE,	\
 			},									\
@@ -2126,16 +2805,16 @@ close:
 				.smpcr_b.extended_period =					\
 					ADCK_EXTENDED_SAMPLING_PERIOD_60_STATES,		\
 			},									\
-		.pin_lv_self_diag_cfg =								\
-			{									\
+		.pin_lv_self_diag_cfg = { \
 				.tdcr_b.voltage_level =						\
-					ADCK_PIN_LV_SELF_DIAG_VOL_EVEN_AVSS_ODD_AVCC,		\
+				(adck_pin_lv_self_diag_vol_t) \
+				DT_INST_PROP(idx, renesas_pin_self_diagnostic_level), \
 				.tdcr_b.th_path_self_diag = ADCK_TH_PATH_SELF_DIAG_DISABLE,	\
 			},									\
-		.wiring_break_detect_cfg =							\
-			{									\
+		.wiring_break_detect_cfg = { \
 				.odcr_b.pulse_width =						\
-					ADCK_WIRING_BREAK_DETECT_PULSE_WIDTH_1_STATE,		\
+				(adck_wiring_break_detect_pulse_width_t) \
+				(DT_INST_PROP(idx, renesas_wiring_break_pulse_width) + 3U), \
 				.odcr_b.addition_mode = ADCK_WIRING_BREAK_ADDITION_MODE_DISABLE,\
 			},									\
 		.mpx_cfg =									\
@@ -2144,15 +2823,22 @@ close:
 				.spi_command_information = 0U,					\
 				.mpx_int = ADCK_MPX_INT_DISABLE,				\
 			},									\
-		.trigger_overlap_detect = ADCK_TRIGGER_OVERLAP_DETECT_DISABLE,			\
+		.trigger_overlap_detect =                                                          \
+				DT_INST_PROP_OR(idx, renesas_trigger_overlap_interrupt, 0) ?       \
+				ADCK_TRIGGER_OVERLAP_DETECT_ENABLE :                               \
+				ADCK_TRIGGER_OVERLAP_DETECT_DISABLE,                               \
 		.th_cfg =									\
 			{									\
 				.group_select_cfg =						\
 					{							\
-						.thgsr_b.th0_group_cfg = ADCK_TH_GROUP_A,	\
-						.thgsr_b.th1_group_cfg = ADCK_TH_GROUP_A,	\
-						.thgsr_b.th2_group_cfg = ADCK_TH_GROUP_A,	\
-						.thgsr_b.th3_group_cfg = ADCK_TH_GROUP_A,	\
+						.thgsr_b.th0_group_cfg =                           \
+								ADCK_TH_GROUP_FROM_MASK(idx, 0),   \
+						.thgsr_b.th1_group_cfg =                           \
+								ADCK_TH_GROUP_FROM_MASK(idx, 1),   \
+						.thgsr_b.th2_group_cfg =                           \
+								ADCK_TH_GROUP_FROM_MASK(idx, 2),   \
+						.thgsr_b.th3_group_cfg =                           \
+								ADCK_TH_GROUP_FROM_MASK(idx, 3),   \
 					},							\
 				.th_enable_cfg =						\
 					{							\
@@ -2181,10 +2867,22 @@ close:
 				.cycle[0] = DT_INST_PROP(idx, renesas_ad_timer_cycle),		\
 				.cycle[1] = DT_INST_PROP(idx, renesas_ad_timer_cycle),		\
 			},									\
+		.wait_setting = {                                                                  \
+			.wait_setting = {                                                          \
+				[0] = ADCK_WAIT_TIME(idx, 0),                                      \
+				[1] = ADCK_WAIT_TIME(idx, 1),                                      \
+				[2] = ADCK_WAIT_TIME(idx, 2),                                      \
+				[3] = ADCK_WAIT_TIME(idx, 3),                                      \
+				[4] = ADCK_WAIT_TIME(idx, 4),                                      \
+				[5] = ADCK_WAIT_TIME(idx, 5),                                      \
+				[6] = ADCK_WAIT_TIME(idx, 6),                                      \
+				[7] = ADCK_WAIT_TIME(idx, 7),                                      \
+			},                                                                         \
+			},                                                                         \
 		.int_cfg =									\
 			{									\
-				.error_irq = FSP_INVALID_VECTOR,				\
-				.error_ipl = BSP_IRQ_DISABLED,					\
+				.error_irq = ADCK_ERROR_IRQ(idx),                                  \
+				.error_ipl = ADCK_ERROR_IPL(idx),                                  \
 				.scan_group_0_end_irq = ADCK_SCAN_END_IRQ(idx, 0),		\
 				.scan_group_0_end_ipl = ADCK_SCAN_END_IPL(idx, 0),		\
 				.scan_group_1_end_irq = ADCK_SCAN_END_IRQ(idx, 1),		\
@@ -2224,6 +2922,7 @@ close:
 				adc_adck_scanend_dispatch_isr, DEVICE_DT_INST_GET(idx),		\
 				ADCK_IRQ_FLAGS(idx));						  \
 		irq_enable(ADCK_SELECTED_IRQ(idx));						\
+		ADCK_CONNECT_ERROR_IRQ(idx);                                                       \
 	}											  \
 	static const struct adc_adck_clock adc_adck_clocks_##idx[] = {	\
 		LISTIFY(DT_INST_PROP_LEN(idx, clocks), ADCK_CLOCK_INIT, (,), idx)	\
@@ -2234,8 +2933,8 @@ close:
 		.resolution = ADCK_RESOLUTION(idx),				\
 		.data_format = ADCK_DATA_FORMAT(idx),						\
 		.vref_mv = DT_INST_PROP_OR(idx, vref_mv, 0),					\
-		.software_trigger = ADCK_TRIGGER_IS_SOFTWARE(idx),		 \
-		.uses_th = ADCK_TH_CHANNEL_MASK(idx) != 0U,				\
+		.software_trigger = ADCK_TRIGGER_IS_SOFTWARE_STARTED(idx),                         \
+		.uses_th = ADCK_INSTANCE_USES_TH(idx),                                             \
 		.scan_group_mask = ADCK_GROUP_MASK_FROM_GROUP(idx),		\
 		.fsp_cfg = &adc_adck_fsp_cfg_##idx,						\
 		.fsp_sg_cfg = &adc_adck_sg_cfg_##idx,					  \
@@ -2250,19 +2949,19 @@ close:
 		ADC_CONTEXT_INIT_SYNC(adc_adck_data_##idx, ctx),		   \
 		.dev = DEVICE_DT_INST_GET(idx),							\
 		ADCK_DMA_INIT(idx) \
-	};											 \
-	static DEVICE_API(adc, adc_adck_api_##idx) = {						\
-		.channel_setup = adc_adck_channel_setup,					\
-		.read = adc_adck_read,								\
-		.ref_internal = DT_INST_PROP_OR(idx, vref_mv, 0),				   \
-		IF_ENABLED(CONFIG_ADC_ASYNC,							\
+	};                                                                                         \
+	static DEVICE_API(adc, adc_adck_api_##idx) = {                                             \
+		.channel_setup = adc_adck_channel_setup,                                           \
+		.read = adc_adck_read,                                                             \
+		.ref_internal = DT_INST_PROP_OR(idx, vref_mv, 0),                                  \
+		IF_ENABLED(CONFIG_ADC_ASYNC,                                                   \
 			(.read_async = adc_adck_read_async,))					\
 		IF_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCK_STREAM,			\
 			(.submit = adc_adck_submit,						\
 			.get_decoder = adc_adck_get_decoder,))				  \
 	}; \
-	DEVICE_DT_INST_DEFINE(idx, adc_adck_init, NULL, &adc_adck_data_##idx, \
-				&adc_adck_config_##idx, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY, \
-				&adc_adck_api_##idx);
+	DEVICE_DT_INST_DEFINE(idx, adc_adck_init, NULL, &adc_adck_data_##idx,                      \
+			      &adc_adck_config_##idx, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY,       \
+			      &adc_adck_api_##idx);
 
 DT_INST_FOREACH_STATUS_OKAY(ADCK_DEVICE_INIT)
