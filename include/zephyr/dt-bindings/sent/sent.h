@@ -33,10 +33,12 @@
  * @{
  */
 
+/** Disable CRC check for short message */
+#define SHORT_CRC_DISABLE                    0
 /** Legacy CRC algorithm for short serial message */
-#define SHORT_CRC_LEGACY_IMPLEMENTATION      0
+#define SHORT_CRC_LEGACY_IMPLEMENTATION      1
 /** Recommended CRC algorithm for short serial message */
-#define SHORT_CRC_RECOMMENDED_IMPLEMENTATION 1
+#define SHORT_CRC_RECOMMENDED_IMPLEMENTATION 2
 
 /** @} */
 

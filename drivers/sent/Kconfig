@@ -19,5 +19,6 @@ config SENT_INIT_PRIORITY
 	  SENT driver device initialization priority.
 
 source "drivers/sent/Kconfig.nxp_s32"
+source "drivers/sent/Kconfig.renesas_rh850"
 
 endif # SENT

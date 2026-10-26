@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config SENT_RENESAS_RH850
+	bool "Renesas RH850 RSENT driver"
+	default y
+	depends on DT_HAS_RENESAS_RH850_SENT_ENABLED
+	depends on SOC_FAMILY_RENESAS_RH850
+	select PINCTRL
+	select USE_RH850_FSP_RSENT_SENT
+	select CLOCK_CONTROL
+	select CLOCK_CONTROL_RENESAS_RH850_CGC
+	help
+	  Enable the Zephyr SENT driver for the Renesas RH850 RSENT
+	  receiver peripheral.
+
+	  This driver uses the Renesas FSP RSENT implementation and
+	  exposes it through the generic Zephyr SENT API.
+
+config SENT_RENESAS_RH850_SERIAL_SHORT_FRAME
+	int "Number of frames for SENT short serial message"
+	default 16
+	range 1 255
+	help
+	  Set the number of frames required to receive a complete
+	  SENT short serial message.
+
+	  The default value is 16. This value can be changed to support
+	  sensors that use a different number of frames.
+
+config SENT_RENESAS_RH850_SERIAL_ENHANCED_FRAME
+	int "Number of frames for SENT enhanced serial message"
+	default 18
+	range 1 255
+	help
+	  Set the number of frames required to receive a complete
+	  SENT enhanced serial message.
+
+	  The default value is 18. This value can be changed to support
+	  sensors that use a different number of frames.
