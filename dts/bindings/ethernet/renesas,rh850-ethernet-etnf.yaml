@@ -19,6 +19,11 @@ properties:
     description: |
       Clock for using the module.
 
+  channel:
+    type: int
+    default: 0
+    description: ETNF controller channel index.
+
   mdio-interface:
     type: string
     required: true
