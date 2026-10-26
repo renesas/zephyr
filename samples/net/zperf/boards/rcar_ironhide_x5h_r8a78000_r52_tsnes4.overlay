@@ -63,9 +63,9 @@
 
 / {
 	soc {
-		ethuram: memory@42a00000 {
+		ethuram: memory@42a20000 {
 			compatible = "zephyr,memory-region";
-			reg = <0x42a00000 0x740000>;
+			reg = <0x42a20000 0x720000>;
 			zephyr,memory-region = "ETHURAM";
 			status = "okay";
 		};

@@ -10,6 +10,7 @@
 #include <zephyr/dt-bindings/clock/r8a78000_scmi_clock.h>
 #include <zephyr/dt-bindings/reset/r8a78000_scmi_reset_domain.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
 #include <mem.h>
 
 / {
@@ -116,9 +117,17 @@
 			status = "okay";
 		};
 
-		ethuram: memory@42a00000 {
+		ethdesc: memory@42a00000 {
 			compatible = "zephyr,memory-region";
-			reg = <0x42a00000 0x740000>;
+			reg = <0x42a00000 DT_SIZE_K(128)>;
+			zephyr,memory-region = "ETHDESC";
+			zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE)>;
+			status = "okay";
+		};
+
+		ethuram: memory@42a20000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x42a20000 0x720000>;
 			zephyr,memory-region = "ETHURAM";
 			status = "okay";
 		};
