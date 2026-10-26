@@ -32,14 +32,8 @@ properties:
     required: true
     description: Bit mask of Zephyr ADC channel IDs available on this controller.
 
-  renesas,physical-channel-mask:
-    type: array
-    required: true
-    description: |
-      Two 32-bit cells describing the physical input selector values supported
-      by this ADCK instance. Cell 0 covers selectors 0 through 31 and cell 1
-      covers selectors 32 through 63. This mask documents the selector values
-      available on the target SoC instance.
+  dmas:
+    description: DMA channel used to transfer ADC conversion results.
 
   renesas,unit:
     type: int
@@ -51,6 +45,15 @@ properties:
     required: true
     enum: [0, 1, 2, 3, 4]
     description: Scan group used for software-triggered conversion.
+
+  renesas,physical-channel-mask:
+    type: array
+    required: true
+    description: |
+      Two 32-bit cells describing the physical input selector values supported
+      by this ADCK instance. Cell 0 covers selectors 0 through 31 and cell 1
+      covers selectors 32 through 63. This mask documents the selector values
+      available on the target SoC instance.
 
   renesas,start-virtual-channel:
     type: int
@@ -68,14 +71,54 @@ properties:
 
   renesas,data-format:
     type: string
-    default: "12-bit"
+    default: "12-bit-unsigned-right-justified"
     enum:
-      - "10-bit"
-      - "12-bit"
+      - "12-bit-signed-fixed-point"
+      - "12-bit-signed-integer"
+      - "12-bit-unsigned-fixed-point"
+      - "10-bit-unsigned-fixed-point"
+      - "12-bit-unsigned-right-justified"
+      - "12-bit-unsigned-left-justified"
     description: |
-      Unsigned right-aligned ADC result format.
-      If omitted, the controller is configured to produce 12-bit conversion
-      results.
+      Static controller-wide ADCK result format. Non-integer formats are
+      returned in the 16-bit raw representation defined by the hardware.
+
+  renesas,scan-mode:
+    type: string
+    default: "multicycle"
+    enum:
+      - "continuous"
+      - "multicycle"
+    description: Select scan mode for adck.
+
+  renesas,trigger-method:
+    type: string
+    default: "software"
+    enum: ["software", "hardware", "ad-timer", "th-a", "th-b"]
+
+  renesas,trigger-source:
+    type: string
+    default: "disabled"
+    enum: ["disabled", "pic2"]
+    description: Hardware trigger route for ADCK. LPS is intentionally excluded.
+
+  renesas,ad-timer-trigger-method:
+    type: string
+    default: "software"
+    enum: ["software", "hardware"]
+
+  renesas,ad-timer-initial-phase:
+    type: int
+    default: 0
+
+  renesas,ad-timer-cycle:
+    type: int
+    default: 2097151
+
+  renesas,th-channel-mask:
+    type: int
+    default: 0
+    description: Bit mask enabling T&H units 0 through 3.
 
 io-channel-cells:
   - input
@@ -112,6 +155,19 @@ child-binding:
       enum:
         - "normal"
         - "hold"
+        - "extended-sampling"
+        - "ad-core-self-diagnostic"
+        - "addition"
+        - "mpx-normal"
+        - "mpx-addition"
+        - "pin-level-self-diagnostic"
+        - "wiring-break-mode-1"
+        - "wiring-break-mode-2-pull-down"
+        - "wiring-break-mode-2-pull-up"
+        - "self-diagnostic-wiring-break-mode-1"
+        - "self-diagnostic-wiring-break-mode-2-pull-down"
+        - "self-diagnostic-wiring-break-mode-2-pull-up"
+        - "ad-conversion-path-diagnostic"
       description: |
         ADCK virtual channel conversion type.
         If omitted, the virtual channel is configured for normal A/D
@@ -131,4 +187,37 @@ child-binding:
         0 = T&H00
         1 = T&H01
         2 = T&H02
+        3 = T&H03
         If renesas,conversion-type is omitted, "normal" is used.
+
+    renesas,mpx-value:
+      type: int
+      default: 0
+      min: 0
+      max: 7
+
+    renesas,wait-table:
+      type: int
+      default: 0
+      min: 0
+      max: 8
+      description: Zero disables wait; values 1 through 8 select wait tables 0 through 7.
+
+    renesas,upper-lower-limit-table:
+      type: int
+      default: 0
+      min: 0
+      max: 8
+      description: Zero disables checking; values 1 through 8 select limit tables 0 through 7.
+
+    renesas,self-diagnostic-level:
+      type: int
+      default: 0
+      enum: [0, 4, 8, 12, 16]
+      description: AD core self-diagnostic voltage selector encoded by ADCK VCR.GCTRL.
+
+    renesas,adval-data:
+      type: int
+      default: 0
+      enum: [0, 1]
+      description: A/D conversion path diagnostic fixed data selector (0xAAA or 0x555).
