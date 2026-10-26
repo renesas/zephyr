@@ -23,8 +23,18 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define ETH_PHY_CT25205_REG_PLCATOTMR (0x3FCA04U)
 #define ETH_PHY_CT25205_REG_PLCABURST (0x3FCA05U)
 
+struct renesas_ct25205_plca_config {
+	bool enable;
+	uint8_t node_id;
+	uint8_t node_count;
+	uint8_t burst_count;
+	uint8_t burst_timer;
+	uint8_t to_timer;
+};
+
 struct renesas_ct25205_config {
 	const ether_phy_cfg_t *p_cfg;
+	const struct renesas_ct25205_plca_config *plca;
 };
 
 struct renesas_ct25205_data {
@@ -153,6 +163,26 @@ static int phy_renesas_ct25205_get_plca_sts(const struct device *dev, bool *plca
 	return 0;
 }
 
+static int phy_renesas_ct25205_set_dt_plca(const struct device *dev)
+{
+	const struct renesas_ct25205_config *config = dev->config;
+	struct phy_plca_cfg plca_cfg;
+
+	/* Without plca-enable, keep the PLCA setup done by the HAL target init */
+	if (!config->plca->enable) {
+		return 0;
+	}
+
+	plca_cfg.enable = config->plca->enable;
+	plca_cfg.node_id = config->plca->node_id;
+	plca_cfg.node_count = config->plca->node_count;
+	plca_cfg.burst_count = config->plca->burst_count;
+	plca_cfg.burst_timer = config->plca->burst_timer;
+	plca_cfg.to_timer = config->plca->to_timer;
+
+	return phy_renesas_ct25205_set_plca_cfg(dev, &plca_cfg);
+}
+
 static int phy_renesas_ct25205_init(const struct device *dev)
 {
 	const struct renesas_ct25205_config *config = dev->config;
@@ -174,6 +204,8 @@ static int phy_renesas_ct25205_init(const struct device *dev)
 	if (FSP_SUCCESS != fsp_err) {
 		LOG_ERR("PHY CT25205 Failed to Initialize");
 		err = -EIO;
+	} else {
+		err = phy_renesas_ct25205_set_dt_plca(dev);
 	}
 
 	k_work_init_delayable(&data->phy_monitor_work, phy_monitor_work_handler);
@@ -221,8 +253,18 @@ static DEVICE_API(ethphy, renesas_ct25205_phy_api) = {
 #define RENESAS_CT25205_PHY_INIT_DRIVER(idx)                                                       \
 	RENESAS_CT25205_PHY_CONFIG(idx)                                                            \
                                                                                                    \
+	static const struct renesas_ct25205_plca_config renesas_ct25205_plca_##idx##_config = {    \
+		.enable = DT_INST_PROP(idx, plca_enable),                                          \
+		.node_id = DT_INST_PROP_OR(idx, plca_node_id, 0),                                  \
+		.node_count = DT_INST_PROP_OR(idx, plca_node_count, 8),                            \
+		.burst_count = DT_INST_PROP_OR(idx, plca_burst_count, 0),                          \
+		.burst_timer = DT_INST_PROP_OR(idx, plca_burst_timer, 128),                        \
+		.to_timer = DT_INST_PROP_OR(idx, plca_to_timer, 32),                               \
+	};                                                                                         \
+                                                                                                   \
 	static const struct renesas_ct25205_config renesas_ct25205_##idx##_config = {              \
 		.p_cfg = &g_ether_phy##idx##_cfg,                                                  \
+		.plca = &renesas_ct25205_plca_##idx##_config,                                      \
 	};                                                                                         \
                                                                                                    \
 	static struct renesas_ct25205_data renesas_ct25205_##idx##_data = {                        \
