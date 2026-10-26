@@ -22,4 +22,5 @@ supported:
   - adc
   - can
   - clock
+  - sent
 vendor: renesas

@@ -179,4 +179,16 @@
 			renesas,direct-control;
 		};
 	};
+
+	sent0_default: sent0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 8, ALT_IN5)>;
+		};
+	};
+
+	sent1_default: sent1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 7, ALT_IN3)>;
+		};
+	};
 };

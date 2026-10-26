@@ -241,4 +241,16 @@
 			drive-strength = "medium";
 		};
 	};
+
+	sent0_default: sent0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 11, ALT_IN3)>;
+		};
+	};
+
+	sent1_default: sent1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 13, ALT_IN2)>;
+		};
+	};
 };

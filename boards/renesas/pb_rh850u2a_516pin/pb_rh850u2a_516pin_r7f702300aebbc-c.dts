@@ -176,3 +176,13 @@
 	status = "okay";
 	rx-max-filters = <128>;
 };
+
+&sent1 {
+	pinctrl-0 = <&sent1_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+
+	channel@0 {
+		status = "disabled";
+	};
+};

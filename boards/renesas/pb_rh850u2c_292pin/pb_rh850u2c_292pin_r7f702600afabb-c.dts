@@ -309,3 +309,23 @@
 	phy-connection-type = "mii";
 	local-mac-address = [74 90 50 54 53 4e];
 };
+
+&sent0 {
+	pinctrl-0 = <&sent0_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+
+	channel@0 {
+		status = "disabled";
+	};
+};
+
+&sent1 {
+	pinctrl-0 = <&sent1_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+
+	channel@0 {
+		status = "disabled";
+	};
+};

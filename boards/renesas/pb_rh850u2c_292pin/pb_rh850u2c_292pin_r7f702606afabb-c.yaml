@@ -25,4 +25,5 @@ supported:
   - clock
   - i2c
   - i2s
+  - sent
 vendor: renesas
