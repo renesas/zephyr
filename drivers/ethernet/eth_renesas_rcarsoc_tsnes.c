@@ -40,6 +40,21 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 					     DT_INST_PROP(n, tx_queue_size)] ETH_RAM_SECTION       \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
 
+#define ETH_TSNES_RX_SLOTS(n) (DT_INST_PROP(n, rx_queues) * DT_INST_PROP(n, rx_queue_size))
+
+#define ETH_TSNES_INIT_RX_BUF_TRACKING(n)                                                          \
+	static atomic_t                                                                            \
+		eth_tsnes_##n##_rx_lent[DT_INST_PROP(n, rx_queues) *                               \
+					ATOMIC_BITMAP_SIZE(DT_INST_PROP(n, rx_queue_size))];       \
+	static struct eth_tsnes_rx_buf_meta eth_tsnes_##n##_rx_buf_meta[ETH_TSNES_RX_SLOTS(n)];    \
+	static void eth_tsnes_##n##_rx_buf_destroy(struct net_buf *buf)                            \
+	{                                                                                          \
+		eth_tsnes_rx_buf_release(DEVICE_DT_INST_GET(n), buf);                              \
+	}                                                                                          \
+	NET_BUF_POOL_FIXED_DEFINE(eth_tsnes_##n##_rx_buf_pool, ETH_TSNES_RX_SLOTS(n), 0,           \
+				  CONFIG_NET_PKT_BUF_USER_DATA_SIZE,                               \
+				  eth_tsnes_##n##_rx_buf_destroy);
+
 #define ETH_TSNES_INIT_BUF_POOL(n)                                                                 \
 	static uint8_t eth_tsnes_##n##_buf_pool                                                    \
 		[CONFIG_ETH_RENESAS_RCARSOC_TSNES_BUFFER_POOL_SIZE] ETH_RAM_SECTION                \
@@ -103,40 +118,51 @@ static inline size_t tsnes_cache_align_size(size_t size)
 #define tsnes_cache_align_size(size) (size)
 #endif
 
-struct eth_tsnes_rx_dma_meta {
-	struct eth_tsnes_queue *queue;
-	uint32_t desc_idx;
-};
-
-static void eth_tsnes_rx_dma_destroy(struct net_buf *buf)
+/* Give a RX ring slot back to hardware. */
+static void eth_tsnes_rx_desc_arm(struct eth_tsnes_queue *queue, uint32_t desc_idx)
 {
-	struct eth_tsnes_rx_dma_meta *meta = net_buf_user_data(buf);
-	struct eth_tsnes_ext_desc_with_ts *ring;
-	struct eth_tsnes_ext_desc_with_ts *desc;
+	struct eth_tsnes_ext_desc_with_ts *desc =
+		&((struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring)[desc_idx];
+	struct eth_tsnes_buf_mgmt *node = &queue->buf_nodes[desc_idx];
 	k_spinlock_key_t key;
 
-	if (meta && meta->queue) {
-		key = k_spin_lock(&meta->queue->lock);
-		ring = (struct eth_tsnes_ext_desc_with_ts *)meta->queue->desc_ring;
-		desc = &ring[meta->desc_idx];
+	/* The stack may have written into a lent buffer: write back and drop those
+	 * lines before HW DMAs into it again.
+	 */
+	tsnes_dcache_invalidate(node->buf_addr, node->buf_size);
 
-		desc->info_ds = MIN(meta->queue->buf_nodes[meta->desc_idx].buf_size, 0xFFF);
-		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
-		desc->info = 0;
-		desc->info1[0] = 0;
-		desc->info1[1] = 0;
-		desc->tsns = 0;
-		desc->tss = 0;
-
-		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
-		k_spin_unlock(&meta->queue->lock, key);
-	}
-
-	net_buf_destroy(buf);
+	key = k_spin_lock(&queue->lock);
+	desc->info_ds = MIN(node->buf_size, 0xFFF);
+	desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
+	desc->info = 0;
+	desc->info1[0] = 0;
+	desc->info1[1] = 0;
+	desc->tsns = 0;
+	desc->tss = 0;
+	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+	k_spin_unlock(&queue->lock, key);
 }
 
-NET_BUF_POOL_FIXED_DEFINE(eth_tsnes_rx_dma_pool, 256, sizeof(struct eth_tsnes_rx_dma_meta),
-			  sizeof(struct eth_tsnes_rx_dma_meta), eth_tsnes_rx_dma_destroy);
+/* The stack is done with a lent RX buffer. */
+static void eth_tsnes_rx_buf_release(const struct device *dev, struct net_buf *buf)
+{
+	const struct eth_tsnes_config *cfg = dev->config;
+	struct eth_tsnes_data *data = dev->data;
+	struct eth_tsnes_rx_buf_meta *meta = &cfg->rx_buf_meta[net_buf_id(buf)];
+
+	eth_tsnes_rx_desc_arm(meta->queue, meta->desc_idx);
+	atomic_clear_bit(meta->queue->lent, meta->desc_idx);
+
+	net_buf_destroy(buf);
+
+	/* The RX thread only parks on a lent slot at head_idx, waiting for it or to
+	 * restart a full chain there. The bit is cleared first: a thread that has
+	 * not reached this slot yet finds it armed.
+	 */
+	if (meta->desc_idx == meta->queue->head_idx) {
+		k_sem_give(&data->rx_sem);
+	}
+}
 
 static int eth_tsnes_set_mac_loopback(const struct eth_tsnes_config *cfg, bool enable)
 {
@@ -220,13 +246,17 @@ static int eth_tsnes_alloc_queues(const struct device *dev)
 	data->num_tx_queues = cfg->num_tx_queues;
 
 	for (i = 0; i < data->num_rx_queues; i++) {
+		struct eth_tsnes_queue *queue = &data->rx_queues[i];
+
 		ret = eth_tsnes_alloc_queue_descriptors(
-			dev, &data->rx_queues[i], cfg->rx_queue_size,
-			sizeof(struct eth_tsnes_ext_desc_with_ts), cfg->rx_desc_rings[i],
-			cfg->rx_buf_nodes[i]);
+			dev, queue, cfg->rx_queue_size, sizeof(struct eth_tsnes_ext_desc_with_ts),
+			cfg->rx_desc_rings[i], cfg->rx_buf_nodes[i]);
 		if (ret) {
 			return ret;
 		}
+
+		queue->lent = &cfg->rx_lent[i * ATOMIC_BITMAP_SIZE(cfg->rx_queue_size)];
+		memset(queue->lent, 0, ATOMIC_BITMAP_SIZE(cfg->rx_queue_size) * sizeof(atomic_t));
 	}
 
 	for (i = 0; i < data->num_tx_queues; i++) {
@@ -841,28 +871,27 @@ static void eth_tsnes_process_rx_full(const struct device *dev, uint32_t rxfull_
 	axi->stRXDFEI[0].RFEISi = rxfull_stat;
 }
 
-/* True once every real (non-LINK) descriptor in the queue is back to FEMPTY. */
-static bool eth_tsnes_rx_queue_drained(struct eth_tsnes_queue *queue)
+/*
+ * A full RX chain stops on the oldest slot the CPU still holds, which is the
+ * one at head_idx: it can restart there once that slot is armed again.
+ */
+static bool eth_tsnes_rx_head_armed(struct eth_tsnes_queue *queue)
 {
-	struct eth_tsnes_ext_desc_with_ts *ring =
-		(struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring;
-	uint32_t i;
+	struct eth_tsnes_ext_desc_with_ts *desc =
+		&((struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring)[queue->head_idx];
 	k_spinlock_key_t key;
+	uint8_t dt;
+
+	if (atomic_test_bit(queue->lent, queue->head_idx)) {
+		return false;
+	}
 
 	key = k_spin_lock(&queue->lock);
-	for (i = 0; i < queue->desc_count - 1; i++) {
-		uint8_t dt = ring[i].die_dt & ETH_DESC_DT_MASK;
-
-		if (dt != ETH_DESC_FEMPTY && dt != ETH_DESC_FEMPTY_ND) {
-			LOG_WRN("RX queue not drained yet: desc %u die_dt=0x%02x info_ds=0x%x", i,
-				ring[i].die_dt, ring[i].info_ds);
-			k_spin_unlock(&queue->lock, key);
-			return false;
-		}
-	}
+	tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
+	dt = desc->die_dt & ETH_DESC_DT_MASK;
 	k_spin_unlock(&queue->lock, key);
 
-	return true;
+	return dt == ETH_DESC_FEMPTY;
 }
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
@@ -1000,43 +1029,47 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 					   uint32_t desc_idx)
 {
 	struct eth_tsnes_data *data = dev->data;
+	const struct eth_tsnes_config *cfg = dev->config;
 	struct eth_tsnes_ext_desc_with_ts *ring =
 		(struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring;
 	struct eth_tsnes_ext_desc_with_ts *desc = &ring[desc_idx];
+	struct eth_tsnes_rx_buf_meta *meta;
 	struct net_pkt *pkt;
 	struct net_buf *buf;
-	struct eth_tsnes_rx_dma_meta *meta;
+	uint16_t info_ds;
 	uint16_t pkt_len;
-	int ret = 0;
 	k_spinlock_key_t key;
+	uint8_t dt;
+
+	/* Still lent to the stack: HW cannot have refilled it either. */
+	if (atomic_test_bit(queue->lent, desc_idx)) {
+		return -EAGAIN;
+	}
 
 	key = k_spin_lock(&queue->lock);
 	tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
+	dt = desc->die_dt & ETH_DESC_DT_MASK;
+	info_ds = desc->info_ds;
+	k_spin_unlock(&queue->lock, key);
 
-	/* Check if HW transferred ownership to software */
-	if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
-		k_spin_unlock(&queue->lock, key);
+	if (dt != ETH_DESC_FSINGLE) {
 		return -EAGAIN; /* Hardware still owns it */
 	}
 
-	if (desc->info_ds & ETH_DESC_RX_EI) {
+	pkt_len = info_ds & 0xFFF;
+
+	if (info_ds & ETH_DESC_RX_EI) {
 		queue->stats.rx_errors++;
-		LOG_DBG("RX desc %u: hardware reported error, info_ds=0x%x", desc_idx,
-			desc->info_ds);
-		ret = -EIO;
-		goto rx_done;
+		LOG_DBG("RX desc %u: hardware reported error, info_ds=0x%x", desc_idx, info_ds);
+		goto drop;
 	}
 
-	pkt_len = desc->info_ds & 0xFFF;
 	if (pkt_len < ETH_HEADER_SIZE || pkt_len > data->max_frame_size) {
 		queue->stats.rx_errors++;
 		LOG_DBG("RX desc %u: invalid length %u, max %u", desc_idx, pkt_len,
 			data->max_frame_size);
-		ret = -EINVAL;
-		goto rx_done;
+		goto drop;
 	}
-
-	k_spin_unlock(&queue->lock, key);
 
 	tsnes_dcache_invalidate((uintptr_t)desc->dptr, tsnes_cache_align_size(pkt_len));
 
@@ -1047,23 +1080,23 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	if (!pkt) {
 		queue->stats.rx_dropped++;
 		LOG_DBG("RX desc %u: net_pkt alloc failed, len %u", desc_idx, pkt_len);
-		ret = -ENOMEM;
-		goto rx_done;
+		goto drop;
 	}
 
-	buf = net_buf_alloc_with_data(&eth_tsnes_rx_dma_pool, (void *)(uintptr_t)desc->dptr,
-				      pkt_len, K_NO_WAIT);
+	buf = net_buf_alloc_with_data(cfg->rx_buf_pool, (void *)(uintptr_t)desc->dptr, pkt_len,
+				      K_NO_WAIT);
 	if (!buf) {
 		net_pkt_unref(pkt);
 		queue->stats.rx_dropped++;
 		LOG_DBG("RX desc %u: net_buf alloc failed, len %u", desc_idx, pkt_len);
-		ret = -ENOMEM;
-		goto rx_done;
+		goto drop;
 	}
 
-	meta = net_buf_user_data(buf);
+	meta = &cfg->rx_buf_meta[net_buf_id(buf)];
 	meta->queue = queue;
 	meta->desc_idx = desc_idx;
+	/* Mark before handing over: the stack may free the buffer right away. */
+	atomic_set_bit(queue->lent, desc_idx);
 
 	net_pkt_append_buffer(pkt, buf);
 
@@ -1075,23 +1108,18 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	pkt->timestamp.second = desc->tss;
 #endif
 
-	net_recv_data(data->iface, pkt);
-
-rx_done:
-	if (ret < 0) {
-		key = k_spin_lock(&queue->lock);
-		desc->info_ds = MIN(data->max_frame_size, 0xFFF);
-		desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
-		desc->info = 0;
-		desc->info1[0] = 0;
-		desc->info1[1] = 0;
-		desc->tsns = 0;
-		desc->tss = 0;
-		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
-		k_spin_unlock(&queue->lock, key);
+	if (net_recv_data(data->iface, pkt) < 0) {
+		queue->stats.rx_dropped++;
+		/* Frees the buffer, which re-arms the slot. */
+		net_pkt_unref(pkt);
 	}
 
-	return ret;
+	return 0;
+
+drop:
+	eth_tsnes_rx_desc_arm(queue, desc_idx);
+
+	return -EIO;
 }
 
 static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
@@ -1144,20 +1172,16 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 				k_spin_unlock(&queue->lock, lock_key);
 			}
 
-			if (queue->rxfull_pending) {
-				if (eth_tsnes_rx_queue_drained(queue)) {
-					if (eth_tsnes_rx_desc_learning(
-						    axi, q_idx,
-						    (uint32_t)(uintptr_t)queue->desc_ring) == 0) {
-						queue->rxfull_pending = false;
-						LOG_INF("RX queue %u restored after descriptor "
-							"full",
-							q_idx);
-					} else {
-						LOG_ERR("RX queue %u restore (address table "
-							"learning) failed, will retry",
-							q_idx);
-					}
+			if (queue->rxfull_pending && eth_tsnes_rx_head_armed(queue)) {
+				if (eth_tsnes_rx_desc_learning(
+					    axi, q_idx,
+					    (uint32_t)(uintptr_t)&ring[queue->head_idx]) == 0) {
+					queue->rxfull_pending = false;
+					LOG_INF("RX queue %u restarted", q_idx);
+				} else {
+					LOG_ERR("RX queue %u restore (address table learning) "
+						"failed, will retry",
+						q_idx);
 				}
 			}
 		}
@@ -1463,6 +1487,7 @@ static int eth_tsnes_init(const struct device *dev)
 	ETH_TSNES_INIT_BUF_NODES(n);                                                               \
 	ETH_TSNES_INIT_TS_PKT_NODES(n);                                                            \
 	ETH_TSNES_INIT_BUF_POOL(n);                                                                \
+	ETH_TSNES_INIT_RX_BUF_TRACKING(n);                                                         \
 	ETH_TSNES_INIT_DESC_CHAIN(n);                                                              \
 	ETH_TSNES_INIT_DUMMY_BUF(n);                                                               \
                                                                                                    \
@@ -1480,6 +1505,9 @@ static int eth_tsnes_init(const struct device *dev)
 		ETH_TSNES_INIT_DESC(n),                                                            \
 		ETH_TSNES_INIT_BUF_NODE(n),                                                        \
 		.buf_pool = eth_tsnes_##n##_buf_pool,                                              \
+		.rx_lent = eth_tsnes_##n##_rx_lent,                                                \
+		.rx_buf_pool = &eth_tsnes_##n##_rx_buf_pool,                                       \
+		.rx_buf_meta = eth_tsnes_##n##_rx_buf_meta,                                        \
 		.init_desc_chain = eth_tsnes_##n##_init_desc_chain,                                \
 		.init_dummy_buf = eth_tsnes_##n##_init_dummy_buf,                                  \
 		.channel = DT_INST_PROP(n, channel),                                               \

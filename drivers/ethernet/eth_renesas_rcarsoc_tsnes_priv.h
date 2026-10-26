@@ -13,6 +13,7 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_if.h>
+#include <zephyr/net_buf.h>
 #include <ethernet/eth_stats.h>
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
@@ -610,6 +611,16 @@ typedef struct {
 	eth_tsnes_rmacs_reg_t stRMACSys;
 } eth_tsnes_reg_t;
 
+/*
+ * Ring slot a lent RX net_buf came from. The net_buf user data belongs to the
+ * network stack (TCP keeps the segment sequence number there), so the slot is
+ * kept in a side table indexed by net_buf_id() instead.
+ */
+struct eth_tsnes_rx_buf_meta {
+	struct eth_tsnes_queue *queue;
+	uint32_t desc_idx;
+};
+
 /* Queue management */
 struct eth_tsnes_queue {
 	void *desc_ring;
@@ -617,6 +628,8 @@ struct eth_tsnes_queue {
 	uint32_t desc_count;
 	uint32_t head_idx;
 	uint32_t tail_idx;
+	/* RX: [ATOMIC_BITMAP_SIZE(desc_count)], slots whose buffer is lent to the stack */
+	atomic_t *lent;
 	bool rxfull_pending;
 	struct k_spinlock lock;
 
@@ -655,6 +668,10 @@ struct eth_tsnes_config {
 	struct eth_tsnes_buf_mgmt *rx_buf_nodes[ETH_NUM_RX_QUEUES];
 	struct eth_tsnes_buf_mgmt *tx_buf_nodes[ETH_NUM_TX_QUEUES];
 	uint8_t *buf_pool;
+	atomic_t *rx_lent; /* [num_rx_queues][ATOMIC_BITMAP_SIZE(rx_queue_size)] */
+	/* net_buf headers lent to the stack, one per RX ring slot */
+	struct net_buf_pool *rx_buf_pool;
+	struct eth_tsnes_rx_buf_meta *rx_buf_meta; /* indexed by net_buf_id() */
 	struct eth_tsnes_ext_desc *init_desc_chain;
 	uint8_t *init_dummy_buf;
 
