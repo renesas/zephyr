@@ -1,0 +1,126 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+title: Renesas RH850 RSENT Receiver Controller
+
+description: |
+  Renesas RH850 RSENT receiver controller.
+
+  The controller receives SENT fast-channel and serial-channel messages.
+  Each enabled child node represents one hardware RSENT channel.
+
+  Channel child-node properties describe static hardware configuration,
+  including the number of fast-message data nibbles, communication tick
+  length, frame checking, CRC checking, slow-message extraction, and
+  pause-pulse handling.
+
+compatible: "renesas,rh850-sent"
+
+include:
+  - name: sent-controller.yaml
+    child-binding:
+      property-allowlist:
+        - reg
+        - num-data-nibbles
+        - clock-tick-length-us
+        - fast-crc
+        - short-serial-crc
+        - successive-calib-pulse-method
+        - pause-pulse-detect
+
+  - name: pinctrl-device.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  interrupt-names:
+    required: true
+
+  clocks:
+    required: true
+
+  unit:
+    type: int
+    required: true
+    description: |
+      RSENT hardware unit number
+      This value identifies the RSENT peripheral instance and is used
+      as the logical channel identifier exposed through the generic
+      SENT API.
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+child-binding:
+  description: |
+    Configuration of one Renesas RH850 RSENT hardware channel.
+
+    The value of the reg property identifies the hardware channel within
+    the RSENT controller. Other properties contain the static configuration
+    used to initialize that channel.
+
+  properties:
+    slow-message-format:
+      type: string
+      required: true
+      enum:
+        - "disabled"
+        - "short-serial"
+        - "enhanced-serial"
+      description: |
+        Slow-channel message extraction format.
+
+        Supported values are:
+
+        - "disabled": Do not extract slow-channel messages.
+        - "short-serial": Short serial message with 8-bit data and
+          a 4-bit message ID.
+        - "enhanced-serial": Enhanced serial message with 12-bit
+          data and an 8-bit message ID (or 16-bit data and a 4-bit
+          message ID - when the slow channel message reception buffer
+          is updated).
+
+    message-length-mode:
+      type: string
+      enum:
+        - "variable"
+        - "fixed"
+      description: |
+        Selects the received SENT message-length handling mode when
+        pause-pulse-detect is enabled.
+
+        Supported values are:
+
+        - "variable": Use pause-pulse reception with variable message
+          length. The RSENT hardware performs the applicable automatic
+          frame timing checks.
+        - "fixed": Use pause-pulse reception with fixed message length.
+          The RSENT hardware provides the measured calibration-pulse and
+          message lengths for software validation.
+
+        This property does not enable pause-pulse detection.
+        The pause-pulse-detect property controls whether received frames
+        contain a pause pulse. When pause-pulse-detect is not enabled,
+        this property does not affect the hardware configuration.
+
+    dmas:
+      type: phandle-array
+      description: |
+        Optional DMA channel used for RSENT data reception.
+
+        If this property is omitted, the driver uses interrupt-driven
+        message reception.
+
+    dma-names:
+      type: string-array
+      description: |
+        Names of the DMA channels used by this RSENT channel.
+
+        The expected name is "rx".

@@ -88,5 +88,6 @@ child-binding:
       description: |
         Specifies the short serial message CRC configurations is applied when calculating the CRC.
         Allowed values are defined in dt-bindings/sent/sent.h:
+        - SHORT_CRC_DISABLE
         - SHORT_CRC_RECOMMENDED_IMPLEMENTATION
         - SHORT_CRC_LEGACY_IMPLEMENTATION

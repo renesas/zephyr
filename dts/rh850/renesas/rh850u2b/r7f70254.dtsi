@@ -189,5 +189,23 @@
 			renesas,physical-channel-mask = <0xffffffff 0xffffffff>;
 			status = "disabled";
 		};
+
+		sent13: sent@ffd8d700 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd8d700 0x64>;
+			unit = <13>;
+			interrupts = <893 1>, <913 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 13, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent13_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
 	};
 };

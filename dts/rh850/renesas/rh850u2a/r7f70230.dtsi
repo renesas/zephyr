@@ -1170,6 +1170,96 @@
 			channel = <7>;
 			status = "disabled";
 		};
+
+		sent0: sent@ffd33600 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd33600 0x64>;
+			unit = <0>;
+			interrupts = <513 1>, <512 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 0, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent0_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
+
+		sent1: sent@ffd33700 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd33700 0x64>;
+			unit = <1>;
+			interrupts = <515 1>, <514 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 1, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent1_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
+
+		sent2: sent@ffd33800 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd33800 0x64>;
+			unit = <2>;
+			interrupts = <517 1>, <516 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 2, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent2_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
+
+		sent3: sent@ffd33900 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd33900 0x64>;
+			unit = <3>;
+			interrupts = <519 1>, <518 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 3, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent3_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
+
+		sent4: sent@ffd33a00 {
+			compatible = "renesas,rh850-sent";
+			reg = <0xffd33a00 0x64>;
+			unit = <4>;
+			interrupts = <521 1>, <520 1>;
+			interrupt-names = "rxi", "eri";
+			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(RSENT, 4, HSB)>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			sent4_ch0: channel@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+		};
 	};
 
 	/* External CAN clock - to be overridden by boards that provide it */
