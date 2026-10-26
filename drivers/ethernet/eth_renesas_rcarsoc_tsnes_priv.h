@@ -640,12 +640,8 @@ struct eth_tsnes_queue {
 	bool rxfull_pending;
 
 	struct {
-		uint32_t rx_packets;
-		uint32_t rx_bytes;
 		uint32_t rx_errors;
 		uint32_t rx_dropped;
-		uint32_t tx_packets;
-		uint32_t tx_bytes;
 	} stats;
 };
 
@@ -709,6 +705,8 @@ struct eth_tsnes_data {
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	/* Networking Stats */
 	struct net_stats_eth stats;
+	/* Sum of the queue rx_errors already added to stats.errors.rx */
+	uint32_t rx_errors_reported;
 #endif /* CONFIG_NET_STATISTICS_ETHERNET */
 	/* State */
 	bool link_up;

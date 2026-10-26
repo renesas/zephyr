@@ -1031,9 +1031,6 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 
 	net_pkt_append_buffer(pkt, buf);
 
-	queue->stats.rx_packets++;
-	queue->stats.rx_bytes += pkt_len;
-
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	pkt->timestamp.nanosecond = desc->tsns;
 	pkt->timestamp.second = desc->tss;
@@ -1257,9 +1254,7 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	/* TSRt is write-1-to-set */
 	axi->TRCR[0] = BIT(0);
 
-	tx_queue->stats.tx_packets++;
-	tx_queue->stats.tx_bytes += pkt_len;
-
+	/* Packet/byte counters are updated by the Ethernet L2 (ethernet.c). */
 	tx_queue->tail_idx = next_tail_idx;
 
 	k_spin_unlock(&data->lock, key);
@@ -1295,31 +1290,38 @@ static enum ethernet_hw_caps eth_tsnes_caps(const struct device *dev)
 }
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
-static struct net_stats_eth *eth_tsnes_stats(const struct device *dev)
+/*
+ * The Ethernet L2 counts packets and bytes in data->stats and fetches it twice
+ * per frame with ETHERNET_STATS_TYPE_COMMON, so that path only returns it. The
+ * driver's error counters are folded in when more is asked for ("net stats").
+ * The L2 also counts its own drops in errors.rx, so only the driver errors
+ * since the last call are added to it.
+ */
+static struct net_stats_eth *eth_tsnes_get_stats_type(const struct device *dev, uint32_t type)
 {
 	struct eth_tsnes_data *data = dev->data;
+	uint32_t errors = 0U;
+	uint32_t no_buffer = 0U;
 
-	data->stats.pkts.rx = 0;
-	data->stats.errors.rx = 0;
-	data->stats.bytes.received = 0;
-	data->stats.error_details.rx_no_buffer_count = 0;
-
-	for (int i = 0; i < data->num_rx_queues; i++) {
-		data->stats.pkts.rx += data->rx_queues[i].stats.rx_packets;
-		data->stats.errors.rx += data->rx_queues[i].stats.rx_errors;
-		data->stats.bytes.received += data->rx_queues[i].stats.rx_bytes;
-		data->stats.error_details.rx_no_buffer_count += data->rx_queues[i].stats.rx_dropped;
+	if ((type & ~ETHERNET_STATS_TYPE_COMMON) == 0U) {
+		return &data->stats;
 	}
 
-	data->stats.pkts.tx = 0;
-	data->stats.bytes.sent = 0;
-
-	for (int i = 0; i < data->num_tx_queues; i++) {
-		data->stats.pkts.tx += data->tx_queues[i].stats.tx_packets;
-		data->stats.bytes.sent += data->tx_queues[i].stats.tx_bytes;
+	for (uint32_t i = 0; i < data->num_rx_queues; i++) {
+		errors += data->rx_queues[i].stats.rx_errors;
+		no_buffer += data->rx_queues[i].stats.rx_dropped;
 	}
+
+	data->stats.errors.rx += errors - data->rx_errors_reported;
+	data->rx_errors_reported = errors;
+	data->stats.error_details.rx_no_buffer_count = no_buffer;
 
 	return &data->stats;
+}
+
+static struct net_stats_eth *eth_tsnes_stats(const struct device *dev)
+{
+	return eth_tsnes_get_stats_type(dev, ETHERNET_STATS_TYPE_ALL);
 }
 #endif
 
@@ -1338,6 +1340,7 @@ static const struct ethernet_api eth_tsnes_api = {
 	.send = eth_tsnes_tx,
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	.get_stats = eth_tsnes_stats,
+	.get_stats_type = eth_tsnes_get_stats_type,
 #endif
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	.get_ptp_clock = eth_tsnes_get_ptp_clock,
