@@ -392,8 +392,9 @@ static int eth_etnf_init(const struct device *dev)
 
 	k_thread_create(&data->rx_thread, data->rx_stack,
 			CONFIG_ETH_RENESAS_RH850_ETNF_RX_THREAD_STACK_SIZE, eth_etnf_rx_thread,
-			(void *)dev, NULL, NULL, CONFIG_ETH_RENESAS_RH850_ETNF_RX_THREAD_PRIORITY,
-			0, K_NO_WAIT);
+			(void *)dev, NULL, NULL,
+			K_PRIO_COOP(CONFIG_ETH_RENESAS_RH850_ETNF_RX_THREAD_PRIORITY), 0,
+			K_NO_WAIT);
 	k_thread_name_set(&data->rx_thread, "etnf_rx");
 
 	LOG_INF("ETNF0 10BASE-T1S driver initialized");
