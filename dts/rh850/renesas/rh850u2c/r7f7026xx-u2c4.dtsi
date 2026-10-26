@@ -180,6 +180,7 @@
 			reg = <0xff1d0000 0x77c>;
 			interrupts = <536 0>;
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(ETNF, 0, CLKC_HBUS)>;
 			phy-connection-type = "internal";
 			mdio-interface = "shared";
 			pma-filtered;
