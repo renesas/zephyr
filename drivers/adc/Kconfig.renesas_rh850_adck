@@ -11,3 +11,19 @@ config ADC_RENESAS_RH850_ADCK
 	  Enable the ADC driver for the Renesas RH850 ADCK peripheral.
 	  The driver uses the Renesas RH850 FSP ADCK implementation as its
 	  hardware access layer.
+
+config ADC_RENESAS_RH850_ADCK_STREAM
+	bool "Renesas RH850 ADCK ADC streaming support"
+	default n
+	depends on ADC_RENESAS_RH850_ADCK
+	depends on ADC_STREAM
+	help
+	  Use this configuration option to enable streaming ADC data via RTIO.
+
+config ADC_RENESAS_RH850_ADCK_STREAM_DMA
+	bool "ADCK DMA-backed streaming"
+	default n
+	depends on ADC_RENESAS_RH850_ADCK_STREAM
+	select DMA
+	help
+	  Use this configuration option to enable DMA for streaming ADC.
