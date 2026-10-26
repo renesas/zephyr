@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	ramdisk0 {
+		compatible = "zephyr,ram-disk";
+		disk-name = "image0";
+		sector-size = <512>;
+		sector-count = <32>;
+	};
+
+	usbh_dfu: usbh_dfu {
+		compatible = "zephyr,usbh-dfu";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		any_dfu_device: dfu-device@ffffffff {
+			compatible = "zephyr,usbh-dfu-device";
+			reg = <0xffffffff>;
+			status = "okay";
+			match-class;
+		};
+	};
+
+	usbh_dfurt: usbh_dfurt {
+		compatible = "zephyr,usbh-dfu";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		any_dfurt_device: dfurt-device@ffffffff {
+			compatible = "zephyr,usbh-dfurt-device";
+			reg = <0xffffffff>;
+			status = "okay";
+			match-class;
+		};
+	};
+};
+
+&usb60clk {
+	status = "okay";
+};
+
+&ioport5 {
+	/* Set P500 low to select device mode on USBFS port J11. */
+	usbfs-hog {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
