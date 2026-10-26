@@ -144,6 +144,7 @@ static int crc_renesas_rh850_update(const struct device *dev, struct crc_ctx *ct
 {
 	struct crc_renesas_rh850_data *data = dev->data;
 	const struct crc_renesas_rh850_cfg *cfg = dev->config;
+	uint64_t result;
 
 	/* Ensure CRC calculation has been initialized by crc_begin() */
 	if (ctx->state == CRC_STATE_IDLE) {
@@ -153,12 +154,14 @@ static int crc_renesas_rh850_update(const struct device *dev, struct crc_ctx *ct
 	data->input_data.num_bytes = bufsize;
 	data->input_data.p_input_buffer = (uint8_t *)buffer;
 
-	if (FSP_SUCCESS !=
-	    (cfg->fsp_api->calculate(&data->ctrl, &data->input_data, (uint64_t *) &ctx->result))) {
+	/* The FSP writes a 64-bit result, ctx->result is only 32 bits wide */
+	if (FSP_SUCCESS != (cfg->fsp_api->calculate(&data->ctrl, &data->input_data, &result))) {
 		ctx->state = CRC_STATE_IDLE;
 		crc_unlock(dev);
 		return -EINVAL;
 	}
+
+	ctx->result = (crc_result_t)result;
 
 	return 0;
 }
