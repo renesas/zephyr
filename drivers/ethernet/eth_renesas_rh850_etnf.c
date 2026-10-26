@@ -101,6 +101,17 @@ LOG_MODULE_REGISTER(eth_renesas_etnf, CONFIG_ETHERNET_LOG_LEVEL);
 #define ETH_ETNF_LOOPBACK(n)     DT_INST_PROP(n, loopback)
 #define ETH_ETNF_PMA_FILTERED(n) DT_INST_PROP(n, pma_filtered)
 
+/* Multicast address filter table from devicetree, 6 bytes per entry */
+#define ETH_ETNF_ADDR_FILTER_LEN(n) DT_INST_PROP_LEN_OR(n, zephyr_mac_address_filter, 0)
+#define ETH_ETNF_ADDR_FILTER_NUM(n) (ETH_ETNF_ADDR_FILTER_LEN(n) / NET_ETH_ADDR_LEN)
+#define ETH_ETNF_ADDR_FILTER_MAX    32
+#define ETH_ETNF_ADDR_FILTER_TABLE(n)                                                              \
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, zephyr_mac_address_filter),                    \
+		    (eth_etnf_addr_filter_##n), (NULL))
+
+#define ETH_ETNF_ADDR_FILTER_DEFINE(n)                                                             \
+	static uint8_t eth_etnf_addr_filter_##n[] = DT_INST_PROP(n, zephyr_mac_address_filter);
+
 extern void r_ether_t1s_isr();
 
 struct eth_etnf_data {
@@ -492,6 +503,13 @@ static int eth_etnf_init(const struct device *dev)
 #define ETH_ETNF_DEFINE_STATIC(n)                                                                  \
 	BUILD_ASSERT(ETH_ETNF_TXQ_NUM(n) == 1, "txq-num > 1 is not supported in this version");    \
 	BUILD_ASSERT(ETH_ETNF_RXQ_NUM(n) == 1, "rxq-num > 1 is not supported in this version");    \
+	BUILD_ASSERT(ETH_ETNF_ADDR_FILTER_LEN(n) % NET_ETH_ADDR_LEN == 0,                          \
+		     "zephyr,mac-address-filter must be a multiple of 6 bytes");                   \
+	BUILD_ASSERT(ETH_ETNF_ADDR_FILTER_NUM(n) <= ETH_ETNF_ADDR_FILTER_MAX,                      \
+		     "zephyr,mac-address-filter supports at most 32 entries");                     \
+                                                                                                   \
+	IF_ENABLED(DT_INST_NODE_HAS_PROP(n, zephyr_mac_address_filter),                          \
+		   (ETH_ETNF_ADDR_FILTER_DEFINE(n)))                                               \
                                                                                                    \
 	static uint8_t g_ether_t1s_mem_pool_buffer_##n[ETH_ETNF_RAM_SIZE(n)]                       \
 		BSP_ALIGN_VARIABLE(4);                                                             \
@@ -523,14 +541,14 @@ static int eth_etnf_init(const struct device *dev)
 		.ether_t1s_cfg_type_rx_isr = ETHER_T1S_CTRL_INTERRUPT_MODE,                        \
 		.ether_t1s_ctl_mode = ETHER_T1S_CTRL_INTERRUPT_MODE,                               \
 		.ether_t1s_filter_action_type = ETHER_T1S_ADD_TO_FILTER,                           \
-		.p_mac_address_filter = NULL,                                                      \
+		.p_mac_address_filter = ETH_ETNF_ADDR_FILTER_TABLE(n),                             \
 		.header_data_custom = ETHER_T1S_HEADER_CUSTOM,                                     \
 		.p_hw_unit_config = &g_ether_t1s_hw_unit_configuration_etnf_##n,                   \
 		.ether_loopback_config = ETH_ETNF_LOOPBACK_CFG(n),                                 \
 		.ether_network_speed = ETHER_T1S_SPEED_10MBPS,                                     \
 		.ether_phy_interface = ETHER_T1S_MODE,                                             \
 		.p_mac_address_target = NULL,                                                      \
-		.number_of_addr_filter = 1U,                                                       \
+		.number_of_addr_filter = (uint8_t)ETH_ETNF_ADDR_FILTER_NUM(n),                     \
 		.ether_type = 0x003E,                                                              \
 		.pma_type = ETH_ETNF_PMA_TYPE(n),                                                  \
 		.mdio_interface_type = ETH_ETNF_MDIO_IF(n),                                        \
@@ -549,7 +567,7 @@ static int eth_etnf_init(const struct device *dev)
 	};                                                                                         \
                                                                                                    \
 	static const ether_cfg_t eth_etnf_fsp_cfg_##n = {                                          \
-		.channel = n,                                                                      \
+		.channel = DT_INST_PROP(n, channel),                                               \
 		.zerocopy = IS_ENABLED(CONFIG_ETH_RENESAS_RH850_ETNF_USE_ZEROCOPY)               \
 				    ? ETHER_ZEROCOPY_ENABLE                                        \
 				    : ETHER_ZEROCOPY_DISABLE,                                      \

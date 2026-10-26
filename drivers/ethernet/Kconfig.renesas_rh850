@@ -40,6 +40,24 @@ config ETH_RENESAS_RH850_ETNF_USE_ZEROCOPY
 	  are provided by the caller. Reduces CPU overhead and memory usage.
 	  Maps to ETHER_ZEROCOPY_ENABLE in the FSP ether_cfg_t.
 
+config ETH_RENESAS_RH850_ETNF_ADDR_FILTER
+	bool "Destination address filter table"
+	help
+	  Program r_ether_t1s's destination-address filter table (up to 32
+	  entries). This is a software filter inside the FSP RX path: the HAL
+	  still receives every frame into memory, then drops the ones whose
+	  destination address is not in the table before handing them to the
+	  driver, instead of passing all multicast frames through.
+	  Broadcast and the interface's own unicast address always pass.
+
+	  The table comes from the "zephyr,mac-address-filter" devicetree
+	  property of the ETNF node and is programmed once at
+	  R_ETHER_T1S_Open(); it is not updated at runtime when the network
+	  stack joins or leaves multicast groups. Any multicast address the
+	  application needs must be listed there, otherwise it is dropped
+	  (e.g. with IPv6, 33:33:00:00:00:01 and the solicited-node address
+	  33:33:ff:xx:xx:xx are required for neighbor discovery).
+
 endif # ETH_RENESAS_RH850_ETNF
 
 config ETH_RENESAS_RH850_ETND

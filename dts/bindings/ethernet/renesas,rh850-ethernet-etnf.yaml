@@ -44,6 +44,21 @@ properties:
       Configure PMA to handle a filtered T1S energy detection.
       If absent, unfiltered mode is used (ETHER_T1S_PMA_UNFILTERED).
 
+  zephyr,mac-address-filter:
+    type: uint8-array
+    description: |
+      Multicast destination MAC addresses to accept, 6 bytes per entry, at
+      most 32 entries. Only used when CONFIG_ETH_RENESAS_RH850_ETNF_ADDR_FILTER
+      is enabled; the table is programmed once at R_ETHER_T1S_Open() and is
+      not updated at runtime. Broadcast and the interface's own unicast
+      address are always accepted; unicast entries are ignored by the HAL.
+
+      Example (IPv6 all-nodes, IPv6 solicited-node for MAC ..:12:34:56,
+      IPv4 all-hosts):
+        zephyr,mac-address-filter = [33 33 00 00 00 01
+                                      33 33 ff 12 34 56
+                                      01 00 5e 00 00 01];
+
   txq-num:
     type: int
     default: 1
