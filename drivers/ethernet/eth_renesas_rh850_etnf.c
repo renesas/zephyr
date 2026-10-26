@@ -289,22 +289,26 @@ unlock:
 	return ret;
 }
 
-static enum ethernet_hw_caps eth_etnf_get_capabilities(const struct device *dev)
+static enum ethernet_hw_caps eth_etnf_get_capabilities(const struct device *dev,
+						       struct net_if *iface)
 {
 	ARG_UNUSED(dev);
+	ARG_UNUSED(iface);
 	return ETHERNET_LINK_10BASE;
 }
 
-static const struct device *eth_etnf_get_phy(const struct device *dev)
+static const struct device *eth_etnf_get_phy(const struct device *dev, struct net_if *iface)
 {
+	ARG_UNUSED(iface);
 	return ((const struct eth_etnf_data *)dev->data)->phy_dev;
 }
 
 #ifdef CONFIG_NET_STATISTICS_ETHERNET
-static struct net_stats_eth *eth_etnf_get_stats(const struct device *dev)
+static struct net_stats_eth *eth_etnf_get_stats(const struct device *dev, struct net_if *iface)
 {
 	struct eth_etnf_data *data = dev->data;
 
+	ARG_UNUSED(iface);
 	return &data->stats;
 }
 #endif
