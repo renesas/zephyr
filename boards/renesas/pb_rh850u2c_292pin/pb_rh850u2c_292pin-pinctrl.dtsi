@@ -130,16 +130,13 @@
 
 	etnf0_default: etnf0_default {
 		group1 {
-			psels = <RH850_PSEL(PORT_20, 4, ALT_OUT3)>,
-				<RH850_PSEL(PORT_20, 11, ALT_OUT3)>,
-				<RH850_PSEL(PORT_22, 2, ALT_OUT2)>;
+			psels = <RH850_PSEL(PORT_20, 4, ALT_OUT3)>;
 			drive-strength = "high";
 		};
 
 		group2 {
 			psels = <RH850_PSEL(PORT_20, 3, ALT_OUT3)>,
-				<RH850_PSEL(PORT_20, 13, ALT_OUT4)>,
-				<RH850_PSEL(PORT_21, 0, ALT_OUT2)>;
+				<RH850_PSEL(PORT_20, 13, ALT_OUT4)>;
 			drive-strength = "high";
 			renesas,direct-control;
 		};
