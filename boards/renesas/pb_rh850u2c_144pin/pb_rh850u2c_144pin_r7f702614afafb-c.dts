@@ -108,7 +108,17 @@
 	pinctrl-0 = <&etnf0_default>;
 	pinctrl-names = "default";
 	local-mac-address = [74 90 50 12 34 56];
-	status = "okay";
+	mdio-interface = "shared";
+	pma-filtered;
+};
+
+&ct25205 {
+	plca-enable;
+	plca-node-id = <0>;
+	plca-node-count = <8>;
+	plca-burst-count = <0>;
+	plca-burst-timer = <128>;
+	plca-to-timer = <32>;
 };
 
 &irq17 {
