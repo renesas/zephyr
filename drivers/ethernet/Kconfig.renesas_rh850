@@ -7,6 +7,7 @@ config ETH_RENESAS_RH850_ETNF
 	depends on DT_HAS_RENESAS_RH850_ETHERNET_ETNF_ENABLED
 	select USE_RH850_FSP_ETHER_ETNF if RH850
 	select PINCTRL
+	select CLOCK_CONTROL
 	help
 	  Enable Ethernet T1S (10BASE-T1S, IEEE 802.3cg) MAC driver for the
 	  Renesas RH850 family based on the ETNF0 controller.

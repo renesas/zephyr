@@ -75,6 +75,8 @@ struct eth_etnf_config {
 	void (*irq_config)(void);
 
 	const ether_cfg_t *p_fsp_cfg;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 };
 
 static void eth_etnf_phy_link_callback(const struct device *phy_dev, struct phy_link_state *state,
@@ -337,6 +339,17 @@ static int eth_etnf_init(const struct device *dev)
 	fsp_err_t fsp_err;
 	int ret;
 
+	if (!device_is_ready(cfg->clock_dev)) {
+		LOG_ERR("Ethernet T1S clock device is not ready");
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+	if ((ret < 0) && (ret != -EALREADY)) {
+		LOG_ERR("Ethernet T1S module clock enable failed (err %d)", ret);
+		return ret;
+	}
+
 	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret != 0) {
 		LOG_ERR("pinctrl_apply_state failed: %d", ret);
@@ -485,6 +498,8 @@ static int eth_etnf_init(const struct device *dev)
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.irq_config = eth_etnf_irq_config_##n,                                             \
 		.p_fsp_cfg = &eth_etnf_fsp_cfg_##n,                                                \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)DT_INST_CLOCKS_CELL(n, clk_id), \
 	};
 
 #define ETH_ETNF_DEVICE_DEFINE(n)                                                                  \
