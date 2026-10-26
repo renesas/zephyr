@@ -63,6 +63,8 @@ struct eth_etnf_data {
 	struct k_thread rx_thread;
 	struct k_sem rx_sem;
 	struct k_sem tx_sem;
+	struct k_mutex tx_lock;
+	bool tx_busy;
 
 	const struct device *phy_dev;
 	bool link_up;
@@ -154,28 +156,49 @@ static int eth_etnf_send(const struct device *dev, struct net_pkt *pkt)
 {
 	struct eth_etnf_data *data = dev->data;
 	uint16_t len = net_pkt_get_len(pkt);
-	fsp_err_t fsp_err = FSP_SUCCESS;
 	uint8_t *tx_buf = data->tx_frame_buf;
+	fsp_err_t fsp_err;
 	int ret = 0;
 
 	if (!data->link_up) {
-		ret = -ENETDOWN;
-		goto error;
+		return -ENETDOWN;
+	}
+
+	if (len > sizeof(data->tx_frame_buf)) {
+		return -EMSGSIZE;
+	}
+
+	/*
+	 * .send() can be called from several threads at once, and tx_frame_buf
+	 * and tx_sem are shared: serialize the whole write + wait.
+	 */
+	k_mutex_lock(&data->tx_lock, K_FOREVER);
+
+	/*
+	 * In zero-copy mode the TX descriptor points at tx_frame_buf: after a
+	 * timeout, wait for the pending frame to complete before overwriting it.
+	 */
+	if (data->tx_busy) {
+		if (k_sem_take(&data->tx_sem, K_MSEC(CONFIG_PHY_MONITOR_PERIOD)) != 0) {
+			ret = -EBUSY;
+			goto unlock;
+		}
+		data->tx_busy = false;
 	}
 
 	if (net_pkt_read(pkt, tx_buf, len)) {
 		ret = -EIO;
-		goto error;
+		goto unlock;
 	}
 
 	if (len < NET_ETH_MINIMAL_FRAME_SIZE) {
 		memset(tx_buf + len, 0, NET_ETH_MINIMAL_FRAME_SIZE - len);
 		len = NET_ETH_MINIMAL_FRAME_SIZE;
 	}
+
 	k_sem_reset(&data->tx_sem);
 
 	fsp_err = R_ETHER_T1S_Write(&data->fsp_ctrl, tx_buf, len);
-
 	if (fsp_err != FSP_SUCCESS) {
 		switch (fsp_err) {
 		case FSP_ERR_ETHER_ERROR_LINK:
@@ -190,12 +213,19 @@ static int eth_etnf_send(const struct device *dev, struct net_pkt *pkt)
 		default:
 			LOG_ERR("TX: R_ETHER_T1S_Write error %d", fsp_err);
 			ret = -EIO;
+			break;
 		}
+		goto unlock;
 	}
 
-	k_sem_take(&data->tx_sem, K_FOREVER);
+	ret = k_sem_take(&data->tx_sem, K_MSEC(CONFIG_PHY_MONITOR_PERIOD));
+	if (ret != 0 && IS_ENABLED(CONFIG_ETH_RENESAS_RH850_ETNF_USE_ZEROCOPY)) {
+		data->tx_busy = true;
+	}
 
-error:
+unlock:
+	k_mutex_unlock(&data->tx_lock);
+
 	return ret;
 }
 
@@ -374,6 +404,7 @@ static int eth_etnf_init(const struct device *dev)
 
 	k_sem_init(&data->rx_sem, 0, K_SEM_MAX_LIMIT);
 	k_sem_init(&data->tx_sem, 0, 8);
+	k_mutex_init(&data->tx_lock);
 
 	fsp_err = R_ETHER_T1S_Open(&data->fsp_ctrl, cfg->p_fsp_cfg);
 	if (fsp_err != FSP_SUCCESS) {
