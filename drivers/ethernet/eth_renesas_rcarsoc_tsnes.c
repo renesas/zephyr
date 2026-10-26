@@ -252,29 +252,10 @@ static int eth_tsnes_alloc_queues(const struct device *dev)
 }
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
-bool eth_tsnes_is_ptp_pkt(struct net_if *iface, struct net_pkt *pkt)
-{
-	if (net_ntohs(NET_ETH_HDR(pkt)->type) != NET_ETH_PTYPE_PTP) {
-		return false;
-	}
-
-	net_pkt_set_priority(pkt, NET_PRIORITY_CA);
-
-	return true;
-}
-
 static inline bool eth_tsnes_should_capture_tx_ts(struct net_pkt *pkt)
 {
-	return eth_tsnes_is_ptp_pkt(net_pkt_iface(pkt), pkt) || net_pkt_is_tx_timestamping(pkt);
-}
-
-static inline void eth_tsnes_enable_tx_capture(void *tx_desc, uint8_t channel, uint8_t unique_index)
-{
-	struct eth_tsnes_ext_desc *base = (struct eth_tsnes_ext_desc *)tx_desc;
-
-	base->info_ds |= ETH_DESC_TX_CAPTURE;
-	base->info = unique_index;
-	base->die_dt = (base->die_dt & ~0x1U) | (channel & 0x1U);
+	return (net_ntohs(NET_ETH_HDR(pkt)->type) == NET_ETH_PTYPE_PTP) ||
+	       net_pkt_is_tx_timestamping(pkt);
 }
 #endif
 
@@ -904,15 +885,11 @@ static void eth_tsnes_process_tx_ts_read(const struct device *dev)
 		tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
 
 		if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
+			k_spin_unlock(&queue->lock, key);
 			break;
 		}
 
 		tsun = desc->info;
-
-		if (tsun >= queue->desc_count) {
-			LOG_ERR("TS queue invalid TSUN %u", tsun);
-			goto recycle;
-		}
 
 		k_spin_unlock(&queue->lock, key);
 
@@ -930,7 +907,6 @@ static void eth_tsnes_process_tx_ts_read(const struct device *dev)
 
 		k_spin_unlock(&data->lock, key);
 
-recycle:
 		key = k_spin_lock(&queue->lock);
 		desc->die_dt = ETH_DESC_FEMPTY_ND | ETH_DESC_DIE;
 		desc->info_ds = 0;
@@ -1196,7 +1172,10 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	struct eth_tsnes_ext_desc *ring = (struct eth_tsnes_ext_desc *)tx_queue->desc_ring;
 	struct eth_tsnes_ext_desc *desc;
 	size_t pkt_len = net_pkt_get_len(pkt);
-	static uint8_t *buf;
+	uint8_t die_dt = ETH_DESC_FSINGLE | ETH_DESC_DIE;
+	uint16_t info_ds = pkt_len & 0xFFF;
+	uint8_t info = 0;
+	uint8_t *buf;
 	uint32_t desc_idx;
 	uint32_t next_tail_idx;
 	k_spinlock_key_t key;
@@ -1248,38 +1227,35 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 		return -EIO;
 	}
 
-#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
-	if (is_ptp_tx) {
-		net_pkt_ref(pkt);
-	}
-#endif
-
 	tsnes_dcache_flush((uintptr_t)buf, tsnes_cache_align_size(pkt_len));
 
-	desc->info = 0;
-	desc->info_ds = pkt_len & 0xFFF;
-	desc->dptr = (uint32_t)(uintptr_t)buf;
-	desc->info1[0] = pkt_len; /* Tx Frame Length (TFL) */
-	desc->info1[1] = 0;
-	desc->die_dt = ETH_DESC_DIE;
-
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	if (is_ptp_tx) {
-		if (cfg->ts_pkt_nodes[0][data->unique_index].pkt != NULL) {
-			LOG_WRN("TX timestamp slot %d full, dropping packet for q0",
-				data->unique_index);
-			net_pkt_unref(pkt);
-			k_spin_unlock(&data->lock, key);
-			return -ENOBUFS;
+		struct eth_tsnes_ts_pkt_mgmt *ts_node = &cfg->ts_pkt_nodes[0][data->unique_index];
+
+		/* No timestamp came back for this TSUN one full TSUN wrap ago. */
+		if (ts_node->pkt != NULL) {
+			LOG_WRN("TX timestamp %u lost", data->unique_index);
+			net_pkt_unref(ts_node->pkt);
 		}
 
-		eth_tsnes_enable_tx_capture(desc, cfg->ptp_clock_channel, data->unique_index);
-		cfg->ts_pkt_nodes[0][data->unique_index].pkt = pkt;
+		ts_node->pkt = net_pkt_ref(pkt);
+		info_ds |= ETH_DESC_TX_CAPTURE;
+		info = data->unique_index;
+		die_dt |= cfg->ptp_clock_channel & 0x1U;
 		data->unique_index = (data->unique_index + 1) % ETH_MAX_TS_DESC_NUM;
 	}
 #endif
-	desc->die_dt |= ETH_DESC_FSINGLE; /* Hand over to HW */
 
+	desc->info = info;
+	desc->info_ds = info_ds;
+	desc->dptr = (uint32_t)(uintptr_t)buf;
+	desc->info1[0] = pkt_len; /* Tx Frame Length (TFL) */
+	desc->info1[1] = 0;
+	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+
+	/* Hand over to HW: DT=0 would be a descriptor configuration error */
+	desc->die_dt = die_dt;
 	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
 
 	/* Trigger transmission on Queue 0 */

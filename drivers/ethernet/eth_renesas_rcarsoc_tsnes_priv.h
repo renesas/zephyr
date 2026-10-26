@@ -15,7 +15,7 @@
 #include <zephyr/net/net_if.h>
 #include <ethernet/eth_stats.h>
 
-#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 #include <zephyr/drivers/ptp_clock.h>
 #endif
 
@@ -660,7 +660,7 @@ struct eth_tsnes_config {
 
 	uint32_t channel;
 
-#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	void *ts_desc_rings[ETH_NUM_TS_QUEUES];
 	struct eth_tsnes_ts_pkt_mgmt *ts_pkt_nodes[ETH_NUM_TS_QUEUES];
 	const struct device *ptp_clock;
@@ -695,7 +695,7 @@ struct eth_tsnes_data {
 	/* Queue management */
 	struct eth_tsnes_queue rx_queues[ETH_NUM_RX_QUEUES];
 	struct eth_tsnes_queue tx_queues[ETH_NUM_TX_QUEUES];
-#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	struct eth_tsnes_queue ts_queues[ETH_NUM_TS_QUEUES];
 
 	/* Unique number assigned to the next TX timestamp descriptor */
@@ -720,7 +720,7 @@ struct eth_tsnes_buf_mgmt {
 	uint32_t buf_size;
 };
 
-#ifdef CONFIG_PTP_CLOCK_RENESAS_RCAR
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 struct eth_tsnes_ts_pkt_mgmt {
 	/* Store the TX pkt to report TS back */
 	struct net_pkt *pkt;
