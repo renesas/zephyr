@@ -38,16 +38,65 @@ LOG_MODULE_REGISTER(eth_renesas_etnf, CONFIG_ETHERNET_LOG_LEVEL);
 
 #define ETH_ETNF_IRQ_NUM(n)  DT_INST_IRQN(n)
 #define ETH_ETNF_IRQ_PRIO(n) DT_INST_IRQ(n, priority)
-#define ETH_ETNF_RAM_SIZE(n) DT_INST_PROP(n, ram_size)
 
 #define ETH_ETNF_TXQ_NUM(n) DT_INST_PROP(n, txq_num)
 #define ETH_ETNF_RXQ_NUM(n) DT_INST_PROP(n, rxq_num)
 
-#define ETH_ETNF_TXQ_LEN(n) DT_INST_PROP(n, txq_len)
-#define ETH_ETNF_RXQ_LEN(n) DT_INST_PROP(n, rxq_len)
+#define ETH_ETNF_TXB_NUM(n, i) DT_INST_PROP(n, txb##i##_num)
+#define ETH_ETNF_RXB_NUM(n, i) DT_INST_PROP(n, rxb##i##_num)
 
-#define ETH_ETNF_TXB_NUM(n) DT_INST_PROP(n, txb_num)
-#define ETH_ETNF_RXB_NUM(n) DT_INST_PROP(n, rxb_num)
+/* Check the input TX queue index is active or not */
+#define ETH_ETNF_TXQ_ACTIVE(n, i) ((i) < ETH_ETNF_TXQ_NUM(n))
+
+/*
+ * heap_size + (tx_buf[i] + cyclic_descr) * normal_descr_size
+ * + (heap_size + max_buffer_size + tx_buf_handler_size + header_size) * tx_buf[i]
+ */
+#define ETH_ETNF_TXQ_RAM(n, i)                                                                     \
+	(ETH_ETNF_TXQ_ACTIVE(n, i) ? (16U + (ETH_ETNF_TXB_NUM(n, i) + 1U) * 8U +                   \
+				      (16U + 1518U + 40U + 14U) * ETH_ETNF_TXB_NUM(n, i))          \
+				   : 0U)
+
+/* Check the input RX queue index is active or not */
+#define ETH_ETNF_RXQ_ACTIVE(n, i) ((i) < ETH_ETNF_RXQ_NUM(n))
+
+/*
+ * heap_size + (rx_buf[i] + cyclic_descr) * special_descr_size
+ * + (heap_size + max_buffer_size + size_uint32 + descr_offset) * rx_buf[i]
+ */
+#define ETH_ETNF_RXQ_RAM(n, i)                                                                     \
+	(ETH_ETNF_RXQ_ACTIVE(n, i) ? (16U + (ETH_ETNF_RXB_NUM(n, i) + 1U) * 20U +                  \
+				      (16U + 1518U + 4U + 2U) * ETH_ETNF_RXB_NUM(n, i))            \
+				   : 0U)
+
+/*
+ * ETNF internal buffer/descriptor RAM pool size (ether_t1s_ram_size).
+ * (Constants: heap_size=16, max_tx_queue=4, max_rx_queue=18, normal_descr_size=8,
+ * special_descr_size=20, cyclic_descr=1, max_buffer_size=1518, tx_buf_handler_size=40,
+ * header_size=14, size_uint32=4, descr_offset=2)
+ *   RAM calculation formula:
+ *   ram = heap_size + (max_tx_queue + max_rx_queue) * normal_descr_size
+ *       + sum(heap_size + (tx_buf[i] + cyclic_descr) * normal_descr_size)
+ *       + sum(heap_size + (rx_buf[i] + cyclic_descr) * special_descr_size)
+ *       + sum((heap_size + max_buffer_size + tx_buf_handler_size + header_size) * tx_buf[i])
+ *       + sum((heap_size + max_buffer_size + size_uint32 + descr_offset) * rx_buf[i])
+ */
+#define ETH_ETNF_RAM_SIZE(n)                                                                       \
+	((16U + (4U + 18U) * 8U) + ETH_ETNF_TXQ_RAM(n, 0) + ETH_ETNF_RXQ_RAM(n, 0))
+
+/* ether_t1s_tx_queue_type_etnf entry for used TX queue. */
+#define ETH_ETNF_TXQ_ENTRY(n, i)                                                                   \
+	{                                                                                          \
+		.eth_tx_queue_bufs = (uint16_t)ETH_ETNF_TXB_NUM(n, i),                             \
+		.eth_tx_queue_id = i##U,                                                           \
+	}
+
+/* ether_t1s_rx_queue_type_etnf entry for used RX queue. */
+#define ETH_ETNF_RXQ_ENTRY(n, i)                                                                   \
+	{                                                                                          \
+		.eth_rx_queue_bufs = (uint16_t)ETH_ETNF_RXB_NUM(n, i),                             \
+		.eth_rx_queue_id = i##U,                                                           \
+	}
 
 #define ETH_ETNF_LOOPBACK(n)     DT_INST_PROP(n, loopback)
 #define ETH_ETNF_PMA_FILTERED(n) DT_INST_PROP(n, pma_filtered)
@@ -432,14 +481,6 @@ static int eth_etnf_init(const struct device *dev)
 	return 0;
 }
 
-#if (CONFIG_RH850)
-#define DEFINE_ETNF_POOL_BUFFERS(n) static uint32_t g_ether_t1s_mem_pool_buffer_##n[6375];
-#else
-#define DEFINE_ETNF_POOL_BUFFERS(n)                                                                \
-	static uint8_t g_ether_t1s_mem_pool_buffer_##n[ETH_ETNF_RAM_SIZE(n)] BSP_PLACE_IN_SECTION( \
-		BSP_SECTION_GRAM_BSS);
-#endif
-
 #define ETH_ETNF_Q_TOPO_INIT(n)                                                                    \
 	{                                                                                          \
 		.p_tx_queue_config = &eth_etnf_tx_q_##n[0],                                        \
@@ -449,19 +490,17 @@ static int eth_etnf_init(const struct device *dev)
 	}
 
 #define ETH_ETNF_DEFINE_STATIC(n)                                                                  \
+	BUILD_ASSERT(ETH_ETNF_TXQ_NUM(n) == 1, "txq-num > 1 is not supported in this version");    \
+	BUILD_ASSERT(ETH_ETNF_RXQ_NUM(n) == 1, "rxq-num > 1 is not supported in this version");    \
                                                                                                    \
-	DEFINE_ETNF_POOL_BUFFERS(n)                                                                \
+	static uint8_t g_ether_t1s_mem_pool_buffer_##n[ETH_ETNF_RAM_SIZE(n)]                       \
+		BSP_ALIGN_VARIABLE(4);                                                             \
 	static const ether_t1s_tx_queue_type_etnf eth_etnf_tx_q_##n[] = {                          \
-		[0] = {.eth_tx_queue_id = (uint8_t)ETHER_T1S_TX_BE,                                \
-		       .eth_tx_queue_bufs = (uint16_t)ETH_ETNF_TXB_NUM(n)},                        \
+		ETH_ETNF_TXQ_ENTRY(n, 0),                                                          \
 	};                                                                                         \
                                                                                                    \
 	static const ether_t1s_rx_queue_type_etnf eth_etnf_rx_q_##n[] = {                          \
-		[0] =                                                                              \
-			{                                                                          \
-				.eth_rx_queue_id = 0U, /* ETH_BECHANNEL */                         \
-				.eth_rx_queue_bufs = (uint16_t)ETH_ETNF_RXB_NUM(n),                \
-			},                                                                         \
+		ETH_ETNF_RXQ_ENTRY(n, 0),                                                          \
 	};                                                                                         \
                                                                                                    \
 	static const ether_t1s_etnf_config_type g_ether_t1s_hw_unit_configuration_etnf_##n = {     \
@@ -497,7 +536,7 @@ static int eth_etnf_init(const struct device *dev)
 		.mdio_interface_type = ETH_ETNF_MDIO_IF(n),                                        \
 		.mdio_slave_address = DT_PROP(DT_INST_CHILD(n, phy), phy_lsi_addr),                \
 		.ether_t1s_ram_size = ETH_ETNF_RAM_SIZE(n),                                        \
-		.p_mem_pool_buffer_table = (uint8_t *)g_ether_t1s_mem_pool_buffer_##n,             \
+		.p_mem_pool_buffer_table = g_ether_t1s_mem_pool_buffer_##n,                        \
 		.other_irq = FSP_INVALID_VECTOR, /* management IRQ, timestamp only */              \
 		.interrupt_priority = BSP_IRQ_DISABLED,                                            \
 		.time_stamp_sel = ETHER_T1S_TIME_STAMP_MII,                                        \
@@ -515,8 +554,6 @@ static int eth_etnf_init(const struct device *dev)
 				    ? ETHER_ZEROCOPY_ENABLE                                        \
 				    : ETHER_ZEROCOPY_DISABLE,                                      \
 		.p_mac_address = eth_etnf_data_##n.mac_addr,                                       \
-		.num_tx_descriptors = (uint8_t)ETH_ETNF_TXQ_LEN(n),                                \
-		.num_rx_descriptors = (uint8_t)ETH_ETNF_RXQ_LEN(n),                                \
 		.irq = ETH_ETNF_IRQ_NUM(n),                                                        \
 		.interrupt_priority = ETH_ETNF_IRQ_PRIO(n),                                        \
 		.p_callback = NULL,                                                                \

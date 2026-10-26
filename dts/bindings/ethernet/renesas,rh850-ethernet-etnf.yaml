@@ -42,41 +42,25 @@ properties:
   txq-num:
     type: int
     default: 1
+    const: 1
     description: |
-      Number of active TX queues. For basic T1S, only queue 0 (Best Effort)
-      is required. Queues 1-3 (NC/Stream) require AVB/CBS support.
+      Number of TX queues. Only support 1 queue for this version.
 
   rxq-num:
     type: int
     default: 1
-    description: Number of active RX queues (Best Effort + Network Control minimum).
+    const: 1
+    description: |
+      Number of RX queues. Only support 1 queue for this version.
 
-  txq-len:
-    type: int
-    default: 4
-    description: Number of TX descriptors per queue.
-
-  rxq-len:
-    type: int
-    default: 4
-    description: Number of RX descriptors per queue.
-
-  txb-num:
+  txb0-num:
     type: int
     default: 8
     description: |
-      Total TX buffer count.
+      TX buffer count for queue 0. Range from 1 to 64.
 
-  rxb-num:
+  rxb0-num:
     type: int
     default: 8
     description: |
-      Total RX buffer count.
-
-  ram-size:
-    type: int
-    default: 25500
-    description: |
-      Size in bytes of the internal ETNF0 RAM region used for descriptors
-      and buffer pool management.
-
+      RX buffer count for queue 0. Range from 1 to 64.
