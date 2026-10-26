@@ -125,6 +125,14 @@ static inline size_t tsnes_cache_align_size(size_t size)
 #define tsnes_cache_align_size(size) (size)
 #endif
 
+/*
+ * RX frames start 2 bytes into their buffer so that the IP header following
+ * the 14-byte Ethernet header is word aligned. TX buffers have room to start
+ * a frame at any word offset (see eth_tsnes_tx_copy_offset()).
+ */
+#define ETH_TSNES_RX_HEADROOM 2U
+#define ETH_TSNES_TX_SLACK    (sizeof(uint32_t) - 1U)
+
 /* Give a RX ring slot back to hardware. */
 static void eth_tsnes_rx_desc_arm(struct eth_tsnes_queue *queue, uint32_t desc_idx)
 {
@@ -135,7 +143,7 @@ static void eth_tsnes_rx_desc_arm(struct eth_tsnes_queue *queue, uint32_t desc_i
 	/* The stack may have written into a lent buffer: write back and drop those
 	 * lines before HW DMAs into it again.
 	 */
-	tsnes_dcache_invalidate(node->buf_addr, node->buf_size);
+	tsnes_dcache_invalidate(node->buf_addr, node->buf_size + ETH_TSNES_RX_HEADROOM);
 
 	desc->info_ds = MIN(node->buf_size, 0xFFF);
 	desc->info = 0;
@@ -341,8 +349,12 @@ static int eth_tsnes_rx_desc_learning(volatile eth_tsnes_axibmi_reg_t *axi, uint
 
 	ok = WAIT_FOR(!(axi->RATLR & ETH_TSNES_RATLR_LEARNING), 1000, k_busy_wait(1));
 
-	if (!ok || (axi->RATLR & ETH_TSNES_RATLR_FAILED)) {
+	if (!ok) {
 		return -EIO;
+	}
+	/* RATLF: RXTBL.EV of the chain is still 1, i.e. the chain is running */
+	if ((axi->RATLR & ETH_TSNES_RATLR_FAILED) != 0U) {
+		return -EBUSY;
 	}
 	return 0;
 }
@@ -362,7 +374,8 @@ static int eth_tsnes_setup_tx_descriptors(const struct device *dev)
 
 		for (j = 0; j < queue->desc_count; j++) {
 			desc = &ring[j];
-			buf = eth_tsnes_alloc_buffer(data, data->max_frame_size);
+			buf = eth_tsnes_alloc_buffer(data,
+						     data->max_frame_size + ETH_TSNES_TX_SLACK);
 			if (!buf) {
 				return -ENOMEM;
 			}
@@ -410,18 +423,20 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 
 		for (j = 0; j < queue->desc_count; j++) {
 			desc = &ring[j];
-			buf = eth_tsnes_alloc_buffer(data, data->max_frame_size);
+			buf = eth_tsnes_alloc_buffer(data,
+						     data->max_frame_size + ETH_TSNES_RX_HEADROOM);
 			if (!buf) {
 				return -ENOMEM;
 			}
 
 			/* Drop the lines the pool memset left dirty before HW DMAs into it */
-			tsnes_dcache_invalidate((uintptr_t)buf, data->max_frame_size);
+			tsnes_dcache_invalidate((uintptr_t)buf,
+						data->max_frame_size + ETH_TSNES_RX_HEADROOM);
 
 			desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 			desc->info_ds = MIN(data->max_frame_size, 0xFFF);
 			desc->info = 0;
-			desc->dptr = (uint32_t)(uintptr_t)buf;
+			desc->dptr = (uint32_t)(uintptr_t)(buf + ETH_TSNES_RX_HEADROOM);
 			desc->info1[0] = 0;
 			desc->info1[1] = 0;
 			desc->tsns = 0;
@@ -545,9 +560,11 @@ static int eth_tsnes_axibmi_init(const struct device *dev)
 	axi->TSDIE = ETH_TSNES_TSDIE_CONFIG;
 	axi->EIE0 = ETH_TSNES_EIE0_CONFIG;
 
-	/* Descriptor Data Interrupt Enable */
-	axi->stTXDI[0].TDIEi = ETH_TSNES_TDIE0_CONFIG;
+	/* RX data and RX descriptor full interrupts. TX completions are reaped by
+	 * eth_tsnes_tx(), TX descriptors do not request an interrupt.
+	 */
 	axi->stRXDI[0].RDIEi = ETH_TSNES_RDIE0_CONFIG;
+	axi->stRXDFEI[0].RFEIEi = ETH_TSNES_RFEIE0_CONFIG;
 
 	return 0;
 }
@@ -794,60 +811,33 @@ static int eth_tsnes_hw_init_tsnes(const struct device *dev)
 	return 0;
 }
 
-static void eth_tsnes_process_tx_completions(const struct device *dev)
+/*
+ * HW turns the LINK at the end of a ring into LEMPTY when it passes it. The CPU
+ * may only write it back once it is LEMPTY (AXIBMI §5.3.1 note).
+ */
+static inline void eth_tsnes_link_restore(volatile uint8_t *die_dt)
 {
-	struct eth_tsnes_data *data = dev->data;
-	int i;
-	k_spinlock_key_t key;
-
-	key = k_spin_lock(&data->lock);
-
-	for (i = 0; i < data->num_tx_queues; i++) {
-		struct eth_tsnes_queue *queue = &data->tx_queues[i];
-		struct eth_tsnes_ext_desc *ring = (struct eth_tsnes_ext_desc *)queue->desc_ring;
-
-		while (queue->head_idx != queue->tail_idx) {
-			struct eth_tsnes_ext_desc *desc = &ring[queue->head_idx];
-			uint8_t dt = desc->die_dt & ETH_DESC_DT_MASK;
-
-			if (dt != ETH_DESC_FEMPTY && dt != ETH_DESC_FEMPTY_ND) {
-				break;
-			}
-
-			desc->die_dt = ETH_DESC_EEMPTY;
-			desc->info_ds = 0;
-
-			queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
-		}
-
-		ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+	if ((*die_dt & ETH_DESC_DT_MASK) == ETH_DESC_LEMPTY) {
+		*die_dt = ETH_DESC_LINK;
 	}
-
-	k_spin_unlock(&data->lock, key);
 }
 
-static void eth_tsnes_ctrl_data_irq(const struct device *dev, bool enable)
+/* Free the TX slots hardware has sent. Called with data->lock held. */
+static void eth_tsnes_tx_reap(struct eth_tsnes_queue *queue)
 {
-	const struct eth_tsnes_config *cfg = dev->config;
-	volatile eth_tsnes_axibmi_reg_t *axi = &cfg->tsnes_base->stAXIBMI;
+	struct eth_tsnes_ext_desc *ring = (struct eth_tsnes_ext_desc *)queue->desc_ring;
 
-	if (enable) {
-		axi->stTXDI[0].TDIEi = ETH_TSNES_TDIE0_CONFIG;
-		axi->stRXDI[0].RDIEi = ETH_TSNES_RDIE0_CONFIG;
-		axi->stRXDFEI[0].RFEIEi = ETH_TSNES_RFEIE0_CONFIG;
-	} else {
-		axi->stTXDI[0].TDIDi = ETH_TSNES_TDIE0_CONFIG;
-		axi->stRXDI[0].RDIDi = ETH_TSNES_RDIE0_CONFIG;
-		axi->stRXDFEI[0].RFEIDi = ETH_TSNES_RFEIE0_CONFIG;
+	while (queue->head_idx != queue->tail_idx) {
+		uint8_t dt = ring[queue->head_idx].die_dt & ETH_DESC_DT_MASK;
+
+		if (dt != ETH_DESC_FEMPTY && dt != ETH_DESC_FEMPTY_ND) {
+			break;
+		}
+
+		queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
 	}
 
-#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
-	if (enable) {
-		axi->TSDIE = ETH_TSNES_TSDIE_CONFIG;
-	} else {
-		axi->TSDID = ETH_TSNES_TSDIE_CONFIG;
-	}
-#endif
+	eth_tsnes_link_restore(&ring[queue->desc_count - 1].die_dt);
 }
 
 static void eth_tsnes_process_rx_full(const struct device *dev, uint32_t rxfull_stat)
@@ -931,77 +921,42 @@ static void eth_tsnes_process_tx_ts_read(const struct device *dev)
 		queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
 	}
 
-	/* Change the last desc to LINK because HW changed it to LEMPTY after process */
-	ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
+	eth_tsnes_link_restore(&ring[queue->desc_count - 1].die_dt);
 }
 #endif
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 static void eth_tsnes_process_work_handler(struct k_work *work)
 {
 	struct eth_tsnes_data *data = CONTAINER_OF(work, struct eth_tsnes_data, process_work);
-	const struct device *dev = data->dev;
-	uint32_t status;
-	uint32_t rxfull_status;
 
-	k_spinlock_key_t key = k_spin_lock(&data->lock);
-
-	status = data->pending_irq_status;
-	data->pending_irq_status = 0;
-	rxfull_status = data->pending_rxfull_status;
-	data->pending_rxfull_status = 0;
-	k_spin_unlock(&data->lock, key);
-
-	if (status & 1) {
-		eth_tsnes_process_tx_completions(dev);
-	}
-
-	if (status & 2) {
-		k_sem_give(&data->rx_sem);
-	}
-
-	if (status & 4) {
-		LOG_DBG("eth_tsnes_process_rx_full, rxfull_status=%d", rxfull_status);
-		eth_tsnes_process_rx_full(dev, rxfull_status);
-	}
-
-#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
-	if (status & 8) {
-		eth_tsnes_process_tx_ts_read(dev);
-	}
-#endif
-
-	eth_tsnes_ctrl_data_irq(dev, true);
+	eth_tsnes_process_tx_ts_read(data->dev);
 }
+#endif
 
 static void eth_tsnes_isr(const struct device *dev)
 {
 	struct eth_tsnes_data *data = dev->data;
 	const struct eth_tsnes_config *cfg = dev->config;
 	volatile eth_tsnes_axibmi_reg_t *axi = &cfg->tsnes_base->stAXIBMI;
-	uint32_t txi_stat = axi->stTXDI[0].TDISi;
 	uint32_t rxi_stat = axi->stRXDI[0].RDISi;
-	uint32_t rxfull_stat = axi->stRXDFEI[0].RFEISi;
 	uint32_t tsi_stat = axi->TSDIS;
 
-	if (txi_stat || rxi_stat || rxfull_stat || (tsi_stat != 0U)) {
-		axi->stTXDI[0].TDISi = txi_stat;
+	if (rxi_stat != 0U) {
+		/* Mask and ack; the RX thread unmasks once the rings are drained. */
+		axi->stRXDI[0].RDIDi = rxi_stat;
 		axi->stRXDI[0].RDISi = rxi_stat;
-		axi->stRXDFEI[0].RFEISi = rxfull_stat;
-		axi->TSDIS = tsi_stat;
-
-		eth_tsnes_ctrl_data_irq(dev, false);
-
-		data->pending_irq_status |=
-			(txi_stat ? 1 : 0) | ((rxi_stat ? 1 : 0) << 1) | (rxfull_stat ? 4 : 0);
-#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
-		data->pending_irq_status |= (tsi_stat ? 8 : 0);
-#endif
-		data->pending_rxfull_status |= rxfull_stat;
-
-		k_work_submit(&data->process_work);
+		k_sem_give(&data->rx_sem);
 	}
 
-	if (!txi_stat && !rxi_stat && !rxfull_stat && !tsi_stat) {
+	if (tsi_stat != 0U) {
+		axi->TSDIS = tsi_stat;
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
+		k_work_submit(&data->process_work);
+#endif
+	}
+
+	if ((rxi_stat | tsi_stat) == 0U) {
 		LOG_INF("error signal interrupt!");
 	}
 }
@@ -1104,21 +1059,22 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 	struct eth_tsnes_data *data = dev->data;
 	const struct eth_tsnes_config *cfg = dev->config;
 	volatile eth_tsnes_axibmi_reg_t *axi = &cfg->tsnes_base->stAXIBMI;
-	uint32_t q_idx, desc_idx;
-	uint32_t polled_rxfull_stat;
-	int res = 0;
+	bool rxfull_pending = false;
+	uint32_t rxfull_stat;
+	uint32_t q_idx;
+	int res;
 	int i;
 
+	ARG_UNUSED(arg2);
+	ARG_UNUSED(arg3);
+
 	while (1) {
-		res = k_sem_take(&data->rx_sem, K_MSEC(1));
-		ARG_UNUSED(res);
+		/* Given by the ISR and when the lent slot at head_idx comes back. A
+		 * full chain is retried every 1 ms until it restarts.
+		 */
+		(void)k_sem_take(&data->rx_sem, rxfull_pending ? K_MSEC(1) : K_FOREVER);
 
-		/* Poll fallback for a lost RFEISi edge */
-		polled_rxfull_stat = axi->stRXDFEI[0].RFEISi;
-
-		if (polled_rxfull_stat) {
-			eth_tsnes_process_rx_full(dev, polled_rxfull_stat);
-		}
+		rxfull_pending = false;
 
 		for (q_idx = 0; q_idx < data->num_rx_queues; q_idx++) {
 			struct eth_tsnes_queue *queue = &data->rx_queues[q_idx];
@@ -1126,8 +1082,7 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 				(struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring;
 
 			for (i = 0; i < queue->desc_count; i++) {
-				desc_idx = queue->head_idx;
-				res = eth_tsnes_process_rx_descriptor(dev, queue, desc_idx);
+				res = eth_tsnes_process_rx_descriptor(dev, queue, queue->head_idx);
 				if (res == -EAGAIN) {
 					break;
 				}
@@ -1135,28 +1090,68 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 				queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
 			}
 
-			if (queue->rxfull_pending) {
-				LOG_INF("RX queue %u: this tick consumed %d descriptor(s), "
-					"head_idx now %u",
-					q_idx, i, queue->head_idx);
+			eth_tsnes_link_restore(&ring[queue->desc_count - 1].die_dt);
+
+			/* RFEISi is signalled on the error line, which this driver does not
+			 * connect. Read only after the drain: a chain full by now stopped
+			 * at head_idx.
+			 */
+			rxfull_stat = axi->stRXDFEI[0].RFEISi;
+			rxfull_stat = ETH_TSN_GET_RX_FULL_INT_STAT(q_idx, rxfull_stat, 0);
+			if (rxfull_stat != 0U) {
+				eth_tsnes_process_rx_full(dev, rxfull_stat);
 			}
 
-			ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
-
 			if (queue->rxfull_pending && eth_tsnes_rx_head_armed(queue)) {
-				if (eth_tsnes_rx_desc_learning(
-					    axi, q_idx,
-					    (uint32_t)(uintptr_t)&ring[queue->head_idx]) == 0) {
+				res = eth_tsnes_rx_desc_learning(
+					axi, q_idx, (uint32_t)(uintptr_t)&ring[queue->head_idx]);
+				if (res == 0) {
 					queue->rxfull_pending = false;
 					LOG_INF("RX queue %u restarted", q_idx);
+				} else if (res == -EBUSY) {
+					/* Chain is running again: nothing to restart */
+					queue->rxfull_pending = false;
 				} else {
 					LOG_ERR("RX queue %u restore (address table learning) "
 						"failed, will retry",
 						q_idx);
 				}
 			}
+
+			rxfull_pending = rxfull_pending || queue->rxfull_pending;
 		}
+
+		/* Unmask only now: frames that landed while masked have latched RDISi,
+		 * so the interrupt fires again straight away.
+		 */
+		axi->stRXDI[0].RDIEi = ETH_TSNES_RDIE0_CONFIG;
 	}
+}
+
+/*
+ * Where to start the frame in its TX buffer: memcpy() is fastest when source
+ * and destination have the same word offset, so match the fragment carrying
+ * most of the frame. DPTR is a byte address.
+ */
+static size_t eth_tsnes_tx_copy_offset(struct net_pkt *pkt)
+{
+	struct net_buf *big = pkt->frags;
+	size_t big_at = 0;
+	size_t at = 0;
+
+	if (big == NULL) {
+		return 0;
+	}
+
+	for (struct net_buf *frag = pkt->frags; frag != NULL; frag = frag->frags) {
+		if (frag->len > big->len) {
+			big = frag;
+			big_at = at;
+		}
+		at += frag->len;
+	}
+
+	return ((uintptr_t)big->data - big_at) & ETH_TSNES_TX_SLACK;
 }
 
 static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
@@ -1167,10 +1162,11 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	struct eth_tsnes_ext_desc *ring = (struct eth_tsnes_ext_desc *)tx_queue->desc_ring;
 	struct eth_tsnes_ext_desc *desc;
 	size_t pkt_len = net_pkt_get_len(pkt);
-	uint8_t die_dt = ETH_DESC_FSINGLE | ETH_DESC_DIE;
+	uint8_t die_dt = ETH_DESC_FSINGLE;
 	uint16_t info_ds = pkt_len & 0xFFF;
 	uint8_t info = 0;
 	uint8_t *buf;
+	size_t off;
 	uint32_t desc_idx;
 	uint32_t next_tail_idx;
 	k_spinlock_key_t key;
@@ -1196,7 +1192,11 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 		return -EMSGSIZE;
 	}
 
+	off = eth_tsnes_tx_copy_offset(pkt);
+
 	key = k_spin_lock(&data->lock);
+
+	eth_tsnes_tx_reap(tx_queue);
 
 	next_tail_idx = (tx_queue->tail_idx + 1) % (tx_queue->desc_count - 1);
 
@@ -1208,7 +1208,7 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 
 	desc_idx = tx_queue->tail_idx;
 	desc = &ring[desc_idx];
-	buf = (uint8_t *)tx_queue->buf_nodes[desc_idx].buf_addr;
+	buf = (uint8_t *)tx_queue->buf_nodes[desc_idx].buf_addr + off;
 
 	if (!buf) {
 		k_spin_unlock(&data->lock, key);
@@ -1222,7 +1222,7 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 		return -EIO;
 	}
 
-	tsnes_dcache_flush((uintptr_t)buf, tsnes_cache_align_size(pkt_len));
+	tsnes_dcache_flush((uintptr_t)buf, pkt_len);
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	if (is_ptp_tx) {
@@ -1254,7 +1254,8 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	barrier_dmem_fence_full();
 
 	/* Trigger transmission on Queue 0 */
-	axi->TRCR[0] |= (1 << 0);
+	/* TSRt is write-1-to-set */
+	axi->TRCR[0] = BIT(0);
 
 	tx_queue->stats.tx_packets++;
 	tx_queue->stats.tx_bytes += pkt_len;
@@ -1359,7 +1360,7 @@ static int eth_tsnes_init(const struct device *dev)
 		return 0;
 	}
 
-	k_sem_init(&data->rx_sem, 0, cfg->rx_queue_size);
+	k_sem_init(&data->rx_sem, 0, 1);
 
 	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret) {
@@ -1396,7 +1397,9 @@ static int eth_tsnes_init(const struct device *dev)
 		return ret;
 	}
 
+#ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 	k_work_init(&data->process_work, eth_tsnes_process_work_handler);
+#endif
 
 	k_thread_create(
 		&data->rx_thread, data->rx_stack, CONFIG_ETH_RENESAS_RCARSOC_TSNES_RX_THREAD_STACK,

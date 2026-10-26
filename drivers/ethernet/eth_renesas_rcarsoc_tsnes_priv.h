@@ -728,9 +728,7 @@ struct eth_tsnes_data {
 	uint32_t num_rx_queues;
 	uint32_t num_tx_queues;
 
-	struct k_work process_work;
-	uint32_t pending_irq_status;
-	uint32_t pending_rxfull_status;
+	struct k_work process_work; /* TX timestamp completions */
 
 	/* Synchronization and threading for RX moved to end to prevent stack overflow corruption */
 	struct k_thread rx_thread;

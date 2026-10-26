@@ -42,10 +42,14 @@ config ETH_RENESAS_RCARSOC_TSNES_RX_THREAD_PRIORITY
 
 config ETH_RENESAS_RCARSOC_TSNES_RX_THREAD_STACK
 	int "Stack size for RX thread (bytes)"
+	default NET_RX_STACK_SIZE if NET_TC_RX_COUNT = 0 && NET_RX_STACK_SIZE > 2048
 	default 2048
 	range 1024 8192
 	help
-		Stack size for RX descriptor processing thread.
+		Stack size for RX descriptor processing thread. With
+		CONFIG_NET_TC_RX_COUNT=0 the whole receive path runs on this
+		thread, so it defaults to CONFIG_NET_RX_STACK_SIZE then, when
+		that is larger than 2048.
 
 config ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN
 	int "Descriptor cache alignment (bytes)"
