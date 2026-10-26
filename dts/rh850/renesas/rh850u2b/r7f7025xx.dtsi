@@ -937,8 +937,8 @@
 		adck0: adc@ffca0000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xffca0000 0x1000>;
-			interrupts = <441 1>, <442 1>, <443 1>, <444 1>, <445 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupts = <441 1>, <442 1>, <443 1>, <444 1>, <445 1>, <461 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 0, ADCK)>,
 				 <&cgc RH850_PCLK(ADCK_ISO, 4, ADCK)>,
@@ -948,15 +948,17 @@
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			renesas,physical-channel-mask = <0xffffffff 0xffffffff>;
+			renesas,unit = <0>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000000>;
+			renesas,th-supported-mask = <0x0f>;
 			status = "disabled";
 		};
 
 		adck1: adc@fff20000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xfff20000 0x1000>;
-			interrupts = <451 1>, <452 1>, <453 1>, <454 1>, <455 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupts = <451 1>, <452 1>, <453 1>, <454 1>, <455 1>, <463 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 1, ADCK)>,
 				 <&cgc RH850_PCLK(ADCK_ISO, 4, ADCK)>,
@@ -966,15 +968,17 @@
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			renesas,physical-channel-mask = <0xffffffff 0xffffffff>;
+			renesas,unit = <1>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000000>;
+			renesas,th-supported-mask = <0x0f>;
 			status = "disabled";
 		};
 
 		adck2: adc@ffca1000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xffca1000 0x1000>;
-			interrupts = <446 1>, <447 1>, <448 1>, <449 1>, <450 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupts = <446 1>, <447 1>, <448 1>, <449 1>, <450 1>, <462 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 2, ADCK)>,
 				 <&cgc RH850_PCLK(ADCK_ISO, 4, ADCK)>,
@@ -984,7 +988,9 @@
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			renesas,physical-channel-mask = <0xffffffff 0xffffffff>;
+			renesas,unit = <2>;
+			renesas,physical-channel-mask = <0xffffffff 0x00000000>;
+			renesas,th-supported-mask = <0x0f>;
 			status = "disabled";
 		};
 

@@ -18,22 +18,35 @@ properties:
 
   interrupt-names:
     required: true
-    description: Must contain sg0, sg1, sg2, sg3, and sg4 scan-group end interrupts.
+    description: |
+      Scan-group completion interrupts are named sg0 through sg4.
+      An additional interrupt named error is used for upper/lower-limit
+      interrupt notification.
 
   clocks:
+    required: true
     description: Optional clock controller reference used to enable the ADCK peripheral clock.
 
   vref-mv:
     type: int
     description: ADC reference voltage in millivolts for raw-to-millivolt conversion.
 
+  dmas:
+    description: DMA channel used to transfer ADC conversion results.
+
   channel-available-mask:
     type: int
     required: true
     description: Bit mask of Zephyr ADC channel IDs available on this controller.
 
-  dmas:
-    description: DMA channel used to transfer ADC conversion results.
+  renesas,physical-channel-mask:
+    type: array
+    required: true
+    description: |
+      Two 32-bit cells describing the physical input selector values supported
+      by this ADCK instance. Cell 0 covers selectors 0 through 31 and cell 1
+      covers selectors 32 through 63. This mask documents the selector values
+      available on the target SoC instance.
 
   renesas,unit:
     type: int
@@ -45,15 +58,6 @@ properties:
     required: true
     enum: [0, 1, 2, 3, 4]
     description: Scan group used for software-triggered conversion.
-
-  renesas,physical-channel-mask:
-    type: array
-    required: true
-    description: |
-      Two 32-bit cells describing the physical input selector values supported
-      by this ADCK instance. Cell 0 covers selectors 0 through 31 and cell 1
-      covers selectors 32 through 63. This mask documents the selector values
-      available on the target SoC instance.
 
   renesas,start-virtual-channel:
     type: int
@@ -83,6 +87,32 @@ properties:
       Static controller-wide ADCK result format. Non-integer formats are
       returned in the 16-bit raw representation defined by the hardware.
 
+  renesas,wait-time-cycles:
+    type: array
+    default: [0, 0, 0, 0, 0, 0, 0, 0]
+    description: |
+      Wait times before A/D sampling, expressed in CLKAD cycles.
+
+      Entries 0 through 7 configure wait-time tables 0 through 7.
+      At most eight entries may be provided. Missing entries are zero.
+      Each entry must be in the range 0 through 16383.
+      A value of zero produces no effective wait.
+
+      Each channel selects a table using renesas,wait-table:
+      0 disables table selection, and 1 through 8 select tables 0
+      through 7.
+
+  renesas,addition-count:
+    type: int
+    default: 2
+    enum: [2, 4]
+    description: |
+      Number of consecutive A/D conversions summed for each channel
+      configured as "addition" or "mpx-addition".
+
+      2: Perform two conversions and store the average of both results.
+      4: Perform four conversions and store the average of all four results.
+
   renesas,scan-mode:
     type: string
     default: "multicycle"
@@ -95,6 +125,45 @@ properties:
     type: string
     default: "software"
     enum: ["software", "hardware", "ad-timer", "th-a", "th-b"]
+    description: |
+      Static scan-group start method.
+
+      "th-a" and "th-b" use a software hold trigger of T&H group A
+      and group B, respectively.
+
+      The driver uses one statically selected scan group and one
+      T&H group per ADCK instance. Concurrent operation of both
+      T&H groups and hardware-triggered hold are not supported
+      by this configuration model.
+
+  renesas,pin-self-diagnostic-level:
+    type: int
+    default: 0
+    enum: [0, 1, 2, 3]
+    description: |
+      Controller-wide pin-level self-diagnostic voltage selection
+      encoded by TDCR.TDLV.
+
+      0: Even inputs use AnVSS; odd inputs use AnVCC.
+      1: Even inputs use AnVCC; odd inputs use AnVSS.
+      2: Even inputs use AnVSS; odd inputs use AnVCC / 2.
+      3: Even inputs use AnVCC / 2; odd inputs use AnVSS.
+
+      This setting applies to pin-level self-diagnostic conversions.
+      It does not select the ADcore self-diagnostic voltage.
+
+  renesas,wiring-break-pulse-width:
+    type: int
+    default: 1
+    enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    description: |
+      Controller-wide pull-down pulse width for wiring-break
+      detection mode 1 and its self-diagnostic conversion.
+
+      The value is expressed in internal clock states.
+      The ODPW register encoding is this value plus three.
+
+      Wiring-break addition mode is not enabled by this property.
 
   renesas,trigger-source:
     type: string
@@ -106,19 +175,86 @@ properties:
     type: string
     default: "software"
     enum: ["software", "hardware"]
+    description: |
+      Method used to start the A/D timer when renesas,trigger-method
+      is "ad-timer".
+
+      "software": Start the A/D timer by a software command.
+      "hardware": Start the A/D timer by the selected hardware trigger.
 
   renesas,ad-timer-initial-phase:
     type: int
     default: 0
+    description: |
+      Initial down-counter value loaded when the A/D timer starts.
+      One timer count corresponds to one CLKAD cycle.
+
+      The timer generates the first scan-group start trigger when
+      the counter reaches zero. Subsequent triggers use
+      renesas,ad-timer-cycle.
+
+      Valid values are 0 through 2097151.
 
   renesas,ad-timer-cycle:
     type: int
     default: 2097151
+    description: |
+      Down-counter reload value used after each A/D timer trigger.
+      One timer count corresponds to one CLKAD cycle.
+
+      The timer reloads this value and continues generating
+      scan-group start triggers until stopped.
+
+      The maximum value is 2097151.
 
   renesas,th-channel-mask:
     type: int
     default: 0
     description: Bit mask enabling T&H units 0 through 3.
+
+  renesas,th-supported-mask:
+    type: int
+    required: true
+    enum: [0, 15, 63]
+    description: |
+      Track-and-hold circuits implemented by this ADCK instance.
+
+      Zero means that the instance does not support track and hold.
+      0x0f means that T&H0 through T&H3 are implemented.
+
+      This is a SoC capability property and must be provided by the
+      SoC Devicetree description. It does not enable track and hold.
+
+  renesas,lower-limit-values:
+    type: array
+    default: [0, 0, 0, 0, 0, 0, 0, 0]
+    description: |
+      Lower thresholds for hardware upper/lower limit tables 0 through 7.
+
+      Provide exactly eight entries when overriding this property.
+      Entries are 16-bit hardware threshold encodings, not millivolts.
+      The encoding depends on the controller data format and addition mode.
+
+  renesas,upper-limit-values:
+    type: array
+    default: [32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767]
+    description: |
+      Upper thresholds for hardware upper/lower limit tables 0 through 7.
+
+      Provide exactly eight entries when overriding this property.
+      Entries are 16-bit hardware threshold encodings, not millivolts.
+      The encoding depends on the controller data format and addition mode.
+
+  renesas,trigger-overlap-interrupt:
+    type: boolean
+    description: |
+      Enable hardware scan-group trigger-overlap detection and
+      its error interrupt.
+
+      A trigger received while the same scan group is operating
+      is ignored by hardware and can generate an error event.
+
+      The controller must provide an interrupt named error.
 
 io-channel-cells:
   - input
@@ -184,31 +320,46 @@ child-binding:
         the target SoC.
         For renesas,conversion-type = "hold", this value selects the T&H hold
         input index:
-        0 = T&H00
-        1 = T&H01
-        2 = T&H02
-        3 = T&H03
+          0 = T&H0, 1 = T&H1, 2 = T&H2, 3 = T&H3.
         If renesas,conversion-type is omitted, "normal" is used.
 
     renesas,mpx-value:
       type: int
       default: 0
-      min: 0
-      max: 7
+      enum: [0, 1, 2, 3, 4, 5, 6, 7]
+      description: |
+        Static external multiplexer selection value.
+        Non-zero values are valid only for mpx-normal and mpx-addition.
+        The driver supports direct MPXCUR[2:0] output only.
 
     renesas,wait-table:
       type: int
       default: 0
-      min: 0
-      max: 8
-      description: Zero disables wait; values 1 through 8 select wait tables 0 through 7.
+      enum: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+      description: |
+        Zero disables wait-table selection.
+        Values 1 through 8 select WAITTR0 through WAITTR7.
+
+        MPX conversions require a non-zero selector and a sufficiently
+        long wait in the selected table.
+
+        Wait selection is not supported for hold, AD-core self-diagnostic,
+        or ADVAL conversions. A scan group containing hold conversions
+        must not configure wait for any of its virtual channels.
 
     renesas,upper-lower-limit-table:
       type: int
       default: 0
-      min: 0
-      max: 8
       description: Zero disables checking; values 1 through 8 select limit tables 0 through 7.
+
+    renesas,limit-interrupt:
+      type: boolean
+      description: |
+        Enable upper/lower-limit interrupt notification for this
+        hardware virtual channel.
+
+        A non-zero renesas,upper-lower-limit-table must also be selected.
+        The controller must provide an interrupt named error.
 
     renesas,self-diagnostic-level:
       type: int

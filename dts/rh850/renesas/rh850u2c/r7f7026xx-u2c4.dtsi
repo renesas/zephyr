@@ -152,8 +152,8 @@
 		adck1: adc@fff20000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xfff20000 0x1000>;
-			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>, <370 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 0, ADCK)>;
 			#io-channel-cells = <1>;

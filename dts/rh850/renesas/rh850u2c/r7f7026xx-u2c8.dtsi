@@ -101,13 +101,15 @@
 		adck2: adc@fff21000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xfff21000 0x1000>;
-			interrupts = <559 1>, <560 1>, <561 1>, <562 1>, <563 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			renesas,unit = <2>;
+			interrupts = <559 1>, <560 1>, <561 1>, <562 1>, <563 1>, <558 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 1, ADCK)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			renesas,th-supported-mask = <0x0f>;
 			renesas,physical-channel-mask = <0x000fffff 0x00000000>;
 			status = "disabled";
 		};

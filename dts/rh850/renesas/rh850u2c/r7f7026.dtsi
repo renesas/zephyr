@@ -1213,13 +1213,15 @@
 		adcka: adc@ff9a2000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xff9a2000 0x1000>;
-			interrupts = <69 1>, <70 1>, <71 1>, <72 1>, <73 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			renesas,unit = <0>;
+			interrupts = <69 1>, <70 1>, <71 1>, <72 1>, <73 1>, <68 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_AWO, 0, ADCK)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			renesas,th-supported-mask = <0x0f>;
 			renesas,physical-channel-mask = <0xffffffff 0x00000003>;
 			status = "disabled";
 		};
@@ -1227,13 +1229,15 @@
 		adck1: adc@fff20000 {
 			compatible = "renesas,rh850-adck";
 			reg = <0xfff20000 0x1000>;
-			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>;
-			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
+			renesas,unit = <1>;
+			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>, <370 1>;
+			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4", "error";
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ADCK_ISO, 0, ADCK)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			renesas,th-supported-mask = <0x0f>;
 			renesas,physical-channel-mask = <0xffffffff 0x00000003>;
 			status = "disabled";
 		};
