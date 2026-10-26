@@ -229,7 +229,11 @@ static const struct ethernet_api eth_etnf_api = {
 #endif
 };
 
-static struct net_pkt *eth_etnf_receive(const struct device *dev)
+/*
+ * Read one frame from the RX ring. Returns false when the ring is empty;
+ * *out is NULL if the frame was dropped.
+ */
+static bool eth_etnf_receive(const struct device *dev, struct net_pkt **out)
 {
 	struct eth_etnf_data *data = dev->data;
 	struct net_pkt *pkt = NULL;
@@ -252,70 +256,73 @@ static struct net_pkt *eth_etnf_receive(const struct device *dev)
 	fsp_err = R_ETHER_T1S_Read((ether_ctrl_t *)&data->fsp_ctrl, buf_ptr, &frame_len);
 #endif
 
-	if (fsp_err == FSP_ERR_ETHER_ERROR_NO_DATA) {
+	if (fsp_err != FSP_SUCCESS && fsp_err != FSP_ERR_ETHER_ERROR_NO_DATA) {
+		LOG_ERR("RX: R_ETHER_T1S_Read error %d", fsp_err);
 		goto release;
 	}
 
-	if (fsp_err != FSP_SUCCESS) {
-		LOG_ERR("RX: R_ETHER_T1S_Read error %d", fsp_err);
-		goto error;
+	/*
+	 * The HAL has already consumed this ring entry (UFCD decremented), even
+	 * when the descriptor held no usable frame and frame_len is 0, so keep
+	 * draining in that case.
+	 */
+	if (frame_len == 0U) {
+		goto release;
 	}
 
-	if (frame_len == 0U || frame_len > NET_ETH_MAX_FRAME_SIZE) {
-		LOG_ERR("RX: Invalid frame length %u", frame_len);
-		goto error;
-	}
-
-	pkt = net_pkt_rx_alloc_with_buffer(data->iface, frame_len, AF_UNSPEC, 0, K_MSEC(100));
+	/*
+	 * Never block here: the HW ring only holds a few frames, so waiting for
+	 * a free net_pkt lets it overflow and drops a whole burst instead of one.
+	 */
+	pkt = net_pkt_rx_alloc_with_buffer(data->iface, frame_len, AF_UNSPEC, 0, K_NO_WAIT);
 	if (pkt == NULL) {
 		LOG_ERR("RX: alloc failed, dropping %u B frame", frame_len);
-		goto error;
+		goto release;
 	}
 
 	if (net_pkt_write(pkt, buf_ptr, frame_len) != 0) {
 		LOG_ERR("RX: net_pkt_write failed");
 		net_pkt_unref(pkt);
 		pkt = NULL;
-		goto error;
 	}
-
-	goto release;
-
-error:
-	eth_stats_update_errors_rx(data->iface);
 
 release:
 #if defined(CONFIG_ETH_RENESAS_RH850_ETNF_USE_ZEROCOPY)
 	(void)R_ETHER_T1S_BufferRelease((ether_ctrl_t *)&data->fsp_ctrl);
 #endif
+	if (pkt == NULL && frame_len != 0U) {
+		eth_stats_update_errors_rx(data->iface);
+	}
 
-	return pkt;
+	*out = pkt;
+	return fsp_err == FSP_SUCCESS;
 }
 
 static void eth_etnf_rx_thread(void *p1, void *p2, void *p3)
 {
+	const struct device *dev = p1;
+	struct eth_etnf_data *data = dev->data;
+	struct net_pkt *pkt;
+	int res;
 
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	const struct device *dev = p1;
-	struct net_if *iface;
-	struct eth_etnf_data *data = dev->data;
-	struct net_pkt *pkt = NULL;
-	int res;
-
 	while (true) {
 		res = k_sem_take(&data->rx_sem, K_FOREVER);
+		if (res != 0) {
+			continue;
+		}
 
-		if (res == 0) {
-			pkt = eth_etnf_receive(dev);
+		k_sem_reset(&data->rx_sem);
 
-			if (pkt != NULL) {
-				iface = net_pkt_iface(pkt);
-				res = net_recv_data(iface, pkt);
-				if (res < 0) {
-					net_pkt_unref(pkt);
-				}
+		while (eth_etnf_receive(dev, &pkt)) {
+			if (pkt == NULL) {
+				continue;
+			}
+
+			if (net_recv_data(net_pkt_iface(pkt), pkt) < 0) {
+				net_pkt_unref(pkt);
 			}
 		}
 	}
