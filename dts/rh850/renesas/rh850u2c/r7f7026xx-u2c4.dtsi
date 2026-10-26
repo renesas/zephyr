@@ -182,19 +182,11 @@
 			interrupt-parent = <&intc2>;
 			clocks = <&cgc RH850_PCLK(ETNF, 0, CLKC_HBUS)>;
 			phy-connection-type = "internal";
-			mdio-interface = "shared";
-			pma-filtered;
 			status = "disabled";
 
 			ct25205: phy {
 				compatible = "renesas,ct25205-phy";
 				phy-lsi-addr = <31>;
-				plca-enable;
-				plca-node-id = <0>;
-				plca-node-count = <8>;
-				plca-burst-count = <0>;
-				plca-burst-timer = <128>;
-				plca-to-timer = <32>;
 				status = "disabled";
 			};
 		};
