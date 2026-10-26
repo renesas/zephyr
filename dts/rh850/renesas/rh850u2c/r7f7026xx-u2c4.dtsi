@@ -155,6 +155,7 @@
 			interrupts = <371 1>, <372 1>, <373 1>, <374 1>, <375 1>;
 			interrupt-names = "sg0", "sg1", "sg2", "sg3", "sg4";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(ADCK_ISO, 0, ADCK)>;
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
