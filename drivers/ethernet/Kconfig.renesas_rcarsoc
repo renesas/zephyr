@@ -56,9 +56,12 @@ config ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN
 
 config ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
 	bool "Explicit DMA cache operations"
+	default y
 	help
-		Use explicit cache invalidate/flush operations for DMA.
-		Required for DMA coherency on systems without hardware coherency.
+		Clean and invalidate the frame buffers around DMA. Required when
+		the buffers are in cacheable memory (ETHURAM is mapped
+		cacheable). Descriptors are kept in the uncached ethdesc area
+		and need no cache operations.
 
 config ETH_RENESAS_RCARSOC_TSNES_CONFIG_LOOPBACK
 	bool "Configuration loopback mode for testing"

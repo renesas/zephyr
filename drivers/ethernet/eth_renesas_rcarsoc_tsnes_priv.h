@@ -14,6 +14,7 @@
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net_buf.h>
+#include <zephyr/linker/devicetree_regions.h>
 #include <ethernet/eth_stats.h>
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
@@ -25,9 +26,15 @@ extern "C" {
 #endif
 
 #ifdef CONFIG_NOCACHE_MEMORY
-#define ETH_RAM_SECTION __nocache
+#define ETH_RAM_SECTION  __nocache
+#define ETH_DESC_SECTION __nocache
 #else
 #define ETH_RAM_SECTION __attribute__((section(".eth_ram")))
+/*
+ * Descriptors are smaller than a cache line and share lines with descriptors
+ * HW owns, so they live in the uncached ethdesc area.
+ */
+#define ETH_DESC_SECTION Z_GENERIC_SECTION(LINKER_DT_NODE_REGION_NAME(DT_NODELABEL(ethdesc)))
 #endif
 
 /* TSNES Hardware Parameters */
@@ -631,7 +638,6 @@ struct eth_tsnes_queue {
 	/* RX: [ATOMIC_BITMAP_SIZE(desc_count)], slots whose buffer is lent to the stack */
 	atomic_t *lent;
 	bool rxfull_pending;
-	struct k_spinlock lock;
 
 	struct {
 		uint32_t rx_packets;

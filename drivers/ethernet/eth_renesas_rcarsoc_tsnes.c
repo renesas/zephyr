@@ -17,28 +17,27 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/cache.h>
+#include <zephyr/sys/barrier.h>
 
 #include "eth_renesas_rcarsoc_tsnes_priv.h"
 
 #define ETH_TSNES_INIT_DESC_RING(n)                                                                \
 	static struct eth_tsnes_ext_desc_with_ts                                                   \
 		eth_tsnes_##n##_rx_desc_ring[DT_INST_PROP(n, rx_queues) *                          \
-					     DT_INST_PROP(n, rx_queue_size)] ETH_RAM_SECTION       \
+					     DT_INST_PROP(n, rx_queue_size)] ETH_DESC_SECTION      \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);                \
 	static struct eth_tsnes_ext_desc                                                           \
 		eth_tsnes_##n##_tx_desc_ring[DT_INST_PROP(n, tx_queues) *                          \
-					     DT_INST_PROP(n, tx_queue_size)] ETH_RAM_SECTION       \
+					     DT_INST_PROP(n, tx_queue_size)] ETH_DESC_SECTION      \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
 
 #define ETH_TSNES_INIT_BUF_NODES(n)                                                                \
 	static struct eth_tsnes_buf_mgmt                                                           \
 		eth_tsnes_##n##_rx_buf_nodes[DT_INST_PROP(n, rx_queues) *                          \
-					     DT_INST_PROP(n, rx_queue_size)] ETH_RAM_SECTION       \
-		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);                \
+					     DT_INST_PROP(n, rx_queue_size)];                      \
 	static struct eth_tsnes_buf_mgmt                                                           \
 		eth_tsnes_##n##_tx_buf_nodes[DT_INST_PROP(n, tx_queues) *                          \
-					     DT_INST_PROP(n, tx_queue_size)] ETH_RAM_SECTION       \
-		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
+					     DT_INST_PROP(n, tx_queue_size)];
 
 #define ETH_TSNES_RX_SLOTS(n) (DT_INST_PROP(n, rx_queues) * DT_INST_PROP(n, rx_queue_size))
 
@@ -70,7 +69,7 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 	&eth_tsnes_##n##_tx_buf_nodes[(idx) * DT_INST_PROP(n, tx_queue_size)]
 
 #define ETH_TSNES_INIT_DESC_CHAIN(n)                                                               \
-	static struct eth_tsnes_ext_desc eth_tsnes_##n##_init_desc_chain[17] ETH_RAM_SECTION       \
+	static struct eth_tsnes_ext_desc eth_tsnes_##n##_init_desc_chain[17] ETH_DESC_SECTION      \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
 #define ETH_TSNES_INIT_DUMMY_BUF(n)                                                                \
 	static uint8_t eth_tsnes_##n##_init_dummy_buf[2048] ETH_RAM_SECTION                        \
@@ -79,16 +78,24 @@ LOG_MODULE_REGISTER(eth_tsnes, CONFIG_ETHERNET_LOG_LEVEL);
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
 #define ETH_TSNES_INIT_TIMESTAMP_DESC_RING(n)                                                      \
 	static struct eth_tsnes_basic_desc_with_ts                                                 \
-		eth_tsnes_##n##_ts_desc_ring[ETH_MAX_TS_DESC_NUM + 1] ETH_RAM_SECTION              \
+		eth_tsnes_##n##_ts_desc_ring[ETH_MAX_TS_DESC_NUM + 1] ETH_DESC_SECTION             \
 		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
 
 #define ETH_TSNES_INIT_TS_PKT_NODES(n)                                                             \
-	static struct eth_tsnes_ts_pkt_mgmt                                                        \
-		eth_tsnes_##n##_ts_pkt_nodes[ETH_MAX_TS_DESC_NUM] ETH_RAM_SECTION                  \
-		__aligned(CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN);
+	static struct eth_tsnes_ts_pkt_mgmt eth_tsnes_##n##_ts_pkt_nodes[ETH_MAX_TS_DESC_NUM];
+
+#define ETH_TSNES_TS_DESC_BYTES(n)                                                                 \
+	ROUND_UP(sizeof(eth_tsnes_##n##_ts_desc_ring),                                             \
+		 CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN)
 #else
 #define ETH_TSNES_INIT_TIMESTAMP_DESC_RING(n)
 #define ETH_TSNES_INIT_TS_PKT_NODES(n)
+#define ETH_TSNES_TS_DESC_BYTES(n) 0
+#endif
+
+#if !defined(CONFIG_NOCACHE_MEMORY)
+BUILD_ASSERT(DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ethdesc)),
+	     "TSN-ES descriptors need the uncached ethdesc memory region");
 #endif
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_ENABLE_DMA_CACHE_OPS
@@ -124,23 +131,20 @@ static void eth_tsnes_rx_desc_arm(struct eth_tsnes_queue *queue, uint32_t desc_i
 	struct eth_tsnes_ext_desc_with_ts *desc =
 		&((struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring)[desc_idx];
 	struct eth_tsnes_buf_mgmt *node = &queue->buf_nodes[desc_idx];
-	k_spinlock_key_t key;
 
 	/* The stack may have written into a lent buffer: write back and drop those
 	 * lines before HW DMAs into it again.
 	 */
 	tsnes_dcache_invalidate(node->buf_addr, node->buf_size);
 
-	key = k_spin_lock(&queue->lock);
 	desc->info_ds = MIN(node->buf_size, 0xFFF);
-	desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 	desc->info = 0;
 	desc->info1[0] = 0;
 	desc->info1[1] = 0;
 	desc->tsns = 0;
 	desc->tss = 0;
-	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
-	k_spin_unlock(&queue->lock, key);
+	barrier_dmem_fence_full();
+	desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 }
 
 /* The stack is done with a lent RX buffer. */
@@ -380,8 +384,7 @@ static int eth_tsnes_setup_tx_descriptors(const struct device *dev)
 		ring[queue->desc_count - 1].info1[0] = 0;
 		ring[queue->desc_count - 1].info1[1] = 0;
 
-		tsnes_dcache_flush((uintptr_t)ring,
-				   queue->desc_count * sizeof(struct eth_tsnes_ext_desc));
+		barrier_dmem_fence_full();
 
 		if (eth_tsnes_tx_desc_learning(axi, i, (uint32_t)(uintptr_t)&ring[0])) {
 			LOG_ERR("TX learning failed for queue %d", i);
@@ -412,6 +415,9 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 				return -ENOMEM;
 			}
 
+			/* Drop the lines the pool memset left dirty before HW DMAs into it */
+			tsnes_dcache_invalidate((uintptr_t)buf, data->max_frame_size);
+
 			desc->die_dt = ETH_DESC_FEMPTY | ETH_DESC_DIE;
 			desc->info_ds = MIN(data->max_frame_size, 0xFFF);
 			desc->info = 0;
@@ -435,8 +441,7 @@ static int eth_tsnes_setup_rx_descriptors(const struct device *dev)
 		ring[queue->desc_count - 1].tsns = 0;
 		ring[queue->desc_count - 1].tss = 0;
 
-		tsnes_dcache_flush((uintptr_t)ring,
-				   queue->desc_count * sizeof(struct eth_tsnes_ext_desc_with_ts));
+		barrier_dmem_fence_full();
 
 		if (eth_tsnes_rx_desc_learning(axi, i, (uint32_t)(uintptr_t)&ring[0])) {
 			LOG_ERR("RX learning failed for queue %d", i);
@@ -478,8 +483,7 @@ static int eth_tsnes_setup_ts_descriptors(const struct device *dev)
 	ring[queue->desc_count - 1].tsns = 0;
 	ring[queue->desc_count - 1].tss = 0;
 
-	tsnes_dcache_flush((uintptr_t)ring,
-			   queue->desc_count * sizeof(struct eth_tsnes_basic_desc_with_ts));
+	barrier_dmem_fence_full();
 
 	axi->stTSD[0].TSSs = ETH_TSNES_TS_DESC_CHAIN_VALID;
 	axi->stTSD[0].TSAs = (uint32_t)(uintptr_t)&ring[0];
@@ -711,7 +715,8 @@ static int eth_tsnes_tx_ram_init(const struct device *dev)
 	desc->info1[0] = 0;
 	desc->info1[1] = 0;
 
-	tsnes_dcache_flush((uintptr_t)desc_chain, 17 * sizeof(struct eth_tsnes_ext_desc));
+	tsnes_dcache_flush((uintptr_t)dummy_buf, 2048);
+	barrier_dmem_fence_full();
 
 	ret = eth_tsnes_tx_desc_learning(axi, 0, (uint32_t)(uintptr_t)desc_chain);
 	if (ret) {
@@ -803,9 +808,6 @@ static void eth_tsnes_process_tx_completions(const struct device *dev)
 
 		while (queue->head_idx != queue->tail_idx) {
 			struct eth_tsnes_ext_desc *desc = &ring[queue->head_idx];
-
-			tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
-
 			uint8_t dt = desc->die_dt & ETH_DESC_DT_MASK;
 
 			if (dt != ETH_DESC_FEMPTY && dt != ETH_DESC_FEMPTY_ND) {
@@ -879,19 +881,11 @@ static bool eth_tsnes_rx_head_armed(struct eth_tsnes_queue *queue)
 {
 	struct eth_tsnes_ext_desc_with_ts *desc =
 		&((struct eth_tsnes_ext_desc_with_ts *)queue->desc_ring)[queue->head_idx];
-	k_spinlock_key_t key;
-	uint8_t dt;
-
 	if (atomic_test_bit(queue->lent, queue->head_idx)) {
 		return false;
 	}
 
-	key = k_spin_lock(&queue->lock);
-	tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
-	dt = desc->die_dt & ETH_DESC_DT_MASK;
-	k_spin_unlock(&queue->lock, key);
-
-	return dt == ETH_DESC_FEMPTY;
+	return (desc->die_dt & ETH_DESC_DT_MASK) == ETH_DESC_FEMPTY;
 }
 
 #ifdef CONFIG_ETH_RENESAS_RCARSOC_TSNES_TIMESTAMP_CAPTURE
@@ -904,54 +898,41 @@ static void eth_tsnes_process_tx_ts_read(const struct device *dev)
 	k_spinlock_key_t key;
 
 	for (uint32_t i = 0; i < queue->desc_count - 1; i++) {
-		struct eth_tsnes_basic_desc_with_ts *desc;
+		struct eth_tsnes_basic_desc_with_ts *desc = &ring[queue->head_idx];
 		struct net_pkt *pkt;
-		uint8_t tsun;
-
-		desc = &ring[queue->head_idx];
-
-		key = k_spin_lock(&queue->lock);
-		tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
 
 		if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
-			k_spin_unlock(&queue->lock, key);
 			break;
 		}
 
-		tsun = desc->info;
-
-		k_spin_unlock(&queue->lock, key);
+		barrier_dmem_fence_full();
 
 		key = k_spin_lock(&data->lock);
-		pkt = cfg->ts_pkt_nodes[0][tsun].pkt;
-		if (pkt) {
+		pkt = cfg->ts_pkt_nodes[0][desc->info].pkt;
+		cfg->ts_pkt_nodes[0][desc->info].pkt = NULL;
+		k_spin_unlock(&data->lock, key);
+
+		if (pkt != NULL) {
 			pkt->timestamp.nanosecond = desc->tsns;
 			pkt->timestamp.second = desc->tss;
 
 			net_if_add_tx_timestamp(pkt);
 			net_pkt_unref(pkt);
-
-			cfg->ts_pkt_nodes[0][tsun].pkt = NULL;
 		}
 
-		k_spin_unlock(&data->lock, key);
-
-		key = k_spin_lock(&queue->lock);
-		desc->die_dt = ETH_DESC_FEMPTY_ND | ETH_DESC_DIE;
 		desc->info_ds = 0;
 		desc->info = 0;
 		desc->dptr = 0;
 		desc->tsns = 0;
 		desc->tss = 0;
-		tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
-		k_spin_unlock(&queue->lock, key);
+		barrier_dmem_fence_full();
+		desc->die_dt = ETH_DESC_FEMPTY_ND | ETH_DESC_DIE;
 
 		queue->head_idx = (queue->head_idx + 1) % (queue->desc_count - 1);
 	}
 
 	/* Change the last desc to LINK because HW changed it to LEMPTY after process */
 	ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
-	tsnes_dcache_flush((uintptr_t)&ring[queue->desc_count - 1], sizeof(*ring));
 }
 #endif
 
@@ -1038,24 +1019,19 @@ static int eth_tsnes_process_rx_descriptor(const struct device *dev, struct eth_
 	struct net_buf *buf;
 	uint16_t info_ds;
 	uint16_t pkt_len;
-	k_spinlock_key_t key;
-	uint8_t dt;
 
 	/* Still lent to the stack: HW cannot have refilled it either. */
 	if (atomic_test_bit(queue->lent, desc_idx)) {
 		return -EAGAIN;
 	}
 
-	key = k_spin_lock(&queue->lock);
-	tsnes_dcache_invalidate((uintptr_t)desc, sizeof(*desc));
-	dt = desc->die_dt & ETH_DESC_DT_MASK;
-	info_ds = desc->info_ds;
-	k_spin_unlock(&queue->lock, key);
-
-	if (dt != ETH_DESC_FSINGLE) {
+	if ((desc->die_dt & ETH_DESC_DT_MASK) != ETH_DESC_FSINGLE) {
 		return -EAGAIN; /* Hardware still owns it */
 	}
 
+	/* The rest of the descriptor and the frame data are valid only after DT. */
+	barrier_dmem_fence_full();
+	info_ds = desc->info_ds;
 	pkt_len = info_ds & 0xFFF;
 
 	if (info_ds & ETH_DESC_RX_EI) {
@@ -1165,12 +1141,7 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 					q_idx, i, queue->head_idx);
 			}
 
-			{
-				k_spinlock_key_t lock_key = k_spin_lock(&queue->lock);
-
-				ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
-				k_spin_unlock(&queue->lock, lock_key);
-			}
+			ring[queue->desc_count - 1].die_dt = ETH_DESC_LINK;
 
 			if (queue->rxfull_pending && eth_tsnes_rx_head_armed(queue)) {
 				if (eth_tsnes_rx_desc_learning(
@@ -1276,11 +1247,11 @@ static int eth_tsnes_tx(const struct device *dev, struct net_pkt *pkt)
 	desc->dptr = (uint32_t)(uintptr_t)buf;
 	desc->info1[0] = pkt_len; /* Tx Frame Length (TFL) */
 	desc->info1[1] = 0;
-	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+	barrier_dmem_fence_full();
 
 	/* Hand over to HW: DT=0 would be a descriptor configuration error */
 	desc->die_dt = die_dt;
-	tsnes_dcache_flush((uintptr_t)desc, sizeof(*desc));
+	barrier_dmem_fence_full();
 
 	/* Trigger transmission on Queue 0 */
 	axi->TRCR[0] |= (1 << 0);
@@ -1520,5 +1491,21 @@ static int eth_tsnes_init(const struct device *dev)
 				      &eth_tsnes_api, NET_ETH_MTU);
 
 DT_INST_FOREACH_STATUS_OKAY(ETH_TSNES_INIT)
+
+#if !defined(CONFIG_NOCACHE_MEMORY) && DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(ethdesc))
+#define ETH_TSNES_DESC_BYTES(n)                                                                    \
+	(ROUND_UP(sizeof(eth_tsnes_##n##_rx_desc_ring),                                            \
+		  CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN) +                       \
+	 ROUND_UP(sizeof(eth_tsnes_##n##_tx_desc_ring),                                            \
+		  CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN) +                       \
+	 ROUND_UP(sizeof(eth_tsnes_##n##_init_desc_chain),                                         \
+		  CONFIG_ETH_RENESAS_RCARSOC_TSNES_DESCRIPTOR_CACHE_ALIGN) +                       \
+	 ETH_TSNES_TS_DESC_BYTES(n)) +
+
+BUILD_ASSERT((DT_INST_FOREACH_STATUS_OKAY(ETH_TSNES_DESC_BYTES) 0) <=
+		     DT_REG_SIZE(DT_NODELABEL(ethdesc)),
+	     "TSN-ES descriptor rings do not fit in ethdesc: reduce rx-queues, rx-queue-size, "
+	     "tx-queues or tx-queue-size, or enlarge ethdesc");
+#endif
 
 #undef ETH_TSNES_MOD_CLK
