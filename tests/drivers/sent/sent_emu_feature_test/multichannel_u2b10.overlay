@@ -1,0 +1,142 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * U2B10 multi-channel SENT test overlay.
+ *
+ * SENT13 is U2B10-specific and is included in main.c only when node label
+ * sent13 exists and has status = "okay".
+ */
+
+#include <zephyr/dt-bindings/sent/sent.h>
+
+/ {
+	aliases {
+		sent-taud-emulator-secondary = &pwm1_slave_emu;
+	};
+
+	pwm1_slave_emu: pwm1-slave-emu@ffbf4008 {
+		compatible = "renesas,rh850-emu-pwm";
+		reg = <0xffbf4008 0x2000>;
+		clocks = <&cgc RH850_PCLK(TAUD, 2, HSB)>;
+		unit = <0>;
+		channel = <2>;
+		channel-type = "slave";
+		master = <&pwm0_master_emu>;
+		interrupts = <1 1>;
+		interrupt-parent = <&intc2>;
+		#pwm-cells = <3>;
+		pinctrl-0 = <&pwm1_slave_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+&pinctrl {
+	sent2_default: sent2_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 3, ALT_IN5)>;
+		};
+	};
+
+	sent3_default: sent3_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 4, ALT_IN5)>;
+		};
+	};
+
+	sent4_default: sent4_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_00, 5, ALT_IN5)>;
+		};
+	};
+
+	sent13_default: sent13_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_01, 10, ALT_IN5)>;
+		};
+	};
+};
+
+/* SENT1 is already enabled by the board overlay. */
+&sent0 {
+	pinctrl-0 = <&sent0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent0_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent2 {
+	pinctrl-0 = <&sent2_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent2_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent3 {
+	pinctrl-0 = <&sent3_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent3_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent4 {
+	pinctrl-0 = <&sent4_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent4_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent13 {
+	pinctrl-0 = <&sent13_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent13_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+#undef SENT_CHANNEL_CONFIG

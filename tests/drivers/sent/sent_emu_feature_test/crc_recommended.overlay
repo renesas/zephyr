@@ -1,0 +1,8 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+&sent1_ch0 {
+	fast-crc = <FAST_CRC_RECOMMENDED_IMPLEMENTATION>;
+	short-serial-crc = <SHORT_CRC_RECOMMENDED_IMPLEMENTATION>;
+};

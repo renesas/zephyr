@@ -1,0 +1,116 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/sent/sent.h>
+
+/ {
+	aliases {
+		sent-taud-emulator-secondary = &pwm1_slave_emu;
+	};
+
+	pwm1_slave_emu: pwm1-slave-emu@ffbf4008 {
+		compatible = "renesas,rh850-emu-pwm";
+		reg = <0xffbf4008 0x2000>;
+		clocks = <&cgc RH850_PCLK(TAUD, 2, HSB)>;
+		unit = <0>;
+		channel = <2>;
+		channel-type = "slave";
+		master = <&pwm0_master_emu>;
+		interrupts = <11 1>;
+		interrupt-parent = <&intc2>;
+		#pwm-cells = <3>;
+		pinctrl-0 = <&pwm1_slave_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+&pinctrl {
+	sent2_default: sent2_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 9, ALT_IN5)>;
+		};
+	};
+
+	sent3_default: sent3_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 13, ALT_IN5)>;
+		};
+	};
+
+	sent4_default: sent4_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_04, 15, ALT_IN6)>;
+		};
+	};
+};
+
+/* SENT1 is already enabled by the board overlay. */
+&sent0 {
+	pinctrl-0 = <&sent0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent0_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent2 {
+	pinctrl-0 = <&sent2_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent2_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent3 {
+	pinctrl-0 = <&sent3_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent3_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+&sent4 {
+	pinctrl-0 = <&sent4_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent4_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};
+
+
+#undef SENT_CHANNEL_CONFIG

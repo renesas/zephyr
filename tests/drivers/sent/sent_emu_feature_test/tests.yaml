@@ -1,0 +1,102 @@
+common:
+  tags:
+    - drivers
+    - sent
+    - emulator
+  depends_on: sent
+  filter: dt_alias_exists("sent0")
+  harness: ztest
+  timeout: 30
+
+tests:
+  drivers.sent.emu.feature_base:
+    integration_platforms:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+
+  drivers.sent.emu.feature_pause_variable:
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_PAUSE_MODE=1
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=pause_variable.overlay
+
+  drivers.sent.emu.feature_pause_fixed:
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_PAUSE_MODE=2
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=pause_fixed.overlay
+
+  drivers.sent.emu.feature_crc_recommended:
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_CRC_MODE=1
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=crc_recommended.overlay
+
+  drivers.sent.emu.feature_crc_legacy:
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_CRC_MODE=2
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=crc_legacy.overlay
+
+  drivers.sent.emu.feature_calib_method_1:
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_CALIB_METHOD=1
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=calib_method_1.overlay
+
+  drivers.sent.emu.multichannel_u2a:
+    tags:
+      - multichannel
+      - u2a
+
+    platform_allow:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+
+    integration_platforms:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_MULTI_CHANNEL=y
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=multichannel_u2a.overlay
+
+  drivers.sent.emu.multichannel_u2b10:
+    tags:
+      - multichannel
+      - u2b10
+
+    platform_allow:
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+
+    integration_platforms:
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_MULTI_CHANNEL=y
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=multichannel_u2b10.overlay
+
+  drivers.sent.emu.multichannel_u2c8:
+    tags:
+      - multichannel
+      - u2bc8
+
+    platform_allow:
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+
+    integration_platforms:
+      - pb_rh850u2c_292pin/r7f702600afabb-c
+
+    extra_configs:
+      - CONFIG_SENT_TAUD_TEST_MULTI_CHANNEL=y
+
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=multichannel_u2c8.overlay

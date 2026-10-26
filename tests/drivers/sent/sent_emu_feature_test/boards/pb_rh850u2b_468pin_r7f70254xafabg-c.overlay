@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/sent/sent.h>
+
+/ {
+	aliases {
+		/* Keep the normal single-channel test on physical SENT1. */
+		sent0 = &sent1;
+		sent-taud-emulator = &pwm0_slave_emu;
+	};
+
+	pwm0_master_emu: pwm0-master-emu@ffbf4000 {
+		compatible = "renesas,rh850-emu-pwm";
+		reg = <0xffbf4000 0x2000>;
+		clocks = <&cgc RH850_PCLK(TAUD, 0, HSB)>;
+		unit = <0>;
+		channel = <0>;
+		channel-type = "master";
+		interrupts = <10 1>;
+		interrupt-parent = <&intc2>;
+		status = "okay";
+	};
+
+	pwm0_slave_emu: pwm0-slave-emu@ffbf4004 {
+		compatible = "renesas,rh850-emu-pwm";
+		reg = <0xffbf4004 0x2000>;
+		clocks = <&cgc RH850_PCLK(TAUD, 1, HSB)>;
+		unit = <0>;
+		channel = <1>;
+		channel-type = "slave";
+		master = <&pwm0_master_emu>;
+		interrupts = <320 1>;
+		interrupt-parent = <&intc2>;
+		#pwm-cells = <3>;
+		pinctrl-0 = <&pwm0_slave_default>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+&pwm0_master {
+	status = "disabled";
+};
+
+&pwm0_slave {
+	status = "disabled";
+};
+
+&pwm1_slave {
+	status = "disabled";
+};
+
+&sent1 {
+	pinctrl-0 = <&sent1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent1_ch0 {
+	num-data-nibbles = <6>;
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+	status = "okay";
+};

@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Renesas RH850 SENT driver tests"
+
+source "Kconfig.zephyr"
+
+config SENT_TAUD_TEST_CRC_MODE
+	int "CRC mode: 0 disabled, 1 recommended, 2 legacy"
+	range 0 2
+	default 1
+
+config SENT_TAUD_TEST_PAUSE_MODE
+	int "Pause mode: 0 absent, 1 variable, 2 fixed"
+	range 0 2
+	default 0
+
+config SENT_TAUD_TEST_CALIB_METHOD
+	int "Successive calibration method"
+	range 1 2
+	default 2
+
+config SENT_TAUD_TEST_MULTI_CHANNEL
+	bool "Enable two-output multi-channel test"
+	default n
+
+config SENT_TAUD_TICK_US
+	int "SENT tick length in microseconds"
+	default 3
+	range 1 100
+	help
+	  SENT tick duration used to convert raw SENT periods into
+	  TAUD counter values.
+
+config SENT_TAUD_TX_TIMEOUT_MS
+	int "TAUD raw transmission timeout in milliseconds"
+	default 100
+	range 1 10000
+	help
+	  Maximum time to wait for a raw TAUD pulse sequence to finish.

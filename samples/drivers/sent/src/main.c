@@ -12,7 +12,7 @@ LOG_MODULE_REGISTER(sent_sample, LOG_LEVEL_DBG);
 #include <zephyr/drivers/sent/sent.h>
 
 #define SENT_NODE          DT_ALIAS(sent0)
-#define SENT_CHANNEL       1
+#define SENT_CHANNEL       CONFIG_SENT_SAMPLE_CHANNEL
 #define SENT_MAX_RX_BUFFER 1
 
 struct sent_frame serial_frame[SENT_MAX_RX_BUFFER];

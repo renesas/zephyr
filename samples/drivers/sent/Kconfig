@@ -1,0 +1,13 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "SENT driver sample"
+
+source "Kconfig.zephyr"
+
+config SENT_SAMPLE_CHANNEL
+	int "SENT channel used by the sample"
+	default 1
+	help
+	  Select the SENT channel used by the sample.

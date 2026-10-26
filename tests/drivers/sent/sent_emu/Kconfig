@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Renesas RH850 SENT driver tests"
+
+source "Kconfig.zephyr"
+
+config SENT_TAUD_TICK_US
+	int "SENT tick length in microseconds"
+	default 3
+	range 1 100
+	help
+	  SENT tick duration used to convert raw SENT periods into
+	  TAUD counter values.
+
+config SENT_TAUD_TX_TIMEOUT_MS
+	int "TAUD raw transmission timeout in milliseconds"
+	default 100
+	range 1 10000
+	help
+	  Maximum time to wait for a raw TAUD pulse sequence to finish.
