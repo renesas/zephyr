@@ -616,7 +616,7 @@ static int eth_etnd_init(const struct device *dev)
 
 #define ETH_ETND_DEFINE_STATIC(n)                                                                  \
 	BUILD_ASSERT(ETH_ETND_TX_QUEUE_NUM(n) == 1,                                                \
-		     "txq-num > 1 is not support for this version");                               \
+		     "txq-num > 1 is not supported in this version");                              \
 	BUILD_ASSERT(ETH_ETND_RX_QUEUE_NUM(n) == 1,                                                \
 		     "rxq-num > 1 needs multi-RX-queue support not yet implemented");              \
 	BUILD_ASSERT(IS_ENABLED(CONFIG_ETH_RENESAS_RH850_ETND_USE_ZEROCOPY) ||                     \
