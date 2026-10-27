@@ -20,3 +20,11 @@ tests:
     depends_on: eth
     integration_platforms:
       - frdm_k64f
+  sample.net.gptp.rcar_ironhide_x5h:
+    build_only: true
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52
+  sample.net.gptp.rcar_ironhide_x5h.tsnes4:
+    build_only: true
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52
+    extra_args:
+      - EXTRA_DTC_OVERLAY_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay

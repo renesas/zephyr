@@ -4,24 +4,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * gPTP on port5 through R-Switch 3: the port net_if transfers through
+ * GWCA0 and timestamps with timer 0 of the R-Switch 3 gPTP block. For
+ * gPTP on TSN-ES4 instead, see rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay.
+ */
+
 &rswitch3 {
 	status = "okay";
 };
 
-&gptp_tsnes4_ch0 {
+&gptp_rsw3_ch0 {
 	status = "okay";
 };
 
-&tsnes4 {
-	status = "okay";
-};
-
-&port9 {
+&gwca0 {
 	status = "okay";
 };
 
 &port5 {
 	status = "okay";
+	renesas,gwca = <&gwca0>;
+	local-mac-address = [74 90 50 48 df 57];
+	ptp-clock = <&gptp_rsw3_ch0>;
 };
 
 &mp_phy {

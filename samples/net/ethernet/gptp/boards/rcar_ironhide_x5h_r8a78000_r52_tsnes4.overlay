@@ -1,0 +1,39 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Alternate config: gPTP on TSN-ES4, timestamped by the gPTP timer of
+ * TSN-ES4 (gptp_tsnes4_ch0). port5 (enabled by the default board overlay)
+ * stays the egress port: port9 (TSNA9, hardwired to TSN-ES4) forwards the
+ * traffic of tsnes4 to and from it. port5 drops renesas,gwca and its
+ * ptp-clock, so it gets no net_if of its own, and gwca0 is disabled again.
+ *
+ * Not auto-applied: build with this overlay layered on top of the default
+ * board files, e.g.
+ *   west build -b rcar_ironhide_x5h/r8a78000/r52 samples/net/ethernet/gptp -- \
+ *       -DEXTRA_DTC_OVERLAY_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay
+ */
+
+&gptp_tsnes4_ch0 {
+	status = "okay";
+};
+
+&tsnes4 {
+	status = "okay";
+};
+
+&port9 {
+	status = "okay";
+};
+
+&port5 {
+	/delete-property/ renesas,gwca;
+	/delete-property/ ptp-clock;
+};
+
+&gwca0 {
+	status = "disabled";
+};
