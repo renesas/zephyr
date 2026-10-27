@@ -23,3 +23,5 @@ set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
 set_property(GLOBAL APPEND PROPERTY extra_post_build_byproducts
   ${PROJECT_BINARY_DIR}/${CONFIG_KERNEL_BIN_NAME}.srec
 )
+
+zephyr_ld_options(-Wl,--no-warn-rwx-segments)
