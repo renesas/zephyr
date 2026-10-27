@@ -5,6 +5,7 @@ config PWM_RENESAS_RH850
 	bool "Renesas RH850 TAUD PWM driver"
 	default y
 	depends on DT_HAS_RENESAS_RH850_TAUD_PWM_ENABLED
+	depends on CLOCK_CONTROL
 	select PINCTRL
 	select USE_RH850_FSP_TAUD
 	help

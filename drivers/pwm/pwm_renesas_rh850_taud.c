@@ -10,7 +10,9 @@
 #include <zephyr/irq.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/pwm/pwm_utils.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util_macro.h>
@@ -39,6 +41,8 @@ struct pwm_rh850_channel_config {
 	/* Clock configuration */
 	uint32_t clock_source;
 	uint32_t clock_divider;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 
 	/* Pin control configuration */
 	const struct pinctrl_dev_config *pinctrl_dev;
@@ -78,6 +82,17 @@ static int pwm_rh850_channel_init(const struct device *dev)
 	struct pwm_rh850_channel_data *data = dev->data;
 	fsp_err_t err;
 	int ret;
+
+	if (!device_is_ready(cfg->clock_dev)) {
+		LOG_ERR("%s: clock device is not ready.", dev->name);
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("%s: clock enable failed: %d.", dev->name, ret);
+		return ret;
+	}
 
 	/* Validate channel number range */
 	if (cfg->channel >= TAUD_MAX_NUM_CHANNELS) {
@@ -371,6 +386,8 @@ static DEVICE_API(pwm, pwm_rh850_driver_api) = {
 		.channel = DT_INST_PROP(n, channel),                                               \
 		.clock_source = DT_INST_PROP_OR(n, clock_source, 0),                               \
 		.clock_divider = DT_INST_PROP_OR(n, clock_divider, 0),                             \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)DT_INST_CLOCKS_CELL(n, clk_id), \
 		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                  \
 		.synchronized_instances = g_ext_cfg_##n.p_slave_channel_instances,                 \
 		PWM_RH850_CAPTURE_CFG(n)                                                           \
