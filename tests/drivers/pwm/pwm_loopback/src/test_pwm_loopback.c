@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020-2021 Vestas Wind Systems A/S
+ * Copyright (c) 2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -198,7 +199,7 @@ static void continuous_capture_callback(const struct device *dev,
 {
 	struct test_pwm_callback_data *data = user_data;
 
-	if (data->count > data->buffer_len) {
+	if (data->count >= data->buffer_len) {
 		/* Safe guard in case capture is not disabled */
 		return;
 	}
@@ -215,7 +216,7 @@ static void continuous_capture_callback(const struct device *dev,
 		data->buffer[data->count++] = period_cycles;
 	}
 
-	if (data->count > data->buffer_len) {
+	if (data->count >= data->buffer_len) {
 		data->status = 0;
 		k_sem_give(&data->sem);
 	}
