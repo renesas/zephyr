@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* R-Switch 3 port4 with the Q32xx (2.5GBASE-T1, USXGMII) PHY, on GWCA0 */
+
+&rswitch3 {
+	status = "okay";
+};
+
+&gwca0 {
+	status = "okay";
+};
+
+&port4 {
+	status = "okay";
+	renesas,gwca = <&gwca0>;
+	local-mac-address = [74 90 50 48 df 57];
+};
+
+&mp_phy {
+	status = "okay";
+};
+
+&eth_pcs {
+	status = "okay";
+};
+
+&pcs_ch4 {
+	status = "okay";
+};
+
+&mdio4 {
+	status = "okay";
+};
+
+&phy1 {
+	status = "okay";
+};
+
+/* The port the application overlay may have chosen instead */
+&port5 {
+	status = "disabled";
+	/delete-property/ renesas,gwca;
+	/delete-property/ local-mac-address;
+};
+
+&pcs_ch5 {
+	status = "disabled";
+};
+
+&phy2 {
+	status = "disabled";
+};

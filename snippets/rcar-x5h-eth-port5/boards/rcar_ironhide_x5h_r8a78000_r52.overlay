@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* R-Switch 3 port5 with the DP83869 (1000BASE-T, SGMII) PHY, on GWCA0 */
+
+&rswitch3 {
+	status = "okay";
+};
+
+&gwca0 {
+	status = "okay";
+};
+
+&port5 {
+	status = "okay";
+	renesas,gwca = <&gwca0>;
+	local-mac-address = [74 90 50 48 df 57];
+};
+
+&mp_phy {
+	status = "okay";
+};
+
+&eth_pcs {
+	status = "okay";
+};
+
+&pcs_ch5 {
+	status = "okay";
+};
+
+&mdio4 {
+	status = "okay";
+};
+
+&phy2 {
+	status = "okay";
+};
+
+/* The port the application overlay may have chosen instead */
+&port4 {
+	status = "disabled";
+	/delete-property/ renesas,gwca;
+	/delete-property/ local-mac-address;
+};
+
+&pcs_ch4 {
+	status = "disabled";
+};
+
+&phy1 {
+	status = "disabled";
+};

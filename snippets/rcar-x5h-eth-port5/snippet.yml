@@ -1,0 +1,8 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: rcar-x5h-eth-port5
+boards:
+  rcar_ironhide_x5h/r8a78000/r52:
+    append:
+      EXTRA_DTC_OVERLAY_FILE: boards/rcar_ironhide_x5h_r8a78000_r52.overlay
