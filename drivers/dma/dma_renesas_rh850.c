@@ -510,12 +510,20 @@ static int dma_rh850_get_status(const struct device *dev, uint32_t channel,
 	return 0;
 }
 
+/**
+ * Check whether a DMA channel is available and matches the requested channel.
+ *
+ * dev: DMA device.
+ * channel: DMA channel to check.
+ * filter_param: Optional pointer to the requested channel.
+ *
+ * return true if the channel can be allocated, otherwise false.
+ */
 static bool dma_rh850_chan_filter(const struct device *dev, int channel, void *filter_param)
 {
-	ARG_UNUSED(filter_param);
-
 	struct dma_rh850_data *data = dev->data;
 	struct dma_rh850_channel_data *ch = &data->channels[channel];
+	const uint32_t *requested_channel = filter_param;
 
 	/* Check if the DMA channel is valid */
 	if (!dma_rh850_channel_is_valid(dev, channel)) {
@@ -524,6 +532,12 @@ static bool dma_rh850_chan_filter(const struct device *dev, int channel, void *f
 
 	/* Check if the channel is already open */
 	if (ch->fsp_ctrl.open != 0) {
+		return false;
+	}
+
+    /* If requested, accept only the specified DMA channel. */
+	if ((requested_channel != NULL) &&
+		((uint32_t)channel != *requested_channel)) {
 		return false;
 	}
 
