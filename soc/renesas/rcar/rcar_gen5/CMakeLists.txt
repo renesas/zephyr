@@ -11,9 +11,6 @@ if(CONFIG_SOC_R8A78000_R52)
   zephyr_linker_sources(ITCM_SECTION r52/itcm.ld)
 endif()
 
-zephyr_sources_ifdef(CONFIG_RCAR_BACKUP_BUFFER rcar_backup_buffer.c)
-zephyr_linker_sources_ifdef(CONFIG_RCAR_BACKUP_BUFFER SECTIONS rcar_backup_buffer.ld)
-
 set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
   COMMAND ${CMAKE_OBJCOPY} -O srec --srec-forceS3
   ${PROJECT_BINARY_DIR}/${CONFIG_KERNEL_BIN_NAME}.elf

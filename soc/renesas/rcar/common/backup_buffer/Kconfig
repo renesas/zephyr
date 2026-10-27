@@ -1,0 +1,16 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+config RCAR_BACKUP_BUFFER
+	bool "R-Car Backup Buffer"
+	default y
+	depends on DT_HAS_RENESAS_RCAR_BACKUP_BUFFER_ENABLED
+	help
+	  Enable support for the Renesas R-Car backup buffer.
+
+config RCAR_BACKUP_BUFFER_INIT_PRIORITY
+	int "R-Car Backup Buffer init priority"
+	default APPLICATION_INIT_PRIORITY
+	depends on RCAR_BACKUP_BUFFER
+	help
+	  R-Car backup buffer device initialization priority.
