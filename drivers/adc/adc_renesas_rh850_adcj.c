@@ -14,6 +14,13 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/sys/util_macro.h>
+#include <zephyr/rtio/rtio.h>
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/drivers/clock_control.h>
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+#include <zephyr/drivers/dma.h>
+#endif
 
 #include "r_adcj.h"
 
@@ -23,7 +30,9 @@
 
 LOG_MODULE_REGISTER(adc_renesas_rh850_adcj, CONFIG_ADC_LOG_LEVEL);
 
-#define ADC_RENESAS_ADCJ_INVALID_VC            0xffU
+#define ADC_RENESAS_ADCJ_INVALID_VC            UINT8_MAX
+
+/* Channel masks in this driver use uint32_t. */
 #define ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS   32U
 #define ADCJ_WAIT_TIME_MAX 0x3FFFU
 
@@ -49,6 +58,16 @@ LOG_MODULE_REGISTER(adc_renesas_rh850_adcj, CONFIG_ADC_LOG_LEVEL);
 #define ADCJ_FSP_RESOLUTION_12_bit_unsigned_fixed_point ADC_RESOLUTION_12_BIT
 #define ADCJ_FSP_RESOLUTION_12_bit_unsigned_right_justified ADC_RESOLUTION_12_BIT
 #define ADCJ_FSP_RESOLUTION_12_bit_unsigned_left_justified ADC_RESOLUTION_12_BIT
+
+/* One stream frame carries at most one sample for each Zephyr channel. */
+#define ADC_RENESAS_ADCJ_STREAM_MAX_CHANNELS ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS
+
+/* FSP ADCJ has 64 virtual channel data registers. */
+#define ADC_RENESAS_ADCJ_MAX_VIRTUAL_CHANNELS ADCJ_NUMBER_OF_VIRTUAL_CHANNEL
+
+#define ADC_ADCJ_STREAM_FLAG_VALID      BIT(0)
+#define ADC_ADCJ_STREAM_FLAG_DMA        BIT(1)
+#define ADC_ADCJ_STREAM_FLAG_WIRING_BREAK_ADDITION BIT(2)
 
 #define ADCJ_ADDITION_COUNT_2    0U
 #define ADCJ_ADDITION_COUNT_4    1U
@@ -289,6 +308,20 @@ enum adc_adcj_data_format {
 	(0ULL DT_INST_FOREACH_CHILD_STATUS_OKAY( \
 		idx, ADCJ_CHILD_LIMIT_IRQ_MASK))
 
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+
+#define ADCJ_DMA_INIT(idx) \
+	.dma_dev = ADCJ_DMA_DEV(idx), \
+	.dma_channel = ADCJ_DMA_CHANNEL(idx), \
+	.dma_slot = ADCJ_DMA_CONFIG(idx), \
+	.dma_group = ADCJ_DMA_GROUP(idx),
+
+#else
+
+#define ADCJ_DMA_INIT(idx)
+
+#endif
+
 extern void adcj_sg0_scan_end_isr(void);
 extern void adcj_sg1_scan_end_isr(void);
 extern void adcj_sg2_scan_end_isr(void);
@@ -296,11 +329,39 @@ extern void adcj_sg3_scan_end_isr(void);
 extern void adcj_sg4_scan_end_isr(void);
 extern void adcj_error_isr(void);
 
+enum adc_adcj_request_mode {
+	ADC_ADCJ_REQUEST_IDLE = 0,
+	ADC_ADCJ_REQUEST_FINITE,
+	ADC_ADCJ_REQUEST_STREAM,
+	ADC_ADCJ_REQUEST_STREAM_STOPPING,
+	ADC_ADCJ_REQUEST_FAULT,
+};
+
+struct adc_adcj_stream_header {
+	uint64_t timestamp_ns;
+	uint32_t sequence_number;
+
+	uint16_t payload_size;
+	uint8_t num_channels;
+	uint8_t data_format;
+
+	uint8_t flags;
+	uint8_t addition_count;
+	uint16_t vref_mv;
+};
+
+struct adc_adcj_stream_channel {
+	uint8_t channel_id;
+	uint8_t virtual_channel;
+	uint8_t resolution;
+	uint8_t conversion_type;
+};
 struct adc_adcj_config {
 	uint32_t channel_available_mask;
 	uint8_t scan_group;
 	uint8_t resolution;
 	uint8_t data_format;
+	uint16_t vref_mv;
 	uint8_t track_hold_mask;
 	bool software_trigger;
 	bool uses_th;
@@ -309,7 +370,8 @@ struct adc_adcj_config {
 	const adc_cfg_t *fsp_cfg;
 	const adcj_sg_cfg_t *fsp_sg_cfg;
 	const uint8_t *channel_to_vc;
-
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 	void (*irq_config_func)(const struct device *dev);
 };
 
@@ -323,8 +385,37 @@ struct adc_adcj_data {
 	uint16_t *buffer;
 	uint32_t channels;
 	uint32_t configured_channels;
+
+	enum adc_adcj_request_mode request_mode;
+
 	bool active;
 	int status;
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+
+	struct rtio_iodev_sqe *stream_sqe;
+	const struct adc_read_config *stream_config;
+	uint8_t *stream_buffer;
+	uint32_t stream_buffer_len;
+	uint32_t stream_channels;
+	uint32_t stream_frame_size;
+	uint32_t stream_sequence_number;
+#endif
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+
+	const struct device *dma_dev;
+	uint32_t dma_channel;
+	uint32_t dma_slot;
+	uint32_t dma_group;
+	struct dma_config dma_cfg;
+	struct dma_block_config dma_block;
+	adc_info_t adc_info;
+	void *dma_src;
+	uint32_t dma_length;
+	bool dma_active;
+
+#endif
 };
 
 static int adc_adcj_fsp_err_to_errno(fsp_err_t err)
@@ -355,6 +446,561 @@ static void adc_adcj_error_dispatch_isr(const struct device *dev)
 	adcj_error_isr();
 }
 
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+
+static void adc_adcj_stream_reset(struct adc_adcj_data *data)
+{
+	if (data == NULL) {
+		return;
+	}
+
+	data->stream_sqe = NULL;
+	data->stream_config = NULL;
+
+	data->stream_buffer = NULL;
+	data->stream_buffer_len = 0U;
+
+	data->stream_channels = 0U;
+	data->stream_frame_size = 0U;
+
+	data->active = false;
+	data->status = 0;
+	data->request_mode = ADC_ADCJ_REQUEST_IDLE;
+}
+
+static void adc_adcj_stream_fail(const struct device *dev, int error)
+{
+	const struct adc_adcj_config *config;
+	struct adc_adcj_data *data;
+	struct rtio_iodev_sqe *sqe;
+	fsp_err_t fsp_err;
+
+	if (dev == NULL) {
+		return;
+	}
+
+	config = dev->config;
+	data = dev->data;
+
+	if ((config == NULL) || (data == NULL)) {
+		return;
+	}
+
+	/*
+	 * Only a stream request or an already stopping stream request may
+	 * enter this cleanup path.
+	 */
+	if ((data->request_mode != ADC_ADCJ_REQUEST_STREAM) &&
+	    (data->request_mode != ADC_ADCJ_REQUEST_STREAM_STOPPING)) {
+		return;
+	}
+
+	/*
+	 * Preserve the first stream error. If DMA cannot be stopped, this
+	 * error will be reported later from the DMA callback.
+	 */
+	if (data->status == 0) {
+		data->status = error;
+	}
+
+	/*
+	 * Do not accept new requests while stopping the hardware. Keep the
+	 * SQE and RX buffer owned by the driver until DMA is quiescent.
+	 */
+	data->active = false;
+	data->request_mode = ADC_ADCJ_REQUEST_STREAM_STOPPING;
+
+	/*
+	 * Stop ADCJ first so that it cannot generate another DMA request.
+	 */
+	fsp_err = R_ADCJ_ScanGroupStop(
+		&data->fsp_ctrl,
+		config->scan_group_mask);
+
+	if (fsp_err != FSP_SUCCESS) {
+		LOG_ERR("ADCJ stream cleanup failed: %d", fsp_err);
+
+		/*
+		 * ADCJ is not confirmed stopped. Keep the device faulted and
+		 * do not accept another request.
+		 */
+		data->request_mode = ADC_ADCJ_REQUEST_FAULT;
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+		/*
+		 * If DMA is still active, retain the SQE and buffer until its
+		 * callback confirms that the transfer has ended.
+		 */
+		if (data->dma_active) {
+			return;
+		}
+#endif
+
+		/*
+		 * DMA is not using the buffer, so the SQE can be completed,
+		 * but the device remains faulted because ADCJ did not stop.
+		 */
+		sqe = data->stream_sqe;
+
+		data->stream_sqe = NULL;
+		data->stream_buffer = NULL;
+		data->stream_buffer_len = 0U;
+
+		if (sqe != NULL) {
+			rtio_iodev_sqe_err(sqe, data->status);
+		}
+
+		return;
+	}
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+	if (data->dma_active) {
+		int dma_err;
+
+		if ((data->dma_dev == NULL) ||
+		    !device_is_ready(data->dma_dev)) {
+			LOG_ERR("DMA device is not ready during cleanup");
+			data->request_mode = ADC_ADCJ_REQUEST_FAULT;
+			return;
+		}
+
+		dma_err = dma_stop(
+			data->dma_dev,
+			data->dma_channel);
+
+		if (dma_err != 0) {
+			LOG_ERR("DMA stop failed: %d", dma_err);
+
+			/*
+			 * Keep STREAM_STOPPING and retain stream_sqe and
+			 * stream_buffer. The DMA callback will complete the
+			 * SQE after the in-flight transfer has ended.
+			 */
+			return;
+		}
+
+		/*
+		 * A successful dma_stop() confirms that the channel no longer
+		 * owns the current RX buffer.
+		 */
+		data->dma_active = false;
+	}
+#endif
+
+	/*
+	 * ADCJ is stopped and DMA no longer owns the buffer. It is now safe
+	 * to reset the stream state and return the buffer to RTIO.
+	 */
+	sqe = data->stream_sqe;
+	error = data->status;
+
+	adc_adcj_stream_reset(data);
+
+	if (sqe != NULL) {
+		rtio_iodev_sqe_err(sqe, error);
+	}
+}
+
+static struct adc_adcj_stream_header *adc_adcj_stream_header(uint8_t *buffer)
+{
+	return (struct adc_adcj_stream_header *)buffer;
+}
+
+static struct adc_adcj_stream_channel *adc_adcj_stream_channels(uint8_t *buffer)
+{
+	return (struct adc_adcj_stream_channel *)
+		(buffer + sizeof(struct adc_adcj_stream_header));
+}
+
+static uint8_t *adc_adcj_stream_sample_payload(uint8_t *buffer,
+							   uint8_t num_channels)
+{
+	return buffer +
+		sizeof(struct adc_adcj_stream_header) +
+		   num_channels *
+			sizeof(struct adc_adcj_stream_channel);
+}
+
+static size_t adc_adcj_stream_frame_size(uint32_t channels)
+{
+	size_t channel_count = POPCOUNT(channels);
+
+	return sizeof(struct adc_adcj_stream_header) +
+		   channel_count *
+			   sizeof(struct adc_adcj_stream_channel) +
+		   channel_count * sizeof(uint16_t);
+}
+
+static int adc_adcj_stream_prepare_frame(const struct device *dev)
+{
+	const struct adc_adcj_config *config;
+	struct adc_adcj_data *data;
+	struct adc_adcj_stream_header *header;
+	struct adc_adcj_stream_channel *channel_info;
+	size_t expected_frame_size;
+	size_t payload_size;
+	uint8_t channel_count;
+	uint8_t sample_index = 0U;
+	const adcj_extended_cfg_t *extend;
+	const adcj_sg_generic_cfg_t *sg_cfg;
+
+	if (dev == NULL) {
+		return -EINVAL;
+	}
+
+	config = dev->config;
+	data = dev->data;
+
+	extend = config->fsp_cfg->p_extend;
+	sg_cfg = config->fsp_sg_cfg->p_sg_cfg[config->scan_group];
+
+	if ((extend == NULL) || (sg_cfg == NULL) || (sg_cfg->p_vc_cfg == NULL)
+	|| (config == NULL) || (data == NULL)) {
+		return -EINVAL;
+	}
+
+	/*
+	 * A stream frame can only be prepared while processing a valid
+	 * streaming request.
+	 */
+	if ((data->request_mode != ADC_ADCJ_REQUEST_STREAM) ||
+		(data->stream_sqe == NULL)) {
+		return -EINVAL;
+	}
+
+	if (data->stream_channels == 0U) {
+		return -EINVAL;
+	}
+
+	/*
+	 * Ensure that the requested channels are available and have been
+	 * configured through adc_channel_setup().
+	 */
+	if ((data->stream_channels &
+		 ~config->channel_available_mask) != 0U) {
+		return -ENOTSUP;
+	}
+
+	if ((data->stream_channels &
+		 ~data->configured_channels) != 0U) {
+		return -EINVAL;
+	}
+
+	channel_count = (uint8_t)POPCOUNT(data->stream_channels);
+
+	if ((channel_count == 0U) ||
+		(channel_count > ADC_RENESAS_ADCJ_STREAM_MAX_CHANNELS)) {
+		return -EINVAL;
+	}
+
+	payload_size =
+		(size_t)channel_count * sizeof(uint16_t);
+
+	if (payload_size > UINT16_MAX) {
+		return -EOVERFLOW;
+	}
+
+	expected_frame_size =
+		adc_adcj_stream_frame_size(data->stream_channels);
+
+	/*
+	 * stream_frame_size should have been calculated when the SQE was
+	 * submitted. Verify it again before writing to the RTIO buffer.
+	 */
+	if (data->stream_frame_size != expected_frame_size) {
+		return -EINVAL;
+	}
+
+	if ((data->stream_buffer == NULL) ||
+		(data->stream_buffer_len < expected_frame_size)) {
+		return -ENOMEM;
+	}
+
+	/*
+	 * Initialize the entire encoded frame. This is important because
+	 * the RTIO mempool may return a previously used buffer.
+	 */
+	memset(data->stream_buffer, 0, expected_frame_size);
+
+	header = adc_adcj_stream_header(data->stream_buffer);
+	channel_info =
+		adc_adcj_stream_channels(data->stream_buffer);
+
+	/*
+	 * Timestamp is finalized when the scan or DMA transfer completes.
+	 * Leaving it at zero here avoids reporting the time at which the
+	 * frame was merely prepared.
+	 */
+	header->timestamp_ns = 0U;
+	header->sequence_number = data->stream_sequence_number;
+	header->payload_size = (uint16_t)payload_size;
+	header->num_channels = channel_count;
+	header->data_format = (uint8_t)config->data_format;
+	if (extend->wiring_break_detect_cfg.odcr_b.addition_mode ==
+	ADCJ_WIRING_BREAK_ADDITION_MODE_ENABLE) {
+		header->flags |= ADC_ADCJ_STREAM_FLAG_WIRING_BREAK_ADDITION;
+	}
+	header->addition_count = (uint8_t)extend->data_format_addition_count.adcr2_b.addition_count;
+	header->vref_mv = config->vref_mv;
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+	header->flags |= ADC_ADCJ_STREAM_FLAG_DMA;
+#endif
+
+	/*
+	 * Channel descriptors and raw samples use the same ordering.
+	 *
+	 * For example:
+	 *
+	 * channel_info[0] <-> raw_sample[0]
+	 * channel_info[1] <-> raw_sample[1]
+	 */
+
+	for (uint8_t virtual_channel = sg_cfg->start_vc_ptr; virtual_channel <= sg_cfg->end_vc_ptr;
+		 virtual_channel++) {
+		uint8_t channel;
+
+		if (sample_index >= channel_count) {
+			return -EOVERFLOW;
+		}
+
+		for (channel = 0U;
+		channel < ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS;
+		channel++) {
+			if (((data->stream_channels & BIT(channel)) != 0U) &&
+			(config->channel_to_vc[channel] == virtual_channel)) {
+				break;
+			}
+		}
+
+		if (channel == ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS) {
+			return -EINVAL;
+		}
+
+		channel_info[sample_index].channel_id = channel;
+		channel_info[sample_index].virtual_channel = virtual_channel;
+		channel_info[sample_index].resolution = config->resolution;
+		channel_info[sample_index].conversion_type =
+			 (uint8_t)sg_cfg->p_vc_cfg[virtual_channel - sg_cfg->start_vc_ptr]
+			 .vcr_b.conv_type;
+
+		sample_index++;
+	}
+
+	if (sample_index != channel_count) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
+static int adc_adcj_validate_stream_config(
+	const struct device *dev,
+	const struct adc_read_config *read_cfg,
+	uint32_t *channel_mask)
+{
+	const struct adc_adcj_config *config = dev->config;
+	struct adc_adcj_data *data = dev->data;
+	uint32_t channels = 0U;
+
+	if ((read_cfg == NULL) || !read_cfg->is_streaming) {
+		return -EINVAL;
+	}
+
+	if ((read_cfg->adc != dev) ||
+		(read_cfg->adc_spec == NULL) ||
+		(read_cfg->adc_spec_cnt == 0U) ||
+		(read_cfg->adc_spec_cnt > ADC_RENESAS_ADCJ_STREAM_MAX_CHANNELS)) {
+		return -EINVAL;
+	}
+
+	for (size_t i = 0; i < read_cfg->adc_spec_cnt; i++) {
+		const struct adc_dt_spec *spec = &read_cfg->adc_spec[i];
+
+		if (spec->dev != dev) {
+			return -EINVAL;
+		}
+
+		if (spec->channel_id >= ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS) {
+			return -EINVAL;
+		}
+
+		if ((config->channel_available_mask &
+			 BIT(spec->channel_id)) == 0U) {
+			return -ENOTSUP;
+		}
+
+		if ((data->configured_channels &
+			 BIT(spec->channel_id)) == 0U) {
+			return -EINVAL;
+		}
+
+		if (config->channel_to_vc[spec->channel_id] >=
+			ADC_RENESAS_ADCJ_MAX_VIRTUAL_CHANNELS) {
+			return -EINVAL;
+		}
+
+		if ((channels & BIT(spec->channel_id)) != 0U) {
+			return -EINVAL;
+		}
+
+		channels |= BIT(spec->channel_id);
+	}
+
+	/*
+	 * Initial implementation supports one completion per completed
+	 * ADCJ scan. DATA_READY means that one complete frame is available.
+	 */
+	for (size_t i = 0; i < read_cfg->trigger_cnt; i++) {
+		const struct adc_stream_trigger *trigger =
+			&read_cfg->triggers[i];
+
+		switch (trigger->trigger) {
+		case ADC_TRIG_DATA_READY:
+		case ADC_TRIG_FIFO_WATERMARK:
+		case ADC_TRIG_FIFO_FULL:
+			break;
+		default:
+			return -ENOTSUP;
+		}
+
+		if (trigger->opt != ADC_STREAM_DATA_INCLUDE) {
+			return -ENOTSUP;
+		}
+
+	}
+
+	*channel_mask = channels;
+	return 0;
+}
+
+static int adc_adcj_stream_acquire_buffer(struct adc_adcj_data *data)
+{
+	uint8_t *buffer;
+	uint32_t buffer_len;
+	int err;
+
+	err = rtio_sqe_rx_buf(data->stream_sqe,
+				  data->stream_frame_size,
+				  data->stream_frame_size,
+				  &buffer,
+				  &buffer_len);
+	if (err != 0) {
+		return err;
+	}
+
+	if ((buffer == NULL) ||
+		(buffer_len < data->stream_frame_size)) {
+		return -ENOMEM;
+	}
+
+	data->stream_buffer = buffer;
+	data->stream_buffer_len = buffer_len;
+
+	return 0;
+}
+
+static int adc_adcj_stream_read_frame(const struct device *dev)
+{
+	const struct adc_adcj_config *config = dev->config;
+	struct adc_adcj_data *data = dev->data;
+	struct adc_adcj_stream_header *header;
+	struct adc_adcj_stream_channel *channels;
+	uint8_t *sample_payload;
+	uint8_t sample_index;
+	const adcj_sg_generic_cfg_t *sg_cfg;
+
+	if ((config == NULL) || (data == NULL)) {
+		return -EINVAL;
+	}
+
+	if ((data->stream_buffer == NULL) ||
+		 (data->stream_buffer_len < data->stream_frame_size)) {
+		return -ENOMEM;
+	}
+
+	sg_cfg = config->fsp_sg_cfg->p_sg_cfg[config->scan_group];
+
+	if ((sg_cfg == NULL) || (sg_cfg->p_vc_cfg == NULL)) {
+		return -EINVAL;
+	}
+
+	header = adc_adcj_stream_header(data->stream_buffer);
+
+	if ((header->num_channels == 0U) ||
+		 (header->num_channels >
+		 ADC_RENESAS_ADCJ_STREAM_MAX_CHANNELS)) {
+		return -EINVAL;
+	}
+
+	if (header->payload_size !=
+		 ((uint16_t)header->num_channels *
+		 sizeof(uint16_t))) {
+		return -EINVAL;
+	}
+
+	channels = adc_adcj_stream_channels(data->stream_buffer);
+
+	sample_payload =
+		adc_adcj_stream_sample_payload(
+			data->stream_buffer,
+			header->num_channels);
+
+	for (sample_index = 0U;
+		 sample_index < header->num_channels;
+		 sample_index++) {
+
+		uint8_t virtual_channel;
+		uint16_t raw;
+		fsp_err_t fsp_err;
+
+		virtual_channel =
+			channels[sample_index].virtual_channel;
+
+		if (virtual_channel >=
+		    ADC_RENESAS_ADCJ_MAX_VIRTUAL_CHANNELS) {
+			return -EINVAL;
+		}
+
+		if ((virtual_channel < sg_cfg->start_vc_ptr) ||
+			 (virtual_channel > sg_cfg->end_vc_ptr)) {
+			return -EINVAL;
+		}
+
+		fsp_err = R_ADCJ_Read(
+			&data->fsp_ctrl,
+			(adc_channel_t)virtual_channel,
+			&raw);
+
+		if (fsp_err != FSP_SUCCESS) {
+			return adc_adcj_fsp_err_to_errno(
+				fsp_err);
+		}
+
+		/*
+		 * Store the sample at the same index as the
+		 * corresponding channel descriptor.
+		 *
+		 * channel_info[i] <-> sample_payload[i]
+		 */
+		memcpy(
+			sample_payload +
+				((size_t)sample_index *
+				 sizeof(raw)),
+			&raw,
+			sizeof(raw));
+	}
+
+	header->timestamp_ns =
+		k_ticks_to_ns_floor64(k_uptime_ticks());
+
+	header->flags |= ADC_ADCJ_STREAM_FLAG_VALID;
+
+	return 0;
+}
+
+#endif
 static int adc_adcj_channel_setup(const struct device *dev,
 				  const struct adc_channel_cfg *channel_cfg)
 {
@@ -639,7 +1285,103 @@ static int adc_adcj_read_channels(const struct device *dev)
 
 	return 0;
 }
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
 
+static void adc_adcj_dma_callback(const struct device *dma_dev, void *user_data,
+	uint32_t channel, int status)
+{
+	struct adc_adcj_data *data = user_data;
+	struct adc_adcj_stream_header *header;
+	struct rtio_iodev_sqe *completed_sqe;
+	int completion_error;
+
+	ARG_UNUSED(dma_dev);
+	ARG_UNUSED(channel);
+
+	if (data == NULL) {
+		return;
+	}
+
+	/*
+	 * Confirm according to the RH850 DMA callback contract that reaching
+	 * this callback means the transfer no longer accesses its destination.
+	 */
+	data->dma_active = false;
+
+	if ((data->request_mode ==
+		 ADC_ADCJ_REQUEST_STREAM_STOPPING) ||
+		 (data->request_mode ==
+		 ADC_ADCJ_REQUEST_FAULT)) {
+		completed_sqe = data->stream_sqe;
+
+		/*
+		 * Prefer the original stream error. If none was stored, use
+		 * the DMA callback error or a generic I/O error.
+		 */
+		if (data->status != 0) {
+			completion_error = data->status;
+		} else if (status < 0) {
+			completion_error = status;
+		} else {
+			completion_error = -EIO;
+		}
+
+		/*
+		 * The DMA transfer has finished, so it is now safe to release
+		 * the destination buffer.
+		 *
+		 * Only return to IDLE if ADCJ was also confirmed stopped.
+		 */
+		if (data->request_mode ==
+			 ADC_ADCJ_REQUEST_STREAM_STOPPING) {
+			adc_adcj_stream_reset(data);
+		} else {
+			/*
+			 * DMA is done but another hardware cleanup operation
+			 * failed. Release the buffer while retaining FAULT.
+			 */
+			data->stream_sqe = NULL;
+			data->stream_buffer = NULL;
+			data->stream_buffer_len = 0U;
+			data->active = false;
+		}
+
+		if (completed_sqe != NULL) {
+			rtio_iodev_sqe_err(
+				completed_sqe,
+				completion_error);
+		}
+
+		return;
+	}
+
+	if (status < 0) {
+		adc_adcj_stream_fail(data->dev, status);
+		return;
+	}
+
+	if ((data->request_mode != ADC_ADCJ_REQUEST_STREAM) || !data->active ||
+	(data->stream_sqe == NULL) || (data->stream_buffer == NULL)) {
+		return;
+	}
+
+	header = adc_adcj_stream_header(data->stream_buffer);
+	header->timestamp_ns = k_ticks_to_ns_floor64(k_uptime_ticks());
+	header->flags |= ADC_ADCJ_STREAM_FLAG_VALID;
+	data->stream_sequence_number++;
+	completed_sqe = data->stream_sqe;
+
+	/*
+	 * Clear per-shot state before completing the shot.
+	 * The stream session itself remains active.
+	 */
+	data->stream_sqe = NULL;
+	data->stream_buffer = NULL;
+	data->stream_buffer_len = 0U;
+
+	rtio_iodev_sqe_ok(completed_sqe, 0);
+}
+#endif
 static void adc_adcj_fsp_callback(adc_callback_args_t *args)
 {
 	const struct device *dev = args->p_context;
@@ -661,6 +1403,12 @@ static void adc_adcj_fsp_callback(adc_callback_args_t *args)
 	    (args->event == ADC_EVENT_UPPER_LOWER_LIMIT_ERROR)) {
 		data->status = -EIO;
 		data->active = false;
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+		if (data->request_mode == ADC_ADCJ_REQUEST_STREAM) {
+			adc_adcj_stream_fail(dev, -EIO);
+			return;
+		}
+#endif
 		adc_context_complete(&data->ctx, -EIO);
 		return;
 	}
@@ -669,6 +1417,39 @@ static void adc_adcj_fsp_callback(adc_callback_args_t *args)
 		return;
 	}
 
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+	if (data->request_mode == ADC_ADCJ_REQUEST_STREAM) {
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+		return;
+#else
+		struct rtio_iodev_sqe *completed_sqe;
+
+		err = adc_adcj_stream_read_frame(dev);
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+		completed_sqe = data->stream_sqe;
+
+		data->stream_sequence_number++;
+		data->stream_sqe = NULL;
+		data->stream_buffer = NULL;
+		data->stream_buffer_len = 0U;
+
+		rtio_iodev_sqe_ok(completed_sqe, 0);
+		return;
+#endif
+	}
+#endif
+
+
+	/*
+	 * A sequence with extra samplings or ADC_ACTION_REPEAT starts the next
+	 * scan from adc_context_on_sampling_done().  Stop the completed hardware
+	 * scan first so that the following R_ADCJ_ScanGroupStart() does not return
+	 * FSP_ERR_IN_USE.
+	 */
 	if (R_ADCJ_ScanGroupStop(&data->fsp_ctrl, config->scan_group_mask) != FSP_SUCCESS) {
 		data->status = -EIO;
 		data->active = false;
@@ -699,6 +1480,20 @@ static int adc_adcj_start_read(const struct device *dev,
 		return err;
 	}
 
+	/*
+	 * Reject the finite request before modifying shared state if the
+	 * ADC is currently owned by a stream or another finite request.
+	 */
+	if (data->request_mode != ADC_ADCJ_REQUEST_IDLE) {
+		return -EBUSY;
+	}
+
+	/*
+	 * Claim ownership before updating finite-request state or starting
+	 * the ADC context.
+	 */
+	data->request_mode = ADC_ADCJ_REQUEST_FINITE;
+
 	data->buffer = sequence->buffer;
 	data->channels = sequence->channels;
 	data->status = 0;
@@ -712,7 +1507,7 @@ static int adc_adcj_start_read(const struct device *dev,
 static int adc_adcj_read_common(const struct device *dev,
 		const struct adc_sequence *sequence,
 		bool asynchronous,
-		struct k_poll_signal *signal)
+		struct k_poll_signal *sig)
 {
 	struct adc_adcj_data *data = dev->data;
 	int err;
@@ -721,7 +1516,7 @@ static int adc_adcj_read_common(const struct device *dev,
 		return -EINVAL;
 	}
 
-	adc_context_lock(&data->ctx, asynchronous, signal);
+	adc_context_lock(&data->ctx, asynchronous, sig);
 	err = adc_adcj_start_read(dev, sequence);
 	adc_context_release(&data->ctx, err);
 
@@ -753,12 +1548,641 @@ static int adc_adcj_read(const struct device *dev,
 	return adc_adcj_read_common(dev, sequence, false, NULL);
 }
 
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+
+static void adc_adcj_submit(const struct device *dev,
+				struct rtio_iodev_sqe *iodev_sqe)
+{
+	fsp_err_t fsp_err;
+	const struct adc_read_config *read_cfg;
+	uint32_t channels;
+	int err;
+
+	if ((dev == NULL) || (iodev_sqe == NULL)) {
+		return;
+	}
+
+	struct adc_adcj_data *data = dev->data;
+
+	if (data->request_mode == ADC_ADCJ_REQUEST_IDLE) {
+		const struct adc_adcj_config *config = dev->config;
+
+		if ((iodev_sqe->sqe.iodev == NULL) ||
+			(iodev_sqe->sqe.iodev->data == NULL)) {
+			rtio_iodev_sqe_err(iodev_sqe, -EINVAL);
+			return;
+		}
+		read_cfg = iodev_sqe->sqe.iodev->data;
+
+		err = adc_adcj_validate_stream_config(dev, read_cfg, &channels);
+
+		if (err != 0) {
+			rtio_iodev_sqe_err(iodev_sqe, err);
+			return;
+		}
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+		if (data->dma_length != POPCOUNT(channels)) {
+			rtio_iodev_sqe_err(iodev_sqe, -EINVAL);
+			return;
+		}
+#endif
+		data->request_mode = ADC_ADCJ_REQUEST_STREAM;
+		data->stream_sqe = iodev_sqe;
+		data->stream_config = read_cfg;
+		data->stream_channels = channels;
+		data->stream_frame_size =
+			adc_adcj_stream_frame_size(channels);
+		data->status = 0;
+		data->active = true;
+
+		/* Acquire next RTIO frame buffer */
+		err = adc_adcj_stream_acquire_buffer(data);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+		err = adc_adcj_stream_prepare_frame(dev);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+		uint8_t *sample_payload;
+		struct adc_adcj_stream_header *header;
+
+		header = adc_adcj_stream_header(data->stream_buffer);
+		sample_payload = adc_adcj_stream_sample_payload(data->stream_buffer,
+			 header->num_channels);
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+		data->dma_cfg.source_data_size = 2U;
+		data->dma_cfg.dest_data_size = 2U;
+
+		data->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
+
+		data->dma_cfg.block_count = 1U;
+		data->dma_cfg.head_block = &data->dma_block;
+
+		data->dma_cfg.dma_callback =
+			adc_adcj_dma_callback;
+
+		data->dma_cfg.user_data = data;
+
+		data->dma_block.source_addr_adj = DMA_ADDR_ADJ_INCREMENT;
+
+		data->dma_block.dest_addr_adj = DMA_ADDR_ADJ_INCREMENT;
+
+		data->dma_cfg.dma_slot = data->dma_slot;
+
+		data->dma_cfg.linked_channel = data->dma_group;
+
+		data->dma_block.source_address =
+			(uint32_t)(uintptr_t)data->dma_src;
+
+		data->dma_block.dest_address =
+				(uint32_t)(uintptr_t)sample_payload;
+
+		data->dma_block.block_size =
+				data->dma_length *
+				sizeof(uint16_t);
+
+		err = dma_config(
+				data->dma_dev,
+				data->dma_channel,
+				&data->dma_cfg);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+		err = dma_start(
+			data->dma_dev,
+			data->dma_channel);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+		data->dma_active = true;
+#endif
+		/* Start ADCJ only once */
+
+		fsp_err = R_ADCJ_ScanGroupStart(
+				&data->fsp_ctrl,
+				config->scan_group_mask);
+
+		if (fsp_err != FSP_SUCCESS) {
+			adc_adcj_stream_fail(
+				dev,
+				adc_adcj_fsp_err_to_errno(fsp_err));
+			return;
+		}
+
+	} else if (data->request_mode == ADC_ADCJ_REQUEST_STREAM) {
+		if ((iodev_sqe->sqe.iodev == NULL) ||
+			(iodev_sqe->sqe.iodev->data == NULL)) {
+			rtio_iodev_sqe_err(iodev_sqe, -EINVAL);
+			return;
+		}
+		read_cfg = iodev_sqe->sqe.iodev->data;
+
+		if (read_cfg != data->stream_config) {
+			rtio_iodev_sqe_err(iodev_sqe, -EINVAL);
+			return;
+		}
+
+		if (data->stream_sqe != NULL) {
+			rtio_iodev_sqe_err(iodev_sqe, -EBUSY);
+			return;
+		}
+
+		data->stream_sqe = iodev_sqe;
+
+		/* Acquire next RTIO frame buffer */
+		err = adc_adcj_stream_acquire_buffer(data);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+		err = adc_adcj_stream_prepare_frame(dev);
+
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+
+		uint8_t *sample_payload;
+		struct adc_adcj_stream_header *header;
+
+		header = adc_adcj_stream_header(data->stream_buffer);
+		sample_payload = adc_adcj_stream_sample_payload(data->stream_buffer,
+			header->num_channels);
+
+		err = dma_reload(data->dma_dev, data->dma_channel, (uintptr_t)data->dma_src,
+			(uintptr_t)sample_payload, data->dma_length * sizeof(uint16_t));
+		if (err != 0) {
+			adc_adcj_stream_fail(dev, err);
+			return;
+		}
+		data->dma_active = true;
+#endif
+	} else {
+		rtio_iodev_sqe_err(iodev_sqe, -EBUSY);
+		return;
+	}
+
+}
+
+static const struct adc_adcj_stream_header *
+adc_adcj_decoder_header(const uint8_t *buffer)
+{
+	return (const struct adc_adcj_stream_header *)buffer;
+}
+
+static const struct adc_adcj_stream_channel *
+adc_adcj_decoder_channels(const uint8_t *buffer)
+{
+	return (const struct adc_adcj_stream_channel *)
+		(buffer + sizeof(struct adc_adcj_stream_header));
+}
+
+static const uint8_t *
+adc_adcj_decoder_sample_payload(const uint8_t *buffer,
+				uint8_t num_channels)
+{
+	return buffer +
+		   sizeof(struct adc_adcj_stream_header) +
+		   ((size_t)num_channels *
+		sizeof(struct adc_adcj_stream_channel));
+}
+
+static int adc_adcj_decoder_find_channel(const uint8_t *buffer,
+					uint32_t channel,
+					uint8_t *sample_index)
+{
+	const struct adc_adcj_stream_header *header;
+	const struct adc_adcj_stream_channel *channels;
+
+	if ((buffer == NULL) || (sample_index == NULL)) {
+		return -EINVAL;
+	}
+
+	header = adc_adcj_decoder_header(buffer);
+	channels = adc_adcj_decoder_channels(buffer);
+
+	for (uint8_t i = 0U; i < header->num_channels; i++) {
+		if (channels[i].channel_id == channel) {
+			*sample_index = i;
+			return 0;
+		}
+	}
+
+	return -ENODATA;
+}
+
+/*
+ * Validate the metadata stored in an ADCJ encoded stream frame.
+ *
+ * The decoder API does not receive the total buffer length, so this
+ * function can validate the metadata fields but cannot independently
+ * prove that the backing buffer is large enough.
+ */
+static int adc_adcj_decoder_validate_frame(const uint8_t *buffer)
+{
+	const struct adc_adcj_stream_header *header;
+	uint16_t expected_payload_size;
+
+	if (buffer == NULL) {
+		return -EINVAL;
+	}
+
+	header = adc_adcj_decoder_header(buffer);
+
+	if (header->vref_mv == 0U) {
+		return -EINVAL;
+	}
+
+	if ((header->flags & ADC_ADCJ_STREAM_FLAG_VALID) == 0U) {
+		return -ENODATA;
+	}
+
+	if ((header->num_channels == 0U) ||
+		(header->num_channels >
+		 ADC_RENESAS_ADCJ_STREAM_MAX_CHANNELS)) {
+		return -EINVAL;
+	}
+
+	expected_payload_size =
+		(uint16_t)header->num_channels *
+		sizeof(uint16_t);
+
+	if (header->payload_size != expected_payload_size) {
+		return -EINVAL;
+	}
+
+	switch ((enum adc_adcj_data_format)header->data_format) {
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_SIGNED_FIXED:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_SIGNED_INTEGER:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_FIXED:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_RIGHT:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_LEFT:
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+/*
+ * Read one raw 16-bit ADCJ result from the encoded payload.
+ *
+ * memcpy() is used instead of a uint16_t pointer dereference because
+ * the payload might not be naturally aligned for a 16-bit access.
+ *
+ * The CPU-backed stream producer also stores the sample with memcpy(),
+ * while the DMA path writes the native 16-bit representation directly.
+ */
+static int adc_adcj_decoder_get_raw_sample(const uint8_t *buffer,
+					   uint8_t sample_index,
+					   uint16_t *raw)
+{
+	const struct adc_adcj_stream_header *header;
+	const uint8_t *sample_payload;
+	int err;
+
+	if (raw == NULL) {
+		return -EINVAL;
+	}
+
+	err = adc_adcj_decoder_validate_frame(buffer);
+	if (err != 0) {
+		return err;
+	}
+
+	header = adc_adcj_decoder_header(buffer);
+
+	if (sample_index >= header->num_channels) {
+		return -EINVAL;
+	}
+
+	sample_payload =
+		adc_adcj_decoder_sample_payload(
+			buffer,
+			header->num_channels);
+
+	memcpy(raw,
+		   sample_payload +
+			   ((size_t)sample_index * sizeof(*raw)),
+		   sizeof(*raw));
+
+	return 0;
+}
+
+/*
+ * Convert a native ADCJ raw result into a q31_t voltage representation.
+ *
+ * The resulting value and shift follow the same voltage-oriented
+ * convention used by the STM32 streaming decoder.
+ */
+static int adc_adcj_decoder_raw_to_voltage_q31(
+	uint16_t count,
+	uint8_t resolution,
+	uint16_t vref_mv,
+	q31_t *value,
+	uint8_t *shift)
+{
+	uint32_t max_code;
+	uint8_t q_shift;
+	uint64_t num;
+	uint64_t den;
+
+	if ((value == NULL) || (shift == NULL) || (vref_mv == 0U)) {
+		return -EINVAL;
+	}
+	if ((resolution == 0U) || (resolution > 16U)) {
+		return -EINVAL;
+	}
+
+	max_code = BIT(resolution) - 1U;
+	q_shift = find_msb_set(vref_mv) - 1U;
+	num = (uint64_t)count * (uint64_t)vref_mv * (1ULL << (31U - q_shift));
+	den = 1000ULL * (uint64_t)max_code;
+	*value = (q31_t)(num / den);
+	*shift = q_shift;
+	return 0;
+}
+
+static int adc_adcj_decoder_get_frame_count(const uint8_t *buffer,
+	uint32_t channel, uint16_t *frame_count)
+{
+	int err;
+	const struct adc_adcj_stream_header *header;
+	const struct adc_adcj_stream_channel *channels;
+	bool found = false;
+
+	if ((frame_count == NULL) || (buffer == NULL)) {
+		return -EINVAL;
+	}
+
+	if (channel >= ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS) {
+		return -ENOTSUP;
+	}
+
+	err = adc_adcj_decoder_validate_frame(buffer);
+	if (err != 0) {
+		return err;
+	}
+
+	header = adc_adcj_decoder_header(buffer);
+	channels = adc_adcj_decoder_channels(buffer);
+
+	for (uint8_t i = 0U; i < header->num_channels; i++) {
+		if (channels[i].channel_id == channel) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		return -ENODATA;
+	}
+
+	/* This ADC does not have FIFO so one frame contains one sample per channel */
+	*frame_count = 1U;
+
+	return 0;
+}
+
+static int adc_adcj_decoder_get_size_info(struct adc_dt_spec adc_spec,
+					  uint32_t channel,
+					  size_t *base_size,
+					  size_t *frame_size)
+{
+	if ((base_size == NULL) || (frame_size == NULL)) {
+		return -EINVAL;
+	}
+
+	if (adc_spec.dev == NULL) {
+		return -EINVAL;
+	}
+
+	if (channel >= ADC_RENESAS_ADCJ_MAX_ZEPHYR_CHANNELS) {
+		return -ENOTSUP;
+	}
+
+	/*
+	 * The first decoded frame requires the adc_data base object.
+	 * Each additional decoded frame requires one adc_sample_data.
+	 *
+	 * The current encoded ADCJ buffer contains only one frame, but
+	 * these values remain compatible with the generic decoder API.
+	 */
+	*base_size = sizeof(struct adc_data);
+	*frame_size = sizeof(struct adc_sample_data);
+
+	return 0;
+}
+
+static int adc_adcj_decoder_decode(const uint8_t *buffer,
+				   uint32_t channel,
+				   uint32_t *fit,
+				   uint16_t max_count,
+				   void *data_out)
+{
+	const struct adc_adcj_stream_header *header;
+	const struct adc_adcj_stream_channel *channels;
+	struct adc_data *output;
+	uint16_t raw;
+	q31_t value;
+	uint8_t shift;
+	int err;
+	uint8_t sample_index;
+	uint16_t count;
+	bool wiring_break_addition;
+
+	if ((buffer == NULL) ||
+		(fit == NULL) ||
+		(data_out == NULL)) {
+		return -EINVAL;
+	}
+
+	/*
+	 * The caller requested no samples.
+	 */
+	if (max_count == 0U) {
+		return 0;
+	}
+
+	/*
+	 * The current ADCJ frame contains one scan only.
+	 *
+	 * fit == 0 means the frame has not been decoded yet.
+	 * fit != 0 means there are no additional frames in this buffer.
+	 */
+	if (*fit != 0U) {
+		return 0;
+	}
+
+	err = adc_adcj_decoder_validate_frame(buffer);
+	if (err != 0) {
+		return err;
+	}
+
+	err = adc_adcj_decoder_find_channel(buffer, channel, &sample_index);
+	if (err != 0) {
+		return err;
+	}
+
+	err = adc_adcj_decoder_get_raw_sample(
+		buffer,
+		sample_index,
+		&raw);
+	if (err != 0) {
+		return err;
+	}
+
+	header = adc_adcj_decoder_header(buffer);
+	channels = adc_adcj_decoder_channels(buffer);
+
+	/*
+	 * Validate that the resolution stored in the channel descriptor
+	 * agrees with the selected ADCJ format.
+	 */
+	switch ((enum adc_adcj_data_format)header->data_format) {
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_SIGNED_FIXED:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_SIGNED_INTEGER:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_FIXED:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_RIGHT:
+	case ADC_ADCJ_DATA_FORMAT_12_BIT_UNSIGNED_LEFT:
+		if (channels[sample_index].resolution != 12U) {
+			return -EINVAL;
+		}
+		break;
+
+	default:
+		return -ENOTSUP;
+	}
+
+	wiring_break_addition =
+	(header->flags & ADC_ADCJ_STREAM_FLAG_WIRING_BREAK_ADDITION) != 0U;
+
+	err = adc_adcj_raw_to_count_from_metadata(
+		(enum adc_adcj_data_format)header->data_format,
+		channels[sample_index].conversion_type,
+		header->addition_count,
+		wiring_break_addition,
+		raw,
+		&count);
+	if (err != 0) {
+		return err;
+	}
+
+	err = adc_adcj_decoder_raw_to_voltage_q31(
+		count, channels[sample_index].resolution, header->vref_mv, &value, &shift);
+	if (err != 0) {
+		return err;
+	}
+
+	output = (struct adc_data *)data_out;
+
+	/*
+	 * Clear the output before populating it. This prevents stale
+	 * reading data from a previous decoder call.
+	 */
+	memset(output, 0, sizeof(*output));
+
+	output->header.base_timestamp_ns =
+		header->timestamp_ns;
+
+	output->header.reading_count = 1U;
+
+	output->shift = shift;
+
+	output->readings[0].timestamp_delta = 0U;
+	output->readings[0].value = value;
+
+	/*
+	 * Mark the single frame in this buffer as consumed.
+	 */
+	*fit = 1U;
+
+	/*
+	 * Return the number of frames decoded.
+	 */
+	return 1;
+}
+
+static bool adc_adcj_decoder_has_trigger(const uint8_t *buffer,
+					 enum adc_trigger_type trigger)
+{
+	if (adc_adcj_decoder_validate_frame(buffer) != 0) {
+		return false;
+	}
+
+	/*
+	 * One encoded frame is generated after one completed ADCJ scan.
+	 * The initial streaming implementation therefore exposes only
+	 * DATA_READY semantics.
+	 */
+	switch (trigger) {
+	case ADC_TRIG_DATA_READY:
+	case ADC_TRIG_FIFO_WATERMARK:
+	case ADC_TRIG_FIFO_FULL:
+		return true;
+	default:
+		return false;
+	}
+}
+
+ADC_DECODER_API_DT_DEFINE() = {
+	.get_frame_count = adc_adcj_decoder_get_frame_count,
+	.get_size_info = adc_adcj_decoder_get_size_info,
+	.decode = adc_adcj_decoder_decode,
+	.has_trigger = adc_adcj_decoder_has_trigger,
+};
+
+static int adc_adcj_get_decoder(
+	const struct device *dev,
+	const struct adc_decoder_api **api)
+{
+	ARG_UNUSED(dev);
+
+	if (api == NULL) {
+		return -EINVAL;
+	}
+
+	*api = &ADC_DECODER_NAME();
+
+	return 0;
+}
+
+#endif
 static void adc_context_start_sampling(struct adc_context *ctx)
 {
 	struct adc_adcj_data *data = CONTAINER_OF(ctx, struct adc_adcj_data, ctx);
 	const struct device *dev = data->dev;
 	const struct adc_adcj_config *config = dev->config;
 	fsp_err_t fsp_err;
+
+	/*
+	 * Finite ownership must have been claimed by
+	 * adc_adcj_start_read() before the ADC context was started.
+	 */
+	if (data->request_mode != ADC_ADCJ_REQUEST_FINITE) {
+		data->status = -EBUSY;
+		adc_context_complete(ctx, -EBUSY);
+		return;
+	}
 
 	data->channels = ctx->sequence.channels;
 	data->active = true;
@@ -796,11 +2220,21 @@ static void adc_context_on_complete(struct adc_context *ctx, int status)
 	adc_context_disable_timer(ctx);
 	data->active = false;
 
+	/*
+	 * The ADC context may only release hardware owned by a finite
+	 * request. Never stop hardware owned by an active stream.
+	 */
+	if (data->request_mode != ADC_ADCJ_REQUEST_FINITE) {
+		return;
+	}
+
+	data->active = false;
 	fsp_err = R_ADCJ_ScanGroupStop(&data->fsp_ctrl,
 			config->scan_group_mask);
 	if (fsp_err != FSP_SUCCESS) {
 		LOG_ERR("ADCJ cleanup failed: %d", fsp_err);
 	}
+	data->request_mode = ADC_ADCJ_REQUEST_IDLE;
 }
 
 static void adc_context_update_buffer_pointer(struct adc_context *ctx, bool repeat_sampling)
@@ -843,10 +2277,32 @@ static int adc_adcj_init(const struct device *dev)
 	struct adc_adcj_data *data = dev->data;
 	fsp_err_t fsp_err;
 	int ret;
+	int err;
 
 	data->dev = dev;
 	data->active = false;
 	data->status = 0;
+	data->request_mode = ADC_ADCJ_REQUEST_IDLE;
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM)
+	data->stream_sqe = NULL;
+	data->stream_config = NULL;
+	data->stream_buffer = NULL;
+	data->stream_buffer_len = 0U;
+	data->stream_channels = 0U;
+	data->stream_frame_size = 0U;
+	data->stream_sequence_number = 0U;
+#endif
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("ADCJ clock device is not ready");
+		return -ENODEV;
+	}
+
+	err = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (err < 0) {
+		LOG_ERR("ADCJ module clock enable failed (err %d)", err);
+		return err;
+	}
 
 	fsp_err = R_ADCJ_Open(&data->fsp_ctrl, config->fsp_cfg);
 	if (fsp_err != FSP_SUCCESS) {
@@ -873,11 +2329,35 @@ static int adc_adcj_init(const struct device *dev)
 		config->irq_config_func(dev);
 	}
 
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+
+	data->dma_active = false;
+
+	fsp_err = R_ADCJ_InfoGet(
+			&data->fsp_ctrl,
+			&data->adc_info);
+
+	if (fsp_err != FSP_SUCCESS) {
+		return adc_adcj_fsp_err_to_errno(fsp_err);
+	}
+
+	data->dma_src =
+		(void *)data->adc_info.p_address[
+			config->scan_group];
+
+	data->dma_length =
+		data->adc_info.length[
+			config->scan_group];
+
+#endif
+
 	adc_context_unlock_unconditionally(&data->ctx);
 
 	return 0;
 }
 
+#define ADCJ_SCAN_MODE_multicycle  ADCJ_SG_SCAN_MODE_MULTICYLE
+#define ADCJ_SCAN_MODE_continuous  ADCJ_SG_SCAN_MODE_CONTINUOUS
 #define ADCJ_GROUP_MASK_0 ADC_GROUP_MASK_0
 #define ADCJ_GROUP_MASK_1 ADC_GROUP_MASK_1
 #define ADCJ_GROUP_MASK_2 ADC_GROUP_MASK_2
@@ -885,6 +2365,21 @@ static int adc_adcj_init(const struct device *dev)
 #define ADCJ_GROUP_MASK_4 ADC_GROUP_MASK_4
 #define ADCJ_GROUP_MASK_FROM_GROUP(idx) \
 	UTIL_CAT(ADCJ_GROUP_MASK_, DT_INST_PROP(idx, renesas_scan_group))
+#if defined(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA)
+
+#define ADCJ_DMA_DEV(idx)                                                                          \
+	DEVICE_DT_GET(DT_DMAS_CTLR(DT_DRV_INST(idx)))
+
+#define ADCJ_DMA_CHANNEL(idx)                                                                      \
+	DT_DMAS_CELL_BY_IDX(DT_DRV_INST(idx), 0, channel)
+
+#define ADCJ_DMA_CONFIG(idx)                                                                       \
+	DT_DMAS_CELL_BY_IDX(DT_DRV_INST(idx), 0, config)
+
+#define ADCJ_DMA_GROUP(idx)                                                                       \
+	DT_DMAS_CELL_BY_IDX(DT_DRV_INST(idx), 0, group)
+
+#endif
 
 #define ADCJ_ADDITION_COUNT(idx) \
 	UTIL_CAT(ADCJ_ADDITION_COUNT_, DT_INST_PROP(idx, renesas_addition_count))
@@ -896,6 +2391,8 @@ static int adc_adcj_init(const struct device *dev)
 	UTIL_CAT(ADCJ_RESOLUTION_, DT_STRING_TOKEN(node_id, renesas_data_format))
 #define ADCJ_FSP_RESOLUTION(idx) \
 	UTIL_CAT(ADCJ_FSP_RESOLUTION_, DT_INST_STRING_TOKEN(idx, renesas_data_format))
+#define ADCJ_SCAN_MODE(idx)                                              \
+	UTIL_CAT(ADCJ_SCAN_MODE_, DT_INST_STRING_TOKEN(idx, renesas_scan_mode))
 
 #define ADCJ_TRIGGER_METHOD_software ADCJ_SG_TRIGGER_METHOD_SW
 #define ADCJ_TRIGGER_METHOD_hardware ADCJ_SG_TRIGGER_METHOD_HW
@@ -1140,6 +2637,13 @@ static int adc_adcj_init(const struct device *dev)
 		())
 
 #define ADCJ_DEVICE_INIT(idx) \
+	IF_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM_DMA, \
+		(BUILD_ASSERT( \
+			DT_INST_NODE_HAS_PROP(idx, dmas), \
+			"ADCJ DMA mode requires a dmas property");)) \
+	BUILD_ASSERT(!IS_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM) || \
+		!DT_INST_ENUM_HAS_VALUE(idx, renesas_scan_mode, multicycle), \
+			"ADCJ streaming does not support multicycle scan mode"); \
 	BUILD_ASSERT(ADCJ_START_VC(idx) <= ADCJ_END_VC(idx), \
 		"ADCJ start virtual channel must not exceed end virtual channel"); \
 	BUILD_ASSERT((ADCJ_TRACK_HOLD_MASK(idx) & ~ADCJ_TRACK_HOLD_MASK_VALID) == 0U, \
@@ -1246,7 +2750,7 @@ static int adc_adcj_init(const struct device *dev)
 		.trigger_method = ADCJ_TRIGGER_METHOD(idx), \
 		.sg_ctrl = { \
 			.sgcr_b.end_int = ADCJ_SG_END_INT_ENABLE, \
-			.sgcr_b.scan_mode = ADCJ_SG_SCAN_MODE_MULTICYLE, \
+			.sgcr_b.scan_mode = ADCJ_SCAN_MODE(idx), \
 		}, \
 		.scan_cycle = 0U, \
 		.start_vc_ptr = ADCJ_START_VC(idx), \
@@ -1403,6 +2907,7 @@ static int adc_adcj_init(const struct device *dev)
 		.scan_group = DT_INST_PROP(idx, renesas_scan_group), \
 		.resolution = ADCJ_RESOLUTION(idx), \
 		.data_format = ADCJ_DATA_FORMAT(idx), \
+		.vref_mv = DT_INST_PROP_OR(idx, vref_mv, 0),					\
 		.track_hold_mask = ADCJ_TRACK_HOLD_MASK(idx), \
 		.software_trigger = ADCJ_TRIGGER_IS_SOFTWARE_STARTED(idx), \
 		.uses_th = ADCJ_INSTANCE_USES_TH(idx), \
@@ -1410,6 +2915,9 @@ static int adc_adcj_init(const struct device *dev)
 		.fsp_cfg = &adc_adcj_fsp_cfg_##idx, \
 		.fsp_sg_cfg = &adc_adcj_sg_cfg_##idx, \
 		.channel_to_vc = adc_adcj_channel_to_vc_##idx, \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_DRV_INST(idx))),			\
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)				\
+		DT_CLOCKS_CELL(DT_DRV_INST(idx), clk_id),				\
 		.irq_config_func = adc_adcj_irq_config_##idx, \
 	}; \
 	static struct adc_adcj_data adc_adcj_data_##idx = { \
@@ -1417,12 +2925,16 @@ static int adc_adcj_init(const struct device *dev)
 		ADC_CONTEXT_INIT_LOCK(adc_adcj_data_##idx, ctx), \
 		ADC_CONTEXT_INIT_SYNC(adc_adcj_data_##idx, ctx), \
 		.dev = DEVICE_DT_INST_GET(idx), \
+		ADCJ_DMA_INIT(idx) \
 	}; \
 	static DEVICE_API(adc, adc_adcj_api_##idx) = { \
 		.channel_setup = adc_adcj_channel_setup, \
 		.read = adc_adcj_read, \
 		.ref_internal = DT_INST_PROP_OR(idx, vref_mv, 0), \
 		IF_ENABLED(CONFIG_ADC_ASYNC, (.read_async = adc_adcj_read_async,)) \
+		IF_ENABLED(CONFIG_ADC_RENESAS_RH850_ADCJ_STREAM,			\
+			(.submit = adc_adcj_submit,						\
+			.get_decoder = adc_adcj_get_decoder,))				  \
 	}; \
 	DEVICE_DT_INST_DEFINE(idx, adc_adcj_init, NULL, &adc_adcj_data_##idx, \
 		&adc_adcj_config_##idx, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY, \
