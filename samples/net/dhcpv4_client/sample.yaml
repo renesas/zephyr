@@ -10,6 +10,11 @@ tests:
   sample.net.dhcpv4_client.rcar_ironhide_x5h:
     build_only: true
     platform_allow: rcar_ironhide_x5h/r8a78000/r52
+  sample.net.dhcpv4_client.rcar_ironhide_x5h.port4:
+    build_only: true
+    platform_allow: rcar_ironhide_x5h/r8a78000/r52
+    required_snippets:
+      - rcar-x5h-eth-port4
   sample.net.dhcpv4_client.rcar_ironhide_x5h.tsnes4:
     build_only: true
     platform_allow: rcar_ironhide_x5h/r8a78000/r52
