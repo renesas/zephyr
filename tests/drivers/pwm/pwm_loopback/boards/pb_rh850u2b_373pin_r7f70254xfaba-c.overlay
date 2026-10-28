@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		capture = &pwm0_ch0;
+	};
+
+	pwm_loopback_0 {
+		compatible = "test-pwm-loopback";
+		/* TAUD0 ch1 output (TAUD0O1, P00_1) wired to TAUD0 ch6 input (TAUD0I6) */
+		pwms = <&pwm0_ch0 1 0 PWM_POLARITY_NORMAL>,
+		       <&pwm0_ch0 6 0 PWM_POLARITY_NORMAL>;
+	};
+};
