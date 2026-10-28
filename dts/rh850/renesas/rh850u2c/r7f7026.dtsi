@@ -1121,6 +1121,16 @@
 				interrupt-names = "eri", "rxi", "txi";
 				status = "disabled";
 			};
+
+			canfd2: canfd2 {
+				compatible = "renesas,rh850-canfd";
+				channel = <2>;
+				interrupts-extended = <&canfderi_ored0>,
+						      <&canfdrxi_ored0>,
+						      <&canfdtxi_ored0>;
+				interrupt-names = "eri", "rxi", "txi";
+				status = "disabled";
+			};
 		};
 
 		canfd1_global: canfd1-global@ff820000 {

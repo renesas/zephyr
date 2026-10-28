@@ -651,6 +651,15 @@
 				interrupt-parent = <&intc2>;
 				status = "disabled";
 			};
+
+			canfd6: canfd6 {
+				compatible = "renesas,rh850-canfd";
+				channel = <6>;
+				interrupts = <695 1>, <694 1>, <696 1>;
+				interrupt-names = "rxi", "eri", "txi";
+				interrupt-parent = <&intc2>;
+				status = "disabled";
+			};
 		};
 
 		wdtb0: watchdog@ffbf1000 {
