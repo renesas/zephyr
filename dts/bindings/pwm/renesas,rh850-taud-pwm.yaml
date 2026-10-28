@@ -9,61 +9,46 @@ description: |
   synchronized channel can have independent duty cycle control while sharing the same
   period from the primary channel.
 
-  **Architecture: Hierarchical Primary-Synchronized Structure**
+  Architecture: A primary channel provides the PWM interface, controls the shared
+  period and frequency, and manages the clock and interrupts. Child channels can
+  operate in synchronized mode for PWM output or independent mode for PWM capture.
+  Synchronized channels inherit the primary period and have independent duty-cycle
+  control. Up to 15 synchronized child channels can be paired with one primary.
 
-  ```
-  Primary Channel (PWM Provider)
-  ├─ Manages period/frequency (shared by all synchronized channels)
-  ├─ Provides #pwm-cells interface for all child channels
-  └─ Child Channels (channel-mode)
-     ├─ "synchronized": period from primary, own duty cycle (PWM output)
-     └─ "independent":  not synchronized with primary (PWM capture input)
-  ```
+  Example: The primary device pwm0_ch0 provides PWM for channels 1 and 2.
+  The PWM specifiers are:
+    pwms = <&pwm0_ch0 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+    pwms = <&pwm0_ch0 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
 
-  **PARENT NODE: Primary Channel**
-  - Implements PWM provider with #pwm-cells = 3
-  - Sets period/frequency (shared across all synchronized channels)
-  - Manages clock source and divider for the group
-  - Synchronizes all synchronized channels to operate at same frequency
-  - Handles interrupt generation for the group
-
-  **CHILD NODES: Synchronized Channels**
-  - Synchronized period: inherited from primary
-  - Independent duty cycle control per channel
-  - Individual interrupt configuration
-  - Pin control for output signal routing
-  - Can be any channel index different from primary
-  - Multiple synchronized channels (up to 15) can be paired with one primary
-
-  **Usage Example:**
-  ```c
-  // Primary device &taud0_ch0 provides PWM for synchronized ch1 and ch2
-  pwms = <&taud0_ch0 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;  // ch0 primary, ch1 synchronized
-  pwms = <&taud0_ch0 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>;  // ch0 primary, ch2 synchronized
-  ```
-
-  ```dts
-  &taud0_ch0 {
-          synchronized@1 {
-                  reg = <1>;
-                  channel-mode = "synchronized";  // PWM output
-          };
-          capture@3 {
-                  reg = <3>;
-                  channel-mode = "independent";   // PWM capture input
-          };
-  };
-  ```
+  Child channel configuration example:
+    &pwm0_ch0 {
+            channel@1 {
+                    reg = <1>;
+                    channel-mode = "synchronized";
+            };
+            channel@3 {
+                    reg = <3>;
+                    channel-mode = "independent";
+            };
+    };
 
 compatible: "renesas,rh850-taud-pwm"
 
-include: [pwm-controller.yaml, base.yaml, pinctrl-device.yaml]
+include: [base.yaml, pwm-controller.yaml, pinctrl-device.yaml]
 
 properties:
   reg:
     type: array
     required: true
-    description: Primary channel register base address
+    description: |
+      Primary channel register base address. On RH850/U2A, a second register
+      block named "dnfa" contains DNFACTLn and DNFAENn.
+
+  reg-names:
+    type: string-array
+    description: |
+      Register block names. RH850/U2A uses "taud" for the primary channel
+      registers and "dnfa" for the digital noise-filter registers.
 
   unit:
     type: int
@@ -118,9 +103,20 @@ properties:
       Clock divider exponent applied to PCLK (clk_div field).
       Default: 0 (1x, no division) for maximum frequency and finest resolution.
 
-      **IMPORTANT: The prescaler (TAUDnTPS) is shared by all channels in a unit.
+      Important: The prescaler (TAUDnTPS) is shared by all channels in a unit.
       All primary nodes in the same unit MUST have the same clock-divider value.
-      Conflicting values will silently override each other at runtime.**
+      The driver rejects conflicting values at build time.
+
+  noise-filter-prescaler:
+    type: int
+    default: 0
+    description: |
+      Digital Noise Filter (DNFA) prescaler value (DNFACTLn, 8-bit register).
+      Specifies the sampling clock for noise filtering on capture input pins.
+      The primary node must provide a "dnfa" register block. Shared by all
+      channels in the TAUD unit, so all primary nodes in the same unit MUST use
+      the same prescaler value. The driver rejects conflicting values and a
+      missing "dnfa" register block at build time.
 
   "#pwm-cells":
     const: 3
@@ -196,3 +192,12 @@ child-binding:
           capture uses the Input Pulse Interval Measurement function and
           pulse capture uses the Input Signal Width Measurement function.
           Requires CONFIG_PWM_CAPTURE, otherwise the channel is ignored.
+
+    noise-filter-enable:
+      type: boolean
+      description: |
+        Enable the digital noise filter (DNFA) on this channel's capture input pin.
+        The parent node must provide a "dnfa" register block. Should be enabled
+        when the input pin is subject to noise or EMI. Enabling this property
+        without a "dnfa" register block causes a build-time error. The property
+        has no effect on non-independent channels.

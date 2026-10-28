@@ -83,7 +83,9 @@
 
 		pwm0_ch0: pwm@ffbf4000 {
 			compatible = "renesas,rh850-taud-pwm";
-			reg = <0xffbf4000 0x100>;
+			/* RH850/U2A User's Manual, TAUD chapter: DNFACTL0 and DNFAEN0. */
+			reg = <0xffbf4000 0x100>, <0xffed0a00 0x08>;
+			reg-names = "taud", "dnfa";
 			unit = <0>;
 			channel = <0>;
 			interrupt-parent = <&intc1_pe0>;
