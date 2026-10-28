@@ -159,3 +159,26 @@
 	plca-burst-timer = <128>;
 	plca-to-timer = <32>;
 };
+
+&etnd0_mdio {
+	pinctrl-0 = <&etnd0_mdio_default>;
+	pinctrl-names = "default";
+
+	eth_phy0: ethernet-phy@1f {
+		compatible = "ethernet-phy";
+		reg = <0x1f>;
+		reset-gpios = <&ioport17 13 GPIO_ACTIVE_LOW>;
+		reset-assert-duration-us = <1000>;
+		reset-deassertion-timeout-ms = <10>;
+		default-speeds = "10BASE Full-Duplex", "100BASE Full-Duplex";
+		status = "disabled";
+	};
+};
+
+&etnd0 {
+	pinctrl-0 = <&etnd0_mii_default>;
+	pinctrl-names = "default";
+	phy-handle = <&eth_phy0>;
+	phy-connection-type = "mii";
+	local-mac-address = [74 90 50 54 53 4e];
+};
