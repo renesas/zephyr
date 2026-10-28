@@ -112,6 +112,13 @@
 				channel-mode = "synchronized";
 				status = "disabled";
 			};
+
+			pwm0_ch6: channel@6 {
+				reg = <6>;
+				interrupts = <13 1>;
+				channel-mode = "independent";
+				status = "disabled";
+			};
 		};
 
 		pic0: pic@ffbfaf00 {
