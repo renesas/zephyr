@@ -28,4 +28,15 @@
 			drive-strength = "medium";
 		};
 	};
+
+	iic0_default: iic0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_17, 2, ALT_OUT4)>,
+				<RH850_PSEL(PORT_17, 3, ALT_OUT4)>;
+			drive-strength = "low";
+			renesas,bidirect-control;
+			bias-pull-up;
+			drive-open-drain;
+		};
+	};
 };

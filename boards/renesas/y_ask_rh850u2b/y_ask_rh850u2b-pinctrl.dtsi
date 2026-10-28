@@ -58,4 +58,28 @@
 				<RH850_PSEL(PORT_11, 7, ALT_IN4)>;	/* ETH0_RMII_RX_DV */
 		};
 	};
+
+	mspi5_oled_default: mspi5_oled_default {
+		group1 {
+			/* OLED SCLK: P23_7, output in master mode. */
+			psels = <RH850_PSEL(PORT_23, 7, ALT_OUT1)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			/* OLED MOSI: P23_5, MSPI5SO. */
+			psels = <RH850_PSEL(PORT_23, 5, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group3 {
+			/* OLED CS#: P23_2; D/C#: P20_6; RESET#: P33_8. */
+			psels = <RH850_PSEL(PORT_23, 2, GPIO)>,
+				<RH850_PSEL(PORT_20, 6, GPIO)>,
+				<RH850_PSEL(PORT_33, 8, GPIO)>;
+			drive-strength = "medium";
+			output-high;
+		};
+	};
 };

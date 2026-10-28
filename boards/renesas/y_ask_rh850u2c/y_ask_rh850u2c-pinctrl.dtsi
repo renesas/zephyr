@@ -89,4 +89,28 @@
 			renesas,direct-control;
 		};
 	};
+
+	mspi0_oled_default: mspi0_oled_default {
+		group1 {
+			/* OLED SCLK: P08_3, output in master mode. */
+			psels = <RH850_PSEL(PORT_08, 3, ALT_OUT1)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			/* OLED MOSI: P02_14, MSPI0SO. */
+			psels = <RH850_PSEL(PORT_02, 14, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group3 {
+			/* OLED CS#: P06_8; D/C#: P02_12; RESET#: P02_13. */
+			psels = <RH850_PSEL(PORT_06, 8, GPIO)>,
+				<RH850_PSEL(PORT_02, 12, GPIO)>,
+				<RH850_PSEL(PORT_02, 13, GPIO)>;
+			drive-strength = "medium";
+			output-high;
+		};
+	};
 };

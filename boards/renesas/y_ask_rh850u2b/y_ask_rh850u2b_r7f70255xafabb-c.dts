@@ -23,6 +23,7 @@
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
 		zephyr,canbus = &canfd0;
+		zephyr,display = &oled_display;
 	};
 
 	aliases {
@@ -150,4 +151,41 @@
 	phy-handle = <&eth_phy0>;
 	phy-connection-type = "rmii";
 	local-mac-address = [74 90 50 54 53 4e];
+};
+
+&ioport20 {
+	status = "okay";
+};
+
+&ioport23 {
+	status = "okay";
+};
+
+&ioport33 {
+	status = "okay";
+};
+
+&mspi5 {
+	pinctrl-0 = <&mspi5_oled_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&ioport23 2 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	oled_display: display-controller@0 {
+		compatible = "solomon,ssd1306";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		segment-remap;
+		com-invdir;
+		inversion-on;
+		prechargep = <0x22>;
+		data-cmd-gpios = <&ioport20 6 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&ioport33 8 GPIO_ACTIVE_LOW>;
+	};
 };
