@@ -229,9 +229,7 @@ tests:
       - userspace
     extra_args:
       - platform:pb_rh850u2c_292pin/r7f702600afabb-c:DTC_OVERLAY_FILE="boards/pb_rh850u2c_292pin_r7f702600afabb-c.overlay"
-      - platform:pb_rh850u2c_292pin/r7f702600fabb-c:DTC_OVERLAY_FILE="boards/pb_rh850u2c_292pin_r7f702600fabb-c.overlay"
     platform_allow:
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
     filter: dt_alias_exists("pwm-test")
     depends_on: pwm
