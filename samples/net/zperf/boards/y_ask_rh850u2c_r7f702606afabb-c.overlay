@@ -11,3 +11,7 @@
 &ct25205 {
 	status = "okay";
 };
+
+&etnd0 {
+	rxb0-num = <64>;
+};
