@@ -128,3 +128,34 @@
 &canfdtxi_ored0 {
 	status = "okay";
 };
+
+&ioport17 {
+	status = "okay";
+
+	/*
+	 * Change to output-low in an application overlay when the board is
+	 * not at an end of the bus.
+	 */
+	ets0_term: ets0_term {
+		gpio-hog;
+		gpios = <12 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&etnf0 {
+	pinctrl-0 = <&etnf0_default>;
+	pinctrl-names = "default";
+	local-mac-address = [74 90 50 12 34 56];
+	mdio-interface = "shared";
+	pma-filtered;
+};
+
+&ct25205 {
+	plca-enable;
+	plca-node-id = <0>;
+	plca-node-count = <8>;
+	plca-burst-count = <0>;
+	plca-burst-timer = <128>;
+	plca-to-timer = <32>;
+};
