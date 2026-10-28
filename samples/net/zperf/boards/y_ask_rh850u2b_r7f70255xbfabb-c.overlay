@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&mdio_gpio {
+	status = "okay";
+};
+
+&eth_phy0 {
+	status = "okay";
+};
+
+&etnd0 {
+	rxb0-num = <64>;
+	status = "okay";
+};
