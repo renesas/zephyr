@@ -22,6 +22,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
+		zephyr,canbus = &canfd0;
 	};
 
 	aliases {
@@ -100,4 +101,22 @@
 	pinctrl-0 = <&irq13_ioport>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd0 {
+	pinctrl-0 = <&canfd0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+};
+
+&canfd6 {
+	pinctrl-0 = <&canfd6_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
 };

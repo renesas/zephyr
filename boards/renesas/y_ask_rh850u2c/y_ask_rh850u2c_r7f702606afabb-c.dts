@@ -22,6 +22,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,system-timer = &ostm0;
+		zephyr,canbus = &canfd2;
 	};
 
 	aliases {
@@ -95,5 +96,35 @@
 	trigger-type = "falling";
 	pinctrl-0 = <&irq33_ioport>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&canfd_global {
+	status = "okay";
+};
+
+&canfd2 {
+	pinctrl-0 = <&canfd2_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+};
+
+&canfd1 {
+	pinctrl-0 = <&canfd1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+	rx-max-filters = <128>;
+};
+
+&canfderi_ored0 {
+	status = "okay";
+};
+
+&canfdrxi_ored0 {
+	status = "okay";
+};
+
+&canfdtxi_ored0 {
 	status = "okay";
 };
