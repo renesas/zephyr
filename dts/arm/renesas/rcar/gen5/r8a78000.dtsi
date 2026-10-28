@@ -24,102 +24,119 @@
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_NPU0>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dsp0_pd: power-domain@3d {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_DSP0>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		npu1_pd: power-domain@4a {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_NPU1>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dsp1_pd: power-domain@4b {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_DSP1>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dsp2_pd: power-domain@2b {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_DSP2>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dsp3_pd: power-domain@2c {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_DSP3>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dsp4_pd: power-domain@2d {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_DSP4>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vcn_pd: power-domain@1 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VCN>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vcs_pd: power-domain@3 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VCS>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		mpp3_pd: power-domain@14 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_MPP3>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		mpp2_pd: power-domain@13 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_MPP2>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		mpp1_pd: power-domain@12 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_MPP1>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		mpp0_pd: power-domain@11 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_MPP0>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		usb_pd: power-domain@10 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_USB>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		rsw_pd: power-domain@f {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_RSW>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		pci4_pd: power-domain@e {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_PCI4>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vio4_pd: power-domain@b {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VIO4>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dp2_pd: power-domain@a {
@@ -127,6 +144,7 @@
 			reg = <R8A78000_SCMI_PD_DP2>;
 			#power-domain-cells = <0>;
 			power-domains = <&vio4_pd>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dp1_pd: power-domain@9 {
@@ -134,6 +152,7 @@
 			reg = <R8A78000_SCMI_PD_DP1>;
 			#power-domain-cells = <0>;
 			power-domains = <&vio4_pd>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		dp0_pd: power-domain@8 {
@@ -141,54 +160,63 @@
 			reg = <R8A78000_SCMI_PD_DP0>;
 			#power-domain-cells = <0>;
 			power-domains = <&vio4_pd>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vio3_pd: power-domain@7 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VIO3>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vio2_pd: power-domain@6 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VIO2>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vio1_pd: power-domain@5 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VIO1>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		vio0_pd: power-domain@4 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_VIO0>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		im0_pd: power-domain@23 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_IM0>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		im1_pd: power-domain@24 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_IM1>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		im2_pd: power-domain@25 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_IM2>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 
 		im3_pd: power-domain@26 {
 			compatible = "arm,scmi-power-domain";
 			reg = <R8A78000_SCMI_PD_IM3>;
 			#power-domain-cells = <0>;
+			zephyr,pm-device-runtime-auto;
 		};
 	};
 
