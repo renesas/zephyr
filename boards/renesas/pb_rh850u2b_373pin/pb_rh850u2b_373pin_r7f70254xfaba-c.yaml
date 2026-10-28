@@ -19,6 +19,7 @@ supported:
   - spi
   - dma
   - pwm
+  - pwm3p
   - adc
   - can
   - clock

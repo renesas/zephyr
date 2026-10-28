@@ -22,6 +22,7 @@ supported:
   - watchdog
   - dma
   - pwm
+  - pwm3p
   - can
   - psi5
 vendor: renesas
