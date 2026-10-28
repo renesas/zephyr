@@ -32,6 +32,8 @@
 		pwm-led0 = &pwm_led_0;
 		pwm-led1 = &pwm_led_1;
 		i2s0 = &ssif0;
+		pwm-0 = &pwm0_ch0;
+		capture = &pwm0_ch0;
 	};
 
 	leds {
@@ -69,6 +71,10 @@
 };
 
 &pwm0_ch2 {
+	status = "okay";
+};
+
+&pwm0_ch6 {
 	status = "okay";
 };
 

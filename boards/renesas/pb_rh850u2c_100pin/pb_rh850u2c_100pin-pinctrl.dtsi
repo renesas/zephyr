@@ -61,6 +61,10 @@
 				<RH850_PSEL(PORT_17, 2, ALT_OUT11)>;	/* ch2 */
 			drive-strength = "medium";
 		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_06, 6, ALT_IN7)>;	/* ch6 */
+		};
 	};
 
 	taud3p0_default: taud3p0_default {

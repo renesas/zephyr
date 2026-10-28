@@ -30,6 +30,8 @@
 		watchdog0 = &wdtba;
 		pwm-led0 = &pwm_led_0;
 		pwm-led1 = &pwm_led_1;
+		pwm-0 = &pwm0_ch0;
+		capture = &pwm0_ch0;
 	};
 
 	leds {
@@ -70,6 +72,9 @@
 	status = "okay";
 };
 
+&pwm0_ch6 {
+	status = "okay";
+};
 
 &taud3p0 {
 	pinctrl-0 = <&taud3p0_default>;
