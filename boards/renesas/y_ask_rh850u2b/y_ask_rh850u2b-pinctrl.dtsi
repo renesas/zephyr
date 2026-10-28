@@ -41,4 +41,21 @@
 			drive-strength = "medium";
 		};
 	};
+
+	etnd0_rmii_default: etnd0_rmii_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 8, ALT_OUT4)>,	/* ETH0_RMII_TXD0 */
+				<RH850_PSEL(PORT_11, 9, ALT_OUT4)>,	/* ETH0_RMII_TXD1 */
+				<RH850_PSEL(PORT_11, 0, ALT_OUT4)>;	/* ETH0_RMII_TX_EN */
+			drive-strength = "high";
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_11, 3, ALT_IN5)>,	/* ETH0_RMII_RXD0 */
+				<RH850_PSEL(PORT_11, 2, ALT_IN5)>,	/* ETH0_RMII_RXD1 */
+				<RH850_PSEL(PORT_11, 4, ALT_IN5)>,	/* ETH0_MII_TX_CLK */
+				<RH850_PSEL(PORT_11, 6, ALT_IN6)>,	/* ETH0_RMII_ER */
+				<RH850_PSEL(PORT_11, 7, ALT_IN4)>;	/* ETH0_RMII_RX_DV */
+		};
+	};
 };
