@@ -2,61 +2,197 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Renesas RH850 TAUD PWM driver (master/slave).
+  Renesas RH850 TAUD PWM Primary-Synchronized Timer Unit
 
-  Used for both master and slave nodes:
-  - Master node: channel-type = "master" (timing source, no PWM output)
-  - Slave node:  channel-type = "slave"  (PWM output, requires a Master Channel phandle)
+  This binding defines a primary-synchronized PWM architecture where one primary channel
+  controls the period/frequency for a group of synchronized child channels. Each
+  synchronized channel can have independent duty cycle control while sharing the same
+  period from the primary channel.
+
+  **Architecture: Hierarchical Primary-Synchronized Structure**
+
+  ```
+  Primary Channel (PWM Provider)
+  ├─ Manages period/frequency (shared by all synchronized channels)
+  ├─ Provides #pwm-cells interface for all child channels
+  └─ Child Channels (channel-mode)
+     ├─ "synchronized": period from primary, own duty cycle (PWM output)
+     └─ "independent":  not synchronized with primary (PWM capture input)
+  ```
+
+  **PARENT NODE: Primary Channel**
+  - Implements PWM provider with #pwm-cells = 3
+  - Sets period/frequency (shared across all synchronized channels)
+  - Manages clock source and divider for the group
+  - Synchronizes all synchronized channels to operate at same frequency
+  - Handles interrupt generation for the group
+
+  **CHILD NODES: Synchronized Channels**
+  - Synchronized period: inherited from primary
+  - Independent duty cycle control per channel
+  - Individual interrupt configuration
+  - Pin control for output signal routing
+  - Can be any channel index different from primary
+  - Multiple synchronized channels (up to 15) can be paired with one primary
+
+  **Usage Example:**
+  ```c
+  // Primary device &taud0_ch0 provides PWM for synchronized ch1 and ch2
+  pwms = <&taud0_ch0 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;  // ch0 primary, ch1 synchronized
+  pwms = <&taud0_ch0 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>;  // ch0 primary, ch2 synchronized
+  ```
+
+  ```dts
+  &taud0_ch0 {
+          synchronized@1 {
+                  reg = <1>;
+                  channel-mode = "synchronized";  // PWM output
+          };
+          capture@3 {
+                  reg = <3>;
+                  channel-mode = "independent";   // PWM capture input
+          };
+  };
+  ```
 
 compatible: "renesas,rh850-taud-pwm"
 
-include: [base.yaml, pinctrl-device.yaml]
+include: [pwm-controller.yaml, base.yaml, pinctrl-device.yaml]
 
 properties:
   reg:
+    type: array
     required: true
+    description: Primary channel register base address
 
   unit:
     type: int
     required: true
     description: |
-      TAUD Unit number (e.g. 0 for TAUD0).
-      The valid range depends on the available hardware.
+      TAUD unit number. This driver currently supports only TAUD0 (unit 0);
+      other unit values fail a build-time assertion.
 
   channel:
     type: int
     required: true
-    description: TAUD Channel number within the Unit (range from 0 to 15).
+    description: Primary channel index (0-15, typically even)
 
-  channel-type:
-    type: string
+  clocks:
     required: true
+    description: Clock source reference for primary channel
+
+  clock-source:
+    type: int
+    default: 0
     enum:
-      - "master"
-      - "slave"
+      - 0  # CK0 - Main peripheral clock
+      - 1  # CK1 - Alternative clock source
+      - 2  # CK2 - Alternative clock source
+      - 3  # CK3 - Alternative clock source
     description: |
-      Type of TAUD channel:
+      Clock source selection for primary channel (operation_clk field).
+      Default: 0 (CK0 - Main peripheral clock) for maximum frequency and
+      simplest configuration without requiring alternative clock sources.
 
-      "master" - Timing source used to set the PWM period/frequency.
-                 It does not output the PWM signal directly.
+  clock-divider:
+    type: int
+    default: 0
+    enum:
+      - 0   # 2^0 = 1x (no division)
+      - 1   # 2^1 = 2x
+      - 2   # 2^2 = 4x
+      - 3   # 2^3 = 8x
+      - 4   # 2^4 = 16x
+      - 5   # 2^5 = 32x
+      - 6   # 2^6 = 64x
+      - 7   # 2^7 = 128x
+      - 8   # 2^8 = 256x
+      - 9   # 2^9 = 512x
+      - 10  # 2^10 = 1024x
+      - 11  # 2^11 = 2048x
+      - 12  # 2^12 = 4096x
+      - 13  # 2^13 = 8192x
+      - 14  # 2^14 = 16384x
+      - 15  # 2^15 = 32768x
+    description: |
+      Clock divider exponent applied to PCLK (clk_div field).
+      Default: 0 (1x, no division) for maximum frequency and finest resolution.
 
-      "slave"  - PWM output channel used to set the duty cycle.
-                 It must reference a Master Channel by phandle.
-
-  master:
-    type: phandle
-    description: Phandle to the master TAUD channel node.
-      Required for slave nodes (channel-type = "slave").
-      Must not be present for master nodes.
-
-  interrupts:
-    required: true
+      **IMPORTANT: The prescaler (TAUDnTPS) is shared by all channels in a unit.
+      All primary nodes in the same unit MUST have the same clock-divider value.
+      Conflicting values will silently override each other at runtime.**
 
   "#pwm-cells":
-    type: int
     const: 3
+    description: PWM specifier format (channel, period, flags)
+
+  "#address-cells":
+    const: 1
+    description: Child node addressing uses 1 cell
+
+  "#size-cells":
+    const: 0
+    description: Child nodes have no size property
 
 pwm-cells:
   - channel
   - period
   - flags
+
+child-binding:
+  description: |
+    TAUD channel managed by this primary channel, addressed by the PWM API with its
+    reg as the channel number. Its role is selected by channel-mode.
+
+    "synchronized" (default):
+    - Synchronized with the primary: shares its period/frequency
+    - Has its own duty cycle (pwm_set_cycles with this channel)
+    - Started and stopped together with the primary
+    - Output pin routing specified in parent's pinctrl configuration
+
+    "independent":
+    - Not synchronized with the primary: runs on its own input trigger
+    - Used as a PWM capture input (TAUDnTTINm) through the capture API
+    - Started and stopped by pwm_enable_capture()/pwm_disable_capture()
+    - Input pin routing specified in parent's pinctrl configuration
+
+    All child pins (outputs and capture inputs) are routed through the parent
+    node's pinctrl configuration. Child-level pinctrl properties are not
+    supported; specify all pins in the parent's pinctrl groups.
+
+  properties:
+    reg:
+      type: int
+      required: true
+      description: |
+        TAUD channel index (0-15). Must be different from the primary channel
+        index. Example: ch0 (primary=0) with ch1 (synchronized=1), ch2 (synchronized=2)
+
+    interrupts:
+      type: array
+      description: |
+        Interrupt specification for this channel (INTTAUDnIm).
+        Required only for "independent" (capture) channels.
+        Synchronized channels do not use interrupts.
+        Set interrupt-parent on the child when the channel's TAUD interrupt
+        is routed through a different interrupt controller. On RH850/U2A,
+        RH850/U2B, and RH850/U2C, even TAUD0 channels use INTC1 and odd
+        TAUD0 channels use INTC2.
+        Format: <irq_number priority>
+
+    channel-mode:
+      type: string
+      default: "synchronized"
+      enum:
+        - "synchronized"
+        - "independent"
+      description: |
+        Operating mode of this channel.
+        Default: "synchronized" (most common use case—synchronized PWM output).
+
+        - "synchronized": synchronized with the primary channel, used for PWM output. Shares
+          the primary channel's period and frequency, with independent duty cycle control.
+        - "independent": independent channel used for PWM capture. Period
+          capture uses the Input Pulse Interval Measurement function and
+          pulse capture uses the Input Signal Width Measurement function.
+          Requires CONFIG_PWM_CAPTURE, otherwise the channel is ignored.

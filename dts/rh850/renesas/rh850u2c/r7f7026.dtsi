@@ -87,41 +87,32 @@
 			status = "okay";
 		};
 
-		pwm0_master: pwm0_master@ffbf4000 {
+		pwm0_ch0: pwm@ffbf4000 {
 			compatible = "renesas,rh850-taud-pwm";
-			reg = <0xffbf4000 0x2000>;
+			reg = <0xffbf4000 0x100>;
 			unit = <0>;
 			channel = <0>;
-			channel-type = "master";
+			interrupt-parent = <&intc1_pe0>;
+			clocks = <&cgc RH850_PCLK(TAUD, 0, PCLK)>;
+			clock-source = <0>;
+			clock-divider = <5>;
 			interrupts = <10 1>;
-			interrupt-parent = <&intc2>;
-			status = "disabled";
-		};
-
-		pwm0_slave: pwm0_slave@ffbf4004 {
-			compatible = "renesas,rh850-taud-pwm";
-			reg = <0xffbf4004 0x2000>;
-			unit = <0>;
-			channel = <1>;
-			channel-type = "slave";
-			master = <&pwm0_master>;
-			interrupts = <149 1>;
-			interrupt-parent = <&intc2>;
 			#pwm-cells = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "disabled";
-		};
 
-		pwm1_slave: pwm1_slave@ffbf4008 {
-			compatible = "renesas,rh850-taud-pwm";
-			reg = <0xffbf4008 0x2000>;
-			unit = <0>;
-			channel = <2>;
-			channel-type = "slave";
-			master = <&pwm0_master>;
-			interrupts = <11 1>;
-			interrupt-parent = <&intc2>;
-			#pwm-cells = <3>;
-			status = "disabled";
+			pwm0_ch1: channel@1 {
+				reg = <1>;
+				channel-mode = "synchronized";
+				status = "disabled";
+			};
+
+			pwm0_ch2: channel@2 {
+				reg = <2>;
+				channel-mode = "synchronized";
+				status = "disabled";
+			};
 		};
 
 		pic0: pic@ffbfaf00 {

@@ -21,219 +21,239 @@ extern void taud_int_isr(void);
 extern const timer_api_t g_timer_on_taud;
 
 /* ================================================================== */
-/* HELPERS                                                            */
+/* HELPERS & CONSTANTS                                                */
 /* ================================================================== */
 
-#define PWM_RH850_IS_MASTER(n) DT_INST_ENUM_HAS_VALUE(n, channel_type, master)
-#define PWM_RH850_IS_SLAVE(n)  DT_INST_ENUM_HAS_VALUE(n, channel_type, slave)
+#define TAUD_MAX_NUM_CHANNELS 16
 
 /* ================================================================== */
-/* MASTER PART                                                        */
+/* UNIFIED CHANNEL STRUCTURES                                         */
 /* ================================================================== */
 
-/* Configuration for a PWM Master Channel. */
-struct pwm_rh850_master_config {
+/* Channel configuration */
+struct pwm_rh850_channel_config {
 	const timer_api_t *fsp_api;
 	uint32_t unit;
 	uint32_t channel;
-	uint32_t irq;
-	uint32_t irq_prio;
+
+	/* Clock configuration */
+	uint32_t clock_source;
+	uint32_t clock_divider;
+
+	/* Pin control configuration */
+	const struct pinctrl_dev_config *pinctrl_dev;
+
+	/* FSP synchronized channel list */
+	const timer_instance_t **synchronized_instances;
+
 };
 
-/* Data for a PWM Master Channel. */
-struct pwm_rh850_master_data {
+/* Channel runtime data */
+struct pwm_rh850_channel_data {
 	timer_ctrl_t *ctrl;
 	timer_cfg_t *cfg;
 	taud_extended_cfg_t *ext_cfg;
-	uint8_t num_slaves;
+
+	uint32_t period_counts;
+	uint8_t num_synchronized;
+	bool primary_running;
+
 };
 
-/* Handle the Master Channel interrupt. */
-static void pwm_rh850_master_isr(const struct device *dev)
+/* ================================================================== */
+/* CHANNEL MANAGEMENT FUNCTIONS                                       */
+/* ================================================================== */
+
+/* Channel interrupt handler (shared for all modes). */
+static void pwm_rh850_channel_isr(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 	taud_int_isr();
 }
 
-static int pwm_rh850_master_register_slave(const struct device *master_dev,
-					   const timer_instance_t *slave_inst)
+/* Initialize a primary PWM channel and register synchronized children */
+static int pwm_rh850_channel_init(const struct device *dev)
 {
-	struct pwm_rh850_master_data *master_data = master_dev->data;
-
-	/* Ensure this Master Channel does not exceed its supported Slave Channel limit.
-	 * For example, Master Channel 0 supports up to 15 Slave Channels.
-	 */
-	if (master_data->num_slaves >= TAUD_MAX_NUM_SLAVE_CHANNELS) {
-		LOG_ERR("slave channel limit reached (max=%u).", TAUD_MAX_NUM_SLAVE_CHANNELS);
-		return -ENOMEM;
-	}
-
-	master_data->ext_cfg->p_slave_channel_instances[master_data->num_slaves] = slave_inst;
-	master_data->num_slaves++;
-
-	/* Log the successful registration of the Slave Channel(s) to the Master Channel. */
-	LOG_DBG("master %s: registered slave %u.", master_dev->name, master_data->num_slaves);
-
-	return 0;
-}
-
-/* Initializes the PWM Master Channel. */
-static int pwm_rh850_master_init(const struct device *dev)
-{
-	const struct pwm_rh850_master_config *master_cfg = dev->config;
-	struct pwm_rh850_master_data *master_data = dev->data;
+	const struct pwm_rh850_channel_config *cfg = dev->config;
+	struct pwm_rh850_channel_data *data = dev->data;
 	fsp_err_t err;
+	int ret;
 
-	/* The Master Channel must use an even-numbered channel. */
-	if ((master_cfg->channel % 2) != 0) {
-		LOG_ERR("%s: master channel must be even (ch=%u).", dev->name, master_cfg->channel);
+	/* Validate channel number range */
+	if (cfg->channel >= TAUD_MAX_NUM_CHANNELS) {
+		LOG_ERR("%s: invalid channel %u (max=%u).", dev->name, cfg->channel,
+			TAUD_MAX_NUM_CHANNELS - 1);
 		return -EINVAL;
 	}
 
-	/* Open the Master Channel. This also opens all Slave Channels linked to this Master. */
-	err = master_cfg->fsp_api->open(master_data->ctrl, master_data->cfg);
+	/* Apply clock settings from devicetree to all extended configs (primary, synchronized,
+	 * capture). Must be done BEFORE opening the primary, since R_TAUD_Open() opens all
+	 * synchronized and each writes the shared TAUDnTPS prescaler from its own extended config.
+	 */
+	data->ext_cfg->operation_clk = (taud_clock_t)cfg->clock_source;
+	data->ext_cfg->clk_div = (taud_div_t)cfg->clock_divider;
+
+	for (uint8_t i = 0U; i < TAUD_MAX_NUM_SLAVE_CHANNELS; i++) {
+		if (cfg->synchronized_instances[i] != NULL) {
+			taud_extended_cfg_t *sync_ext_cfg = (taud_extended_cfg_t *)
+				cfg->synchronized_instances[i]->p_cfg->p_extend;
+			sync_ext_cfg->operation_clk = (taud_clock_t)cfg->clock_source;
+			sync_ext_cfg->clk_div = (taud_div_t)cfg->clock_divider;
+		}
+	}
+
+
+	/* Apply pin control configuration (ignored if pinctrl-0 not defined) */
+	ret = pinctrl_apply_state(cfg->pinctrl_dev, PINCTRL_STATE_DEFAULT);
+	if (ret < 0 && ret != -ENOENT) {
+		LOG_ERR("%s: pinctrl failed: %d.", dev->name, ret);
+		return ret;
+	}
+
+	/* Open the primary channel */
+	err = cfg->fsp_api->open(data->ctrl, data->cfg);
 	if (err != FSP_SUCCESS) {
-		LOG_ERR("%s: master open failed: %d.", dev->name, err);
+		LOG_ERR("%s: channel open failed: %d.", dev->name, err);
 		return -EIO;
 	}
 
-	/* Log the successful initialization of the Master Channel. */
-	LOG_INF("%s: master init OK (unit=%u , ch=%u , slaves=%u).", dev->name, master_cfg->unit,
-		master_cfg->channel, master_data->num_slaves);
+	/* R_TAUD_Open() on the primary already opened every synchronized channel */
+	for (uint8_t i = 0U; i < TAUD_MAX_NUM_SLAVE_CHANNELS; i++) {
+		if (cfg->synchronized_instances[i] != NULL) {
+			data->num_synchronized++;
+		}
+	}
+
+	LOG_DBG("%s: init OK (unit=%u, ch=%u, clock=%u, div=%u, synchronized=%u, mask=0x%04x).",
+		dev->name, cfg->unit, cfg->channel, cfg->clock_source, cfg->clock_divider,
+		data->num_synchronized, ((taud_instance_ctrl_t *)data->ctrl)->slave_channels_mask);
 
 	return 0;
 }
 
-/* ================================================================== */
-/* SLAVE PART                                                         */
-/* ================================================================== */
 
-/* Configuration for a PWM Slave Channel. */
-struct pwm_rh850_slave_config {
-	const struct pinctrl_dev_config *pinctrl_dev;
-	const timer_api_t *fsp_api;
-	const struct device *master_dev;
-	const timer_instance_t *slave_inst;
-	uint32_t unit;
-	uint32_t channel;
-};
-
-/* Data for a PWM Slave Channel. */
-struct pwm_rh850_slave_data {
-	timer_ctrl_t *ctrl;
-	timer_cfg_t *cfg;
-};
-
-/* Handle the Slave Channel interrupt. */
-static void pwm_rh850_slave_isr(const struct device *dev)
-{
-	ARG_UNUSED(dev);
-	taud_int_isr();
-}
-
-/* Configure the PWM period and duty cycle for a Slave Channel.
- *
- * The period is configured through the Master Channel because
- * all Slave Channels assigned to the same Master share the same period.
- *
- * The duty cycle is configured for this Slave Channel only.
- */
+/* Configure PWM period (primary) and duty cycle (synchronized) */
 static int pwm_rh850_set_cycles(const struct device *dev, uint32_t channel, uint32_t period_cycles,
 				uint32_t pulse_cycles, pwm_flags_t flags)
 {
-	const struct pwm_rh850_slave_config *slave_config = dev->config;
-	struct pwm_rh850_slave_data *slave_data = dev->data;
-	struct pwm_rh850_master_config *master_config = slave_config->master_dev->config;
-	struct pwm_rh850_master_data *master_data = slave_config->master_dev->data;
-	taud_instance_ctrl_t *const slave_ctrl = slave_data->ctrl;
-
+	const struct pwm_rh850_channel_config *cfg = dev->config;
+	struct pwm_rh850_channel_data *data = dev->data;
+	taud_instance_ctrl_t *const ctrl = data->ctrl;
 	fsp_err_t err;
 
-	if (channel >= TAUD_MAX_NUM_SLAVE_CHANNELS) {
-		LOG_INF("Fail to set channel: %d.", channel);
+	if (channel >= TAUD_MAX_NUM_CHANNELS) {
+		LOG_ERR("Invalid channel: %u (max=%u).", channel, TAUD_MAX_NUM_CHANNELS - 1);
 		return -EINVAL;
 	}
 
-	/* Set output polarity for this channel in TAUDnTOL register */
-	slave_ctrl->p_reg->TAUDnTOL |= (flags << channel);
-
-	/* Reject zero period because it is not a valid PWM period. */
+	/* Validate period before any hardware changes */
 	if (period_cycles == 0U) {
-		LOG_ERR("%s: period_cycles is zero, invalid input.", dev->name);
+		LOG_ERR("%s: period_cycles is zero.", dev->name);
 		return -EINVAL;
 	}
 
-	/* Clamp the pulse width to the period to avoid an invalid duty cycle. */
+	/* TAUD counters are 16-bit: max value is 65535. At 65536 a 100% pulse wraps to 0%. */
+	if (period_cycles > 65535U) {
+		LOG_ERR("%s: period_cycles %u exceeds 16-bit maximum (65535).", dev->name,
+			period_cycles);
+		return -EINVAL;
+	}
+
+	/* Find and validate the synchronized channel before any hardware changes */
+	const timer_instance_t *sync_inst = NULL;
+
+	for (uint8_t i = 0U; i < TAUD_MAX_NUM_SLAVE_CHANNELS; i++) {
+		if (cfg->synchronized_instances[i] != NULL) {
+			timer_cfg_t *sync_cfg = cfg->synchronized_instances[i]->p_cfg;
+
+			if (sync_cfg->channel == channel) {
+				sync_inst = cfg->synchronized_instances[i];
+				break;
+			}
+		}
+	}
+
+	if (sync_inst == NULL) {
+		LOG_ERR("Synchronized channel %u not found (registered=%u).", channel,
+			data->num_synchronized);
+		return -EINVAL;
+	}
+
+	/* Clamp pulse width to period */
 	if (pulse_cycles > period_cycles) {
 		pulse_cycles = period_cycles;
 	}
 
-	/* Update the shared period only when it is different from the current Master period. */
-	if (period_cycles != master_data->cfg->period_counts) {
-
-		/* Notify that changing the Master period affects all registered Slave Channels. */
-		if (master_data->num_slaves > 1) {
-			LOG_INF("%s: changing the period affects for all %u slaves.", dev->name,
-				master_data->num_slaves);
-		}
-
-		/* Set the PWM period through the Master Channel. */
-		err = slave_config->fsp_api->periodSet(master_data->ctrl, period_cycles);
-		if (err == FSP_ERR_INVALID_HW_CONDITION) {
-			LOG_ERR("%s: The simultaneous rewrite status had not yet completed.: %d.",
-				dev->name, err);
-			return -EBUSY;
-		} else if (err != FSP_SUCCESS) {
+	/* Update period in primary channel if changed (shared by all synchronized) */
+	if (period_cycles != data->period_counts) {
+		err = cfg->fsp_api->periodSet(data->ctrl, period_cycles);
+		if (err != FSP_SUCCESS) {
+			if (err == FSP_ERR_INVALID_HW_CONDITION) {
+				return -EBUSY;
+			}
 			LOG_ERR("%s: PeriodSet failed: %d.", dev->name, err);
 			return -EIO;
 		}
-
-		/* Keep the cached Master period in sync with the updated hardware setting. */
-		master_data->cfg->period_counts = period_cycles;
 	}
 
-	/* Set the PWM duty cycle for this Slave Channel. */
-	err = slave_config->fsp_api->dutyCycleSet(slave_data->ctrl, pulse_cycles, 0);
+	/* Set duty cycle using synchronized channel's control structure with its channel number */
+	taud_instance_ctrl_t *sync_ctrl = (taud_instance_ctrl_t *)sync_inst->p_ctrl;
+
+	err = cfg->fsp_api->dutyCycleSet(sync_ctrl, pulse_cycles, channel);
 	if (err != FSP_SUCCESS) {
-		LOG_ERR("%s: DutyCycleSet failed: %d.", dev->name, err);
+		if (err == FSP_ERR_INVALID_HW_CONDITION) {
+			return -EBUSY;
+		}
+		LOG_ERR("%s: DutyCycleSet failed for channel %u: %d.", dev->name, channel, err);
 		return -EIO;
 	}
 
-	/* Start the Master Channel.
-	 * This also starts the PWM output for its Slave Channels.
-	 */
-	err = master_config->fsp_api->start(master_data->ctrl);
-	if (err != FSP_SUCCESS) {
-		LOG_ERR("%s: master start failed: %d.", dev->name, err);
-		return -EIO;
+	/* Set output polarity for the synchronized channel (after FSP operations succeed) */
+	if ((flags & PWM_POLARITY_INVERTED) != 0U) {
+		ctrl->p_reg->TAUDnTOL |= (uint16_t)BIT(channel);
+	} else {
+		ctrl->p_reg->TAUDnTOL &= (uint16_t)~BIT(channel);
+	}
+
+	/* Update period cache only after both FSP operations succeed */
+	if (period_cycles != data->period_counts) {
+		data->period_counts = period_cycles;
+	}
+
+	/* Start the primary channel only on first call (after configuring period/duty) */
+	if (!data->primary_running) {
+		err = cfg->fsp_api->start(data->ctrl);
+		if (err != FSP_SUCCESS) {
+			LOG_ERR("%s: start failed: %d.", dev->name, err);
+			return -EIO;
+		}
+		data->primary_running = true;
 	}
 
 	return 0;
 }
 
-/* Get the PWM clock frequency used by the Master Channel. */
+/* Get PWM clock frequency */
 static int pwm_rh850_get_cycles_per_sec(const struct device *dev, uint32_t channel,
 					uint64_t *cycles)
 {
-	const struct pwm_rh850_slave_config *slave_config = dev->config;
-	struct pwm_rh850_master_data *master_data = slave_config->master_dev->data;
+	const struct pwm_rh850_channel_config *cfg = dev->config;
+	struct pwm_rh850_channel_data *data = dev->data;
 	timer_info_t info;
 	fsp_err_t err;
 
-	/* The channel is not used because the clock source is shared by the Master Channel. */
 	ARG_UNUSED(channel);
 
-	/* Get timer information from the Master Channel. */
-	err = slave_config->fsp_api->infoGet(master_data->ctrl, &info);
+	err = cfg->fsp_api->infoGet(data->ctrl, &info);
 	if (err != FSP_SUCCESS) {
 		return -EIO;
 	}
 
-	/* Return the timer clock frequency as cycles per second. */
 	*cycles = (uint64_t)info.clock_frequency;
 
 	return 0;
 }
+
 
 /* PWM API mapping. */
 static DEVICE_API(pwm, pwm_rh850_driver_api) = {
@@ -241,156 +261,140 @@ static DEVICE_API(pwm, pwm_rh850_driver_api) = {
 	.get_cycles_per_sec = pwm_rh850_get_cycles_per_sec,
 };
 
-/* Initializes the PWM Slave Channel(s). */
-static int pwm_rh850_slave_init(const struct device *dev)
-{
-	const struct pwm_rh850_slave_config *slave_config = dev->config;
-	const struct pwm_rh850_master_config *master_config = slave_config->master_dev->config;
-	int ret;
-
-	/* Port pin configuration for PWM Output (Only for Slave Channel). */
-	ret = pinctrl_apply_state(slave_config->pinctrl_dev, PINCTRL_STATE_DEFAULT);
-	if (ret < 0) {
-		LOG_ERR("%s: pinctrl failed: %d.", dev->name, ret);
-		return ret;
-	}
-
-	/* The TAUD Unit of the Slave Channel must be the same as the Master Channel. */
-	if (slave_config->unit != master_config->unit) {
-		LOG_ERR("%s: unit mismatch (slave=%u , master=%u).", dev->name, slave_config->unit,
-			master_config->unit);
-		return -EINVAL;
-	}
-
-	/* The Slave Channel number must be greater than or equal to the Master Channel number. */
-	if (slave_config->channel < master_config->channel) {
-		LOG_ERR("%s: slave channel %u must be > master channel %u.", dev->name,
-			slave_config->channel, master_config->channel);
-		return -EINVAL;
-	}
-
-	/* Register this Slave Channel to its configured Master Channel. */
-	ret = pwm_rh850_master_register_slave(slave_config->master_dev, slave_config->slave_inst);
-	if (ret < 0) {
-		LOG_ERR("%s: register with master failed: %d.", dev->name, ret);
-		return ret;
-	}
-
-	/* Log the successful initialization of the Slave Channel. */
-	LOG_INF("%s: slave init OK (unit=%u , ch=%u , master=%s).", dev->name, slave_config->unit,
-		slave_config->channel, slave_config->master_dev->name);
-
-	return 0;
-}
-
-#define PWM_RH850_MASTER_IRQ_CONFIG(n)                                                             \
+#define PWM_RH850_IRQ_CONFIG(n)                                                                    \
 	do {                                                                                       \
-		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), pwm_rh850_master_isr,       \
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), pwm_rh850_channel_isr,      \
 			    DEVICE_DT_INST_GET(n), 0);                                             \
 		irq_enable(DT_INST_IRQN(n));                                                       \
 	} while (0)
 
-#define PWM_RH850_MASTER_INIT(n)                                                                   \
-	static taud_instance_ctrl_t g_master_ctrl_##n;                                             \
-	static taud_extended_cfg_t g_master_ext_cfg_##n = {                                        \
-		.taud_function = TAUD_FUNCTION_PWM_OUTPUT,                                         \
-		.trigger_type = TAUD_TRIGGER_SOFTWARE,                                             \
-		.operating_mode = TAUD_MODE_INTERVAL_TIMER_MODE,                                   \
-		.simultaneous_rewrite = TAUD_SIMULTANEOUS_REWRITE_ENABLE,                          \
-		.channel_type = TAUD_CHANNEL_TYPE_MASTER,                                          \
-		.taud_unit = DT_INST_PROP(n, unit),                                                \
-		.mode_config = TAUD_MODE_SPECIFIC_START_INT_GENERATED,                             \
-	};                                                                                         \
-	static timer_cfg_t g_master_cfg_##n = {                                                    \
-		.channel = DT_INST_PROP(n, channel),                                               \
-		.cycle_end_ipl = DT_INST_IRQ(n, priority),                                         \
-		.cycle_end_irq = DT_INST_IRQN(n),                                                  \
-		.p_extend = &g_master_ext_cfg_##n,                                                 \
-	};                                                                                         \
-	static const struct pwm_rh850_master_config pwm_rh850_master_cfg_##n = {                   \
-		.fsp_api = &g_timer_on_taud,                                                       \
-		.unit = DT_INST_PROP(n, unit),                                                     \
-		.channel = DT_INST_PROP(n, channel),                                               \
-	};                                                                                         \
-	static struct pwm_rh850_master_data pwm_rh850_master_data_##n = {                          \
-		.ctrl = &g_master_ctrl_##n,                                                        \
-		.cfg = &g_master_cfg_##n,                                                          \
-		.ext_cfg = &g_master_ext_cfg_##n,                                                  \
-		.num_slaves = 0,                                                                   \
-	};                                                                                         \
-	static int pwm_rh850_master_init_##n(const struct device *dev)                             \
-	{                                                                                          \
-		int ret = pwm_rh850_master_init(dev);                                              \
-		if (ret < 0) {                                                                     \
-			return ret;                                                                \
-		}                                                                                  \
-		PWM_RH850_MASTER_IRQ_CONFIG(n);                                                    \
-		return 0;                                                                          \
-	}                                                                                          \
-	DEVICE_DT_INST_DEFINE(n, pwm_rh850_master_init_##n, NULL, &pwm_rh850_master_data_##n,      \
-			      &pwm_rh850_master_cfg_##n, POST_KERNEL,                              \
-			      CONFIG_PWM_RH850_MASTER_INIT_PRIORITY, NULL);
+/* Unique per-child symbol, keyed by the child node's devicetree ordinal */
+#define PWM_RH850_CHILD_SYM(prefix, child) _CONCAT(prefix, DT_DEP_ORD(child))
 
-#define PWM_RH850_SLAVE_IRQ_CONFIG(n)                                                              \
-	do {                                                                                       \
-		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), pwm_rh850_slave_isr,        \
-			    DEVICE_DT_INST_GET(n), 0);                                             \
-		irq_enable(DT_INST_IRQN(n));                                                       \
-	} while (0)
+/* channel-mode enum index: 0 = "synchronized", 1 = "independent" */
+#define PWM_RH850_IS_INDEPENDENT(child) DT_ENUM_IDX(child, channel_mode)
 
-#define PWM_RH850_SLAVE_INIT(n)                                                                    \
-	PINCTRL_DT_INST_DEFINE(n);                                                                 \
-	static taud_instance_ctrl_t g_slave_ctrl_##n;                                              \
-	static taud_extended_cfg_t g_slave_ext_cfg_##n = {                                         \
+/* A synchronized channel follows the nearest primary below it,
+ * so no other primary may sit in between
+ */
+#define PWM_RH850_NO_PRIMARY_BETWEEN(other, child, n)                                              \
+	BUILD_ASSERT((DT_PROP(other, unit) != DT_INST_PROP(n, unit)) ||                            \
+		     (DT_PROP(other, channel) <= DT_INST_PROP(n, channel)) ||                      \
+		     (DT_PROP(other, channel) > DT_REG_ADDR(child)),                               \
+		     "TAUD synchronized channel is separated from its primary by another primary");
+
+/* "synchronized" mode: synchronized with the primary, PWM output (reg = TAUD channel) */
+#define PWM_RH850_SYNCHRONIZED_DEFINE(child, n)                                                    \
+	BUILD_ASSERT(DT_REG_ADDR(child) > DT_INST_PROP(n, channel),                                \
+		     "TAUD synchronized channel must be above its primary channel");               \
+	DT_FOREACH_STATUS_OKAY_VARGS(DT_DRV_COMPAT, PWM_RH850_NO_PRIMARY_BETWEEN, child, n)        \
+	static taud_instance_ctrl_t PWM_RH850_CHILD_SYM(pwm_rh850_sync_ctrl_, child);              \
+	static taud_extended_cfg_t PWM_RH850_CHILD_SYM(pwm_rh850_sync_ext_cfg_, child) = {         \
 		.taud_function = TAUD_FUNCTION_PWM_OUTPUT,                                         \
 		.trigger_type = TAUD_TRIGGER_MASTER_INT,                                           \
 		.operating_mode = TAUD_MODE_ONE_COUNT_MODE,                                        \
 		.output_enable = TAUD_OUTPUT_ENABLE,                                               \
-		.channel_type = TAUD_CHANNEL_TYPE_SLAVE,                                           \
 		.output_mode = TAUD_OUTPUT_MODE_SYNCHRONOUS,                                       \
+		.channel_type = TAUD_CHANNEL_TYPE_SLAVE,                                           \
 		.simultaneous_rewrite = TAUD_SIMULTANEOUS_REWRITE_ENABLE,                          \
 		.taud_unit = DT_INST_PROP(n, unit),                                                \
 		.mode_config = TAUD_MODE_SPECIFIC_START_INT_GENERATED,                             \
 	};                                                                                         \
-	static timer_cfg_t g_slave_cfg_##n = {                                                     \
-		.channel = DT_INST_PROP(n, channel),                                               \
-		.cycle_end_ipl = DT_INST_IRQ(n, priority),                                         \
-		.cycle_end_irq = DT_INST_IRQN(n),                                                  \
-		.p_extend = &g_slave_ext_cfg_##n,                                                  \
+	static timer_cfg_t PWM_RH850_CHILD_SYM(pwm_rh850_sync_cfg_, child) = {                     \
+		.channel = DT_REG_ADDR(child),                                                     \
+		.cycle_end_ipl = 0,                                                                \
+		.cycle_end_irq = -1,                                                               \
+		.p_extend = &PWM_RH850_CHILD_SYM(pwm_rh850_sync_ext_cfg_, child),                  \
 	};                                                                                         \
-	static const timer_instance_t g_slave_inst_##n = {                                         \
-		.p_ctrl = &g_slave_ctrl_##n,                                                       \
-		.p_cfg = &g_slave_cfg_##n,                                                         \
+	static const timer_instance_t PWM_RH850_CHILD_SYM(pwm_rh850_sync_inst_, child) = {         \
+		.p_ctrl = &PWM_RH850_CHILD_SYM(pwm_rh850_sync_ctrl_, child),                       \
+		.p_cfg = &PWM_RH850_CHILD_SYM(pwm_rh850_sync_cfg_, child),                         \
+		.p_api = &g_timer_on_taud,                                                         \
+	};
+
+#define PWM_RH850_INDEPENDENT_DEFINE(child, n)
+#define PWM_RH850_CAPTURE_TABLE_DEFINE(n)
+#define PWM_RH850_CAPTURE_CFG(n)
+#define PWM_RH850_CAPTURE_IRQ_CONFIG(n)
+#define PWM_RH850_EVENT_CB_CFG(n)
+#define PWM_RH850_PRIMARY_IRQ_CFG(n) .cycle_end_ipl = 0, .cycle_end_irq = -1,
+
+#define PWM_RH850_CHILD_DEFINE(child, n)                                                           \
+	BUILD_ASSERT(DT_REG_ADDR(child) < TAUD_MAX_NUM_CHANNELS, "TAUD channel out of range");     \
+	BUILD_ASSERT(DT_REG_ADDR(child) != DT_INST_PROP(n, channel),                               \
+		     "TAUD child channel must differ from primary channel");                       \
+	COND_CODE_1(PWM_RH850_IS_INDEPENDENT(child), (PWM_RH850_INDEPENDENT_DEFINE(child, n)),     \
+		    (PWM_RH850_SYNCHRONIZED_DEFINE(child, n)))
+
+#define PWM_RH850_SYNCHRONIZED_ENTRY(child)                                                        \
+	COND_CODE_1(PWM_RH850_IS_INDEPENDENT(child), (),                                           \
+		    (&PWM_RH850_CHILD_SYM(pwm_rh850_sync_inst_, child),))
+
+#define PWM_RH850_CHANNEL_INIT(n)                                                                  \
+	BUILD_ASSERT(DT_INST_PROP(n, channel) < TAUD_MAX_NUM_CHANNELS,                             \
+		     "TAUD primary channel out of range");                                         \
+	BUILD_ASSERT((DT_INST_PROP(n, channel) % 2) == 0, "TAUD primary channel must be even");    \
+	BUILD_ASSERT(DT_INST_CHILD_NUM_STATUS_OKAY(n) <= TAUD_MAX_NUM_SLAVE_CHANNELS,              \
+		     "Too many TAUD child channels");                                              \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	DT_INST_FOREACH_CHILD_STATUS_OKAY_VARGS(n, PWM_RH850_CHILD_DEFINE, n)                      \
+	PWM_RH850_CAPTURE_TABLE_DEFINE(n)                                                          \
+	static taud_instance_ctrl_t g_ctrl_##n;                                                    \
+	static taud_extended_cfg_t g_ext_cfg_##n = {                                               \
+		.taud_function = TAUD_FUNCTION_PWM_OUTPUT,                                         \
+		.trigger_type = TAUD_TRIGGER_SOFTWARE,                                             \
+		.operating_mode = TAUD_MODE_INTERVAL_TIMER_MODE,                                   \
+		.output_enable = TAUD_OUTPUT_ENABLE,                                               \
+		.output_mode = TAUD_OUTPUT_MODE_INDEPENDENT,                                       \
+		.channel_type = TAUD_CHANNEL_TYPE_MASTER,                                          \
+		.simultaneous_rewrite = TAUD_SIMULTANEOUS_REWRITE_ENABLE,                          \
+		.taud_unit = DT_INST_PROP(n, unit),                                                \
+		.mode_config = TAUD_MODE_SPECIFIC_START_INT_GENERATED,                             \
+		.p_slave_channel_instances = {                                                     \
+			DT_INST_FOREACH_CHILD_STATUS_OKAY(n, PWM_RH850_SYNCHRONIZED_ENTRY)         \
+		},                                                                                 \
+	};                                                                                         \
+	static timer_cfg_t g_cfg_##n = {                                                           \
+		.channel = DT_INST_PROP(n, channel),                                               \
+		PWM_RH850_PRIMARY_IRQ_CFG(n)                                                       \
+		PWM_RH850_EVENT_CB_CFG(n)                                                          \
+		.p_extend = &g_ext_cfg_##n,                                                        \
+	};                                                                                         \
+	static const timer_instance_t g_inst_##n = {                                               \
+		.p_ctrl = &g_ctrl_##n,                                                             \
+		.p_cfg = &g_cfg_##n,                                                               \
 		.p_api = &g_timer_on_taud,                                                         \
 	};                                                                                         \
-	static const struct pwm_rh850_slave_config pwm_rh850_slave_config_##n = {                  \
-		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                  \
+	static const struct pwm_rh850_channel_config pwm_rh850_channel_cfg_##n = {                 \
 		.fsp_api = &g_timer_on_taud,                                                       \
-		.master_dev = DEVICE_DT_GET(DT_INST_PHANDLE(n, master)),                           \
-		.slave_inst = &g_slave_inst_##n,                                                   \
 		.unit = DT_INST_PROP(n, unit),                                                     \
 		.channel = DT_INST_PROP(n, channel),                                               \
+		.clock_source = DT_INST_PROP_OR(n, clock_source, 0),                               \
+		.clock_divider = DT_INST_PROP_OR(n, clock_divider, 0),                             \
+		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                  \
+		.synchronized_instances = g_ext_cfg_##n.p_slave_channel_instances,                 \
+		PWM_RH850_CAPTURE_CFG(n)                                                           \
 	};                                                                                         \
-	static struct pwm_rh850_slave_data pwm_rh850_slave_data_##n = {                            \
-		.ctrl = &g_slave_ctrl_##n,                                                         \
-		.cfg = &g_slave_cfg_##n,                                                           \
+	static struct pwm_rh850_channel_data pwm_rh850_channel_data_##n = {                        \
+		.ctrl = &g_ctrl_##n,                                                               \
+		.cfg = &g_cfg_##n,                                                                 \
+		.ext_cfg = &g_ext_cfg_##n,                                                         \
+		.period_counts = 0,                                                                \
+		.num_synchronized = 0,                                                             \
+		.primary_running = false,                                                          \
 	};                                                                                         \
-	static int pwm_rh850_slave_init_##n(const struct device *dev)                              \
+	static int pwm_rh850_channel_init_##n(const struct device *dev)                            \
 	{                                                                                          \
-		int ret = pwm_rh850_slave_init(dev);                                               \
+		int ret = pwm_rh850_channel_init(dev);                                             \
 		if (ret < 0) {                                                                     \
 			return ret;                                                                \
 		}                                                                                  \
-		PWM_RH850_SLAVE_IRQ_CONFIG(n);                                                     \
+		PWM_RH850_IRQ_CONFIG(n);                                                           \
+		PWM_RH850_CAPTURE_IRQ_CONFIG(n)                                                    \
 		return 0;                                                                          \
 	}                                                                                          \
-	DEVICE_DT_INST_DEFINE(n, pwm_rh850_slave_init_##n, NULL, &pwm_rh850_slave_data_##n,        \
-			      &pwm_rh850_slave_config_##n, POST_KERNEL, CONFIG_PWM_INIT_PRIORITY,  \
-			      &pwm_rh850_driver_api);
+	DEVICE_DT_INST_DEFINE(n, pwm_rh850_channel_init_##n, NULL,                                 \
+			      &pwm_rh850_channel_data_##n, &pwm_rh850_channel_cfg_##n,             \
+			      POST_KERNEL, CONFIG_PWM_INIT_PRIORITY, &pwm_rh850_driver_api);
 
-#define PWM_RH850_INIT(n)                                                                          \
-	COND_CODE_1(PWM_RH850_IS_MASTER(n),                                                    \
-		(PWM_RH850_MASTER_INIT(n)),                                                        \
-		(PWM_RH850_SLAVE_INIT(n)))
-
-DT_INST_FOREACH_STATUS_OKAY(PWM_RH850_INIT)
+DT_INST_FOREACH_STATUS_OKAY(PWM_RH850_CHANNEL_INIT)

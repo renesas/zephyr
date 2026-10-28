@@ -63,15 +63,11 @@
 		};
 	};
 
-	pwm0_slave_default: pwm0_slave_default {
+	pwm_default: pwm_default {
 		group1 {
-			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT6)>;
-		};
-	};
-
-	pwm1_slave_default: pwm1_slave_default {
-		group1 {
-			psels = <RH850_PSEL(PORT_02, 2, ALT_OUT6)>;
+			psels = <RH850_PSEL(PORT_02, 1, ALT_OUT6)>,	/* ch1 */
+				<RH850_PSEL(PORT_02, 2, ALT_OUT6)>;	/* ch2 */
+			drive-strength = "medium";
 		};
 	};
 

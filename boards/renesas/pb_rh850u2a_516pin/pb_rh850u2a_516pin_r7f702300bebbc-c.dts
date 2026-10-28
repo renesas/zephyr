@@ -45,30 +45,28 @@
 		compatible = "pwm-leds";
 
 		pwm_led_0: pwm_led_0 {
-			pwms = <&pwm0_slave 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+			pwms = <&pwm0_ch0 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
 			label = "PWM LED 0";
 		};
 
 		pwm_led_1: pwm_led_1 {
-			pwms = <&pwm1_slave 2 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
+			pwms = <&pwm0_ch0 2 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
 			label = "PWM LED 1";
 		};
 	};
 };
 
-&pwm0_master {
-	status = "okay";
-};
-
-&pwm0_slave {
-	pinctrl-0 = <&pwm0_slave_default>;
+&pwm0_ch0 {
+	pinctrl-0 = <&pwm_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };
 
-&pwm1_slave {
-	pinctrl-0 = <&pwm1_slave_default>;
-	pinctrl-names = "default";
+&pwm0_ch1 {
+	status = "okay";
+};
+
+&pwm0_ch2 {
 	status = "okay";
 };
 
