@@ -854,7 +854,7 @@ static void eth_tsnes_process_rx_full(const struct device *dev, uint32_t rxfull_
 
 		data->rx_queues[i].stats.rx_errors++;
 		data->rx_queues[i].rxfull_pending = true;
-		LOG_WRN("RX queue %u descriptor ring reported full (RFEISi); "
+		LOG_DBG("RX queue %u descriptor ring reported full (RFEISi); "
 			"will restore once drained",
 			i);
 	}
@@ -1104,7 +1104,7 @@ static void eth_tsnes_rx_thread(void *arg1, void *arg2, void *arg3)
 					axi, q_idx, (uint32_t)(uintptr_t)&ring[queue->head_idx]);
 				if (res == 0) {
 					queue->rxfull_pending = false;
-					LOG_INF("RX queue %u restarted", q_idx);
+					LOG_DBG("RX queue %u restarted", q_idx);
 				} else if (res == -EBUSY) {
 					/* Chain is running again: nothing to restart */
 					queue->rxfull_pending = false;
