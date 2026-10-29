@@ -385,7 +385,7 @@ static void test_set_top_value_with_alarm_instance(const struct device *dev)
 	zassert_equal(0, err, "%s: Counter failed to set top value (err: %d)",
 			dev->name, err);
 
-	k_busy_wait(5.2*counter_period_us);
+	k_busy_wait((uint32_t)((uint64_t)counter_period_us * 26U / 5U));
 
 	top_handler_cnt = IS_ENABLED(CONFIG_ZERO_LATENCY_IRQS) ?
 		top_cnt : k_sem_count_get(&top_cnt_sem);
@@ -602,7 +602,7 @@ static void test_single_shot_alarm_instance(const struct device *dev, bool set_t
 		alarm_cnt : k_sem_count_get(&alarm_cnt_sem);
 	zassert_equal(1, cnt, "%s: Expecting alarm callback", dev->name);
 
-	k_busy_wait(1.5*counter_ticks_to_us(dev, ticks));
+	k_busy_wait((uint32_t)(counter_ticks_to_us(dev, ticks) * 3U / 2U));
 	cnt = IS_ENABLED(CONFIG_ZERO_LATENCY_IRQS) ?
 		alarm_cnt : k_sem_count_get(&alarm_cnt_sem);
 	zassert_equal(1, cnt, "%s: Expecting alarm callback", dev->name);
@@ -742,7 +742,7 @@ static void test_multiple_alarms_instance(const struct device *dev)
 	err = counter_set_channel_alarm(dev, 1, &cntr_alarm_cfg2);
 	zassert_equal(0, err, "%s: Counter set alarm failed", dev->name);
 
-	k_busy_wait(1.2 * counter_ticks_to_us(dev, ticks * 2U));
+	k_busy_wait((uint32_t)(counter_ticks_to_us(dev, ticks * 2U) * 6U / 5U));
 
 	cnt = IS_ENABLED(CONFIG_ZERO_LATENCY_IRQS) ?
 		alarm_cnt : k_sem_count_get(&alarm_cnt_sem);
@@ -810,7 +810,7 @@ static void test_all_channels_instance(const struct device *dev)
 		}
 	}
 
-	k_busy_wait(1.5*counter_ticks_to_us(dev, ticks));
+	k_busy_wait((uint32_t)(counter_ticks_to_us(dev, ticks) * 3U / 2U));
 	cnt = IS_ENABLED(CONFIG_ZERO_LATENCY_IRQS) ?
 		alarm_cnt : k_sem_count_get(&alarm_cnt_sem);
 	zassert_equal(nchan, cnt,
