@@ -4,6 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/ {
+	soc {
+		sram_nocache: memory@16000000 {
+			compatible = "zephyr,memory-region";
+			reg = <0x16000000 DT_SIZE_K(64)>;
+			zephyr,memory-region = "SRAMNOCACHE";
+			zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE)>;
+		};
+	};
+};
+
 &sys_dmac10 {
 	status = "okay";
 };
