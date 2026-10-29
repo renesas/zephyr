@@ -18,17 +18,28 @@
 /*
  * Network per-packet path. Functions that are not built match nothing.
  * Derived from the static call graph of the per-packet entry points (socket
- * send/recv, UDP/TCP/IPv4 input, Ethernet L2, R-Switch 3 GWCA TX/RX, socket
- * service, k_poll), control-path code excluded; ~59 KB with the zperf sample
- * configuration.
+ * send/recv, UDP/TCP/IPv4 input, Ethernet L2, R-Switch 3 GWCA TX/RX, TSN-ES
+ * TX/RX, socket service, k_poll), control-path code excluded; ~59 KB with the
+ * zperf sample configuration.
  */
 *(.text.alloc_chunk)
+*(.text.arch_dcache_flush_and_invd_range)
 *(.text.arch_dcache_flush_range)
 *(.text.calc_chksum)
 *(.text.clone_pkt_attributes)
 *(.text.conn_addr_cmp)
 *(.text.conn_set_unused)
 *(.text.context_sendto)
+*(.text.eth_tsnes_*_rx_buf_destroy)
+*(.text.eth_tsnes_get_stats_type)
+*(.text.eth_tsnes_isr)
+*(.text.eth_tsnes_process_rx_descriptor)
+*(.text.eth_tsnes_rx_buf_release*)
+*(.text.eth_tsnes_rx_desc_arm*)
+*(.text.eth_tsnes_rx_thread)
+*(.text.eth_tsnes_tx)
+*(.text.eth_tsnes_tx_copy_offset)
+*(.text.eth_tsnes_tx_reap)
 *(.text.ethernet_recv)
 *(.text.ethernet_send)
 *(.text.free_list_add)
@@ -119,6 +130,7 @@
 *(.text.net_pkt_alloc_buffer_raw)
 *(.text.net_pkt_alloc_buffer_with_reserve)
 *(.text.net_pkt_alloc_with_buffer)
+*(.text.net_pkt_append_buffer)
 *(.text.net_pkt_available_payload_buffer)
 *(.text.net_pkt_clone)
 *(.text.net_pkt_clone_internal)
