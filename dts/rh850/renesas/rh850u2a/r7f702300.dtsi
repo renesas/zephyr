@@ -100,6 +100,7 @@
 			interrupts = <205 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 6, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -120,6 +121,7 @@
 			interrupts = <206 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 7, PCLK)>;
 			status = "disabled";
 
 			counter {

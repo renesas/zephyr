@@ -380,6 +380,7 @@
 			interrupts = <200 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 1, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -400,6 +401,7 @@
 			interrupts = <201 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 2, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -420,6 +422,7 @@
 			interrupts = <202 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 3, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -440,6 +443,7 @@
 			interrupts = <203 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 4, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -460,6 +464,7 @@
 			interrupts = <204 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 5, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -480,6 +485,7 @@
 			interrupts = <207 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 8, PCLK)>;
 			status = "disabled";
 
 			counter {
@@ -500,6 +506,7 @@
 			interrupts = <208 1>;
 			interrupt-names = "overflow";
 			interrupt-parent = <&intc2>;
+			clocks = <&cgc RH850_PCLK(OSTM, 9, PCLK)>;
 			status = "disabled";
 
 			counter {
