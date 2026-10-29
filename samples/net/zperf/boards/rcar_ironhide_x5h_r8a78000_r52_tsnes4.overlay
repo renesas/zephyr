@@ -6,14 +6,15 @@
 
 /*
  * Alternate test config: tsnes4 as the net_if instead of a GWCA-backed port.
- * port5 is the egress -- port9 (TSNA9, hardwired to TSN-ES4) is what actually
- * forwards tsnes4's traffic to/from it, per its renesas,forward-ports =
- * <BIT(5)> in rcar_gen5_cr52.dtsi. No port has renesas,gwca, so gwca0 is
- * disabled again.
+ * port9 (TSNA9, hardwired to TSN-ES4) forwards tsnes4's traffic to/from the
+ * external port that the default overlay or a snippet enabled: port4 (Q32xx)
+ * by default, port5 (DP83869) with the rcar-x5h-eth-port5 snippet. No port
+ * has renesas,gwca, so gwca0 is disabled again.
  *
  * Not auto-applied: build with this and rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf
  * layered on top of the default board files, e.g.
- *   west build -b rcar_ironhide_x5h/r8a78000/r52 samples/net/zperf -- \
+ *   west build -b rcar_ironhide_x5h/r8a78000/r52 samples/net/zperf \
+ *       [-S rcar-x5h-eth-port5] -- \
  *       -DEXTRA_DTC_OVERLAY_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.overlay \
  *       -DEXTRA_CONF_FILE=boards/rcar_ironhide_x5h_r8a78000_r52_tsnes4.conf
  */
@@ -22,33 +23,18 @@
 	status = "okay";
 };
 
+/* Forwarding opens only to the port whose link is up */
 &port9 {
 	status = "okay";
+	renesas,forward-ports = <(BIT(4) | BIT(5))>;
 };
 
-/* port5 (DP83869 SGMII) instead of the Q32xx port4 of the default overlay */
 &port4 {
-	status = "disabled";
-};
-
-&pcs_ch4 {
-	status = "disabled";
-};
-
-&phy1 {
-	status = "disabled";
+	/delete-property/ renesas,gwca;
 };
 
 &port5 {
-	status = "okay";
-};
-
-&pcs_ch5 {
-	status = "okay";
-};
-
-&phy2 {
-	status = "okay";
+	/delete-property/ renesas,gwca;
 };
 
 &gwca0 {
@@ -56,18 +42,30 @@
 };
 
 /*
- * The TSN-ES rings do not fit in the 1 MB RT-VRAM area of the default
- * overlay: back to the DRAM area of rcar_gen5_cr52.dtsi.
+ * TSN-ES frame buffers and descriptors in RT-VRAM ch1, the 1 MB area of the
+ * default overlay: ethuram in the first 896 KB holds the 768 KB buffer pool
+ * of the tsnes4 .conf (256 RX + 256 TX slots) and the 2 KB init buffer, with
+ * the rest left free; the uncached descriptor area is in the last 128 KB.
  */
-/delete-node/ &ethuram;
+&ethuram {
+	reg = <0x12000000 0xe0000>;
+};
+
+/delete-node/ &ethdesc;
 
 / {
 	soc {
-		ethuram: memory@42a20000 {
+		ethdesc: memory@120e0000 {
 			compatible = "zephyr,memory-region";
-			reg = <0x42a20000 0x720000>;
-			zephyr,memory-region = "ETHURAM";
+			reg = <0x120e0000 DT_SIZE_K(128)>;
+			zephyr,memory-region = "ETHDESC";
+			zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE)>;
 			status = "okay";
 		};
 	};
+};
+
+&tsnes4 {
+	rx-queue-size = <256>;
+	tx-queue-size = <256>;
 };
