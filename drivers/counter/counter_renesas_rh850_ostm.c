@@ -8,7 +8,11 @@
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/counter.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/logging/log.h>
 #include <r_ostm.h>
+
+LOG_MODULE_REGISTER(rh850_ostm_counter, CONFIG_COUNTER_LOG_LEVEL);
 
 #define RH850_OSTM_TOP_VALUE UINT32_MAX
 #define counter_rh850_ostm_clear_pending(irq)              R_BSP_IrqStatusClear(irq)
@@ -21,6 +25,8 @@ static int ostm_period_set(timer_ctrl_t * const p_ctrl, uint32_t period_counts);
 struct counter_rh850_ostm_config {
 	struct counter_config_info config_info;
 	const timer_api_t *fsp_api;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 };
 
 struct counter_rh850_ostm_data {
@@ -83,6 +89,17 @@ static int counter_rh850_ostm_init(const struct device *dev)
 	int err;
 
 	data->top_val = data->fsp_cfg->period_counts;
+
+	if (!device_is_ready(cfg->clock_dev)) {
+		LOG_ERR("OSTM clock device is not ready");
+		return -ENODEV;
+	}
+
+	err = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+	if (err < 0) {
+		LOG_ERR("OSTM module clock enable failed (err %d)", err);
+		return err;
+	}
 
 	err = cfg->fsp_api->open(data->fsp_ctrl, data->fsp_cfg);
 	if (err != FSP_SUCCESS) {
@@ -627,6 +644,9 @@ void counter_rh850_ostm_ovf_isr(const struct device *dev)
 				.channels = 1,                                                    \
 			},                                                                    \
 		.fsp_api = &g_timer_on_ostm,                                              \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(RH850_OSTM(inst))),             \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)                       \
+				DT_CLOCKS_CELL(RH850_OSTM(inst), clk_id),                 \
 	};                                                                            \
 	static struct counter_rh850_ostm_data counter_rh850_ostm_data_##inst = {      \
 		.fsp_cfg = &g_timer##inst##_cfg,         \

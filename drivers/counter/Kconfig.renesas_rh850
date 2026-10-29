@@ -6,5 +6,6 @@ config COUNTER_RENESAS_RH850_OSTM
 	default y
 	depends on DT_HAS_RENESAS_RH850_OSTM_COUNTER_ENABLED
 	select USE_RH850_FSP_OSTM
+	select CLOCK_CONTROL
 	help
 	  Enable the counter driver for the Renesas RH850 OS Timer (OSTM).
