@@ -183,7 +183,7 @@ void soc_reset_hook(void)
 
 #if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_itcm))
 	tcm_zero(DT_REG_ADDR(ITCM_NODE), DT_REG_SIZE(ITCM_NODE));
-	tcm_load(__itcm_start, __itcm_load_start, (size_t)__itcm_size);
+	tcm_load(__itcm_start, __itcm_load_start, (size_t)(__itcm_end - __itcm_start));
 #endif
 #if DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_dtcm))
 	tcm_zero(DT_REG_ADDR(DTCM_NODE), DT_REG_SIZE(DTCM_NODE));
