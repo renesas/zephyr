@@ -832,6 +832,7 @@
 					      <&mspite_ored0>,
 					      <&mspier_ored0>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 0, MSPI)>;
 			reg = <0xffc76000 0x680>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -847,6 +848,7 @@
 					      <&mspite_ored1>,
 					      <&mspier_ored1>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 1, MSPI)>;
 			reg = <0xffd5e000 0x680>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -862,6 +864,7 @@
 					      <&mspite_ored2>,
 					      <&mspier_ored2>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 2, PCLK)>;
 			reg = <0xffd80000 0x680>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -877,6 +880,7 @@
 					      <&mspite_ored3>,
 					      <&mspier_ored3>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 3, PCLK)>;
 			reg = <0xffd60000 0x680>;
 			#address-cells = <1>;
 			#size-cells = <0>;

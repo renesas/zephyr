@@ -10,6 +10,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/logging/log.h>
@@ -43,6 +44,10 @@ LOG_MODULE_REGISTER(rh850_spi);
 struct spi_rh850_config {
 	const struct pinctrl_dev_config *pinctrl_dev;
 	const spi_api_t *fsp_api;
+
+	/* Clock controller and subsystem for this SPI instance. */
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 };
 
 struct spi_rh850_data {
@@ -504,7 +509,8 @@ out_complete:
 	spi_context_complete(&data->ctx, dev, ret);
 }
 
-static uint16_t spi_rh850_baudrate_calculate(uint32_t frequency)
+static uint16_t spi_rh850_baudrate_calculate(uint32_t clock_rate,
+					       uint32_t frequency)
 {
 	uint32_t best_error = UINT32_MAX;
 	uint8_t best_prcs = 0U;
@@ -519,7 +525,7 @@ static uint16_t spi_rh850_baudrate_calculate(uint32_t frequency)
 		/* Loop through CDIV values (1 to 32). */
 		for (uint8_t cdiv = 1U; cdiv <= SPI_RH850_MSPI_CDIV_MAX_VALUE; cdiv++) {
 			uint32_t denominator = prcs_multiplier * (uint32_t)cdiv * 2U;
-			uint32_t actual = BSP_CFG_CLOCK_CLK_MSPI_HZ / denominator;
+			uint32_t actual = clock_rate / denominator;
 			uint32_t error;
 
 			if (frequency > actual) {
@@ -666,11 +672,29 @@ static int spi_rh850_configure(const struct device *dev, const struct spi_config
 				&= (mspi_control_polarity_t) ~((uint16_t) 1U << chip_select);
 	}
 
-	/* Calculate baudrate for SPI module */
-	if ((spi_cfg->frequency > 0) &&
-				(SPI_OP_MODE_GET(spi_cfg->operation) != SPI_OP_MODE_SLAVE)) {
+	/* Calculate the baud rate from the clock rate reported by the clock driver. */
+	if ((spi_cfg->frequency > 0U) &&
+		(SPI_OP_MODE_GET(spi_cfg->operation) != SPI_OP_MODE_SLAVE)) {
+		uint32_t clock_rate;
+		int ret;
+
+		ret = clock_control_get_rate(config->clock_dev,
+					     config->clock_subsys,
+					     &clock_rate);
+		if (ret < 0) {
+			LOG_ERR("%s: failed to get MSPI clock rate: %d",
+				dev->name, ret);
+			return ret;
+		}
+
+		if (clock_rate == 0U) {
+			LOG_ERR("%s: MSPI clock rate is zero", dev->name);
+			return -EINVAL;
+		}
+
 		spi_config_extend->mspi_baudrate_channel =
-						spi_rh850_baudrate_calculate(spi_cfg->frequency);
+			spi_rh850_baudrate_calculate(clock_rate,
+						 spi_cfg->frequency);
 	}
 
 	/* Enable loopback mode */
@@ -851,11 +875,35 @@ static void spi_rh850_eri_isr(const struct device *dev)
 
 #endif /* CONFIG_SPI_RENESAS_RH850_INTERRUPT */
 
+static int spi_rh850_clock_init(const struct device *dev)
+{
+	const struct spi_rh850_config *config = dev->config;
+	int ret;
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("%s: clock device is not ready", dev->name);
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("%s: failed to enable clock: %d", dev->name, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int spi_rh850_init(const struct device *dev)
 {
 	const struct spi_rh850_config *config = dev->config;
 	struct spi_rh850_data *data = dev->data;
 	int ret;
+
+	ret = spi_rh850_clock_init(dev);
+	if (ret != 0) {
+		return ret;
+	}
 
 	ret = pinctrl_apply_state(config->pinctrl_dev, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
@@ -1245,6 +1293,9 @@ static void spi_rh850_eri_isr_cb(void *arg)
 	static const struct spi_rh850_config spi_rh850_config_##n = {      \
 		.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(n),              \
 		.fsp_api = &g_spi_on_mspi,                                     \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),             \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)             \
+			DT_INST_CLOCKS_CELL(n, clk_id),                          \
 	};											   \
 												   \
 	static struct spi_rh850_data spi_rh850_data_##n = {                \

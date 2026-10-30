@@ -488,6 +488,7 @@
 			compatible = "renesas,rh850-spi";
 			interrupts = <576 1>, <577 1>, <578 1>, <579 1>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 0, MSPI)>;
 			reg = <0xffc76000 0x680>;
 			interrupt-parent = <&intc2>;
 			#address-cells = <1>;
@@ -501,6 +502,7 @@
 			compatible = "renesas,rh850-spi";
 			interrupts = <580 1>, <581 1>, <582 1>, <583 1>;
 			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 1, MSPI)>;
 			reg = <0xffd5e000 0x680>;
 			interrupt-parent = <&intc2>;
 			#address-cells = <1>;

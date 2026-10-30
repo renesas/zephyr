@@ -17,6 +17,9 @@ properties:
     description: |
       The channel of MSPI unit
 
+  clocks:
+    required: true
+
   unit:
     type: int
     required: true
