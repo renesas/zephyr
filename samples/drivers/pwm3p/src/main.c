@@ -10,7 +10,7 @@
 #include <zephyr/drivers/pwm3p.h>
 #include <zephyr/sys/printk.h>
 
-#define PWM3P_NODE DT_NODELABEL(taud3p0)
+#define PWM3P_NODE DT_NODELABEL(pwm3p0)
 
 /* Duty sweeps between 25% and 75% of the period, 5% per step, once per second. */
 #define DUTY_MIN_PERCENT  25

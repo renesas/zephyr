@@ -18,7 +18,7 @@ Requirements
 
 This sample requires a board with a Renesas RH850 TAUD3P (PWM3P) instance,
 for example ``pb_rh850u2a_516pin``, ``pb_rh850u2b_468pin``, or
-``pb_rh850u2c_292pin``. The board overlays of the sample enable the ``taud3p0``
+``pb_rh850u2c_292pin``. The board overlays of the sample enable the ``pwm3p0``
 and ``pic0`` nodes, which are disabled by default.
 
 Building and Running
