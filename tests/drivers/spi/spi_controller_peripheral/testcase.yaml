@@ -27,7 +27,6 @@ common:
     - pb_rh850u2b_468pin/r7f70254xafabg-c
     - pb_rh850u2b_468pin/r7f70254xfabg-c
     - pb_rh850u2c_292pin/r7f702600afabb-c
-    - pb_rh850u2c_292pin/r7f702600fabb-c
 
 tests:
   drivers.spi.spi_esp32:
@@ -121,7 +120,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.spi_fast:
     extra_args: DTC_OVERLAY_FILE="boards/nrf54h20dk_nrf54h20_cpuapp_fast.overlay"
@@ -145,7 +143,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.spis_fast:
     # SPIS120 instance occupies P6 which is not available on nRF54H20 DK pin headers
@@ -172,7 +169,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.pm_runtime:
     extra_configs:
@@ -188,7 +184,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.spi_cross_domain:
     harness_config:
@@ -216,7 +211,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.direct_xfer:
     extra_configs:
@@ -231,7 +225,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.direct_xfer.no_prealloc:
     extra_configs:
@@ -247,7 +240,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.mspi_mode0:
     extra_configs:
@@ -260,7 +252,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.mspi_mode1:
     extra_configs:
@@ -273,7 +264,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.mspi_mode2:
     extra_configs:
@@ -286,7 +276,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
 
   drivers.spi.mspi_mode3:
     extra_configs:
@@ -299,4 +288,3 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
