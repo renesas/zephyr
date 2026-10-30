@@ -26,5 +26,8 @@
 		/delete-node/ gpio@ffd90580;
 		/delete-node/ gpio@ffd90cc0;
 		/delete-node/ gpio@ffd90d40;
+
+		/* Delete pwm3p nodes pwm3p1 */
+		/delete-node/ pwm3p1@ffbf5008;
 	};
 };
