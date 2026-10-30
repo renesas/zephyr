@@ -4,13 +4,29 @@
  */
 
 #include <zephyr/dt-bindings/pic/renesas/pic-rh850-common.h>
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2b.h>
+
+&pinctrl {
+	pwm3p0_default: pwm3p0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_14, 11, ALT_OUT7)>,  /* U high */
+				<RH850_PSEL(PORT_14, 12, ALT_OUT7)>,  /* U low  */
+				<RH850_PSEL(PORT_14, 6,  ALT_OUT7)>,  /* V high */
+				<RH850_PSEL(PORT_14, 7,  ALT_OUT8)>,  /* V low  */
+				<RH850_PSEL(PORT_14, 9,  ALT_OUT8)>,  /* W high */
+				<RH850_PSEL(PORT_14, 10, ALT_OUT7)>;  /* W low  */
+			renesas,direct-control;
+			drive-strength = "medium";
+		};
+	};
+};
 
 /*
  * Opt-in: enable the PIC and PWM3P nodes, they are disabled at board level. The PWM3P master
- * channel is the same timer channel used by pwm1_slave, disable it so that it does not
- * conflict with PWM3P.
+ * channel is the same timer channel used by pwm0_ch2, so disable the pwm0_ch0 group so that it
+ * does not conflict with PWM3P.
  */
-&pwm1_slave {
+&pwm0_ch0 {
 	status = "disabled";
 };
 
@@ -20,7 +36,9 @@
 	status = "okay";
 };
 
-&taud3p0 {
+&pwm3p0 {
+	pinctrl-0 = <&pwm3p0_default>;
+	pinctrl-names = "default";
 	pic = <&pic0>;
 	status = "okay";
 };

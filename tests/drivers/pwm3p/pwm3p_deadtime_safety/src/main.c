@@ -19,7 +19,7 @@
 #include <zephyr/drivers/pwm3p.h>
 #include <zephyr/ztest.h>
 
-#define PWM3P_NODE DT_NODELABEL(taud3p0)
+#define PWM3P_NODE DT_NODELABEL(pwm3p0)
 
 #define DUTY_LOW_PERCENT  5U
 #define DUTY_HIGH_PERCENT 95U

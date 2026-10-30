@@ -13,7 +13,7 @@ Manual procedure
 
 1. Flash this test to the target board (e.g. ``pb_rh850u2a_516pin/r7f702300bebbc-c``).
 2. Connect a logic analyzer (or a 2-channel oscilloscope) to the high-side and
-   low-side pins of phase U (see the board's ``taud3p0_default`` pinctrl group
+   low-side pins of phase U (see the ``pwm3p0_default`` pinctrl group in the board overlay
    for the exact PORT/pin). Repeat for phase V and phase W if possible.
 3. Run the test and capture the waveform continuously while it executes -
    the console prints a ``DEADTIME_SAFETY: ... transition -> duty=...`` line

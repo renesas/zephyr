@@ -9,7 +9,7 @@
 #include <zephyr/drivers/pwm3p.h>
 #include <zephyr/ztest.h>
 
-#define PWM3P_NODE DT_NODELABEL(taud3p0)
+#define PWM3P_NODE DT_NODELABEL(pwm3p0)
 #define PIC_NODE   DT_NODELABEL(pic0)
 
 static const struct device *const pwm3p = DEVICE_DT_GET(PWM3P_NODE);
@@ -23,7 +23,7 @@ static const struct device *const pwm3p = DEVICE_DT_GET(PWM3P_NODE);
 BUILD_ASSERT(DT_NODE_HAS_STATUS_OKAY(PIC_NODE),
 	     "pic0 must be enabled by the overlay, otherwise PWM3P has no output");
 BUILD_ASSERT(DT_SAME_NODE(DT_PHANDLE(PWM3P_NODE, pic), PIC_NODE),
-	     "taud3p0 must reference pic0");
+	     "pwm3p0 must reference pic0");
 
 static void pwm3p_sync_after(void *f)
 {

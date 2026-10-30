@@ -15,7 +15,7 @@ Manual procedure
 
 1. Flash this test to the target board (e.g. ``pb_rh850u2a_516pin/r7f702300bebbc-c``).
 2. Connect a logic analyzer (or oscilloscope) to the high-side pin of phase U, V, and W (see the
-   board's ``taud3p0_default`` pinctrl group for the exact PORT/pin of each phase).
+   ``pwm3p0_default`` pinctrl group in the board overlay for the exact PORT/pin of each phase).
 3. Run ``test_distinct_duty_per_phase_is_accepted``: it commands U=10%, V=50%, W=90% and holds
    for 2 seconds. The console prints a ``DUTY_CYCLES: ... commanding U=... V=... W=...`` line
    immediately before the hold. Measure each phase's high-side pulse width as a percentage of

@@ -9,7 +9,7 @@
 #include <zephyr/drivers/pwm3p.h>
 #include <zephyr/ztest.h>
 
-#define PWM3P_NODE DT_NODELABEL(taud3p0)
+#define PWM3P_NODE DT_NODELABEL(pwm3p0)
 #define PWM3P_REWRITE_SETTLE_MS 5
 
 static const struct device *const pwm3p = DEVICE_DT_GET(PWM3P_NODE);
