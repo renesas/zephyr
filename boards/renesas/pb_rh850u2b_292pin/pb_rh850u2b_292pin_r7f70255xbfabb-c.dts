@@ -76,24 +76,6 @@
 	status = "okay";
 };
 
-&taud3p0 {
-	pinctrl-0 = <&taud3p0_default>;
-	pinctrl-names = "default";
-	status = "disabled";
-};
-
-&taud3p1 {
-	pinctrl-0 = <&taud3p1_default>;
-	pinctrl-names = "default";
-	status = "disabled";
-};
-
-&taud3p2 {
-	pinctrl-0 = <&taud3p2_default>;
-	pinctrl-names = "default";
-	status = "disabled";
-};
-
 &ostm0 {
 	status = "okay";
 
