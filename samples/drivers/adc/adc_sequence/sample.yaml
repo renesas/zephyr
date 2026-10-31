@@ -45,7 +45,6 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
-      - pb_rh850u2c_292pin/r7f702600fabb-c
     integration_platforms:
       - nrf52840dk/nrf52840
   sample.drivers.adc.adc_sequence.8bit:

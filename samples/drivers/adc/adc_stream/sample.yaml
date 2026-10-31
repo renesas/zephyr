@@ -25,14 +25,17 @@ tests:
     platform_allow:
       - apard32690/max32690/m4
   sample.drivers.adc.adc_stream.rh850-adck-stream:
-    extra_args:
-      - EXTRA_CONF_FILE=rh850-adck-stream.conf
-      - DTC_OVERLAY_FILE=boards/pb_rh850u2b_468pin_r7f70254xfabg-c.overlay
+    extra_conf_files:
+      - rh850-adck-stream.conf
     platform_allow:
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
   sample.drivers.adc.adc_stream.rh850-adcj-stream:
-    extra_args:
-      - EXTRA_CONF_FILE=rh850-adcj-stream.conf
-      - DTC_OVERLAY_FILE=boards/pb_rh850u2a_516pin_r7f702300aebbc-c.overlay
+    extra_conf_files:
+      - rh850-adcj-stream.conf
     platform_allow:
       - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2a_516pin/r7f702300ebbg-c
