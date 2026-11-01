@@ -55,8 +55,3 @@
 	has-parity;
 	status = "okay";
 };
-
-&pwm0_master {
-	clocks = <&cgc RH850_PCLK(TAUD, 0, PCLK)>;
-	status = "okay";
-};

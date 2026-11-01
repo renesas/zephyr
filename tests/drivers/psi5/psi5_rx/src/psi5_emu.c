@@ -37,9 +37,13 @@ LOG_MODULE_REGISTER(psi5_emu, LOG_LEVEL_INF);
 #define PSI5_EMU_SYNC_TIMEOUT_US  2000U
 #define PSI5_EMU_REG            ((R_PSI50_Type *)DT_REG_ADDR(DT_ALIAS(psi5_0)))
 
-#define PSI5_EMU_TAUD_NODE DT_NODELABEL(pwm0_master)
-BUILD_ASSERT(DT_NODE_EXISTS(PSI5_EMU_TAUD_NODE), "pwm0_master node not found");
+#define PSI5_EMU_TAUD_NODE DT_NODELABEL(pwm0_ch0)
+BUILD_ASSERT(DT_NODE_EXISTS(PSI5_EMU_TAUD_NODE), "pwm0_ch0 node not found");
 BUILD_ASSERT(DT_PROP(PSI5_EMU_TAUD_NODE, unit) == 0, "Emulator uses TAUD0 only");
+BUILD_ASSERT(DT_PROP(PSI5_EMU_TAUD_NODE, channel) == 0,
+	     "PSI5 emulator ISR requires TAUD0 channel 0");
+BUILD_ASSERT(!IS_ENABLED(CONFIG_PWM_RENESAS_RH850),
+	     "TAUD0 ch0 is owned by the PWM driver; disable CONFIG_PWM for psi5_rx");
 
 #define PSI5_EMU_TAUD_CH       DT_PROP(PSI5_EMU_TAUD_NODE, channel)
 #define PSI5_EMU_TAUD_IRQ      DT_IRQN(PSI5_EMU_TAUD_NODE)

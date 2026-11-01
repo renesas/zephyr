@@ -5,10 +5,7 @@
  */
 
 /*
- * Scenario drivers.psi5.rx.sync.serial_message (T18):
- * enable serial message (SMC) reception on the first RX slot of the test channel.
- * Applied on top of boards/<board>.overlay via EXTRA_DTC_OVERLAY_FILE (testcase.yaml).
- * RH850/U2B: DT slot@0 = HW slot 1 = RXMSET bit 0 (only slot with SMC in async mode).
+ * Enable serial message reception on the first RX slot.
  */
 &psi50_ch0_rx_slot0 {
 	has-smc;
