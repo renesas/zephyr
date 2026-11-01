@@ -77,6 +77,8 @@ tests:
       - pb_rh850u2a_516pin/r7f702300bebbc-c
       - pb_rh850u2a_516pin/r7f702300ebbg-c
       - pb_rh850u2a_516pin/r7f702300aebbc-c
+      - y_ask_rh850u2a/r7f702300bfaba-c
+      - y_ask_rh850u2a/r7f702302fabb-c
       # RH850 U2B
       - pb_rh850u2b_292pin/r7f70254xafabb-c
       - pb_rh850u2b_292pin/r7f70254xfabb-c
@@ -87,6 +89,11 @@ tests:
       - pb_rh850u2b_373pin/r7f70254xfaba-c
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
+      - y_ask_rh850u2b/r7f70254xafabb-c
+      - y_ask_rh850u2b/r7f70254xfabb-c
+      - y_ask_rh850u2b/r7f70255xafabb-c
+      - y_ask_rh850u2b/r7f70255xbfabb-c
+      - y_ask_rh850u2b/r7f70255xfabb-c
       # RH850 U2C
       - pb_rh850u2c_100pin/r7f702606afafd-c
       - pb_rh850u2c_100pin/r7f702616afafd-c
@@ -104,3 +111,5 @@ tests:
       - pb_rh850u2c_292pin/r7f702606afabb-c
       - pb_rh850u2c_292pin/r7f702616afabb-c
       - pb_rh850u2c_292pin/r7f702613afabb-c
+      - y_ask_rh850u2c/r7f702600afabb-c
+      - y_ask_rh850u2c/r7f702606afabb-c
