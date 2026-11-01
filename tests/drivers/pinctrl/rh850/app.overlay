@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	test_device: test_device@0 {
+		compatible = "vnd,pinctrl-device";
+		reg = <0x0 0x1>;
+		pinctrl-0 = <&test_device_default>;
+		pinctrl-names = "default";
+	};
+};
+
+&pinctrl {
+	test_device_default: test_device_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 7, ALT_OUT8)>,
+				<RH850_PSEL(PORT_02, 8, ALT_IN8)>;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 3, ALT_IN13)>;
+			bias-pull-up;
+		};
+
+		group3 {
+			psels = <RH850_PSEL(PORT_21, 3, ALT_IN13)>;
+			bias-pull-down;
+			drive-strength = "medium";
+		};
+
+		group4 {
+			psels = <RH850_PSEL(PORT_22, 1, ALT_OUT4)>;
+			drive-open-drain;
+			drive-strength = "high";
+		};
+
+		group5 {
+			psels = <RH850_PSEL(PORT_10, 10, ALT_OUT10)>;
+			renesas,direct-control;
+		};
+	};
+};

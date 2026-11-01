@@ -1,0 +1,11 @@
+tests:
+  drivers.pinctrl.rh850:
+    tags:
+      - drivers
+      - pinctrl
+    arch_allow:
+      - rh850
+    integration_platforms:
+      - pb_rh850u2a_516pin/r7f702300bebbc-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2c_292pin/r7f702600afabb-c
