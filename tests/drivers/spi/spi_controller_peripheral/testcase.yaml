@@ -27,6 +27,31 @@ common:
     - pb_rh850u2b_468pin/r7f70254xafabg-c
     - pb_rh850u2b_468pin/r7f70254xfabg-c
     - pb_rh850u2c_292pin/r7f702600afabb-c
+    - pb_rh850u2a_144pin/r7f702302fafm-c
+    - pb_rh850u2a_156pin/r7f702302fabd-c
+    - pb_rh850u2a_176pin/r7f702302fafk-c
+    - pb_rh850u2a_292pin/r7f702300afaba-c
+    - pb_rh850u2a_292pin/r7f702300bfaba-c
+    - pb_rh850u2a_292pin/r7f702300eaba-c
+    - pb_rh850u2a_292pin/r7f702301afabg-c
+    - pb_rh850u2a_292pin/r7f702301bfabg-c
+    - pb_rh850u2a_292pin/r7f702301eabg-c
+    - pb_rh850u2a_292pin/r7f702302fabb-c
+    - pb_rh850u2a_373pin/r7f702300aebbb-c
+    - pb_rh850u2a_373pin/r7f702300bebbb-c
+    - pb_rh850u2a_373pin/r7f702300ebbb-c
+    - pb_rh850u2a_373pin/r7f702301aebba-c
+    - pb_rh850u2a_373pin/r7f702301bebba-c
+    - pb_rh850u2a_373pin/r7f702301ebba-c
+    - pb_rh850u2b_292pin/r7f70254xafabb-c
+    - pb_rh850u2b_292pin/r7f70254xfabb-c
+    - pb_rh850u2b_292pin/r7f70255xafabb-c
+    - pb_rh850u2b_292pin/r7f70255xbfabb-c
+    - pb_rh850u2b_292pin/r7f70255xfabb-c
+    - pb_rh850u2b_373pin/r7f70254xafaba-c
+    - pb_rh850u2b_373pin/r7f70254xfaba-c
+    - pb_rh850u2b_468pin/r7f70254xafabg-c
+    - pb_rh850u2b_468pin/r7f70254xfabg-c
 
 tests:
   drivers.spi.spi_esp32:
@@ -120,6 +145,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.spi_fast:
     extra_args: DTC_OVERLAY_FILE="boards/nrf54h20dk_nrf54h20_cpuapp_fast.overlay"
@@ -143,6 +193,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.spis_fast:
     # SPIS120 instance occupies P6 which is not available on nRF54H20 DK pin headers
@@ -169,6 +244,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.pm_runtime:
     extra_configs:
@@ -184,6 +284,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.spi_cross_domain:
     harness_config:
@@ -211,6 +336,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.direct_xfer:
     extra_configs:
@@ -225,6 +375,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.direct_xfer.no_prealloc:
     extra_configs:
@@ -240,6 +415,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.mspi_mode0:
     extra_configs:
@@ -252,6 +452,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.mspi_mode1:
     extra_configs:
@@ -264,6 +489,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.mspi_mode2:
     extra_configs:
@@ -276,6 +526,31 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c
 
   drivers.spi.mspi_mode3:
     extra_configs:
@@ -288,3 +563,28 @@ tests:
       - pb_rh850u2b_468pin/r7f70254xafabg-c
       - pb_rh850u2b_468pin/r7f70254xfabg-c
       - pb_rh850u2c_292pin/r7f702600afabb-c
+      - pb_rh850u2a_144pin/r7f702302fafm-c
+      - pb_rh850u2a_156pin/r7f702302fabd-c
+      - pb_rh850u2a_176pin/r7f702302fafk-c
+      - pb_rh850u2a_292pin/r7f702300afaba-c
+      - pb_rh850u2a_292pin/r7f702300bfaba-c
+      - pb_rh850u2a_292pin/r7f702300eaba-c
+      - pb_rh850u2a_292pin/r7f702301afabg-c
+      - pb_rh850u2a_292pin/r7f702301bfabg-c
+      - pb_rh850u2a_292pin/r7f702301eabg-c
+      - pb_rh850u2a_292pin/r7f702302fabb-c
+      - pb_rh850u2a_373pin/r7f702300aebbb-c
+      - pb_rh850u2a_373pin/r7f702300bebbb-c
+      - pb_rh850u2a_373pin/r7f702300ebbb-c
+      - pb_rh850u2a_373pin/r7f702301aebba-c
+      - pb_rh850u2a_373pin/r7f702301bebba-c
+      - pb_rh850u2a_373pin/r7f702301ebba-c
+      - pb_rh850u2b_292pin/r7f70254xafabb-c
+      - pb_rh850u2b_292pin/r7f70254xfabb-c
+      - pb_rh850u2b_292pin/r7f70255xafabb-c
+      - pb_rh850u2b_292pin/r7f70255xbfabb-c
+      - pb_rh850u2b_292pin/r7f70255xfabb-c
+      - pb_rh850u2b_373pin/r7f70254xafaba-c
+      - pb_rh850u2b_373pin/r7f70254xfaba-c
+      - pb_rh850u2b_468pin/r7f70254xafabg-c
+      - pb_rh850u2b_468pin/r7f70254xfabg-c

@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/renesas/pinctrl-rh850u2b.h>
+
+&pinctrl {
+	mspi0_default: mspi0_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 5, ALT_IN1)>,
+				<RH850_PSEL(PORT_11, 9, ALT_OUT1)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_20, 3, ALT_OUT2)>,
+				<RH850_PSEL(PORT_11, 4, ALT_IN2)>;
+			drive-strength = "medium";
+		};
+	};
+
+	mspi1_default: mspi1_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_11, 2, ALT_IN1)>,
+				<RH850_PSEL(PORT_11, 7, ALT_OUT2)>;
+			drive-strength = "medium";
+			renesas,direct-control;
+		};
+
+		group2 {
+			psels = <RH850_PSEL(PORT_12, 8, ALT_IN1)>,
+				<RH850_PSEL(PORT_11, 6, ALT_IN1)>;
+			drive-strength = "medium";
+		};
+	};
+};
+
+&mspi0 {
+	interrupts = <576 11>, <577 10>, <578 12>, <579 15>;
+	status = "okay";
+	pinctrl-0 = <&mspi0_default>;
+	pinctrl-names = "default";
+
+	dut_spi_dt: test-spi-dev@0 {
+		compatible = "vnd,spi-device";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+dut_spis: &mspi1 {
+	interrupts = <580 8>, <581 7>, <582 9>, <583 15>;
+	status = "okay";
+	pinctrl-0 = <&mspi1_default>;
+	pinctrl-names = "default";
+};
