@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		rtc = &rtc0;
+	};
+};
+
+&rtc0 {
+	status = "okay";
+};
