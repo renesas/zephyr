@@ -158,5 +158,19 @@
 			interrupt-parent = <&intc1_pe3>;
 			status = "disabled";
 		};
+
+		mspi9: spi@ffccc000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <292 1>, <293 1>, <294 1>, <295 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 9, MSPI)>;
+			reg = <0xffccc000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <9>;
+			channel = <0>;
+			status = "disabled";
+		};
 	};
 };

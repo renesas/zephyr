@@ -43,5 +43,8 @@
 		/* Delete pwm3p nodes pwm3p0, pwm3p1 */
 		/delete-node/ pwm3p0@ffbf4008;
 		/delete-node/ pwm3p1@ffbf5008;
+
+		/delete-node/ spi@ffd82000;
+		/delete-node/ spi@ffcc4000;
 	};
 };

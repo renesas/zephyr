@@ -15,5 +15,7 @@
 		/delete-node/ gpio@ffd90480;
 		/delete-node/ gpio@ffd904c0;
 		/delete-node/ gpio@ffd905c0;
+
+		/delete-node/ spi@ffccc000;
 	};
 };

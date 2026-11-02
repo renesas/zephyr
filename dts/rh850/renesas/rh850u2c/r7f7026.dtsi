@@ -889,6 +889,38 @@
 			status = "disabled";
 		};
 
+		mspi4: spi@ffd82000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored0>,
+					      <&mspirx_ored0>,
+					      <&mspite_ored0>,
+					      <&mspier_ored0>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 4, PCLK)>;
+			reg = <0xffd82000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <4>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi5: spi@ffd62000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored0>,
+					      <&mspirx_ored0>,
+					      <&mspite_ored0>,
+					      <&mspier_ored0>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 5, PCLK)>;
+			reg = <0xffd62000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <5>;
+			channel = <0>;
+			status = "disabled";
+		};
+
 		wdtba: watchdog@ff9a5000 {
 			unit = <0>;
 			compatible = "renesas,rh850-wdtb";

@@ -454,5 +454,47 @@
 				status = "disabled";
 			};
 		};
+
+		mspi7: spi@ffd64000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <851 1>, <852 1>, <853 1>, <854 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 7, MSPI)>;
+			reg = <0xffd64000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <7>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi8: spi@ffd86000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <855 1>, <856 1>, <857 1>, <858 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 8, MSPI)>;
+			reg = <0xffd86000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <8>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi9: spi@ffd66000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <859 1>, <860 1>, <861 1>, <862 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 9, MSPI)>;
+			reg = <0xffd66000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <9>;
+			channel = <0>;
+			status = "disabled";
+		};
 	};
 };

@@ -512,6 +512,76 @@
 			status = "disabled";
 		};
 
+		mspi2: spi@ffd80000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <584 1>, <585 1>, <586 1>, <587 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 2, MSPI)>;
+			reg = <0xffd80000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <2>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi3: spi@ffd60000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <588 1>, <589 1>, <590 1>, <591 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 3, MSPI)>;
+			reg = <0xffd60000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <3>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi4: spi@ffd82000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <592 1>, <593 1>, <594 1>, <595 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 4, MSPI)>;
+			reg = <0xffd82000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <4>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi5: spi@ffd62000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <596 1>, <597 1>, <598 1>, <599 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 5, MSPI)>;
+			reg = <0xffd62000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <5>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi6: spi@ffd84000 {
+			compatible = "renesas,rh850-spi";
+			interrupts = <600 1>, <601 1>, <602 1>, <603 1>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 6, MSPI)>;
+			reg = <0xffd84000 0x680>;
+			interrupt-parent = <&intc2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <6>;
+			channel = <0>;
+			status = "disabled";
+		};
+
 		rlin30: rlin30@ffc7c000 {
 			compatible = "renesas,rh850-rlin3";
 			interrupts = <620 1>, <621 1>, <622 1>, <623 1>;

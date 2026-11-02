@@ -37,5 +37,10 @@
 		/delete-node/ rlin321@ffc7c500;
 		/delete-node/ rlin322@ffd29600;
 		/delete-node/ rlin323@ffc7c580;
+
+		/delete-node/ spi@ffd84000;
+		/delete-node/ spi@ffcc8000;
+		/delete-node/ spi@ffd86000;
+		/delete-node/ spi@ffccc000;
 	};
 };

@@ -113,5 +113,37 @@
 			renesas,physical-channel-mask = <0x000fffff 0x00000000>;
 			status = "disabled";
 		};
+
+		mspi8: spi@ffd86000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored0>,
+					      <&mspirx_ored0>,
+					      <&mspite_ored0>,
+					      <&mspier_ored0>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 8, PCLK)>;
+			reg = <0xffd86000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <8>;
+			channel = <0>;
+			status = "disabled";
+		};
+
+		mspi9: spi@ffd66000 {
+			compatible = "renesas,rh850-spi";
+			interrupts-extended = <&mspitx_ored0>,
+					      <&mspirx_ored0>,
+					      <&mspite_ored0>,
+					      <&mspier_ored0>;
+			interrupt-names = "txi", "rxi", "tei", "eri";
+			clocks = <&cgc RH850_PCLK(MSPI, 9, PCLK)>;
+			reg = <0xffd66000 0x680>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			unit = <9>;
+			channel = <0>;
+			status = "disabled";
+		};
 	};
 };
