@@ -35,6 +35,8 @@ LOG_MODULE_REGISTER(renesas_rh850_rtc, CONFIG_RTC_LOG_LEVEL);
 #define TM_YEAR_REF 1900
 
 struct rtc_renesas_rh850_config {
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 	void (*irq_config_func)(const struct device *dev);
 	const rtc_api_t *fsp_api;
 #ifdef CONFIG_RTC_ALARM
@@ -60,7 +62,6 @@ struct rtc_renesas_rh850_data {
 /* FSP ISR */
 extern void rtc_alarm_isr(void);
 extern void rtc_periodic_isr(void);
-extern void rtc_one_second_isr(void);
 
 #if defined(CONFIG_RTC_ALARM) || defined(CONFIG_RTC_UPDATE)
 static void renesas_rh850_rtc_callback(rtc_callback_args_t *p_args)
@@ -109,6 +110,7 @@ static int rtc_renesas_rh850_init(const struct device *dev)
 	struct rtc_renesas_rh850_data *data = dev->data;
 	const struct rtc_renesas_rh850_config *config = dev->config;
 	fsp_err_t fsp_err;
+	int ret;
 
 #if defined(CONFIG_RTC_ALARM) || defined(CONFIG_RTC_UPDATE)
 	data->fsp_cfg.p_callback = renesas_rh850_rtc_callback;
@@ -135,6 +137,17 @@ static int rtc_renesas_rh850_init(const struct device *dev)
 		return -EINVAL;
 	}
 #endif
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("RTC clock device is not ready");
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("RTC module clock enable failed (err %d)", ret);
+		return ret;
+	}
 
 	fsp_err = config->fsp_api->open(&data->fsp_ctrl, &data->fsp_cfg);
 	if (fsp_err != FSP_SUCCESS) {
@@ -613,28 +626,27 @@ static DEVICE_API(rtc, rtc_renesas_rh850_driver_api) = {
 
 #define ALARM_IRQ_ENABLE(index)                                                             \
 	IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, alarm, irq),                                     \
-		    DT_INST_IRQ_BY_NAME(index, alarm, priority), rtc_alarm_isr, (NULL), 0);
+		    DT_INST_IRQ_BY_NAME(index, alarm, priority), rtc_alarm_isr, (NULL), 0);     \
+	irq_enable(DT_INST_IRQ_BY_NAME(index, alarm, irq));
 
 #define PERIODIC_IRQ_ENABLE(index)                                                           \
 	IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, periodic, irq),                                  \
-		DT_INST_IRQ_BY_NAME(index, periodic, priority), rtc_periodic_isr, (NULL), 0);
+		DT_INST_IRQ_BY_NAME(index, periodic, priority), rtc_periodic_isr, (NULL), 0); \
+	irq_enable(DT_INST_IRQ_BY_NAME(index, periodic, irq));
 
-#define ONE_SECOND_IRQ_ENABLE(index)                                                        \
-	IRQ_CONNECT(DT_INST_IRQ_BY_NAME(index, one_second, irq),                                \
-		DT_INST_IRQ_BY_NAME(index, one_second, priority), rtc_one_second_isr, (NULL), 0);
-
-#define ONE_SECOND_IRQ_INIT(index)
 #define ALARM_IRQ_INIT(index)   IF_ENABLED(CONFIG_RTC_ALARM, (ALARM_IRQ_ENABLE(index)))
 #define PERIODIC_IRQ_INIT(index) IF_ENABLED(CONFIG_RTC_UPDATE, (PERIODIC_IRQ_ENABLE(index)))
 
 #define RTC_RENESAS_RH850_INIT(index)                                              \
 	static void rtc_renesas_rh850_irq_config_func##index(const struct device *dev) \
 	{                                                                              \
-		ONE_SECOND_IRQ_INIT(index)                                                 \
 		ALARM_IRQ_INIT(index)                                                      \
 		PERIODIC_IRQ_INIT(index)                                                    \
 	}                                                                              \
 	static const struct rtc_renesas_rh850_config rtc_renesas_rh850_config_##index = { \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(index)),               \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t)                   \
+			DT_INST_CLOCKS_CELL(index, clk_id),                              \
 		.irq_config_func = rtc_renesas_rh850_irq_config_func##index,          \
 		.fsp_api = &g_rtc_on_rtca,                                             \
 		RTC_RENESAS_RH850_ALARM_COUNT_GET(index)                              \
@@ -660,16 +672,17 @@ static DEVICE_API(rtc, rtc_renesas_rh850_driver_api) = {
 				.p_err_cfg = &rtc_renesas_rh850_data_##index.fsp_err_cfg,     \
 				.alarm_irq = RTC_RENESAS_RH850_IRQ_GET(index,                 \
 					alarm, irq),                                              \
-				.alarm_ipl = RTC_RENESAS_RH850_IRQ_GET(index,                 \
-					alarm, priority),                                         \
+				.alarm_ipl = COND_CODE_1(CONFIG_RTC_ALARM,                     \
+					(RTC_RENESAS_RH850_IRQ_GET(index, alarm, priority)),     \
+					(BSP_IRQ_DISABLED)),                                    \
 				.periodic_irq = RTC_RENESAS_RH850_IRQ_GET(index,              \
 					periodic, irq),                                           \
-				.periodic_ipl = RTC_RENESAS_RH850_IRQ_GET(index,              \
-					periodic, priority),                                      \
+				.periodic_ipl = COND_CODE_1(CONFIG_RTC_UPDATE,                 \
+					(RTC_RENESAS_RH850_IRQ_GET(index, periodic, priority)),  \
+					(BSP_IRQ_DISABLED)),                                    \
 				.one_second_irq = RTC_RENESAS_RH850_IRQ_GET(index,            \
 					one_second, irq),                                         \
-				.one_second_ipl = RTC_RENESAS_RH850_IRQ_GET(index,            \
-					one_second, priority),                                    \
+				.one_second_ipl = BSP_IRQ_DISABLED,                           \
 				.p_context = (void *)DEVICE_DT_INST_GET(index),               \
 				.p_extend = &g_rtc_cfg_extended_##index,                      \
 			},                                                                \
