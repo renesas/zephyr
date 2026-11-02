@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&ostm1 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm2 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm3 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm4 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm5 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm6 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm7 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm8 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
+
+&ostm9 {
+	status = "okay";
+
+	counter {
+		status = "okay";
+	};
+};
