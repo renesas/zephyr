@@ -33,8 +33,8 @@ ZTEST(rtc_api, test_y2k)
 		{.tm_isdst = -1, .tm_nsec = 0},
 	};
 	struct tm *const tm[2] = {
-		(struct tm *const)&rtm[0],
-		(struct tm *const)&rtm[1],
+		(struct tm *)&rtm[0],
+		(struct tm *)&rtm[1],
 	};
 	const time_t t[] = {
 		[Y99] = RTC_TEST_START_TIME,
