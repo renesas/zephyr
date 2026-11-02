@@ -8,6 +8,9 @@ compatible: "renesas,rh850-wdtb"
 include: base.yaml
 
 properties:
+  clocks:
+    description: Optional watchdog module clock supplied by the clock controller
+
   reg:
     required: true
 

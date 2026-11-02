@@ -715,6 +715,7 @@
 		wdtba: watchdog@ff9a5000 {
 			unit = <0>;
 			compatible = "renesas,rh850-wdtb";
+			clocks = <&cgc RH850_PCLK(WDTB_AWO, 0, CLKA_WDT)>;
 			interrupts = <705 0>;
 			window-open-mode = "select-by-window-start";
 			error-mode = "nmi-mode";
