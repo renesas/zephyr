@@ -9,12 +9,15 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/watchdog.h>
+#include <zephyr/drivers/clock_control.h>
 #include "r_wdt.h"
 #include <math.h>
 
 LOG_MODULE_REGISTER(wdt_renesas_rh850, CONFIG_WDT_LOG_LEVEL);
 
 struct wdt_rh850_config {
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
 	const wdt_api_t *fsp_api;
 	IRQn_Type irq;
 };
@@ -313,6 +316,28 @@ static DEVICE_API(wdt, wdt_rh850_api) = {
 	.feed = wdt_rh850_feed,
 };
 
+static int wdt_rh850_clock_enable(const struct device *dev)
+{
+	const struct wdt_rh850_config *cfg = dev->config;
+	int ret;
+
+	if (cfg->clock_dev == NULL) {
+		return 0;
+	}
+
+	if (!device_is_ready(cfg->clock_dev)) {
+		LOG_ERR("WDT clock device is not ready");
+		return -ENODEV;
+	}
+
+	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("WDT module clock enable failed (err %d)", ret);
+	}
+
+	return ret;
+}
+
 #define WDT_RH850_INIT(inst)                                                        \
 	static wdt_extended_cfg_t g_wdt_extend_cfg_##inst = {                           \
 		.unit = DT_INST_PROP(inst, unit),                                           \
@@ -339,6 +364,11 @@ static DEVICE_API(wdt, wdt_rh850_api) = {
 	};                                                                              \
                                                                                     \
 	static struct wdt_rh850_config wdt_rh850_config_##inst = {                      \
+		.clock_dev = COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, clocks), \
+			(DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(inst))), (NULL)), \
+		.clock_subsys = (clock_control_subsys_t)(uintptr_t) \
+			COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, clocks), \
+				(DT_INST_CLOCKS_CELL(inst, clk_id)), (0)), \
 		.fsp_api = &g_wdt_on_wdt,                                                   \
 		.irq = DT_INST_IRQN(inst),                                                  \
 	};                                                                              \
@@ -347,6 +377,12 @@ static DEVICE_API(wdt, wdt_rh850_api) = {
 	{                                                                               \
 		struct wdt_rh850_data *data = dev->data;                                    \
                                                                                     \
+		int ret = wdt_rh850_clock_enable(dev); \
+ \
+		if (ret < 0) { \
+			return ret; \
+		} \
+ \
 		k_mutex_init(&data->inst_lock);                                             \
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority), wdt_rh850_isr_adapter,\
 			    DEVICE_DT_INST_GET(inst), 0);                                       \
