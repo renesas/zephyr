@@ -16,5 +16,8 @@
 		sram0: memory@fe000000 {
 			reg = <0xfe000000 DT_SIZE_K(160)>;
 		};
+
+		/* Delete ostm1 node */
+		/delete-node/ ostm1@ff89a100;
 	};
 };
