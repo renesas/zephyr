@@ -5,29 +5,29 @@
  */
 
 &pinctrl {
+	rlin30_default: rlin30_default {
+		group1 {
+			psels = <RH850_PSEL(PORT_06, 6, ALT_OUT3)>,
+				<RH850_PSEL(PORT_06, 7, ALT_IN5)>;
+		};
+	};
+
 	rlin31_default: rlin31_default {
 		group1 {
 			psels = <RH850_PSEL(PORT_06, 4, ALT_OUT5)>,
 				<RH850_PSEL(PORT_06, 5, ALT_IN5)>;
 		};
 	};
-
-	rlin32_default: rlin32_default {
-		group1 {
-			psels = <RH850_PSEL(PORT_06, 0, ALT_OUT2)>,
-				<RH850_PSEL(PORT_06, 1, ALT_IN3)>;
-		};
-	};
 };
 
-&rlin31 {
-	pinctrl-0 = <&rlin31_default>;
+&rlin30 {
+	pinctrl-0 = <&rlin30_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };
 
-&rlin32 {
-	pinctrl-0 = <&rlin32_default>;
+&rlin31 {
+	pinctrl-0 = <&rlin31_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };
@@ -37,7 +37,7 @@ dut: &uart1 {
 	current-speed = <115200>;
 };
 
-dut_aux: &uart2 {
+dut_aux: &uart0 {
 	status = "okay";
 	current-speed = <115200>;
 };
