@@ -53,7 +53,9 @@ static int crc_set_config(const struct device *dev, struct crc_ctx *ctx)
 	crc_cfg->bit_order = CRC_BIT_ORDER_LMS_MSB;
 
 	switch (ctx->type) {
-	case CRC8: {
+	case CRC8:
+	case CRC8_CCITT:
+	case CRC8_ROHC: {
 		if ((ctx->polynomial != CRC8_POLY) && (ctx->polynomial != CRC8_REFLECT_POLY)) {
 			return -EINVAL;
 		}
@@ -61,7 +63,8 @@ static int crc_set_config(const struct device *dev, struct crc_ctx *ctx)
 		p_ctl->poly_size = CRC_POLYNOMIAL_SIZE_8_BITS;
 		break;
 	}
-	case CRC16: {
+	case CRC16:
+	case CRC16_ANSI: {
 		if ((ctx->polynomial != CRC16_POLY) && (ctx->polynomial != CRC16_REFLECT_POLY)) {
 			return -EINVAL;
 		}
@@ -69,7 +72,8 @@ static int crc_set_config(const struct device *dev, struct crc_ctx *ctx)
 		p_ctl->poly_size = CRC_POLYNOMIAL_SIZE_16_BITS;
 		break;
 	}
-	case CRC16_CCITT: {
+	case CRC16_CCITT:
+	case CRC16_ITU_T: {
 		if (ctx->polynomial != CRC16_CCITT_POLY) {
 			return -EINVAL;
 		}
@@ -207,47 +211,48 @@ static DEVICE_API(crc, crc_renesas_rh850_driver_api) = {
 	.finish = crc_renesas_rh850_finish,
 };
 
-#define CRC_RH850_INIT_CFG(idx)                                                                  \
-	static const struct crc_renesas_rh850_cfg crc_renesas_rh850_cfg_##idx = {              \
-		.fsp_api = &g_crc_on_crc,                                                          \
+#define CRC_RH850_INIT_CFG(idx)                                                    \
+	static const struct crc_renesas_rh850_cfg crc_renesas_rh850_cfg_##idx = {      \
+		.fsp_api = &g_crc_on_crc,                                                  \
 	};
 
-#define CRC_RH850_INIT(idx)                                                                      \
-	CRC_RH850_INIT_CFG(idx);                                                                 \
-	static crc_ctl_reg_t g_crc##idx##_ctr_cfg = {                                              \
-		.input_data_size = CRC_INPUT_DATA_SIZE_8_BITS,                                     \
-		.input_mode = CRC_INPUT_MODE_REFLECT,                                              \
-		.output_mode = CRC_OUTPUT_MODE_REFLECT,                                            \
-		.poly_size = CRC_POLYNOMIAL_SIZE_32_BITS,                                          \
-	};                                                                                         \
-	static crc_extended_cfg_t g_crc##idx##_cfg_extend = {                                      \
-		.control_reg = (crc_ctl_reg_t *)&g_crc##idx##_ctr_cfg,                             \
-		.poly0 = 0x4C11DB7,                                                                \
-		.poly1 = 0x0,                                                                      \
-		.dout0 = 0xFFFFFFFF,                                                               \
-		.dout1 = 0x0,                                                                      \
-		.xor0 = 0xFFFFFFFF,                                                                \
-		.xor1 = 0x0,                                                                       \
-	};                                                                                         \
-	static struct crc_renesas_rh850_data crc_renesas_rh850_data_##idx = {                  \
-		.input_data =                                                                      \
-			{                                                                          \
+#define CRC_RH850_INIT(idx)                                                        \
+	CRC_RH850_INIT_CFG(idx);                                                       \
+	static crc_ctl_reg_t g_crc##idx##_ctr_cfg = {                                  \
+		.input_data_size = CRC_INPUT_DATA_SIZE_8_BITS,                             \
+		.input_mode = CRC_INPUT_MODE_REFLECT,                                      \
+		.output_mode = CRC_OUTPUT_MODE_REFLECT,                                    \
+		.poly_size = CRC_POLYNOMIAL_SIZE_32_BITS,                                  \
+	};                                                                             \
+	static crc_extended_cfg_t g_crc##idx##_cfg_extend = {                          \
+		.control_reg = (crc_ctl_reg_t *)&g_crc##idx##_ctr_cfg,                     \
+		.poly0 = 0x4C11DB7,                                                        \
+		.poly1 = 0x0,                                                              \
+		.dout0 = 0xFFFFFFFF,                                                       \
+		.dout1 = 0x0,                                                              \
+		.xor0 = 0xFFFFFFFF,                                                        \
+		.xor1 = 0x0,                                                               \
+		.calculation_mode = CRC_CALCULATION_MODE_CONTINUOUS,                       \
+	};                                                                             \
+	static struct crc_renesas_rh850_data crc_renesas_rh850_data_##idx = {          \
+		.input_data =                                                              \
+			{                                                                      \
 				.num_bytes = DEFAULT_NUM_BYTES,                                    \
 				.p_input_buffer = NULL,                                            \
-			},                                                                         \
-		.crc_config =                                                                      \
-			{                                                                          \
+			},                                                                     \
+		.crc_config =                                                              \
+			{                                                                      \
 				.channel = DT_INST_PROP(idx, channel),                             \
 				.bit_order = CRC_BIT_ORDER_LMS_LSB,                                \
 				.p_extend = &g_crc##idx##_cfg_extend,                              \
-			},                                                                         \
-	};                                                                                         \
-	static int crc_rh850_init_##idx(const struct device *dev)                                \
-	{                                                                                          \
-		return crc_rh850_init(dev);                                                      \
-	}                                                                                          \
+			},                                                                     \
+	};                                                                                     \
+	static int crc_rh850_init_##idx(const struct device *dev)                              \
+	{                                                                                      \
+		return crc_rh850_init(dev);                                                        \
+	}                                                                                      \
 	DEVICE_DT_INST_DEFINE(idx, &crc_rh850_init_##idx, NULL, &crc_renesas_rh850_data_##idx, \
-			      &crc_renesas_rh850_cfg_##idx, POST_KERNEL,                         \
+			      &crc_renesas_rh850_cfg_##idx, POST_KERNEL,                       \
 			      CONFIG_CRC_DRIVER_INIT_PRIORITY, &crc_renesas_rh850_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CRC_RH850_INIT)
