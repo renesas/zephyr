@@ -25,4 +25,5 @@ supported:
   - pwm3p
   - can
   - psi5
+  - sent
 vendor: renesas
