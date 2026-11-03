@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	resources {
+		compatible = "test-gpio-basic-api";
+		out-gpios = <&ioport2 5 GPIO_ACTIVE_HIGH>;
+		in-gpios = <&ioport2 4 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&pinctrl {
+	irq17_ioport: irq17_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 5, ALT_IN14)>;
+		};
+	};
+
+	irq35_ioport: irq35_ioport {
+		group1 {
+			psels = <RH850_PSEL(PORT_02, 4, ALT_IN14)>;
+		};
+	};
+};
+
+&irq17 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq17_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&irq35 {
+	trigger-type = "falling";
+	pinctrl-0 = <&irq35_ioport>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ioport2 {
+	irqs = <&irq35 4>, <&irq17 5>;
+	status = "okay";
+};
