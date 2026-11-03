@@ -44,9 +44,23 @@ int intc_rh850_ext_irq_enable(const struct device *dev)
 {
 	const struct intc_rh850_ext_irq_config *config = dev->config;
 	struct intc_rh850_ext_irq_data *data = dev->data;
+	unsigned int key;
 	fsp_err_t err;
 
+	/* Keep interrupts locked while unmask IRQ and set interrupt vector method*/
+	key = irq_lock();
+
 	err = config->fsp_api->enable(data->fsp_ctrl);
+	if (err == FSP_SUCCESS) {
+		/*
+		 * The ISR is registered in the Zephyr software ISR table
+		 * so the table reference method (EITB) must be selected
+		 * through the Zephyr IRQ API.
+		 */
+		irq_enable(data->fsp_cfg->irq);
+	}
+
+	irq_unlock(key);
 
 	switch (err) {
 	case FSP_SUCCESS:
