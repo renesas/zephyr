@@ -1301,6 +1301,7 @@ static void spi_rh850_eri_isr_cb(void *arg)
 	static struct spi_rh850_data spi_rh850_data_##n = {                \
 		SPI_CONTEXT_INIT_LOCK(spi_rh850_data_##n, ctx),                \
 		SPI_CONTEXT_INIT_SYNC(spi_rh850_data_##n, ctx),                \
+		SPI_CONTEXT_CS_GPIOS_INITIALIZE(DT_DRV_INST(n), ctx)           \
 		.fsp_ctrl = &g_spi##n##_ctrl,                                  \
 		.fsp_config = &g_spi##n##_cfg,                                 \
 		SPI_RH850_INT_CTRL_INIT(n)                                     \
