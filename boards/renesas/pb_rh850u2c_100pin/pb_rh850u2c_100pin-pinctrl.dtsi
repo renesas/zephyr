@@ -13,15 +13,15 @@
 		};
 	};
 
-	irq17_ioport: irq17_ioport {
+	irq23_ioport: irq23_ioport {
 		group1 {
-			psels = <RH850_PSEL(PORT_02, 5, ALT_IN14)>;
+			psels = <RH850_PSEL(PORT_06, 10, ALT_IN14)>;
 		};
 	};
 
-	irq35_ioport: irq35_ioport {
+	irq26_ioport: irq26_ioport {
 		group1 {
-			psels = <RH850_PSEL(PORT_02, 4, ALT_IN14)>;
+			psels = <RH850_PSEL(PORT_06, 11, ALT_IN14)>;
 		};
 	};
 

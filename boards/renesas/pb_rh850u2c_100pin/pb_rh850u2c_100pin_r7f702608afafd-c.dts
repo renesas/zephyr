@@ -96,26 +96,26 @@
 	};
 };
 
-&irq17 {
+&irq23 {
 	trigger-type = "falling";
-	pinctrl-0 = <&irq17_ioport>;
+	pinctrl-0 = <&irq23_ioport>;
 	pinctrl-names = "default";
 	status = "okay";
 };
 
-&irq35 {
+&irq26 {
 	trigger-type = "falling";
-	pinctrl-0 = <&irq35_ioport>;
+	pinctrl-0 = <&irq26_ioport>;
 	pinctrl-names = "default";
 	status = "okay";
 };
 
 &ioport2 {
-	irqs = <&irq35 4>;
 	status = "okay";
 };
 
 &ioport6 {
+	irqs = <&irq23 10>;
 	status = "okay";
 };
 
