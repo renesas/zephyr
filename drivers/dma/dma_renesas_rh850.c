@@ -293,6 +293,7 @@ static int dma_rh850_config_prepare(const struct device *dev, uint32_t channel,
 
 	/* Link transfer info and extension structure to the FSP configuration */
 	ch->fsp_info.transfer_count_per_hw_request = transfers_count;
+	ch->fsp_info.transfer_limit_per_hw_request = 0;
 	ch->fsp_cfg.p_info = &ch->fsp_info;
 	ch->fsp_cfg.p_extend = &ch->fsp_extend;
 
