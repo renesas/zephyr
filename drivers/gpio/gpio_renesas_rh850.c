@@ -394,9 +394,25 @@ static int gpio_rh850_pin_interrupt_configure(const struct device *dev, gpio_pin
 	struct gpio_rh850_data *data = dev->data;
 	uint32_t rh850_flags;
 	k_spinlock_key_t key;
-	uint8_t int_num = config->int_num[pin];
+	uint8_t int_num;
 	uint8_t irq_type = 0;
+	uint32_t pcr;
 	int ret = 0;
+
+	if (pin >= RH850_PINCTRL_PIN_MAX) {
+		return -EINVAL;
+	}
+
+	int_num = config->int_num[pin];
+
+	/*
+	 * External interrupt is an alternative input function (PMC = 1), so it
+	 * cannot be used while the pin is configured as output.
+	 */
+	pcr = R_BSP_PORT_TYPE[config->port_type]->PCRn_m[config->port_num].PCR[pin];
+	if ((mode != GPIO_INT_MODE_DISABLED) && ((pcr & R_PORT_PCRn_m_PCR_PM_Msk) == 0U)) {
+		return -ENOTSUP;
+	}
 
 	/* Check mapping interrupt number value is valid */
 	if ((int_num >= GPIO_RH850_MAX_EXT_INT_NUM) || (int_num == GPIO_RH850_INT_UNMAPPED)) {
