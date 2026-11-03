@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/sent/sent.h>
+
+/ {
+	aliases {
+		sent0 = &sent1;
+	};
+};
+
+&sent1 {
+	pinctrl-0 = <&sent1_default>;
+	pinctrl-names = "default";
+
+	status = "okay";
+};
+
+&sent1_ch0 {
+	num-data-nibbles = <6>;
+
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+
+	status = "okay";
+};

@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/sent/sent.h>
+
+/ {
+	aliases {
+		sent0 = &sent1;
+		sent-taud-emulator = &pwm0_ch1;
+	};
+};
+
+&pwm0_ch0 {
+	pinctrl-0 = <&pwm_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&pwm0_ch1 {
+	channel-mode = "synchronized";
+	interrupt-parent = <&intc2>;
+	interrupts = <320 1>;
+	status = "okay";
+};
+
+&dma0 {
+	status = "okay";
+};
+
+&sent1 {
+	pinctrl-0 = <&sent1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&sent1_ch0 {
+	num-data-nibbles = <6>;
+
+	dmas = <&dma0 0 0 0>;
+	dma-names = "rx";
+
+	fast-crc = <FAST_CRC_DISABLE>;
+	short-serial-crc = <SHORT_CRC_DISABLE>;
+	clock-tick-length-us = <3>;
+	slow-message-format = "enhanced-serial";
+	successive-calib-pulse-method = <2>;
+
+	status = "okay";
+};

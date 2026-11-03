@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Renesas Electronics Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
-#define DT_DRV_COMPAT renesas_rh850_emu_pwm
 
 #include "sent_taud_emulator.h"
 
@@ -26,16 +25,9 @@ LOG_MODULE_REGISTER(
 	CONFIG_LOG_DEFAULT_LEVEL);
 
 /*
- * The sent-taud-emulator alias points directly to the TAUD slave
- * channel used as the SENT output.
- *
- * Example:
- *
- * / {
- *     aliases {
- *         sent-taud-emulator = &pwm0_slave;
- *     };
- * };
+ * Alias points to the synchronized output child of the standard TAUD PWM
+ * binding. The emulator owns TAUD0 directly, so the normal PWM driver must
+ * not be enabled in this test image.
  */
 #define SENT_TAUD_EMULATOR_NODE \
 	DT_ALIAS(sent_taud_emulator)
@@ -45,86 +37,46 @@ LOG_MODULE_REGISTER(
 #endif
 
 #if !DT_NODE_HAS_STATUS_OKAY(SENT_TAUD_EMULATOR_NODE)
-#error "SENT TAUD emulator Devicetree node is not enabled"
+#error "SENT TAUD emulator output channel is not enabled"
 #endif
 
-/*
- * The slave node contains:
- *
- *     master = <&pwm0_master>;
- *
- * Retrieve the associated master channel from the phandle.
- */
-#define EMU_MASTER_NODE \
-	DT_PHANDLE(SENT_TAUD_EMULATOR_NODE, master)
+#define EMU_MASTER_NODE DT_PARENT(SENT_TAUD_EMULATOR_NODE)
 
-/*
- * TAUD instance and channel configuration.
- */
-#define EMU_TAUD_UNIT \
-	DT_PROP(SENT_TAUD_EMULATOR_NODE, unit)
+#if !DT_NODE_HAS_STATUS_OKAY(EMU_MASTER_NODE)
+#error "SENT TAUD emulator primary channel is not enabled"
+#endif
 
-#define EMU_MASTER_CH \
-	DT_PROP(EMU_MASTER_NODE, channel)
+BUILD_ASSERT(!IS_ENABLED(CONFIG_PWM_RENESAS_RH850),
+	"SENT emulator owns TAUD0 directly; disable CONFIG_PWM_RENESAS_RH850");
 
-#define EMU_SLAVE_CH \
-	DT_PROP(SENT_TAUD_EMULATOR_NODE, channel)
+#define EMU_TAUD_UNIT DT_PROP(EMU_MASTER_NODE, unit)
+#define EMU_MASTER_CH DT_PROP(EMU_MASTER_NODE, channel)
+#define EMU_SLAVE_CH  DT_REG_ADDR(SENT_TAUD_EMULATOR_NODE)
 
-/*
- * TAUD clock configuration.
- */
-#define EMU_MASTER_CLOCK_CTLR \
-	DT_CLOCKS_CTLR(EMU_MASTER_NODE)
+#define EMU_CLOCK_CTLR DT_CLOCKS_CTLR(EMU_MASTER_NODE)
+#define EMU_CLOCK_ID   DT_CLOCKS_CELL(EMU_MASTER_NODE, clk_id)
 
-#define EMU_MASTER_CLOCK_ID \
-	DT_CLOCKS_CELL(EMU_MASTER_NODE, clk_id)
+static const struct device *const emulator_clock_dev =
+	DEVICE_DT_GET(EMU_CLOCK_CTLR);
 
-#define EMU_SLAVE_CLOCK_CTLR \
-	DT_CLOCKS_CTLR(SENT_TAUD_EMULATOR_NODE)
+#define EMU_MASTER_IRQ          DT_IRQN(EMU_MASTER_NODE)
+#define EMU_SLAVE_IRQ           DT_IRQN(SENT_TAUD_EMULATOR_NODE)
+#define EMU_MASTER_IRQ_PRIORITY DT_IRQ(EMU_MASTER_NODE, priority)
+#define EMU_SLAVE_IRQ_PRIORITY  DT_IRQ(SENT_TAUD_EMULATOR_NODE, priority)
 
-#define EMU_SLAVE_CLOCK_ID \
-	DT_CLOCKS_CELL(SENT_TAUD_EMULATOR_NODE, clk_id)
-
-static const struct device *const emulator_master_clock_dev =
-	DEVICE_DT_GET(EMU_MASTER_CLOCK_CTLR);
-
-static const struct device *const emulator_slave_clock_dev =
-	DEVICE_DT_GET(EMU_SLAVE_CLOCK_CTLR);
-
-/*
- * TAUD interrupt configuration.
- */
-#define EMU_MASTER_IRQ \
-	DT_IRQ(EMU_MASTER_NODE, irq)
-
-#define EMU_SLAVE_IRQ \
-	DT_IRQ(SENT_TAUD_EMULATOR_NODE, irq)
-
-#define EMU_MASTER_IRQ_PRIORITY \
-	DT_IRQ(EMU_MASTER_NODE, priority)
-
-#define EMU_SLAVE_IRQ_PRIORITY \
-	DT_IRQ(SENT_TAUD_EMULATOR_NODE, priority)
-
-BUILD_ASSERT(
-	EMU_TAUD_UNIT == DT_PROP(EMU_MASTER_NODE, unit),
-	"TAUD master and slave must use the same TAUD unit");
-
-BUILD_ASSERT(
-	EMU_TAUD_UNIT == 0U,
+BUILD_ASSERT(EMU_TAUD_UNIT == 0U,
 	"Current SENT emulator supports TAUD0 only");
+BUILD_ASSERT(EMU_MASTER_CH == 0U,
+	"Current SENT emulator expects TAUD0 channel 0 as primary");
+BUILD_ASSERT(EMU_SLAVE_CH == 1U,
+	"Current SENT emulator expects TAUD0 channel 1 as output");
 
-#define EMU_CH_MASK \
-	(BIT(EMU_MASTER_CH) | BIT(EMU_SLAVE_CH))
+#define EMU_CH_MASK (BIT(EMU_MASTER_CH) | BIT(EMU_SLAVE_CH))
 
-/*
- * Apply the output pin configuration attached to the slave TAUD node.
- */
-PINCTRL_DT_DEFINE(SENT_TAUD_EMULATOR_NODE);
-
+/* The new binding routes every child pin through the primary node. */
+PINCTRL_DT_DEFINE(EMU_MASTER_NODE);
 static const struct pinctrl_dev_config *const emulator_pinctrl =
-	PINCTRL_DT_DEV_CONFIG_GET(
-		SENT_TAUD_EMULATOR_NODE);
+	PINCTRL_DT_DEV_CONFIG_GET(EMU_MASTER_NODE);
 
 /*
  * The current TAUD configuration produces a 10 MHz counter clock.
@@ -257,29 +209,16 @@ static int sent_taud_emulator_clock_init(void)
 {
 	int ret;
 
-	if (!device_is_ready(emulator_master_clock_dev)) {
-		LOG_ERR("TAUD master clock device is not ready");
-		return -ENODEV;
-	}
-
-	if (!device_is_ready(emulator_slave_clock_dev)) {
-		LOG_ERR("TAUD slave clock device is not ready");
+	if (!device_is_ready(emulator_clock_dev)) {
+		LOG_ERR("TAUD clock device is not ready");
 		return -ENODEV;
 	}
 
 	ret = clock_control_on(
-		emulator_master_clock_dev,
-		(clock_control_subsys_t)(uintptr_t)EMU_MASTER_CLOCK_ID);
+		emulator_clock_dev,
+		(clock_control_subsys_t)(uintptr_t)EMU_CLOCK_ID);
 	if (ret < 0) {
-		LOG_ERR("Failed to enable TAUD master clock: %d", ret);
-		return ret;
-	}
-
-	ret = clock_control_on(
-		emulator_slave_clock_dev,
-		(clock_control_subsys_t)(uintptr_t)EMU_SLAVE_CLOCK_ID);
-	if (ret < 0) {
-		LOG_ERR("Failed to enable TAUD slave clock: %d", ret);
+		LOG_ERR("Failed to enable TAUD clock: %d", ret);
 		return ret;
 	}
 

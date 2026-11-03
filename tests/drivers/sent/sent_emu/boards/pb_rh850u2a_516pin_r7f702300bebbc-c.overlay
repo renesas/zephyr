@@ -8,45 +8,21 @@
 / {
 	aliases {
 		sent0 = &sent1;
-		sent-taud-emulator = &pwm0_slave_emu;
-	};
-
-	pwm0_master_emu: pwm0_master_emu@ffbf4000 {
-		compatible = "renesas,rh850-emu-pwm";
-		reg = <0xffbf4000 0x2000>;
-		clocks = <&cgc RH850_PCLK(TAUD, 0, HSB)>;
-		unit = <0>;
-		channel = <0>;
-		channel-type = "master";
-		interrupts = <10 1>;
-		interrupt-parent = <&intc2>;
-		status = "okay";
-	};
-
-	pwm0_slave_emu: pwm0_slave_emu@ffbf4004 {
-		compatible = "renesas,rh850-emu-pwm";
-		reg = <0xffbf4004 0x2000>;
-		clocks = <&cgc RH850_PCLK(TAUD, 0, HSB)>;
-		unit = <0>;
-		channel = <1>;
-		channel-type = "slave";
-		master = <&pwm0_master_emu>;
-		interrupts = <376 1>;
-		interrupt-parent = <&intc2>;
-		#pwm-cells = <3>;
-		status = "okay";
-
-		pinctrl-0 = <&pwm0_slave_default>;
-		pinctrl-names = "default";
+		sent-taud-emulator = &pwm0_ch1;
 	};
 };
 
-&pwm0_master {
-	status = "disabled";
+&pwm0_ch0 {
+	pinctrl-0 = <&pwm_default>;
+	pinctrl-names = "default";
+	status = "okay";
 };
 
-&pwm0_slave {
-	status = "disabled";
+&pwm0_ch1 {
+	channel-mode = "synchronized";
+	interrupt-parent = <&intc2>;
+	interrupts = <376 1>;
+	status = "okay";
 };
 
 &sent1 {

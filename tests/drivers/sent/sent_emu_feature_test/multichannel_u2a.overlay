@@ -7,29 +7,17 @@
 
 / {
 	aliases {
-		sent-taud-emulator-secondary = &pwm1_slave_emu;
+		sent-taud-emulator-secondary = &pwm0_ch2;
 	};
+};
 
-	pwm1_slave_emu: pwm1-slave-emu@ffbf4008 {
-		compatible = "renesas,rh850-emu-pwm";
-		reg = <0xffbf4008 0x2000>;
-		clocks = <&cgc RH850_PCLK(TAUD, 2, HSB)>;
-
-		unit = <0>;
-		channel = <2>;
-		channel-type = "slave";
-		master = <&pwm0_master_emu>;
-
-		interrupts = <1 1>;
-		interrupt-parent = <&intc2>;
-
-		#pwm-cells = <3>;
-
-		pinctrl-0 = <&pwm1_slave_default>;
-		pinctrl-names = "default";
-
-		status = "okay";
-	};
+/*
+ * Enable TAUD0 channel 2 as the second synchronized PWM output.
+ * The master channel and primary slave are enabled by the board overlay.
+ */
+&pwm0_ch2 {
+	channel-mode = "synchronized";
+	status = "okay";
 };
 
 /*
