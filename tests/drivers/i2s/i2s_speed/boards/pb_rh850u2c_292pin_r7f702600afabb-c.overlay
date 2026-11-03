@@ -13,8 +13,24 @@
 	};
 };
 
+/ {
+	ssi_internal_clock: pwmclock {
+		compatible = "pwm-clock";
+		status = "okay";
+
+		#clock-cells = <1>;
+
+		pwms = <&pwm0_ch0
+			1
+			PWM_HZ(11289600)
+			PWM_POLARITY_NORMAL>;
+
+		clock-frequency = <11289600>;
+	};
+};
+
 &pinctrl {
-	pwm0_slave_default: pwm0_slave_default {
+	pwm_default: pwm_default {
 		group1 {
 			/* TAUD0O1 */
 			psels = <RH850_PSEL(PORT_17, 1, ALT_OUT11)>;
@@ -38,30 +54,13 @@
 	status = "disabled";
 };
 
-&pwm0_master {
-	status = "okay";
-};
-
-&pwm0_slave {
-	pinctrl-0 = <&pwm0_slave_default>;
+&pwm0_ch0 {
+	clock-divider = <0>;
+	pinctrl-0 = <&pwm_default>;
 	pinctrl-names = "default";
 	status = "okay";
-
-	ssi_internal_clock: pwmclock {
-		compatible = "pwm-clock";
-		status = "okay";
-
-		#clock-cells = <1>;
-
-		pwms = <&pwm0_slave
-			1
-			PWM_HZ(11289600)
-			PWM_POLARITY_NORMAL>;
-
-		clock-frequency = <11289600>;
-	};
 };
 
-&pwm1_slave {
-	status = "disabled";
+&pwm0_ch1 {
+	status = "okay";
 };
