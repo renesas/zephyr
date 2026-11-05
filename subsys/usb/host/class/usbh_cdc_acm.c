@@ -298,7 +298,7 @@ static int cdc_acm_notif_submit(const struct device *const dev)
 	buf = usbh_xfer_buf_alloc(udev, xfer->mps);
 	if (buf == NULL) {
 		LOG_ERR("Failed to allocate buffer");
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return -ENOBUFS;
 	}
 
@@ -306,7 +306,7 @@ static int cdc_acm_notif_submit(const struct device *const dev)
 	if (ret != 0) {
 		LOG_ERR("Failed to setup transfer");
 		usbh_xfer_buf_free(udev, buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return ret;
 	}
 
@@ -314,7 +314,7 @@ static int cdc_acm_notif_submit(const struct device *const dev)
 	if (ret != 0) {
 		LOG_ERR("Failed to enqueue transfer");
 		usbh_xfer_buf_free(udev, buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return ret;
 	}
 
@@ -472,7 +472,7 @@ static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf, con
 	if (ret != 0) {
 		LOG_ERR("Failed to setup transfer");
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		goto unlock;
 	}
 
@@ -483,7 +483,7 @@ static int cdc_acm_tx(const struct device *dev, const uint8_t *const tx_buf, con
 		LOG_ERR("Failed to enqueue transfer");
 		data->tx_xfer = NULL;
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		goto unlock;
 	}
 
@@ -540,7 +540,7 @@ static int cdc_acm_tx_zlp_locked(struct cdc_acm_uart_data *const data,
 	if (ret != 0) {
 		LOG_ERR("Failed to setup ZLP transfer");
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return ret;
 	}
 
@@ -551,7 +551,7 @@ static int cdc_acm_tx_zlp_locked(struct cdc_acm_uart_data *const data,
 		LOG_ERR("Failed to enqueue ZLP transfer");
 		data->tx_xfer = NULL;
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return ret;
 	}
 
@@ -610,7 +610,7 @@ static struct uhc_transfer *cdc_acm_rx_xfer_alloc(struct cdc_acm_uart_data *cons
 	if (ret != 0) {
 		LOG_ERR("Failed to setup transfer");
 		net_buf_unref(nbuf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return NULL;
 	}
 
@@ -665,7 +665,7 @@ static int cdc_acm_rx_enable(const struct device *dev, uint8_t *const buf, const
 		data->rx_xfer = NULL;
 		data->rx_enabled = false;
 		net_buf_unref(xfer->buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		goto unlock;
 	}
 
@@ -1199,7 +1199,7 @@ static int cdc_acm_tx_cb(struct usb_device *const udev, struct uhc_transfer *con
 	k_mutex_unlock(&data->mutex);
 
 	net_buf_unref(buf);
-	usbh_xfer_free(udev, xfer);
+	(void)uhc_xfer_unref(xfer);
 
 	return ret;
 }
@@ -1242,7 +1242,7 @@ static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *con
 	cdc_acm_uart_evt(data, &evt);
 
 	net_buf_unref(buf);
-	usbh_xfer_free(udev, xfer);
+	(void)uhc_xfer_unref(xfer);
 
 	/* Continue with the next buffer if reception is still enabled. */
 	if (err == 0 && data->rx_enabled && data->rx_next_xfer != NULL) {
@@ -1268,7 +1268,7 @@ static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *con
 		cdc_acm_uart_evt(data, &evt);
 
 		net_buf_unref(next->buf);
-		usbh_xfer_free(udev, next);
+		(void)uhc_xfer_unref(next);
 	}
 
 	/* Reception stopped, release any pending next buffer and disable. */
@@ -1280,7 +1280,7 @@ static int cdc_acm_rx_cb(struct usb_device *const udev, struct uhc_transfer *con
 		cdc_acm_uart_evt(data, &evt);
 
 		net_buf_unref(data->rx_next_xfer->buf);
-		usbh_xfer_free(udev, data->rx_next_xfer);
+		(void)uhc_xfer_unref(data->rx_next_xfer);
 		data->rx_next_xfer = NULL;
 	}
 
@@ -1336,7 +1336,7 @@ static int cdc_acm_notif_cb(struct usb_device *const udev, struct uhc_transfer *
 	k_mutex_unlock(&data->mutex);
 
 	usbh_xfer_buf_free(udev, buf);
-	usbh_xfer_free(udev, xfer);
+	(void)uhc_xfer_unref(xfer);
 
 	return 0;
 }
