@@ -900,14 +900,14 @@ static int initialize_interrupt_in_xfer(struct cdc_ecm_host_data *const host_dat
 	buf = usbh_xfer_buf_alloc(host_data->udev, CDC_ECM_NOTIF_BUF_MAX_SIZE);
 	if (buf == NULL) {
 		LOG_ERR("Failed to allocate buffer for interrupt IN transfer");
-		usbh_xfer_free(host_data->udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		return -ENOMEM;
 	}
 
 	ret = usbh_xfer_buf_add(host_data->udev, xfer, buf);
 	if (ret != 0) {
 		LOG_ERR("Failed to add buffer to interrupt IN transfer: %d", ret);
-		usbh_xfer_free(host_data->udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		net_buf_unref(buf);
 		return ret;
 	}
@@ -934,7 +934,7 @@ static void deinitialize_interrupt_in_xfer(struct cdc_ecm_host_data *const host_
 		if (xfer->buf != NULL) {
 			net_buf_unref(xfer->buf);
 		}
-		usbh_xfer_free(host_data->udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 	}
 }
 
@@ -996,7 +996,7 @@ static int interrupt_in_req_cb(struct usb_device *const udev, struct uhc_transfe
 	if (xfer->err == -ECONNRESET) {
 		LOG_INF("The interrupt IN transfer is cancelled");
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		goto done;
 	}
 
@@ -1056,7 +1056,7 @@ cleanup:
 	for (unsigned int i = 0; i < ARRAY_SIZE(host_data->data_in_xfer); i++) {
 		if (host_data->data_in_xfer[i] != NULL) {
 			net_buf_unref(host_data->data_in_xfer[i]->buf);
-			usbh_xfer_free(host_data->udev, host_data->data_in_xfer[i]);
+			(void)uhc_xfer_unref(host_data->data_in_xfer[i]);
 			host_data->data_in_xfer[i] = NULL;
 		}
 	}
@@ -1083,7 +1083,7 @@ static void deinitialize_bulk_in_xfer(struct cdc_ecm_host_data *const host_data)
 			if (xfer->buf != NULL) {
 				net_buf_unref(xfer->buf);
 			}
-			usbh_xfer_free(host_data->udev, xfer);
+			(void)uhc_xfer_unref(xfer);
 		}
 	}
 }
@@ -1152,7 +1152,7 @@ static int bulk_in_req_cb(struct usb_device *const udev, struct uhc_transfer *co
 	if (xfer->err == -ECONNRESET) {
 		LOG_INF("The bulk IN transfer is cancelled");
 		net_buf_unref(buf);
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 		goto done;
 	}
 
@@ -1242,7 +1242,7 @@ static int submit_bulk_out_xfer(struct cdc_ecm_host_data *const host_data,
 
 done:
 	if (xfer != NULL) {
-		usbh_xfer_free(udev, xfer);
+		(void)uhc_xfer_unref(xfer);
 	}
 
 	k_sem_give(&host_data->data_out_sem);
@@ -1302,7 +1302,7 @@ static int bulk_out_req_cb(struct usb_device *const udev, struct uhc_transfer *c
 	}
 
 cleanup:
-	usbh_xfer_free(udev, xfer);
+	(void)uhc_xfer_unref(xfer);
 	k_sem_give(&host_data->data_out_sem);
 
 done:
