@@ -683,9 +683,10 @@ static int input_interrupt_transfer_cb(struct usb_device *const udev,
 	}
 
 error_cleanup:
-	/* Finally free the request */
-	if (xfer->buf) {
-		usbh_xfer_buf_free(driver_data->udev, xfer->buf);
+	/* Release resources without accessing a disconnected USB device. */
+	if (xfer->buf != NULL) {
+		net_buf_unref(xfer->buf);
+		xfer->buf = NULL;
 	}
 	(void)uhc_xfer_unref(xfer);
 

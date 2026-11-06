@@ -123,12 +123,12 @@ static int usbd_hid_request(struct usbd_class_data *const c_data,
 	bi = udc_get_buf_info(buf);
 
 	if (bi->ep == hid_get_out_ep(c_data)) {
-		if (ops->output_report != NULL) {
-			if (err == 0) {
-				ops->output_report(dev, buf->len, buf->data);
-			}
+		if (ops->output_report != NULL && err == 0) {
+			ops->output_report(dev, buf->len, buf->data);
 
-			k_work_submit(&ddata->output_work);
+			if (atomic_test_bit(&ddata->state, HID_DEV_CLASS_ENABLED)) {
+				k_work_submit(&ddata->output_work);
+			}
 		}
 	}
 
