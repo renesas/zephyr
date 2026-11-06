@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	usbh_vendor: usbh_vendor {
+		compatible = "zephyr,usbh-vendor";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		any_vendor_device: vendor-device@ffffffff {
+			compatible = "zephyr,usbh-vendor-device";
+			reg = <0xffffffff>;
+			status = "okay";
+			match-class;
+		};
+	};
+};
+
+
