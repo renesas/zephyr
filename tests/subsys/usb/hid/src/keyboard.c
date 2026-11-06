@@ -82,6 +82,9 @@ static void suite_shutdown(void *f)
 {
 	int result = 0;
 
+	result = usbh_hid_stop_input_reports(usbh_hid_dev);
+	zassert_ok(result, "Failed to stop HID input reports");
+
 	result = usbd_disable(test_usbd);
 	zassert_ok(result, "Failed to disable device support");
 
