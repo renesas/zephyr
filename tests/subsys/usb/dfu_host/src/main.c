@@ -488,10 +488,6 @@ void dfu_host_test_shutdown(void *f)
 {
 	int ret;
 
-	/* Do not check, might be already disabled */
-	usbd_disable(test_usbd);
-	usbd_shutdown(test_usbd);
-
 	ret = usbh_disable(uhs_ctx);
 	zassert_ok(ret, "Failed to disable USB host");
 
