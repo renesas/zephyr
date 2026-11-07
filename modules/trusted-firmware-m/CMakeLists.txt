@@ -248,6 +248,9 @@ if(CONFIG_BUILD_WITH_TFM)
 
     # Specific to nordic platform
     ${TFM_INTERFACE_SOURCE_DIR}/tfm_ioctl_core_ns_api.c
+
+    # Specific to renesas ra platform
+    ${TFM_INTERFACE_SOURCE_DIR}/tfm_ioctl_ns_api.c
     )
 
   # Get the toolchain variant
@@ -478,6 +481,10 @@ if(CONFIG_BUILD_WITH_TFM)
 
     if(CONFIG_SOC_FAMILY_NORDIC_NRF)
       zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PLATFORM               ${TFM_INTERFACE_SOURCE_DIR}/tfm_ioctl_core_ns_api.c)
+    endif()
+
+    if(CONFIG_SOC_FAMILY_RENESAS_RA)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PLATFORM               ${TFM_INTERFACE_SOURCE_DIR}/tfm_ioctl_ns_api.c)
     endif()
 
     # TFM_INTERFACE_INCLUDE_DIR is already added to zephyr_interface below
