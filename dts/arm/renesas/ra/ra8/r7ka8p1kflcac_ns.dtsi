@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Non-secure aliases for RA8P1 nodes that the shared ra8x2.dtsi and
+ * r7ka8p1xf.dtsi describe at their Secure address. A Non-secure bus master
+ * cannot access an address marked Secure by the IDAU, so every register block
+ * used by a Non-secure image must be described at its Non-secure alias
+ * (Secure address with b28 set).
+ *
+ * Included by the cm85_ns and cm33_ns SoC devicetrees.
+ */
+
+/* Module stop control registers MSTPCRA-E */
+&pclkblock {
+	reg = <0x50203000 4>, <0x50203004 4>, <0x50203008 4>,
+	      <0x5020300c 4>, <0x50203010 4>;
+};
+
+/*
+ * OSPI register blocks move to their Non-secure alias. The external memory
+ * windows are not aliased (the external address space is Non-secure), so the
+ * second reg entry is unchanged.
+ */
+/delete-node/ &ospi0;
+/delete-node/ &ospi1;
+
+/ {
+	soc {
+		ospi0: ospi@50268000 {
+			compatible = "renesas,ra-ospi-b";
+			reg = <0x50268000 0x19c>, <0x80000000 DT_SIZE_M(512)>;
+			unit = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&octaspiclk MSTPB 16>;
+			status = "disabled";
+		};
+
+		ospi1: ospi@50268400 {
+			compatible = "renesas,ra-ospi-b";
+			reg = <0x50268400 0x19c>, <0x70000000 DT_SIZE_M(256)>;
+			unit = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&octaspiclk MSTPB 17>;
+			status = "disabled";
+		};
+	};
+};
