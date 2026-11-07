@@ -94,4 +94,8 @@ else()
   message(WARNING "Unsupported linker template.")
 endif()
 
+if(CONFIG_BUILD_WITH_TFM AND CONFIG_SOC_R7KA8P1KFLCAC_CM85)
+  include(${CMAKE_CURRENT_LIST_DIR}/tfm_clocks.cmake)
+endif()
+
 set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
