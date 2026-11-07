@@ -1,0 +1,157 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Flash/SRAM map shared by the CM85 and CM33 non-secure clusters of ek_ra8m2
+ * with TF-M (BL2 enabled). TF-M runs on the CM85 (CPU0) only and owns the
+ * Secure side. The CM33 (CPU1) runs a standalone non-secure Zephyr image that
+ * is not a TF-M client and has no Secure or NSC region: the image is in
+ * cm33_slot0_ns_partition without a BL2 header and the CM85 non-secure image
+ * starts CPU1 (CONFIG_SOC_RA_ENABLE_START_SECOND_CORE). Both NS cluster files
+ * include this one.
+ *
+ * The layout mirrors what TF-M derives in platform/ext/target/renesas/ra
+ * (common/core/post_config.cmake) with BL2=ON: every image has a secondary
+ * slot of the same size (overwrite-only upgrade, no scratch).
+ *
+ * MRAM (1 MB):
+ *
+ *   Node                    Offset    Size     TF-M definition
+ *   boot_partition          0x00000    64 KB   FLASH_AREA_BL2_*
+ *   slot0_partition         0x10000   176 KB   S primary, FLASH_S_PARTITION_SIZE
+ *     slot0_nsc_partition   0x33c00    32 KB   CMSE veneers, below the 0x400 trailer
+ *   slot1_partition         0x3c000   176 KB   S secondary
+ *   tfm_ps_partition        0x68000    32 KB   FLASH_PS_AREA_*
+ *   tfm_its_partition       0x70000    16 KB   FLASH_ITS_AREA_*
+ *   tfm_otp_partition       0x74000    16 KB   FLASH_OTP_NV_COUNTERS_AREA_*
+ *   slot0_ns_partition      0x78000   144 KB   CPU0 NS primary,
+ *                                              CPU0_NS_IMAGE_PRIMARY_PARTITION_OFFSET
+ *   slot1_ns_partition      0x9c000   144 KB   CPU0 NS secondary, ends at 0xc0000
+ *   cm33_slot0_ns_partition 0xc0000   128 KB   CM33 image, outside the TF-M map
+ *   cm33_slot1_ns_partition 0xe0000   128 KB   unused, ends at 0x100000
+ *
+ * SRAM (1664 KB):
+ *
+ *   Node       Offset    Size    TF-M definition
+ *   sram0_s    0x00000   512 KB  S_DATA_SIZE
+ *   sram0_ns   0x80000   512 KB  CPU0_NS_RAM_DATA_SIZE
+ *   sram1_ns   0x100000  640 KB  CM33 image, outside the TF-M map
+ *
+ * The node labels are referenced by the board CMakeLists.txt and by the
+ * cm85_ns / cm33_ns devicetrees.
+ */
+
+#include <mem.h>
+
+&sram0 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	sram0_s: sram0_s@0 {
+		reg = <0x0 DT_SIZE_K(512)>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+	};
+
+	sram0_ns: sram0_ns@80000 {
+		reg = <0x80000 DT_SIZE_K(512)>;
+	};
+};
+
+&sram1 {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	sram1_ns: sram1_ns@100000 {
+		reg = <0x100000 DT_SIZE_K(640)>;
+	};
+};
+
+&code_mram_cm85 {
+	/*
+	 * zephyr,flash points here and the TF-M module reads the image alignment
+	 * and sector size from it for imgtool. They must match TF-M's
+	 * FLASH0_PROGRAM_UNIT and FLASH0_SECTOR_SIZE (common/ra8m2/config.cmake),
+	 * not the MRAM controller values on the parent node. The properties are
+	 * only visible to CMake when the node has a binding, hence the
+	 * compatible.
+	 */
+	compatible = "soc-nv-flash";
+	write-block-size = <4>;
+	erase-block-size = <0x2000>;
+
+	boot_partition: partition@0 {
+		compatible = "zephyr,mapped-partition";
+		label = "mcuboot";
+		reg = <0x0 DT_SIZE_K(64)>;
+	};
+
+	slot0_partition: partition@10000 {
+		compatible = "zephyr,mapped-partition";
+		label = "secure";
+		reg = <0x10000 0x2c000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		slot0_nsc_partition: partition@33c00 {
+			compatible = "zephyr,mapped-partition";
+			label = "non-secure-callable";
+			reg = <0x33c00 DT_SIZE_K(32)>;
+		};
+	};
+
+	slot1_partition: partition@3c000 {
+		compatible = "zephyr,mapped-partition";
+		label = "secure-secondary";
+		reg = <0x3c000 0x2c000>;
+	};
+
+	tfm_ps_partition: partition@68000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-ps";
+		reg = <0x68000 DT_SIZE_K(32)>;
+	};
+
+	tfm_its_partition: partition@70000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-its";
+		reg = <0x70000 DT_SIZE_K(16)>;
+	};
+
+	tfm_otp_partition: partition@74000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-otp";
+		reg = <0x74000 DT_SIZE_K(16)>;
+	};
+
+	slot0_ns_partition: partition@78000 {
+		compatible = "zephyr,mapped-partition";
+		label = "non-secure";
+		reg = <0x78000 0x24000>;
+	};
+
+	slot1_ns_partition: partition@9c000 {
+		compatible = "zephyr,mapped-partition";
+		label = "non-secure-secondary";
+		reg = <0x9c000 0x24000>;
+	};
+};
+
+&code_mram_cm33 {
+	cm33_slot0_ns_partition: partition@c0000 {
+		compatible = "zephyr,mapped-partition";
+		label = "cm33-non-secure";
+		reg = <0xc0000 DT_SIZE_K(128)>;
+	};
+
+	cm33_slot1_ns_partition: partition@e0000 {
+		compatible = "zephyr,mapped-partition";
+		label = "cm33-non-secure-secondary";
+		reg = <0xe0000 DT_SIZE_K(128)>;
+	};
+};

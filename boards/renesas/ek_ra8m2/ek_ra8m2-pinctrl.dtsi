@@ -4,6 +4,19 @@
  */
 
 &pinctrl {
+	sci0_default: sci0_default {
+		group1 {
+			/* tx */
+			psels = <RA_PSEL(RA_PSEL_SCI_0, 6, 3)>;
+			drive-strength = "medium";
+		};
+
+		group2 {
+			/* rx */
+			psels = <RA_PSEL(RA_PSEL_SCI_0, 6, 2)>;
+		};
+	};
+
 	sci8_default: sci8_default {
 		group1 {
 			/* TX8 RX8 */
