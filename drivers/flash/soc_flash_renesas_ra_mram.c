@@ -46,12 +46,11 @@ static struct mram_renesas_ra_controller_config mram_controller_config = {
 			    .erase_value = 0xff,
 			    .caps = {.no_explicit_erase = true}},
 	.erase_block_size = DT_PROP(SOC_NV_MRAM_NODE, erase_block_size),
-	.mram_size = DT_INST_FOREACH_CHILD_STATUS_OKAY_SEP(0, DT_REG_SIZE, (+)),
+	.mram_size = DT_REG_SIZE(SOC_NV_MRAM_NODE),
 	.start_address = DT_REG_ADDR(SOC_NV_MRAM_NODE),
 #ifdef CONFIG_FLASH_PAGE_LAYOUT
-	.device_page_layout = {.pages_count = (DT_INST_FOREACH_CHILD_STATUS_OKAY_SEP(0, DT_REG_SIZE,
-										     (+))) /
-					      DT_PROP(SOC_NV_MRAM_NODE, erase_block_size),
+	.device_page_layout = {.pages_count = (DT_REG_SIZE(SOC_NV_MRAM_NODE) /
+					       DT_PROP(SOC_NV_MRAM_NODE, erase_block_size)),
 			       .pages_size = DT_PROP(SOC_NV_MRAM_NODE, erase_block_size)}
 #endif
 };
