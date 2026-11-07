@@ -23,6 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: renesas-gh
+      url-base: https://github.com/renesas
 
   group-filter: [-babblesim, -optional, -testing]
 
@@ -234,8 +236,9 @@ manifest:
       groups:
         - hal
     - name: hal_renesas
+      remote: renesas-gh
       path: modules/hal/renesas
-      revision: 0c0beea010e78899c8ffbfd995cbfe50d3e6595e
+      revision: wip_ra8m2
       groups:
         - hal
     - name: hal_rpi_pico
@@ -325,12 +328,13 @@ manifest:
       revision: c9ffd4692de246eb911c7ba49b78a331b2c63c74
       path: modules/lib/gui/lvgl
     - name: mbedtls
-      revision: c43f34b93797e81fd0257c30004dcd0ae332ae51
+      revision: 098e120afb51877ed814bdc04443890ae12e0642
       path: modules/crypto/mbedtls
       groups:
         - crypto
     - name: mcuboot
-      revision: 725d63c9d5bc1bb572d802e7a768daf504186daf
+      remote: renesas-gh
+      revision: mcuboot_v2.5.0+pqc-branch
       path: bootloader/mcuboot
       groups:
         - bootloader
@@ -387,13 +391,14 @@ manifest:
       groups:
         - debug
     - name: tf-m-tests
-      revision: 420c95daa7a25143bb88f807a1e2c432dd4372e8
+      revision: zephyr_tf-m_v2.3.0
       path: modules/tee/tf-m/tf-m-tests
       groups:
         - testing
         - tee
     - name: tf-psa-crypto
-      revision: 765af96a20a2b408474dcd950372ba9af4d26b62
+      remote: renesas-gh
+      revision: zephyr_tf-psa-crypto-1.1.0+pqc-branch
       path: modules/crypto/tf-psa-crypto
       groups:
         - crypto
@@ -408,7 +413,7 @@ manifest:
       groups:
         - tee
     - name: trusted-firmware-m
-      revision: 3d46d29fb296af1ff278ea3216e6fe0289a8fa7a
+      revision: zephyr_tf-m_v2.3.0
       path: modules/tee/tf-m/trusted-firmware-m
       groups:
         - tee
