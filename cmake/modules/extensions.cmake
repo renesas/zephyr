@@ -5058,11 +5058,15 @@ endfunction()
    * a node alias followed by a path to a child node, like 'my-alias/child-node'
 
    This function currently only supports properties with the following devicetree binding types:
-   string, int, boolean, array, uint8-array, string-array, path.
+   string, int, boolean, array, uint8-array, string-array, path, phandle, phandles, phandle-array.
 
-   For array valued properties (including uint8-array and string-array), the entire array is
-   returned as a CMake list unless ``INDEX`` is given. If ``INDEX`` is given, just the array element
-   at index ``<idx>`` is returned.
+   For array valued properties (including uint8-array, string-array, phandles and phandle-array),
+   the entire array is returned as a CMake list unless ``INDEX`` is given. If ``INDEX`` is given,
+   just the array element at index ``<idx>`` is returned.
+
+   A phandle is returned as the path of the referenced node. For a phandle-array, the element is
+   the path of the controller node, the cells and names are not available. An unspecified element
+   (``<0>``) is returned as ``NONE``.
 
    The property value will be returned in the ``<var>`` parameter if the node exists and has a
    property ``<prop>`` with one of the above types. ``<var>`` will be undefined otherwise.

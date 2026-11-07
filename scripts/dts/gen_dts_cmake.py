@@ -123,15 +123,20 @@ def main():
 
         if node.props:
             for item in node.props:
-                # We currently do not support phandle-arrays for edt -> cmake conversion.
                 # The code below supports the following phandle types:
                 # - phandle: which specifies a reference to a single node
                 # - phandles: which specifies a bare list of references to other nodes
+                # - phandle-array: which specifies a list of references to controller nodes
+                #   followed by cells. Only the controller paths are converted, cells and
+                #   names are not. An unspecified entry (<0>) is converted to NONE.
                 if "phandle" in node.props[item].type:
                     if "array" in node.props[item].type:
-                        continue  # phandle-array not supported
+                        cmake_value = to_cmake_list(
+                            node.props[item].val,
+                            lambda entry: 'NONE' if entry is None else entry.controller.path,
+                        )
                     # Convert array to CMake list
-                    if isinstance(node.props[item].val, list):
+                    elif isinstance(node.props[item].val, list):
                         cmake_value = to_cmake_list(node.props[item].val, lambda ph: ph.path)
                     else:
                         cmake_value = node.props[item].val.path

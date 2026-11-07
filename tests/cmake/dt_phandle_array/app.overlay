@@ -1,0 +1,32 @@
+/ {
+	test {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		test_gpio0: gpio@1000 {
+			compatible = "vnd,gpio-device";
+			gpio-controller;
+			reg = <0x1000 0x100>;
+			#gpio-cells = <2>;
+			#foo-cells = <1>;
+		};
+
+		test_gpio1: gpio@2000 {
+			compatible = "vnd,gpio-device";
+			gpio-controller;
+			reg = <0x2000 0x100>;
+			#gpio-cells = <2>;
+			#foo-cells = <1>;
+		};
+
+		test_holder: holder {
+			compatible = "vnd,phandle-holder";
+			gpios = <&test_gpio0 1 2>, <0>, <&test_gpio1 3 4>;
+			foos = <&test_gpio1 5>;
+		};
+
+		test_empty_holder: empty-holder {
+			compatible = "vnd,phandle-holder";
+		};
+	};
+};
