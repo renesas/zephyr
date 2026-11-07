@@ -1,0 +1,18 @@
+sample:
+  name: TF-M dual core (CM85 TF-M + CM33 NS)
+tests:
+  sample.boards.renesas.tfm_dual_core:
+    sysbuild: true
+    tags:
+      - trusted-firmware-m
+    platform_allow:
+      - ek_ra8m2/r7ka8m2jflcac/cm33/ns
+      - ek_ra8p1/r7ka8p1kflcac/cm33/ns
+    integration_platforms:
+      - ek_ra8m2/r7ka8m2jflcac/cm33/ns
+      - ek_ra8p1/r7ka8p1kflcac/cm33/ns
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "Hello from CM33 non-secure"

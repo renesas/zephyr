@@ -1,0 +1,18 @@
+# Copyright (c) 2026 Renesas Electronics Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+source "share/sysbuild/Kconfig"
+
+config CM85_NS_BOARD
+	string "Cortex-M85 non-secure board target"
+	default "ek_ra8m2/r7ka8m2jflcac/cm85/ns" if "$(BOARD)/$(BOARD_QUALIFIERS)" = "ek_ra8m2/r7ka8m2jflcac/cm33/ns"
+	default "ek_ra8p1/r7ka8p1kflcac/cm85/ns" if "$(BOARD)/$(BOARD_QUALIFIERS)" = "ek_ra8p1/r7ka8p1kflcac/cm33/ns"
+	help
+	  Board target of the Cortex-M85 non-secure image, built with TF-M.
+
+config CM85_NS_APP_PATH
+	string "Cortex-M85 non-secure application source directory"
+	default "$(ZEPHYR_BASE)/samples/tfm_integration/tfm_ipc"
+	help
+	  Application built for the Cortex-M85 non-secure image. That image
+	  starts the Cortex-M33.
