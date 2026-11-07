@@ -18,6 +18,14 @@ config TFM_REGRESSION_NS
 	  The regression tests will be included in the TF-M non-secure
 	  application.
 
+config TFM_REGRESSION_MLDSA87
+	bool "Enable the ML-DSA-87 regression configuration"
+	depends on TFM_REGRESSION_S || TFM_REGRESSION_NS
+	help
+	  Enable ML-DSA-87 crypto regression tests and restrict secure
+	  regression suites to the crypto suite to reduce secure image
+	  size. Non-secure regression suites are unchanged.
+
 config TFM_PROFILE_TYPE_NOT_SET
 	imply PSA_WANT_ALG_CBC_NO_PADDING
 	imply PSA_WANT_ALG_CBC_PKCS7

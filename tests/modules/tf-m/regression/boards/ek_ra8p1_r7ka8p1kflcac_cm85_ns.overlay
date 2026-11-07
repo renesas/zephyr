@@ -1,0 +1,88 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * TF-M regression flash map for ek_ra8p1 (CM85 NS, BL2 enabled).
+ *
+ * The regression S image is about 191 KB plus the 32 KB CMSE veneer region and
+ * the 0x400 trailer at the end of the slot, which does not fit the board
+ * default 176 KB S slot. With BL2 every image has a secondary slot, so S grows
+ * to 224 KB and the NS slots shrink to 96 KB to still fit the 768 KB code MRAM.
+ *
+ *   Node                  Offset    Size
+ *   boot_partition        0x00000    64 KB
+ *   slot0_partition       0x10000   224 KB   S primary
+ *     slot0_nsc_partition 0x3fc00    32 KB   below the 0x400 trailer
+ *   slot1_partition       0x48000   224 KB   S secondary
+ *   tfm_ps_partition      0x80000    32 KB
+ *   tfm_its_partition     0x88000    16 KB
+ *   tfm_otp_partition     0x8c000    16 KB
+ *   slot0_ns_partition    0x90000    96 KB   NS primary
+ *   slot1_ns_partition    0xa8000    96 KB   NS secondary, ends at 0xc0000
+ */
+
+#include <mem.h>
+
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &tfm_ps_partition;
+/delete-node/ &tfm_its_partition;
+/delete-node/ &tfm_otp_partition;
+/delete-node/ &slot0_ns_partition;
+/delete-node/ &slot1_ns_partition;
+
+&code_mram_cm85 {
+	slot0_partition: partition@10000 {
+		compatible = "zephyr,mapped-partition";
+		label = "secure";
+		reg = <0x10000 DT_SIZE_K(224)>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		slot0_nsc_partition: partition@3fc00 {
+			compatible = "zephyr,mapped-partition";
+			label = "non-secure-callable";
+			reg = <0x3fc00 DT_SIZE_K(32)>;
+		};
+	};
+
+	slot1_partition: partition@48000 {
+		compatible = "zephyr,mapped-partition";
+		label = "secure-secondary";
+		reg = <0x48000 DT_SIZE_K(224)>;
+	};
+
+	tfm_ps_partition: partition@80000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-ps";
+		reg = <0x80000 DT_SIZE_K(32)>;
+	};
+
+	tfm_its_partition: partition@88000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-its";
+		reg = <0x88000 DT_SIZE_K(16)>;
+	};
+
+	tfm_otp_partition: partition@8c000 {
+		compatible = "zephyr,mapped-partition";
+		label = "tfm-otp";
+		reg = <0x8c000 DT_SIZE_K(16)>;
+	};
+
+	slot0_ns_partition: partition@90000 {
+		compatible = "zephyr,mapped-partition";
+		label = "non-secure";
+		reg = <0x90000 DT_SIZE_K(96)>;
+	};
+
+	slot1_ns_partition: partition@a8000 {
+		compatible = "zephyr,mapped-partition";
+		label = "non-secure-secondary";
+		reg = <0xa8000 DT_SIZE_K(96)>;
+	};
+};

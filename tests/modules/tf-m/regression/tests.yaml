@@ -91,3 +91,17 @@ tests:
       - CONFIG_TFM_SFN=y
       - CONFIG_TFM_ISOLATION_LEVEL=1
     timeout: 200
+
+  tfm.regression.mldsa87:
+    # ML-DSA-87 regression: ML-DSA-87 crypto tests are enabled and only the
+    # secure crypto suite is kept, so that the secure image fits in the secure
+    # partition. The non-secure suites are unchanged.
+    platform_allow:
+      - ek_ra8p1/r7ka8p1kflcac/cm85/ns
+      - ek_ra8m2/r7ka8m2jflcac/cm85/ns
+    integration_platforms:
+      - ek_ra8p1/r7ka8p1kflcac/cm85/ns
+      - ek_ra8m2/r7ka8m2jflcac/cm85/ns
+    extra_args:
+      - EXTRA_CONF_FILE=overlay-mldsa87.conf
+    timeout: 300
