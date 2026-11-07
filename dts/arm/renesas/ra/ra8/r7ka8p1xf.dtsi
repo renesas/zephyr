@@ -8,17 +8,6 @@
 #include <zephyr/dt-bindings/clock/ra_clock.h>
 
 / {
-	soc {
-		npu0: npu@40140000 {
-			compatible = "renesas,ra-npu";
-			reg = <0x40140000 0x1000>;
-			clocks = <&npuclk MSTPA 16>;
-			secure-enable;
-			privilege-enable;
-			status = "disabled";
-		};
-	};
-
 	clocks: clocks {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -310,6 +299,17 @@
 				status = "disabled";
 			};
 		};
+	};
+};
+
+&peripheral {
+	npu0: npu@140000 {
+		compatible = "renesas,ra-npu";
+		reg = <0x140000 0x1000>;
+		clocks = <&npuclk MSTPA 16>;
+		secure-enable;
+		privilege-enable;
+		status = "disabled";
 	};
 };
 

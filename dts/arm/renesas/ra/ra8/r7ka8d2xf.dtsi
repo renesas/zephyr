@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 Renesas Electronics Corporation
+ * Copyright (c) 2025-2026 Renesas Electronics Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,15 +8,6 @@
 #include <zephyr/dt-bindings/clock/ra_clock.h>
 
 / {
-	soc {
-		lcdif: display-controller@40342000 {
-			compatible = "renesas,ra-glcdc";
-			reg = <0x40342000 0x1454>;
-			clocks = <&lcdclk MSTPC 4>;
-			status = "disabled";
-		};
-	};
-
 	clocks: clocks {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -340,6 +331,15 @@
 				status = "disabled";
 			};
 		};
+	};
+};
+
+&peripheral {
+	lcdif: display-controller@342000 {
+		compatible = "renesas,ra-glcdc";
+		reg = <0x342000 0x1454>;
+		clocks = <&lcdclk MSTPC 4>;
+		status = "disabled";
 	};
 };
 

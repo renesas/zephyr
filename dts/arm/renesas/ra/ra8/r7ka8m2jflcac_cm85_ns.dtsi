@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <arm/armv8.1-m.dtsi>
+#include <mem.h>
+
+/ {
+	soc {
+		/*
+		 * Non-secure alias memory map:
+		 * 0x1200_0000 - 0x1210_0000: MRAM (1MB)
+		 * 0x3200_0000 - 0x321A_0000: SRAM (1664KB)
+		 * 0x5000_0000 - 0x5050_0000: Peripheral (5MB)
+		 */
+
+		mram_ctrl: mram-controller@5013c000 {
+			compatible = "renesas,ra-mram-controller";
+			reg = <0x5013c000 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			mram: mram@12000000 {
+				compatible = "renesas,ra-nv-mram", "soc-nv-flash";
+				reg = <0x12000000 DT_SIZE_M(1)>;
+				ranges = <0x0 0x12000000 DT_SIZE_M(1)>;
+				write-block-size = <1>;
+				erase-block-size = <32>;
+			};
+		};
+
+		sram: sram@32000000 {
+			compatible = "mmio-sram";
+			reg = <0x32000000 DT_SIZE_K(1664)>;
+			ranges = <0x0 0x32000000 DT_SIZE_K(1664)>;
+		};
+
+		peripheral: peripheral@50000000 {
+			ranges = <0x0 0x50000000 0x500000>;
+		};
+	};
+};
+
+#include <arm/renesas/ra/ra8/r7ka8m2jflcac.dtsi>
+#include <arm/renesas/ra/ra8/r7ka8m2jflcac_ns.dtsi>
+
+/delete-node/ &cpu1;
+
+/* Option-setting and OTP regions are owned by the secure image */
+/delete-node/ &option_setting_ofs_conf_sec;
+/delete-node/ &option_setting_ofs_otp_sec;

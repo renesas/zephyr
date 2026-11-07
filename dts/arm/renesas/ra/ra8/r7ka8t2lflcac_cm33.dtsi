@@ -5,6 +5,44 @@
  */
 
 #include <arm/armv8-m.dtsi>
+#include <mem.h>
+
+/ {
+	soc {
+		/*
+		 * Secure memory map:
+		 * 0x0200_0000 - 0x0210_0000: MRAM (1MB)
+		 * 0x2200_0000 - 0x221A_0000: SRAM (1664KB)
+		 * 0x4000_0000 - 0x4050_0000: Peripheral (5MB)
+		 */
+
+		mram_ctrl: mram-controller@4013c000 {
+			compatible = "renesas,ra-mram-controller";
+			reg = <0x4013c000 0x4000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			mram: mram@2000000 {
+				compatible = "renesas,ra-nv-mram", "soc-nv-flash";
+				reg = <0x2000000 DT_SIZE_M(1)>;
+				ranges = <0x0 0x2000000 DT_SIZE_M(1)>;
+				write-block-size = <1>;
+				erase-block-size = <32>;
+			};
+		};
+
+		sram: sram@22000000 {
+			compatible = "mmio-sram";
+			reg = <0x22000000 DT_SIZE_K(1664)>;
+			ranges = <0x0 0x22000000 DT_SIZE_K(1664)>;
+		};
+
+		peripheral: peripheral@40000000 {
+			ranges = <0x0 0x40000000 0x500000>;
+		};
+	};
+};
+
 #include <arm/renesas/ra/ra8/r7ka8t2lflcac.dtsi>
 
 /delete-node/ &cpu0;
