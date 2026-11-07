@@ -227,6 +227,60 @@ def test_rfp_create_with_speed(dr, cc, req, runner_config, tmpdir):
     assert cc.call_args_list == [call(x) for x in EXPECTED_COMMANDS_WITH_SPEED]
 
 
+EXPECTED_COMMANDS_WITH_ERASE_CHIP = [
+    [
+        'rfp-cli',
+        '-port',
+        TEST_RFP_PORT,
+        '-device',
+        TEST_RFP_DEVICE,
+        '-erase-chip',
+    ],
+    [
+        'rfp-cli',
+        '-port',
+        TEST_RFP_PORT,
+        '-device',
+        TEST_RFP_DEVICE,
+        '-run',
+        '-noerase',
+        '-p',
+        '-file',
+        RC_KERNEL_HEX,
+    ],
+]
+
+
+@patch('runners.core.ZephyrBinaryRunner.require', side_effect=require_patch)
+@patch('runners.core.ZephyrBinaryRunner.check_call')
+@patch('runners.rfp.RfpBinaryRunner.default_rfp')
+def test_rfp_create_with_erase_chip(dr, cc, req, runner_config, tmpdir):
+    """
+    Test commands using a runner created from command line parameters.
+
+    Input:
+        --erase --erase-chip
+
+    Output:
+        -erase-chip (separate call), then -noerase
+    """
+    args = [
+        '--device',
+        str(TEST_RFP_DEVICE),
+        '--port',
+        str(TEST_RFP_PORT),
+        '--erase',
+        '--erase-chip',
+    ]
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    RfpBinaryRunner.add_parser(parser)
+    arg_namespace = parser.parse_args(args)
+    runner = RfpBinaryRunner.create(runner_config, arg_namespace)
+    with patch('os.path.isfile', side_effect=os_path_isfile_patch):
+        runner.run('flash')
+    assert cc.call_args_list == [call(x) for x in EXPECTED_COMMANDS_WITH_ERASE_CHIP]
+
+
 @patch('runners.core.ZephyrBinaryRunner.require', side_effect=require_patch)
 @patch('runners.core.ZephyrBinaryRunner.check_call')
 @patch('runners.rfp.RfpBinaryRunner.default_rfp')
@@ -521,3 +575,39 @@ def test_rfp_unsupported_file_type(dr, cc, req, runner_config, tmpdir):
     with pytest.raises(ValueError, match='unsupported file type'):
         runner.run('flash')
     assert cc.call_args_list == []
+
+
+@patch('runners.core.ZephyrBinaryRunner.require', side_effect=require_patch)
+@patch('runners.core.ZephyrBinaryRunner.check_call')
+@patch('runners.rfp.RfpBinaryRunner.default_rfp')
+def test_rfp_erase_chip_before_partition(dr, cc, req, runner_config, tmpdir):
+    """
+    Test the chip erase is done before partitioning and flashing.
+
+    Input:
+        --erase-chip --rpd-file
+
+    Output:
+        -erase-chip, then -fo boundary-file, then -p -file
+    """
+    args = [
+        '--device',
+        TEST_RFP_DEVICE,
+        '--tool',
+        TEST_RFP_TOOL,
+        '--erase-chip',
+        '--rpd-file',
+        TEST_RFP_RPD_FILE,
+    ]
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    RfpBinaryRunner.add_parser(parser)
+    arg_namespace = parser.parse_args(args)
+    runner = RfpBinaryRunner.create(runner_config, arg_namespace)
+    with patch('os.path.isfile', side_effect=os_path_isfile_patch):
+        runner.run('flash')
+    cmds = [c.args[0] for c in cc.call_args_list]
+    assert len(cmds) == 3
+    assert '-erase-chip' in cmds[0]
+    assert '-p' not in cmds[0]
+    assert '-fo' in cmds[1]
+    assert '-noerase' in cmds[2]

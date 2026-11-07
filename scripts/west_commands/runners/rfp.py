@@ -43,6 +43,7 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
         rfp_cli='rfp-cli',
         device=None,
         erase=False,
+        erase_chip=False,
         verify=False,
         port=DEFAULT_RFP_PORT,
         tool=None,
@@ -57,6 +58,7 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
         self.rfp_cmd = [rfp_cli]
         self.verify = verify
         self.erase = erase
+        self.erase_chip = erase_chip
         self.port = port
         self.tool = tool
         self.interface = interface
@@ -99,6 +101,12 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
             'TrustZone boundaries, programmed before the image',
         )
         parser.add_argument('--device', help='Specify the device type to pass to rfp-cli')
+        parser.add_argument(
+            '--erase-chip',
+            action='store_true',
+            help='if given, pass -erase-chip to rfp-cli to erase the whole chip before '
+            'programming (takes precedence over --erase)',
+        )
         parser.add_argument('--verify', action='store_true', help='if given, verify after flash')
         parser.add_argument('--speed', help='Specify the serial port speed')
 
@@ -113,6 +121,7 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
             interface=args.interface,
             rpd_file=args.rpd_file,
             erase=args.erase,
+            erase_chip=args.erase_chip,
             speed=args.speed,
             verify=args.verify,
         )
@@ -138,6 +147,9 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
     def do_run(self, command, **kwargs):
         if command == 'flash':
             self.require(self.rfp_cmd[0])
+
+            if self.erase_chip:
+                self.do_erase_chip()
 
             if self.rpd_file is not None:
                 self.do_partition()
@@ -178,10 +190,13 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
 
         self.logger.info(f'Flashing file: {hex_name}')
 
+        device = ['-device', self.device]
+
         load_image = ['-run']
-        if self.erase:
+        if self.erase and not self.erase_chip:
             load_image += ['-erase']
         else:
+            # the chip is either already erased or must be left untouched
             load_image += ['-noerase']
 
         if self.verify:
@@ -190,9 +205,14 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
         # Load image
         load_image += ['-p', '-file', hex_name]
 
+        cmd = self.rfp_cmd + self.connection_args() + device + load_image
+        self.check_call(cmd)
+
+    def do_erase_chip(self):
+        # -erase-chip cannot be combined with other operations, run it on its own
         device = ['-device', self.device]
 
-        cmd = self.rfp_cmd + self.connection_args() + device + load_image
+        cmd = self.rfp_cmd + self.connection_args() + device + ['-erase-chip']
         self.check_call(cmd)
 
     def do_partition(self):
