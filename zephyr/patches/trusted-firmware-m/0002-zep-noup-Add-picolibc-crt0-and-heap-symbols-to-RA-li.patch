@@ -1,0 +1,182 @@
+From ecfe2cec9237f166baa3e2cf3dc42bd93370b084 Mon Sep 17 00:00:00 2001
+From: Khai Cao <khai.cao.xk@renesas.com>
+Date: Thu, 22 Oct 2026 08:27:59 +0000
+Subject: [PATCH 2/2] [zep noup] Add picolibc crt0 and heap symbols to RA
+ linker script
+
+Keep .noinit* out of .TFM_BSS so the zero table does not clear
+variables written by SystemInit() (g_clock_freq, SystemCoreClock,
+BSP_SECTION_NOINIT data). Move .noinit* into the NOLOAD .TFM_NOINIT
+section and keep .ram_noinit* there for FSP versions that still use
+the old section name.
+
+Define the symbols picolibc's crt0 and heap code expect:
+__data_start/__data_source/__data_size, __bss_start/__bss_size,
+__tls_base, __arm32_tls_tcb_offset, __bothinit_array_start/end and
+__heap_start/__heap_end/__heap_size.
+
+These symbols let picolibc's _start initialise one region. They do
+not make CONFIG_TFM_INCLUDE_STDLIBC=ON bootable on their own, because
+picolibc's crt0 still skips the per-partition copy and zero tables.
+config.cmake keeps STDLIBC=OFF.
+
+This change is RA-specific and is not a cherry-pick of an upstream
+commit, so it is tagged noup.
+
+Signed-off-by: Khai Cao <khai.cao.xk@renesas.com>
+---
+ .../renesas/ra/common/core/config.cmake       |  2 +-
+ .../common/core/scripts/gcc/tfm_common_bl2.ld | 24 ++++++++++++++++++
+ .../scripts/gcc/tfm_isolation_s.ld.template   | 25 ++++++++++++++++++-
+ 3 files changed, 49 insertions(+), 2 deletions(-)
+
+diff --git a/platform/ext/target/renesas/ra/common/core/config.cmake b/platform/ext/target/renesas/ra/common/core/config.cmake
+index 532f34a59..c0feb57f0 100644
+--- a/platform/ext/target/renesas/ra/common/core/config.cmake
++++ b/platform/ext/target/renesas/ra/common/core/config.cmake
+@@ -83,7 +83,7 @@ else()
+ endif()
+ 
+ set(CONFIG_TFM_SPM_BACKEND     IPC CACHE STRING "The SPM backend")
+-set(CONFIG_TFM_INCLUDE_STDLIBC ON  CACHE BOOL   "Include standard C libraries and startup code or not")
++set(CONFIG_TFM_INCLUDE_STDLIBC OFF CACHE BOOL   "Include standard C libraries and startup code or not")
+ set(CONFIG_TFM_ENABLE_FP       ON  CACHE BOOL   "Enable floating point support")
+ set(TFM_PARTITION_PLATFORM     ON  CACHE BOOL   "Enable Platform partition" FORCE)
+ 
+diff --git a/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_common_bl2.ld b/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_common_bl2.ld
+index 25d9846da..f494a06cc 100644
+--- a/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_common_bl2.ld
++++ b/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_common_bl2.ld
+@@ -61,6 +61,7 @@ SECTIONS
+         . = ALIGN(4);
+         /* preinit data */
+         PROVIDE_HIDDEN (__preinit_array_start = .);
++        PROVIDE(__bothinit_array_start = __preinit_array_start);
+         KEEP(*(.preinit_array))
+         PROVIDE_HIDDEN (__preinit_array_end = .);
+ 
+@@ -70,6 +71,7 @@ SECTIONS
+         KEEP(*(SORT(.init_array.*)))
+         KEEP(*(.init_array))
+         PROVIDE_HIDDEN (__init_array_end = .);
++        PROVIDE(__bothinit_array_end = __init_array_end);
+ 
+         . = ALIGN(4);
+         /* finit data */
+@@ -178,6 +180,11 @@ SECTIONS
+ 
+     } > RAM AT > FLASH
+     Image$$ER_DATA$$Base = ADDR(.data);
++    /* Symbols picolibc's crt0 reads. TF-M's _start (CONFIG_PICOLIBC branch of
++     * crt_start.c) uses the copy and zero tables instead. */
++    __data_start  = ADDR(.data);
++    __data_source = LOADADDR(.data);
++    __data_size   = SIZEOF(.data);
+ 
+     .bss : ALIGN(4)
+     {
+@@ -186,8 +193,21 @@ SECTIONS
+         *(.bss*)
+         *(COMMON)
+         . = ALIGN(4);
++        __tls_base = .;
+         __bss_end__ = .;
+     } > RAM
++    /* picolibc puts the thread pointer this far below the TLS block */
++    PROVIDE(__arm32_tls_tcb_offset = 8);
++    __bss_start = ADDR(.bss);
++    __bss_size  = SIZEOF(.bss);
++
++    /* Uninitialized RAM is kept out of the zeroed and copied sections so that
++     * values written before the zero table runs survive. */
++    .ram_noinit (NOLOAD) : ALIGN(4)
++    {
++        *(SORT_BY_ALIGNMENT(.noinit*))
++        *(SORT_BY_ALIGNMENT(.ram_noinit*)) /* FSP Renesas RA RAM noinit section */
++    } > RAM
+ 
+ #if defined (__ARM_FEATURE_CMSE) && (__ARM_FEATURE_CMSE == 3U)
+     .msp_stack (NOLOAD) : ALIGN(32)
+@@ -224,6 +244,10 @@ SECTIONS
+         __heap_limit = .; /* Add for _sbrk */
+     } > RAM
+     Image$$ARM_LIB_HEAP$$ZI$$Limit = ADDR(.heap) + SIZEOF(.heap);
++    /* Heap bounds picolibc's malloc expects. */
++    __heap_start = ADDR(.heap);
++    __heap_end   = ADDR(.heap) + SIZEOF(.heap);
++    __heap_size  = SIZEOF(.heap);
+ 
+     PROVIDE(__stack = Image$$ARM_LIB_STACK$$ZI$$Limit);
+ }
+diff --git a/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_isolation_s.ld.template b/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_isolation_s.ld.template
+index 8a69f4bdf..a64b0cfbc 100644
+--- a/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_isolation_s.ld.template
++++ b/platform/ext/target/renesas/ra/common/core/scripts/gcc/tfm_isolation_s.ld.template
+@@ -276,6 +276,7 @@ SECTIONS
+         . = ALIGN(4);
+         /* preinit data */
+         PROVIDE_HIDDEN (__preinit_array_start = .);
++        PROVIDE(__bothinit_array_start = __preinit_array_start);
+         KEEP(*(.preinit_array))
+         PROVIDE_HIDDEN (__preinit_array_end = .);
+ 
+@@ -285,6 +286,7 @@ SECTIONS
+         KEEP(*(SORT(.init_array.*)))
+         KEEP(*(.init_array))
+         PROVIDE_HIDDEN (__init_array_end = .);
++        PROVIDE(__bothinit_array_end = __init_array_end);
+ 
+         . = ALIGN(4);
+         /* finit data */
+@@ -585,6 +587,10 @@ SECTIONS
+         __HeapLimit = .;
+         __heap_limit = .; /* Add for _sbrk */
+     } > RAM
++    /* Heap bounds picolibc's malloc expects. */
++    __heap_start = ADDR(.heap);
++    __heap_end = ADDR(.heap) + SIZEOF(.heap);
++    __heap_size = SIZEOF(.heap);
+ #endif
+ 
+ {% for partition in partitions %}
+@@ -644,6 +650,10 @@ SECTIONS
+         KEEP(*(.jcr*))
+         . = ALIGN(TFM_LINKER_TFM_DATA_ALIGNMENT);
+     } > RAM AT > FLASH :tfm_data
++    /* Symbols required by picolibc's crt0 (_start). */
++    __data_start  = ADDR(.TFM_DATA);
++    __data_source = LOADADDR(.TFM_DATA);
++    __data_size   = SIZEOF(.TFM_DATA);
+ 
+ #ifdef S_RUNTIME_ITCM_START
+     .ER_ITCM_CODE :
+@@ -688,12 +698,25 @@ SECTIONS
+         *(SORT_BY_ALIGNMENT(.bss*))
+         *(COMMON)
+ 
+-        *(SORT_BY_ALIGNMENT(.noinit*))       /* Uninitialized RAM */
+         *(SORT_BY_ALIGNMENT(.cy_sharedmem*)) /* Cypress shared memory */
+ 
+         . = ALIGN(TFM_LINKER_TFM_BSS_ALIGNMENT);
++        __tls_base = .;
+         __bss_end__ = .;
+     } > RAM
++    /* picolibc puts the thread pointer this far below the TLS block */
++    PROVIDE(__arm32_tls_tcb_offset = 8);
++    /* Symbols required by picolibc's crt0 (_start). */
++    __bss_start = ADDR(.TFM_BSS);
++    __bss_size  = SIZEOF(.TFM_BSS);
++
++    .TFM_NOINIT ALIGN(TFM_LINKER_TFM_BSS_ALIGNMENT) (NOLOAD) :
++    {
++        /* Uninitialized RAM */
++        *(SORT_BY_ALIGNMENT(.noinit*))
++        *(SORT_BY_ALIGNMENT(.ram_noinit*)) /* FSP Renesas RA RAM noinit section */
++    } > RAM
++
+     Image$$ER_PART_RT_POOL$$ZI$$Base = __partition_runtime_start__;
+     Image$$ER_PART_RT_POOL$$ZI$$Limit = __partition_runtime_end__;
+     Image$$ER_SERV_RT_POOL$$ZI$$Base = __service_runtime_start__;
+-- 
+2.43.0
+
