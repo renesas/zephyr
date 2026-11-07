@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <renesas/ra/ra8/r7ka8p1kflcac_cm33_ns.dtsi>
+#include "ek_ra8p1_r7ka8p1kflcac_cm33_common.dtsi"
+#include "ek_ra8p1_r7ka8p1kflcac_ns_partition.dtsi"
+
+/ {
+	model = "Renesas EK-RA8P1 Non-Secure";
+
+	chosen {
+		zephyr,sram = &sram1_ns;
+		zephyr,code-partition = &cm33_slot0_ns_partition;
+	};
+};
+
+/* CGC is configured by the TF-M secure image */
+&pclkblock {
+	secure-clocks;
+};
