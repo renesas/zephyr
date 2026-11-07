@@ -3,4 +3,9 @@ board:
   full_name: RA8P1 Evaluation Kit
   vendor: renesas
   socs:
-  - name: r7ka8p1kflcac
+    - name: r7ka8p1kflcac
+      variants:
+        - name: ns
+          cpucluster: cm85
+        - name: ns
+          cpucluster: cm33
