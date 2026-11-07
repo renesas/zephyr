@@ -1,0 +1,78 @@
+From 019115657927b66070c4a7920cf17ad08f4ce912 Mon Sep 17 00:00:00 2001
+From: The Nguyen <the.nguyen.yf@renesas.com>
+Date: Sat, 7 Nov 2026 07:13:42 +0000
+Subject: [PATCH 3/3] [noup] Build: Add TFM_REGRESSION_MLDSA87 reduced secure
+ regression
+
+Add the TFM_REGRESSION_MLDSA87 option (OFF by default). It turns on
+the ML-DSA-87 crypto test and turns off all other secure test suites.
+The ML-DSA-87 test does not fit in the secure flash partition
+alongside the other secure suites.
+
+The non-secure suites are not changed, because they still need their
+secure test partitions. On Zephyr, the application Kconfig selects them.
+
+The config is included in config.cmake before enable_dep_config.cmake,
+so the test dependencies are derived from the reduced suite set.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: The Nguyen <the.nguyen.yf@renesas.com>
+---
+ tests_reg/test/config/config.cmake            |  4 +++
+ .../test/config/mldsa87_test_config.cmake     | 29 +++++++++++++++++++
+ 2 files changed, 33 insertions(+)
+ create mode 100644 tests_reg/test/config/mldsa87_test_config.cmake
+
+diff --git a/tests_reg/test/config/config.cmake b/tests_reg/test/config/config.cmake
+index 1f9f427..0c83595 100644
+--- a/tests_reg/test/config/config.cmake
++++ b/tests_reg/test/config/config.cmake
+@@ -5,6 +5,10 @@
+ #
+ #-------------------------------------------------------------------------------
+ 
++# Apply the optional ML-DSA-87 regression configuration before deriving
++# test dependencies.
++include(${CMAKE_CURRENT_LIST_DIR}/mldsa87_test_config.cmake)
++
+ include(${CMAKE_CURRENT_LIST_DIR}/enable_dep_config.cmake)
+ 
+ ########################## TEST SYNC ###########################################
+diff --git a/tests_reg/test/config/mldsa87_test_config.cmake b/tests_reg/test/config/mldsa87_test_config.cmake
+new file mode 100644
+index 0000000..9da83b2
+--- /dev/null
++++ b/tests_reg/test/config/mldsa87_test_config.cmake
+@@ -0,0 +1,29 @@
++#-------------------------------------------------------------------------------
++# Copyright (c) 2026 Renesas Electronics Corporation
++#
++# SPDX-License-Identifier: BSD-3-Clause
++#-------------------------------------------------------------------------------
++
++# Reduced secure regression: enable the ML-DSA-87 crypto tests and keep only
++# the crypto suite on the secure side. The ML-DSA-87 tests do not fit in the
++# secure flash partition together with the other secure suites, so all other
++# secure suites are disabled.
++# The non-secure suites are left unchanged: they still need their secure test
++# partitions (e.g. IPC services), and on Zephyr they are selected by the app
++# Kconfig, not by these options.
++option(TFM_REGRESSION_MLDSA87 "Run ML-DSA-87 crypto tests with a reduced secure regression" OFF)
++if(TFM_REGRESSION_MLDSA87)
++    # Keep only the secure crypto suite, with ML-DSA-87 enabled
++    set(TFM_CRYPTO_TEST_MLDSA_87 ON  CACHE BOOL "" FORCE)
++    # Disable all other secure suites to save flash
++    set(TEST_S_ATTESTATION       OFF CACHE BOOL "" FORCE)
++    set(TEST_S_FIH               OFF CACHE BOOL "" FORCE)
++    set(TEST_S_FPU               OFF CACHE BOOL "" FORCE)
++    set(TEST_S_FWU               OFF CACHE BOOL "" FORCE)
++    set(TEST_S_IPC               OFF CACHE BOOL "" FORCE)
++    set(TEST_S_ITS               OFF CACHE BOOL "" FORCE)
++    set(TEST_S_PLATFORM          OFF CACHE BOOL "" FORCE)
++    set(TEST_S_PS                OFF CACHE BOOL "" FORCE)
++    set(TEST_S_SFN_BACKEND       OFF CACHE BOOL "" FORCE)
++    message(STATUS "TFM_REGRESSION_MLDSA87: ML-DSA-87 enabled, only the secure crypto suite is built")
++endif()
+-- 
+2.43.0
+

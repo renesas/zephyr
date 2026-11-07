@@ -1,0 +1,118 @@
+From 10b7b2ac705604eda3329715ebec5aebe9c1a569 Mon Sep 17 00:00:00 2001
+From: The Nguyen <the.nguyen.yf@renesas.com>
+Date: Sat, 7 Nov 2026 07:13:42 +0000
+Subject: [PATCH 2/3] [noup] Tests: crypto: Register ML-DSA-87 test in S and NS
+ suites
+
+Pass TFM_CRYPTO_TEST_MLDSA_87 to the secure and non-secure crypto test
+suites. When it is enabled, register TFM_S_CRYPTO_TEST_1058 and
+TFM_NS_CRYPTO_TEST_1058, which run the common ML-DSA-87 test.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: The Nguyen <the.nguyen.yf@renesas.com>
+---
+ .../suites/crypto/non_secure/CMakeLists.txt        |  1 +
+ .../non_secure/crypto_ns_interface_testsuite.c     | 14 ++++++++++++++
+ .../secure_fw/suites/crypto/secure/CMakeLists.txt  |  1 +
+ .../crypto/secure/crypto_sec_interface_testsuite.c | 14 ++++++++++++++
+ 4 files changed, 30 insertions(+)
+
+diff --git a/tests_reg/test/secure_fw/suites/crypto/non_secure/CMakeLists.txt b/tests_reg/test/secure_fw/suites/crypto/non_secure/CMakeLists.txt
+index 5410fd8..eb3f32a 100644
+--- a/tests_reg/test/secure_fw/suites/crypto/non_secure/CMakeLists.txt
++++ b/tests_reg/test/secure_fw/suites/crypto/non_secure/CMakeLists.txt
+@@ -61,6 +61,7 @@ target_compile_definitions(tfm_test_suite_crypto_ns
+         $<$<BOOL:${TFM_CRYPTO_TEST_WP_SECP384_R1}>:TFM_CRYPTO_TEST_WP_SECP384_R1>
+         $<$<BOOL:${TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC}>:TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC>
+         $<$<BOOL:${CC3XX_RUNTIME_ENABLED}>:CC3XX_RUNTIME_ENABLED>
++        $<$<BOOL:${TFM_CRYPTO_TEST_MLDSA_87}>:TFM_CRYPTO_TEST_MLDSA_87>
+     INTERFACE
+         TEST_NS_CRYPTO
+ )
+diff --git a/tests_reg/test/secure_fw/suites/crypto/non_secure/crypto_ns_interface_testsuite.c b/tests_reg/test/secure_fw/suites/crypto/non_secure/crypto_ns_interface_testsuite.c
+index 56c95b1..c1f08bb 100644
+--- a/tests_reg/test/secure_fw/suites/crypto/non_secure/crypto_ns_interface_testsuite.c
++++ b/tests_reg/test/secure_fw/suites/crypto/non_secure/crypto_ns_interface_testsuite.c
+@@ -120,6 +120,9 @@ static void tfm_crypto_test_1055(struct test_result_t *ret);
+ #ifdef TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC
+ static void tfm_crypto_test_1057(struct test_result_t *ret);
+ #endif /* TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC */
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++static void tfm_crypto_test_1058(struct test_result_t *ret);
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+ 
+ static struct test_t crypto_tests[] = {
+     {&tfm_crypto_test_1001, "TFM_NS_CRYPTO_TEST_1001",
+@@ -282,6 +285,10 @@ static struct test_t crypto_tests[] = {
+     {&tfm_crypto_test_1057, "TFM_NS_CRYPTO_TEST_1057",
+      "Non Secure SP800-108 Counter CMAC key derivation"},
+ #endif /* TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC */
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++    {&tfm_crypto_test_1058, "TFM_NS_CRYPTO_TEST_1058",
++    "Non Secure ML-DSA-87 NIST FIPS 204 KeyGen KAT and PSA sign/verify"},
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+ };
+ 
+ void register_testsuite_ns_crypto_interface(struct test_suite_t *p_test_suite)
+@@ -708,3 +715,10 @@ static void tfm_crypto_test_1055(struct test_result_t *ret)
+         PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
+ }
+ #endif /* TFM_CRYPTO_TEST_WP_SECP384_R1 */
++
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++static void tfm_crypto_test_1058(struct test_result_t *ret)
++{
++    tfm_crypto_test_mldsa87_sign_verify(ret);
++}
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+diff --git a/tests_reg/test/secure_fw/suites/crypto/secure/CMakeLists.txt b/tests_reg/test/secure_fw/suites/crypto/secure/CMakeLists.txt
+index 6353699..7da5aab 100644
+--- a/tests_reg/test/secure_fw/suites/crypto/secure/CMakeLists.txt
++++ b/tests_reg/test/secure_fw/suites/crypto/secure/CMakeLists.txt
+@@ -59,6 +59,7 @@ target_compile_definitions(tfm_test_suite_crypto_s
+         $<$<BOOL:${TFM_CRYPTO_TEST_ALG_ECDSA}>:TFM_CRYPTO_TEST_ALG_ECDSA>
+         $<$<BOOL:${TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC}>:TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC>
+         $<$<BOOL:${CC3XX_RUNTIME_ENABLED}>:CC3XX_RUNTIME_ENABLED>
++        $<$<BOOL:${TFM_CRYPTO_TEST_MLDSA_87}>:TFM_CRYPTO_TEST_MLDSA_87>
+     INTERFACE
+         TEST_S_CRYPTO
+ )
+diff --git a/tests_reg/test/secure_fw/suites/crypto/secure/crypto_sec_interface_testsuite.c b/tests_reg/test/secure_fw/suites/crypto/secure/crypto_sec_interface_testsuite.c
+index b75fa7a..746ab92 100644
+--- a/tests_reg/test/secure_fw/suites/crypto/secure/crypto_sec_interface_testsuite.c
++++ b/tests_reg/test/secure_fw/suites/crypto/secure/crypto_sec_interface_testsuite.c
+@@ -119,6 +119,9 @@ static void tfm_crypto_test_1055(struct test_result_t *ret);
+ #ifdef TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC
+ static void tfm_crypto_test_1057(struct test_result_t *ret);
+ #endif /* TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC */
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++static void tfm_crypto_test_1058(struct test_result_t *ret);
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+ 
+ static struct test_t crypto_tests[] = {
+     {&tfm_crypto_test_1001, "TFM_S_CRYPTO_TEST_1001",
+@@ -279,6 +282,10 @@ static struct test_t crypto_tests[] = {
+     {&tfm_crypto_test_1057, "TFM_S_CRYPTO_TEST_1057",
+      "Secure SP800-108 Counter CMAC key derivation"},
+ #endif /* TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC */
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++    {&tfm_crypto_test_1058, "TFM_S_CRYPTO_TEST_1058",
++    "Secure ML-DSA-87 NIST FIPS 204 KeyGen KAT and PSA sign/verify"},
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+ };
+ 
+ void register_testsuite_s_crypto_interface(struct test_suite_t *p_test_suite)
+@@ -735,3 +742,10 @@ static void tfm_crypto_test_1057(struct test_result_t *ret)
+     psa_key_derivation_test(PSA_ALG_SP800_108_COUNTER_CMAC, ret);
+ }
+ #endif /* TFM_CRYPTO_TEST_SP800_108_COUNTER_CMAC */
++
++#if defined(TFM_CRYPTO_TEST_MLDSA_87)
++static void tfm_crypto_test_1058(struct test_result_t *ret)
++{
++    tfm_crypto_test_mldsa87_sign_verify(ret);
++}
++#endif /* TFM_CRYPTO_TEST_MLDSA_87 */
+-- 
+2.43.0
+

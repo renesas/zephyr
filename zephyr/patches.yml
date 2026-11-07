@@ -1,0 +1,45 @@
+patches:
+  - path: trusted-firmware-m/0001-renesas-noup-platform-ra-Add-RA8M2-RA8P1-and-ML-DSA-.patch
+    sha256sum: a344ff2dd5ac5b510190f161350b64029d3d29a5e6bbca85f4759c309bed3406
+    author: The Nguyen
+    email: the.nguyen.yf@renesas.com
+    date: 2026-11-07
+    module: trusted-firmware-m
+    comments: |
+      Add Renesas RA8M2 and RA8P1 platform support (EK-RA8M2, EK-RA8P1) and ML-DSA-87 (PQC) support for Crypto services and BL2.
+
+  - path: trusted-firmware-m/0002-zep-noup-Add-picolibc-crt0-and-heap-symbols-to-RA-li.patch
+    sha256sum: ea61cc0d8901c6b5f718c76543b841539e853b35010a9dd11f17deee7db55543
+    author: Khai Cao
+    email: khai.cao.xk@renesas.com
+    date: 2026-10-22
+    module: trusted-firmware-m
+    comments: |
+      Add Zephyr downstream picolibc crt0 and heap symbols to the RA linker script.
+
+  - path: tf-m-tests/0001-noup-Tests-crypto-Add-ML-DSA-87-KeyGen-KAT-and-sign-.patch
+    sha256sum: d36128661b9e172c98a853b2d3ee64861cb73103049287a645c250ac52ed6b39
+    author: The Nguyen
+    email: the.nguyen.yf@renesas.com
+    date: 2026-11-07
+    module: tf-m-tests
+    comments: |
+      Add the TFM_CRYPTO_TEST_MLDSA_87 option and a common ML-DSA-87 KeyGen KAT and sign/verify test helper.
+
+  - path: tf-m-tests/0002-noup-Tests-crypto-Register-ML-DSA-87-test-in-S-and-N.patch
+    sha256sum: 1e41ed9a51d09560b9aa8698c6c283fa7be1557154ef18a58147bd0f89d8213a
+    author: The Nguyen
+    email: the.nguyen.yf@renesas.com
+    date: 2026-11-07
+    module: tf-m-tests
+    comments: |
+      Register the ML-DSA-87 test in the secure and non-secure crypto test suites.
+
+  - path: tf-m-tests/0003-noup-Build-Add-TFM_REGRESSION_MLDSA87-reduced-secure.patch
+    sha256sum: a8a40c43e4704fefd81be2b84f003245c3a0d8d9a3597cf3ccffc11359853b07
+    author: The Nguyen
+    email: the.nguyen.yf@renesas.com
+    date: 2026-11-07
+    module: tf-m-tests
+    comments: |
+      Add the TFM_REGRESSION_MLDSA87 option for a reduced secure regression that runs only the ML-DSA-87 test.
