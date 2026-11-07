@@ -6,3 +6,11 @@ description: Renesas RA Clock Control node pclk block
 compatible: "renesas,ra-cgc-pclk-block"
 
 include: [clock-controller.yaml, base.yaml]
+
+properties:
+  secure-clocks:
+    type: boolean
+    description: |
+      The CGC registers are owned by a secure image. A non-secure image does not configure the
+      clock tree directly, it reads clock dividers and clock source selections through secure
+      veneers or a secure service API.
