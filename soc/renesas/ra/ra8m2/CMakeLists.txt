@@ -93,3 +93,7 @@ elseif(CONFIG_LD_LINKER_TEMPLATE)
 else()
   message(WARNING "Unsupported linker template.")
 endif()
+
+if(CONFIG_BUILD_WITH_TFM AND CONFIG_SOC_R7KA8M2JFLCAC_CM85)
+  include(${CMAKE_CURRENT_LIST_DIR}/tfm_clocks.cmake)
+endif()
