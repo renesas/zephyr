@@ -6,11 +6,12 @@
 
 '''Runner for rfp.'''
 
+import os
 import platform
 import re
 from pathlib import Path
 
-from runners.core import RunnerCaps, ZephyrBinaryRunner
+from runners.core import FileType, RunnerCaps, ZephyrBinaryRunner
 
 if platform.system() in {'Darwin', 'Windows'}:
     DEFAULT_RFP_PORT = None
@@ -51,6 +52,8 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
     ):
         super().__init__(cfg)
 
+        self.file = cfg.file
+        self.file_type = cfg.file_type
         self.rfp_cmd = [rfp_cli]
         self.verify = verify
         self.erase = erase
@@ -67,7 +70,7 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
 
     @classmethod
     def capabilities(cls):
-        return RunnerCaps(commands={'flash'}, erase=True)
+        return RunnerCaps(commands={'flash'}, erase=True, file=True)
 
     @classmethod
     def do_add_parser(cls, parser):
@@ -92,7 +95,8 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
         )
         parser.add_argument(
             '--rpd-file',
-            help='path to renesas partition data zephyr.rpd',
+            help='path to the Renesas partition data file (.rpd) setting the '
+            'TrustZone boundaries, programmed before the image',
         )
         parser.add_argument('--device', help='Specify the device type to pass to rfp-cli')
         parser.add_argument('--verify', action='store_true', help='if given, verify after flash')
@@ -133,18 +137,44 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
 
     def do_run(self, command, **kwargs):
         if command == 'flash':
+            self.require(self.rfp_cmd[0])
+
             if self.rpd_file is not None:
-                self.do_partition(**kwargs)
+                self.do_partition()
 
             self.do_flash(**kwargs)
         else:
             self.logger.error("Unsuppported command")
 
-    def do_flash(self, **kwargs):
-        self.require(self.rfp_cmd[0])
-        self.ensure_output('hex')
+    def connection_args(self):
+        if self.tool is None:
+            connection = ['-port', self.port]
+        else:
+            connection = ['-tool', self.tool]
 
-        hex_name = self.cfg.hex_file
+        if self.interface:
+            connection += ['-interface', self.interface]
+
+        if self.speed:
+            connection += ['-s', self.speed]
+
+        return connection
+
+    def flash_file(self):
+        if self.file is None:
+            self.ensure_output('hex')
+            return self.cfg.hex_file
+
+        if self.file_type in (FileType.BIN, FileType.ELF):
+            raise ValueError(f'rfp: unsupported file type {self.file_type.name}, use hex or mot')
+
+        if not os.path.isfile(self.file):
+            raise ValueError(f'Cannot flash; file ({self.file}) not found')
+
+        return self.file
+
+    def do_flash(self, **kwargs):
+        hex_name = self.flash_file()
 
         self.logger.info(f'Flashing file: {hex_name}')
 
@@ -160,36 +190,24 @@ class RfpBinaryRunner(ZephyrBinaryRunner):
         # Load image
         load_image += ['-p', '-file', hex_name]
 
-        if self.tool is None:
-            connection = ['-port', self.port]
-        else:
-            connection = ['-tool', self.tool]
-
-        if self.interface:
-            connection += ['-interface', self.interface]
-
-        if self.speed:
-            connection += ['-s', self.speed]
-
         device = ['-device', self.device]
 
-        cmd = self.rfp_cmd + connection + device + load_image
+        cmd = self.rfp_cmd + self.connection_args() + device + load_image
         self.check_call(cmd)
 
     def do_partition(self):
-        self.require(self.rfp_cmd[0])
-
         rpd_path = self.rpd_file
+
+        if not os.path.isfile(rpd_path):
+            raise ValueError(f'Cannot partition; partition data file ({rpd_path}) not found')
 
         self.logger.info(f'Partition file: {rpd_path}')
 
         device = ['-device', self.device]
 
-        connection = ['-tool', self.tool]
-
         flash_option = ['-fo']
         flash_option += ['boundary-file', rpd_path]
         flash_option += ['-p']
 
-        cmd = self.rfp_cmd + device + connection + flash_option
+        cmd = self.rfp_cmd + self.connection_args() + device + flash_option
         self.check_call(cmd)
