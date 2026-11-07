@@ -81,6 +81,12 @@ add_tfm_build_params_if_def(CONFIG_TFM_REGRESSION_NS
   -DTFM_NS_REG_TEST=ON
 )
 
+# Enable the ML-DSA-87 regression configuration (see tf-m-tests
+# tests_reg/test/config/mldsa87_test_config.cmake).
+add_tfm_build_params_if_def(CONFIG_TFM_REGRESSION_MLDSA87
+  -DTFM_REGRESSION_MLDSA87=ON
+)
+
 
 target_sources(app PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/src/main.c
@@ -143,6 +149,7 @@ def_if_def(CONFIG_PSA_WANT_KEY_TYPE_CHACHA20            TFM_CRYPTO_TEST_CHACHA20
 def_if_def(CONFIG_PSA_WANT_ALG_CHACHA20_POLY1305        TFM_CRYPTO_TEST_ALG_CHACHA20_POLY1305)
 def_if_def(CONFIG_PSA_WANT_ALG_DETERMINISTIC_ECDSA      TFM_CRYPTO_TEST_ALG_DETERMINISTIC_ECDSA)
 def_if_def(CONFIG_PSA_WANT_ALG_ECDSA                    TFM_CRYPTO_TEST_ALG_ECDSA)
+def_if_def(CONFIG_TFM_REGRESSION_MLDSA87                TFM_CRYPTO_TEST_MLDSA_87)
 
 add_inc_and_src_if_def(
   KCONFIG
