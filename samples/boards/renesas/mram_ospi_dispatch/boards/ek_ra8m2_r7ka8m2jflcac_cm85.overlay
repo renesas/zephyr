@@ -19,7 +19,7 @@
 		ranges = <0x0 0x90000000 DT_SIZE_M(256)>;
 		reg = <1>;
 		protocol-mode = <OSPI_OPI_MODE>;
-		ospi-max-frequency = <DT_FREQ_M(133)>;
+		nor-max-frequency = <DT_FREQ_M(133)>;
 		jedec-id = [c2 86 3a];
 		default-8d-dummy-cycles = <20>;
 		#address-cells = <1>;

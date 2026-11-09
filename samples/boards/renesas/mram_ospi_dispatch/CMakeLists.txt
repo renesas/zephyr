@@ -60,7 +60,24 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
   set(SIGNED_ELF      ${PROJECT_BINARY_DIR}/zephyr_signed.elf)
   set(MERGED_HEX      ${PROJECT_BINARY_DIR}/zephyr_merged.hex)
 
-  if(CONFIG_BOOTLOADER_MCUBOOT)
+  # Image the OSPI hex is merged with to form zephyr_merged.hex
+  set(MERGE_BASE_HEX  ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+
+  if(CONFIG_BUILD_WITH_TFM)
+    # The Non-secure OSPI_B driver reprograms OCTACLK (R_BSP_OctaclkUpdate).
+    # With secure clocks TF-M makes OCTACKCR Secure and the access faults, so
+    # hand only OCTACLK (CGFSAR.NONSEC17) to the Non-secure side.
+    set_property(TARGET zephyr_property_target APPEND PROPERTY TFM_CMAKE_OPTIONS
+                 -DRENESAS_RA_CGFSAR_NS_OCTACLK=ON)
+
+    # Non-secure build: the NS image is signed by the TF-M (BL2) flow, which
+    # produces zephyr_ns_signed.* and tfm_merged.hex (BL2 + TF-M S + NS)
+    set(INTERNAL_HEX_CMD ${CMAKE_COMMAND} -E copy
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.hex ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+    set(INTERNAL_BIN_CMD ${CMAKE_COMMAND} -E copy
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.bin ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
+    set(MERGE_BASE_HEX  ${PROJECT_BINARY_DIR}/zephyr/tfm_merged.hex)
+  elseif(CONFIG_BOOTLOADER_MCUBOOT)
     set(INTERNAL_HEX_CMD ${CMAKE_COMMAND} -E copy
         ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.hex ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
     set(INTERNAL_BIN_CMD ${CMAKE_COMMAND} -E copy
@@ -98,7 +115,7 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
     # Flash-ready OSPI binary: starts at 0x90000000 (offset 0 of the OSPI window)
     COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi.hex -Intel
             -offset -0x90000000 -o ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.bin -Binary
-    COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_internal.hex -Intel
+    COMMAND ${SREC_CAT} ${MERGE_BASE_HEX} -Intel
             ${PROJECT_BINARY_DIR}/zephyr_ospi.hex -Intel -o ${MERGED_HEX} -Intel
     COMMENT "Signing and splitting OSPI (${OSPI_TEXT_SECTION}) image for octa-mode read order"
     VERBATIM

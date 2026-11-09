@@ -23,7 +23,11 @@
  * hold the driver's auto-calibration pattern and must not be used for code.
  */
 
+#if DT_NODE_EXISTS(DT_NODELABEL(ospi0_ext_flash))
 #define EXTFLASH_NODE	DT_NODELABEL(ospi0_ext_flash)
+#else
+#define EXTFLASH_NODE	DT_NODELABEL(ext_flash)
+#endif
 #define EXTFLASH_ADDR	0x90000000
 #define EXTFLASH_SIZE	(DT_REG_SIZE(EXTFLASH_NODE) - 4096)
 
