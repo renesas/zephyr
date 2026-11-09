@@ -254,7 +254,7 @@ What changes compared with the secure build:
 | | Secure build (`cm85`) | Non-secure build (`cm85/ns`) |
 |---|---|---|
 | Verifies binary A | MCUboot (sysbuild) | TF-M BL2 |
-| Binary A signed by | Zephyr's imgtool step, key `SB_CONFIG_BOOT_SIGNATURE_KEY_FILE` | the TF-M signing flow, key `CONFIG_TFM_KEY_FILE_NS` |
+| Binary A signed by | Zephyr's imgtool step, key `SB_CONFIG_BOOT_SIGNATURE_KEY_FILE` | the TF-M signing flow, TF-M development key (`CONFIG_TFM_KEY_FILE_NS`) |
 | Binary B signed by | `scripts/ospi_sign.py`, `OSPI_SIGN_KEY` | same |
 | PSA Crypto for binary B | mbedTLS/mldsa-native in the app | TF-M crypto partition (`CONFIG_PSA_CRYPTO_PROVIDER_TFM`) |
 | `--sysbuild` | yes | **no** (`sysbuild.conf` would add an MCUboot image that is not used) |
@@ -278,11 +278,14 @@ west build -p always -b ek_ra8p1/r7ka8p1kflcac/cm85/ns \
 
 - Without `OSPI_SIGN_KEY` a throw-away key is generated in the build directory,
   as in the secure build.
-- BL2 signs TF-M and binary A with ML-DSA-87 (`CONFIG_TFM_MCUBOOT_SIGNATURE_TYPE`).
-  By default it uses the TF-M development keys
+- TF-M and binary A are signed with ML-DSA-87
+  (`CONFIG_TFM_MCUBOOT_SIGNATURE_TYPE`) using the TF-M development keys
   (`modules/tee/tf-m/trusted-firmware-m/bl2/ext/mcuboot/root-ML-DSA-87*.pem`).
-  For your own keys add
-  `-DCONFIG_TFM_KEY_FILE_S=\"<pem>\" -DCONFIG_TFM_KEY_FILE_NS=\"<pem>\"`.
+- BL2 only accepts an image whose public-key hash is provisioned in OTP
+  (emulated in the `tfm-otp` MRAM partition). With
+  `CONFIG_TFM_DUMMY_PROVISIONING` (the default) these hashes are fixed in the TF-M
+  source, so to sign with your own key follow
+  [Using your own BL2 key](#using-your-own-bl2-key).
 - The non-secure OSPI_B driver reprograms OCTACLK (`R_BSP_OctaclkUpdate`). With
   secure clocks TF-M makes OCTACKCR secure and that access faults, so
   `CMakeLists.txt` passes `-DRENESAS_RA_CGFSAR_NS_OCTACLK=ON` to TF-M to hand
@@ -291,6 +294,86 @@ west build -p always -b ek_ra8p1/r7ka8p1kflcac/cm85/ns \
   (node label `ext_flash`); the overlay only enables them and reserves the
   calibration sector. `linker_mram_ospi.ld` picks `ospi0_ext_flash` or
   `ext_flash`, whichever exists.
+
+### Using your own BL2 key
+
+Dummy provisioning writes fixed SHA-256 hashes of the TF-M development keys into
+OTP. An image signed with another key fails in BL2 with
+`Image in the primary slot is not valid!`. To use your own key, put its hash in
+the dummy provisioning data. From the workspace root:
+
+1. Generate the keys: one for the TF-M secure image, one for the non-secure
+   image (binary A) and one for the OSPI image (binary B):
+
+   ```sh
+   IMGTOOL=bootloader/mcuboot/scripts/imgtool.py
+
+   python3 $IMGTOOL keygen -t mldsa-87 -k mcuboot_mldsa87_s.pem
+   python3 $IMGTOOL keygen -t mldsa-87 -k mcuboot_mldsa87_ns.pem
+   python3 $IMGTOOL keygen -t mldsa-87 -k ospi_mldsa87.pem
+   ```
+
+2. Print the SHA-256 of the raw ML-DSA-87 public key of each BL2 key as a C
+   array. Run it once for `mcuboot_mldsa87_s.pem` and once for
+   `mcuboot_mldsa87_ns.pem`:
+
+   ```sh
+   PYTHONPATH=bootloader/mcuboot/scripts python3 -c "
+   import sys, hashlib
+   from imgtool import keys
+   h = hashlib.sha256(keys.load(sys.argv[1]).get_public_bytes()).digest()
+   for i in range(0, 32, 8):
+       print('        ' + ', '.join('0x%02x' % b for b in h[i:i + 8]) + ', \\\\')
+   " mcuboot_mldsa87_s.pem
+   ```
+
+   ```sh
+   PYTHONPATH=bootloader/mcuboot/scripts python3 -c "
+   import sys, hashlib
+   from imgtool import keys
+   h = hashlib.sha256(keys.load(sys.argv[1]).get_public_bytes()).digest()
+   for i in range(0, 32, 8):
+       print('        ' + ', '.join('0x%02x' % b for b in h[i:i + 8]) + ', \\\\')
+   " mcuboot_mldsa87_ns.pem
+   ```
+
+   For `root-ML-DSA-87.pem` this prints `0x87, 0x11, 0xad, 0x6f, ...`, the value
+   already in the TF-M source, which confirms the format.
+
+3. In `modules/tee/tf-m/trusted-firmware-m/bl2/src/provisioning.c`, in the
+   `#elif defined(MCUBOOT_SIGN_MLDSA87)` block under `TFM_DUMMY_PROVISIONING`,
+   replace the bytes of:
+
+   | Define | Image | Hash of |
+   |---|---|---|
+   | `ASSEMBLY_AND_TEST_PROV_DATA_KIND_0` | TF-M secure image | `mcuboot_mldsa87_s.pem` |
+   | `ASSEMBLY_AND_TEST_PROV_DATA_KIND_1` | CM85 non-secure image (binary A) | `mcuboot_mldsa87_ns.pem` |
+   | `ASSEMBLY_AND_TEST_PROV_DATA_KIND_2` | CM33 non-secure image, only with 3 images | `mcuboot_mldsa87_s.pem` |
+
+4. Build with the keys:
+
+   ```sh
+   west build -p always -b ek_ra8m2/r7ka8m2jflcac/cm85/ns \
+       zephyr/samples/boards/renesas/mram_ospi_dispatch -d build_ns -- \
+       -DOSPI_SIGN_KEY=$PWD/ospi_mldsa87.pem \
+       -DCONFIG_TFM_KEY_FILE_S=\"$PWD/mcuboot_mldsa87_s.pem\" \
+       -DCONFIG_TFM_KEY_FILE_NS=\"$PWD/mcuboot_mldsa87_ns.pem\"
+   ```
+
+5. Erase the chip and flash. BL2 provisions OTP only once, while the `tfm-otp`
+   area is erased, so a board that already booted keeps the old hashes.
+   `west flash -r rfp` erases the chip; with RFP by hand, erase the chip or at
+   least MRAM `0x02074000`-`0x02077FFF`. The first boot logs
+   `Beginning BL2 provisioning`.
+
+Notes:
+
+- `This device was provisioned with dummy keys` is still printed: the HUK, IAK
+  and seeds stay the dummy values. Only the BL2 key hashes change.
+- `-DTFM_DUMMY_PROVISIONING=n` has no effect and
+  `-DCONFIG_TFM_DUMMY_PROVISIONING=n` leaves BL2 without provisioning data.
+  Keep the default.
+- The hashes are compiled into BL2, so rebuild after changing either BL2 key.
 
 ### Output binaries
 
@@ -498,6 +581,13 @@ extension 7), labels the flash node `ospi0_ext_flash`, and keeps the
   was given. The key lives in the build directory and the public key in binary A
   matches it, but a pristine rebuild generates a new key and an old binary B
   will no longer verify.
+- **BL2: `Image in the primary slot is not valid!` (non-secure build)**: the
+  S or NS image is signed with a key whose hash is not provisioned in OTP, for
+  example after setting `CONFIG_TFM_KEY_FILE_S` / `CONFIG_TFM_KEY_FILE_NS`
+  without updating the hashes. See [Using your own BL2 key](#using-your-own-bl2-key).
+- **BL2: `This device was provisioned with dummy keys`**: expected with
+  `CONFIG_TFM_DUMMY_PROVISIONING=y`, the default. `-DTFM_DUMMY_PROVISIONING=n`
+  has no effect: the Zephyr option is `CONFIG_TFM_DUMMY_PROVISIONING`.
 - **`Using default MCUboot signing key file` warning**: no
   `SB_CONFIG_BOOT_SIGNATURE_KEY_FILE` was given.
 - **imgtool error that the image exceeds the slot**: the OSPI sections ended up in

@@ -92,6 +92,30 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
            COMMAND ${CMAKE_COMMAND} -E copy
            $<TARGET_PROPERTY:tfm,BL2_HEX_FILE> ${PROJECT_BINARY_DIR}/bl2.hex)
     endif()
+
+    # -DTFM_PROVISIONING_BUNDLE=ON: BL2 provisions the OTP from a provisioning
+    # bundle instead of fixed dummy data, so the BL2 ROTPKs are the hashes of
+    # CONFIG_TFM_KEY_FILE_S / CONFIG_TFM_KEY_FILE_NS. With
+    # CONFIG_TFM_DUMMY_PROVISIONING=n, HUK, IAK and seeds come from
+    # -DTFM_PROVISIONING_KEYS_CONFIG=<file>, or are random.
+    zephyr_get(TFM_PROVISIONING_BUNDLE)
+    if(CONFIG_TFM_BL2 AND TFM_PROVISIONING_BUNDLE)
+      zephyr_get(TFM_PROVISIONING_KEYS_CONFIG)
+      set_property(TARGET zephyr_property_target APPEND PROPERTY TFM_CMAKE_OPTIONS
+                   -DPLATFORM_DEFAULT_PROVISIONING=OFF
+                   -DPROVISIONING_KEYS_CONFIG=${TFM_PROVISIONING_KEYS_CONFIG})
+
+      # PROVISIONING_BUNDLE_START of the RA TF-M platform: secure MRAM right
+      # after the OTP / NV counters area
+      set(PROV_BUNDLE_ADDR 0x02074000)
+      set(PROV_BUNDLE_BIN  ${PROJECT_BINARY_DIR}/provisioning_bundle.bin)
+      set(PROV_BUNDLE_HEX  ${PROJECT_BINARY_DIR}/provisioning_bundle.hex)
+      list(APPEND TFM_COPY_CMDS COMMAND ${CMAKE_COMMAND} -E copy
+           ${CMAKE_BINARY_DIR}/tfm/bin/provisioning_bundle.bin ${PROV_BUNDLE_BIN}
+           COMMAND ${SREC_CAT} ${PROV_BUNDLE_BIN} -Binary -offset ${PROV_BUNDLE_ADDR}
+           -o ${PROV_BUNDLE_HEX} -Intel)
+      set(MERGE_EXTRA_HEX ${PROV_BUNDLE_HEX} -Intel)
+    endif()
   elseif(CONFIG_BOOTLOADER_MCUBOOT)
     set(INTERNAL_HEX_CMD ${CMAKE_COMMAND} -E copy
         ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.hex
@@ -134,7 +158,7 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
     # Flash-ready OSPI binary: starts at 0x90000000 (offset 0 of the OSPI window)
     COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.hex -Intel
             -offset -0x90000000 -o ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.bin -Binary
-    COMMAND ${SREC_CAT} ${MERGE_BASE_HEX} -Intel
+    COMMAND ${SREC_CAT} ${MERGE_BASE_HEX} -Intel ${MERGE_EXTRA_HEX}
             ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.hex -Intel -o ${MERGED_HEX} -Intel
     COMMENT "Signing and splitting OSPI (${OSPI_TEXT_SECTION}) image for octa-mode read order"
     VERBATIM

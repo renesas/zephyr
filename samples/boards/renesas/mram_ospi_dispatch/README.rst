@@ -92,19 +92,48 @@ does not use:
    west build -b ek_ra8p1/r7ka8p1kflcac/cm85/ns \
        samples/boards/renesas/mram_ospi_dispatch
 
-BL2 signs the secure and non-secure images with ML-DSA-87. By default it uses
-the TF-M development keys in ``bl2/ext/mcuboot/`` of the TF-M module. To use
-your own keys, set :kconfig:option:`CONFIG_TFM_KEY_FILE_S` and
-:kconfig:option:`CONFIG_TFM_KEY_FILE_NS`. Pass ``-DOSPI_SIGN_KEY`` to set the
-OSPI key, as in the secure build:
+BL2 verifies the secure and non-secure images with ML-DSA-87. They are signed
+with the TF-M development keys in ``bl2/ext/mcuboot/`` of the TF-M module
+(``root-ML-DSA-87.pem`` and ``root-ML-DSA-87_1.pem``). Pass
+``-DOSPI_SIGN_KEY`` to set the OSPI key, as in the secure build:
 
 .. code-block:: console
 
    west build -b ek_ra8m2/r7ka8m2jflcac/cm85/ns \
        samples/boards/renesas/mram_ospi_dispatch -- \
-       -DOSPI_SIGN_KEY=/path/to/ospi_mldsa87.pem \
-       -DCONFIG_TFM_KEY_FILE_S=\"/path/to/tfm_s_mldsa87.pem\" \
-       -DCONFIG_TFM_KEY_FILE_NS=\"/path/to/tfm_ns_mldsa87.pem\"
+       -DOSPI_SIGN_KEY=/path/to/ospi_mldsa87.pem
+
+BL2 accepts an image only if the SHA-256 hash of its public key matches a hash
+provisioned in OTP (emulated in the ``tfm-otp`` MRAM partition). With
+:kconfig:option:`CONFIG_TFM_DUMMY_PROVISIONING` (the default) these hashes are
+fixed to the TF-M development keys. To sign with your own key:
+
+#. Generate the secure, non-secure and OSPI keys:
+
+   .. code-block:: console
+
+      IMGTOOL=bootloader/mcuboot/scripts/imgtool.py
+
+      python3 $IMGTOOL keygen -t mldsa-87 -k mcuboot_mldsa87_s.pem
+      python3 $IMGTOOL keygen -t mldsa-87 -k mcuboot_mldsa87_ns.pem
+      python3 $IMGTOOL keygen -t mldsa-87 -k ospi_mldsa87.pem
+
+#. Compute the SHA-256 of the raw public key of ``mcuboot_mldsa87_s.pem`` and
+   ``mcuboot_mldsa87_ns.pem``, for example with
+   ``hashlib.sha256(imgtool.keys.load(<pem>).get_public_bytes())``.
+#. In ``bl2/src/provisioning.c`` of the TF-M module, in the
+   ``MCUBOOT_SIGN_MLDSA87`` block, replace the bytes of
+   ``ASSEMBLY_AND_TEST_PROV_DATA_KIND_0`` (secure image) with the hash of
+   ``mcuboot_mldsa87_s.pem`` and ``ASSEMBLY_AND_TEST_PROV_DATA_KIND_1``
+   (non-secure image) with the hash of ``mcuboot_mldsa87_ns.pem``.
+#. Build with ``-DCONFIG_TFM_KEY_FILE_S=\"$PWD/mcuboot_mldsa87_s.pem\"``,
+   ``-DCONFIG_TFM_KEY_FILE_NS=\"$PWD/mcuboot_mldsa87_ns.pem\"`` and
+   ``-DOSPI_SIGN_KEY=$PWD/ospi_mldsa87.pem``.
+#. Erase the chip before flashing: OTP is provisioned only once, on the first
+   boot after the ``tfm-otp`` area is erased.
+
+Otherwise BL2 reports ``Image in the primary slot is not valid!``. The
+``README.md`` of this sample has the full steps.
 
 The non-secure OSPI_B driver reprograms OCTACLK at run time. For this,
 ``CMakeLists.txt`` passes ``-DRENESAS_RA_CGFSAR_NS_OCTACLK=ON`` to the TF-M build
