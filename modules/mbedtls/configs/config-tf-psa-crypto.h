@@ -186,6 +186,16 @@
 #define TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED
 #endif
 
+/* The default static key slot size (crypto_extra.h) only covers the key types
+ * of PSA_EXPORT_ASYMMETRIC_KEY_MAX_SIZE, which does not include ML-DSA. Size
+ * the slots for the ML-DSA-87 public key (2592 bytes), the largest ML-DSA key
+ * representation (a key pair is stored as its 32-byte seed).
+ */
+#if defined(CONFIG_MBEDTLS_PSA_STATIC_KEY_SLOTS) && \
+	defined(CONFIG_TF_PSA_CRYPTO_PQCP_MLDSA_87_ENABLED)
+#define MBEDTLS_PSA_STATIC_KEY_SLOT_BUFFER_SIZE 2592
+#endif
+
 #if defined(CONFIG_TF_PSA_CRYPTO_DRIVER_CONFIG)
 #include CONFIG_TF_PSA_CRYPTO_DRIVER_CONFIG_FILE
 #endif
