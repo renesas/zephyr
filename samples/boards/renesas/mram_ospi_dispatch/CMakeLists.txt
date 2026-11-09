@@ -61,7 +61,7 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
   set(MERGED_HEX      ${PROJECT_BINARY_DIR}/zephyr_merged.hex)
 
   # Image the OSPI hex is merged with to form zephyr_merged.hex
-  set(MERGE_BASE_HEX  ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+  set(MERGE_BASE_HEX  ${PROJECT_BINARY_DIR}/zephyr_internal.signed.hex)
 
   if(CONFIG_BUILD_WITH_TFM)
     # The Non-secure OSPI_B driver reprograms OCTACLK (R_BSP_OctaclkUpdate).
@@ -73,18 +73,35 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
     # Non-secure build: the NS image is signed by the TF-M (BL2) flow, which
     # produces zephyr_ns_signed.* and tfm_merged.hex (BL2 + TF-M S + NS)
     set(INTERNAL_HEX_CMD ${CMAKE_COMMAND} -E copy
-        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.hex ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.hex
+        ${PROJECT_BINARY_DIR}/zephyr_internal.signed.hex)
     set(INTERNAL_BIN_CMD ${CMAKE_COMMAND} -E copy
-        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.bin ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr_ns_signed.bin
+        ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
     set(MERGE_BASE_HEX  ${PROJECT_BINARY_DIR}/zephyr/tfm_merged.hex)
+
+    # Place the TF-M secure image and, with BL2, BL2 itself and the TrustZone
+    # partition data next to the other flash images
+    set(TFM_COPY_CMDS COMMAND ${CMAKE_COMMAND} -E copy
+        ${PROJECT_BINARY_DIR}/zephyr/tfm_s_signed.bin ${PROJECT_BINARY_DIR}/tfm_s_signed.bin
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${PROJECT_BINARY_DIR}/zephyr/tfm_s_signed.hex ${PROJECT_BINARY_DIR}/tfm_s_signed.hex)
+    if(CONFIG_TFM_BL2)
+      list(APPEND TFM_COPY_CMDS COMMAND ${CMAKE_COMMAND} -E copy
+           ${PROJECT_BINARY_DIR}/zephyr/bl2.rpd ${PROJECT_BINARY_DIR}/bl2.rpd
+           COMMAND ${CMAKE_COMMAND} -E copy
+           $<TARGET_PROPERTY:tfm,BL2_HEX_FILE> ${PROJECT_BINARY_DIR}/bl2.hex)
+    endif()
   elseif(CONFIG_BOOTLOADER_MCUBOOT)
     set(INTERNAL_HEX_CMD ${CMAKE_COMMAND} -E copy
-        ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.hex ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.hex
+        ${PROJECT_BINARY_DIR}/zephyr_internal.signed.hex)
     set(INTERNAL_BIN_CMD ${CMAKE_COMMAND} -E copy
-        ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.bin ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
+        ${PROJECT_BINARY_DIR}/zephyr/zephyr.signed.bin
+        ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
   else()
     set(INTERNAL_HEX_CMD ${CMAKE_OBJCOPY} -R ${OSPI_TEXT_SECTION} -R ${OSPI_SIG_SECTION} -O ihex
-        ${SIGNED_ELF} ${PROJECT_BINARY_DIR}/zephyr_internal.hex)
+        ${SIGNED_ELF} ${PROJECT_BINARY_DIR}/zephyr_internal.signed.hex)
     set(INTERNAL_BIN_CMD ${CMAKE_OBJCOPY} -R ${OSPI_TEXT_SECTION} -R ${OSPI_SIG_SECTION} -O binary
         ${SIGNED_ELF} ${PROJECT_BINARY_DIR}/zephyr_internal.signed.bin)
   endif()
@@ -104,19 +121,21 @@ if(CONFIG_FLASH_RENESAS_RA_OSPI_B)
     # imgtool-signed image (header + TLVs) that MCUboot validates.
     COMMAND ${INTERNAL_HEX_CMD}
     COMMAND ${INTERNAL_BIN_CMD}
+    ${TFM_COPY_CMDS}
     # OSPI data only (intermediate)
     COMMAND ${CMAKE_OBJCOPY} -j ${OSPI_TEXT_SECTION} -j ${OSPI_SIG_SECTION} -O ihex
-            ${SIGNED_ELF} ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.hex
+            ${SIGNED_ELF} ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.signed.hex
     # Pad to an even length (the image is odd: the signature is 4627 bytes),
     # then byte-swap for octa-mode read order
-    COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.hex -Intel
-            -fill 0xFF -within ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.hex -Intel -range-padding 2
-            -byte_swap 2 -o ${PROJECT_BINARY_DIR}/zephyr_ospi.hex -Intel
+    COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.signed.hex -Intel
+            -fill 0xFF -within ${PROJECT_BINARY_DIR}/zephyr_ospi_raw.signed.hex -Intel
+            -range-padding 2
+            -byte_swap 2 -o ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.hex -Intel
     # Flash-ready OSPI binary: starts at 0x90000000 (offset 0 of the OSPI window)
-    COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi.hex -Intel
+    COMMAND ${SREC_CAT} ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.hex -Intel
             -offset -0x90000000 -o ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.bin -Binary
     COMMAND ${SREC_CAT} ${MERGE_BASE_HEX} -Intel
-            ${PROJECT_BINARY_DIR}/zephyr_ospi.hex -Intel -o ${MERGED_HEX} -Intel
+            ${PROJECT_BINARY_DIR}/zephyr_ospi.signed.hex -Intel -o ${MERGED_HEX} -Intel
     COMMENT "Signing and splitting OSPI (${OSPI_TEXT_SECTION}) image for octa-mode read order"
     VERBATIM
   )

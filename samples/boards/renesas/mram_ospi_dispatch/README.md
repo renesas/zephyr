@@ -5,6 +5,9 @@ binaries, and have software verify each binary on its own** before running it.
 It targets the Renesas EK-RA8M2 (CM85), which has on-chip MRAM and an external
 octal OSPI flash. Both signatures use **ML-DSA-87** (FIPS 204).
 
+A non-secure variant, where TF-M BL2 replaces MCUboot, builds for the EK-RA8M2
+and EK-RA8P1 (`cm85/ns`). See [Non-secure build with TF-M](#non-secure-build-with-tf-m).
+
 ## Contents
 
 - [What this sample demonstrates](#what-this-sample-demonstrates)
@@ -16,6 +19,7 @@ octal OSPI flash. Both signatures use **ML-DSA-87** (FIPS 204).
   - [Step 4 (optional): check the signatures on the host](#step-4-optional-check-the-signatures-on-the-host)
   - [Step 5: flash](#step-5-flash)
   - [Step 6: run and observe](#step-6-run-and-observe)
+- [Non-secure build with TF-M](#non-secure-build-with-tf-m)
 - [How the split works](#how-the-split-works)
 - [Memory map](#memory-map)
 - [What each verifier checks, and what it does not](#what-each-verifier-checks-and-what-it-does-not)
@@ -138,8 +142,9 @@ Paths are relative to the build directory (`build/`):
 | `mram_ospi_dispatch/zephyr_ospi.signed.bin` | **binary B**, code plus ML-DSA signature, byte-swapped | OSPI offset 0, which is `0x90000000` |
 
 The same images also exist as hex, which carries its own addresses:
-`zephyr_internal.hex` and `zephyr_ospi.hex`. `zephyr_ospi_raw.hex` is binary B
-without padding or byte-swap, for tools that swap by themselves.
+`zephyr_internal.signed.hex` and `zephyr_ospi.signed.hex`.
+`zephyr_ospi_raw.signed.hex` is binary B, signature included, without padding
+or byte-swap, for tools that swap by themselves.
 `zephyr_merged.hex` is A and B together without MCUboot.
 
 A `.bin` has no address, so enter the addresses above in your programmer (RFP).
@@ -225,6 +230,103 @@ To see the second verifier reject something, flip one byte in
 `zephyr_ospi.signed.bin` (or flash a binary B built with a different key B),
 reflash only binary B, and reboot. MCUboot still boots binary A, and binary A
 refuses the OSPI code.
+
+## Non-secure build with TF-M
+
+The dispatcher can also run as the Cortex-M85 non-secure image under TF-M, on:
+
+- `ek_ra8m2/r7ka8m2jflcac/cm85/ns`
+- `ek_ra8p1/r7ka8p1kflcac/cm85/ns`
+
+Boot flow:
+
+```
+ reset -> TF-M BL2 (MRAM 0x02000000)
+            verifies TF-M S and binary A (NS) ---fail--> do not boot them
+          -> TF-M secure image -> MRAM app (non-secure slot, offset 0x78000)
+            main(): verify binary B via the TF-M crypto partition
+                                              ---fail--> print message, do not run it
+          -> function_in_ext_flash()   (executes in place from OSPI 0x90000000)
+```
+
+What changes compared with the secure build:
+
+| | Secure build (`cm85`) | Non-secure build (`cm85/ns`) |
+|---|---|---|
+| Verifies binary A | MCUboot (sysbuild) | TF-M BL2 |
+| Binary A signed by | Zephyr's imgtool step, key `SB_CONFIG_BOOT_SIGNATURE_KEY_FILE` | the TF-M signing flow, key `CONFIG_TFM_KEY_FILE_NS` |
+| Binary B signed by | `scripts/ospi_sign.py`, `OSPI_SIGN_KEY` | same |
+| PSA Crypto for binary B | mbedTLS/mldsa-native in the app | TF-M crypto partition (`CONFIG_PSA_CRYPTO_PROVIDER_TFM`) |
+| `--sysbuild` | yes | **no** (`sysbuild.conf` would add an MCUboot image that is not used) |
+| Board files | `boards/ek_ra8m2_r7ka8m2jflcac_cm85.*` | `boards/<board>_cm85_ns.*` |
+
+### Build
+
+From the workspace root:
+
+```sh
+# EK-RA8M2
+west build -p always -b ek_ra8m2/r7ka8m2jflcac/cm85/ns \
+    zephyr/samples/boards/renesas/mram_ospi_dispatch -d build_ns -- \
+    -DOSPI_SIGN_KEY=$PWD/ospi_mldsa87.pem
+
+# EK-RA8P1
+west build -p always -b ek_ra8p1/r7ka8p1kflcac/cm85/ns \
+    zephyr/samples/boards/renesas/mram_ospi_dispatch -d build_ns -- \
+    -DOSPI_SIGN_KEY=$PWD/ospi_mldsa87.pem
+```
+
+- Without `OSPI_SIGN_KEY` a throw-away key is generated in the build directory,
+  as in the secure build.
+- BL2 signs TF-M and binary A with ML-DSA-87 (`CONFIG_TFM_MCUBOOT_SIGNATURE_TYPE`).
+  By default it uses the TF-M development keys
+  (`modules/tee/tf-m/trusted-firmware-m/bl2/ext/mcuboot/root-ML-DSA-87*.pem`).
+  For your own keys add
+  `-DCONFIG_TFM_KEY_FILE_S=\"<pem>\" -DCONFIG_TFM_KEY_FILE_NS=\"<pem>\"`.
+- The non-secure OSPI_B driver reprograms OCTACLK (`R_BSP_OctaclkUpdate`). With
+  secure clocks TF-M makes OCTACKCR secure and that access faults, so
+  `CMakeLists.txt` passes `-DRENESAS_RA_CGFSAR_NS_OCTACLK=ON` to TF-M to hand
+  only OCTACLK (`CGFSAR.NONSEC17`) to the non-secure side.
+- On the EK-RA8P1 the OSPI controller and flash come from `ek_ra8p1.dtsi`
+  (node label `ext_flash`); the overlay only enables them and reserves the
+  calibration sector. `linker_mram_ospi.ld` picks `ospi0_ext_flash` or
+  `ext_flash`, whichever exists.
+
+### Output binaries
+
+Paths are relative to the build directory (`build_ns/`). There is no `mcuboot/`
+or `mram_ospi_dispatch/` sub-directory:
+
+| File | What it is | Address to program |
+|---|---|---|
+| `bl2.rpd` | TrustZone secure / non-secure boundaries (copy of `zephyr/bl2.rpd`) | device configuration (program first) |
+| `zephyr/tfm_merged.hex` | BL2 + TF-M secure image + BL2-signed binary A | MRAM, addresses in the hex |
+| `bl2.hex` | TF-M BL2 (copy of `tfm/bin/bl2.hex`) | MRAM `0x02000000` |
+| `tfm_s_signed.bin` (`.hex`) | TF-M secure image, BL2-signed (copy of `zephyr/tfm_s_signed.*`) | `secure` slot, MRAM offset `0x10000` |
+| `zephyr_internal.signed.bin` (`.hex`) | **binary A**, BL2-signed (copy of `zephyr/zephyr_ns_signed.*`) | `non-secure` slot, MRAM offset `0x78000` |
+| `zephyr_ospi.signed.bin` (`.hex`) | **binary B**, code plus ML-DSA signature, byte-swapped | OSPI offset 0, which is `0x90000000` |
+| `zephyr_merged.hex` | `zephyr/tfm_merged.hex` plus binary B | MRAM and OSPI |
+
+`zephyr/zephyr.bin` and `zephyr/zephyr.hex` are the unsigned image, which BL2
+rejects. The MRAM partitions are in
+`boards/renesas/ek_ra8m2/ek_ra8m2_r7ka8m2jflcac_ns_partition.dtsi` and
+`boards/renesas/ek_ra8p1/ek_ra8p1_r7ka8p1kflcac_ns_partition.dtsi`.
+
+### Flash
+
+- `west flash -r rfp` programs `zephyr/bl2.rpd` (the same file as `bl2.rpd`), erases the chip and programs
+  `zephyr/tfm_merged.hex` (`CONFIG_TFM_FLASH_MERGED_BINARY`). It does **not**
+  program binary B.
+- Program `zephyr_ospi.signed.bin` to the external OSPI flash, offset 0, with
+  RFP as in [Step 5](#step-5-flash).
+- Rebuilding with a new `OSPI_SIGN_KEY` or a changed `ext_code.c` changes binary
+  A too. Reprogram both.
+
+### Run
+
+The console shows the BL2 and TF-M boot logs, then the same dispatcher output as
+in [Step 6](#step-6-run-and-observe): `External flash image verified` or
+`External flash image verification FAILED, not executing it`.
 
 ## How the split works
 
@@ -380,6 +482,8 @@ extension 7), labels the flash node `ospi0_ext_flash`, and keeps the
 | `src/sram_code.c` | the code that runs from the SRAM copy |
 | `boards/ek_ra8m2_r7ka8m2jflcac_cm85.overlay` | enables OSPI0 and its flash |
 | `boards/ek_ra8m2_r7ka8m2jflcac_cm85.conf` | crypto, relocation and MCUboot options |
+| `boards/ek_ra8m2_r7ka8m2jflcac_cm85_ns.overlay`, `.conf` | EK-RA8M2 non-secure (TF-M) build |
+| `boards/ek_ra8p1_r7ka8p1kflcac_cm85_ns.overlay`, `.conf` | EK-RA8P1 non-secure (TF-M) build |
 | `sysbuild.conf` | MCUboot and signature type |
 | `sample.yaml` | build-only test entry |
 
