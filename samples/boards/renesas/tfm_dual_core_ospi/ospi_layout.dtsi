@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * OSPI flash layout shared by the Cortex-M85 and Cortex-M33 images. Both
+ * images derive every OSPI address from these nodes; the memory-mapped base
+ * comes from the "ranges" of ext_flash_ctrl in the board devicetree.
+ *
+ *   Node                          Offset      Size      Contents
+ *   cm85_ospi_partition           0x0000000   1 MB      CM85 code run in place + signature
+ *   cm33_ospi_partition           0x0100000   1016 KB   CM33 image, run in place
+ *   cm33_ospi_manifest_partition  0x01fe000   8 KB      CM33 image size + ML-DSA-87 signature
+ *   auto_calib_partition          0x3fff000   4 KB      OSPI_B auto-calibration pattern
+ */
+&ext_flash {
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		cm85_ospi_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "cm85-ospi-code";
+			reg = <0x0 DT_SIZE_M(1)>;
+		};
+
+		cm33_ospi_partition: partition@100000 {
+			compatible = "zephyr,mapped-partition";
+			label = "cm33-image";
+			reg = <0x100000 0xfe000>;
+		};
+
+		cm33_ospi_manifest_partition: partition@1fe000 {
+			compatible = "zephyr,mapped-partition";
+			label = "cm33-manifest";
+			reg = <0x1fe000 DT_SIZE_K(8)>;
+		};
+
+		auto_calib_partition: partition@3fff000 {
+			compatible = "zephyr,mapped-partition";
+			label = "auto-calib-pattern";
+			reg = <0x3fff000 DT_SIZE_K(4)>;
+		};
+	};
+};

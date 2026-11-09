@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * The Cortex-M33 image is linked into the OSPI flash and executed in place.
+ * The Cortex-M85 owns the OSPI_B controller: it puts the flash in
+ * memory-mapped mode, verifies this image and then starts the Cortex-M33.
+ */
+#include "../ospi_layout.dtsi"
+
+/ {
+	chosen {
+		zephyr,flash = &ext_flash;
+		zephyr,code-partition = &cm33_ospi_partition;
+	};
+};
+
+/* No OSPI driver on the Cortex-M33 */
+&ospi0 {
+	status = "disabled";
+};

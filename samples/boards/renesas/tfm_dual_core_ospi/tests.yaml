@@ -1,0 +1,12 @@
+sample:
+  name: TF-M dual core with a verified Cortex-M33 image in OSPI flash
+tests:
+  sample.boards.renesas.tfm_dual_core_ospi:
+    sysbuild: true
+    build_only: true
+    tags:
+      - trusted-firmware-m
+    platform_allow:
+      - ek_ra8p1/r7ka8p1kflcac/cm33/ns
+    integration_platforms:
+      - ek_ra8p1/r7ka8p1kflcac/cm33/ns

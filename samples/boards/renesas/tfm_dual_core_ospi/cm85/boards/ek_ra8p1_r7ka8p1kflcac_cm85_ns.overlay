@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2026 Renesas Electronics Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * The Cortex-M85 image runs from MRAM and owns the OSPI_B controller: the
+ * driver puts the MX25LW51245G in memory-mapped (XIP) mode at boot, before
+ * the OSPI code and the Cortex-M33 image are verified and executed.
+ */
+#include "../../ospi_layout.dtsi"
+
+&ext_flash_ctrl {
+	status = "okay";
+};
+
+&ext_flash {
+	status = "okay";
+};
