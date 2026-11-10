@@ -8,6 +8,19 @@
 #include <mem.h>
 
 / {
+	/*
+	 * Entropy for the Non-secure CPU0 image comes from the TF-M Crypto service
+	 * through PSA, since the RSIP TRNG is owned by the Secure image.
+	 */
+	chosen {
+		zephyr,entropy = &psa_rng;
+	};
+
+	psa_rng: psa-rng {
+		compatible = "zephyr,psa-crypto-rng";
+		status = "okay";
+	};
+
 	soc {
 		/*
 		 * Non-secure alias memory map:

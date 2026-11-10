@@ -13,5 +13,10 @@
 
 	chosen {
 		zephyr,sram = &sram1;
+		zephyr,entropy = &trng;
 	};
+};
+
+&trng {
+	status = "okay";
 };

@@ -51,3 +51,11 @@
 		};
 	};
 };
+
+/*
+ * The RSIP TRNG is a Secure peripheral owned by the TF-M secure image; a
+ * Non-secure access to it raises a SecureFault.
+ */
+&trng {
+	status = "disabled";
+};

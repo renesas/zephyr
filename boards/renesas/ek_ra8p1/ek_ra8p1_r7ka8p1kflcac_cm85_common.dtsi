@@ -15,7 +15,6 @@
 		zephyr,flash-controller = &mram_ctrl;
 		zephyr,console = &uart8;
 		zephyr,shell-uart = &uart8;
-		zephyr,entropy = &trng;
 	};
 
 	aliases {

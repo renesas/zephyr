@@ -16,7 +16,6 @@
 		zephyr,shell-uart = &uart8;
 		zephyr,canbus = &canfd1;
 		zephyr,crc = &crc;
-		zephyr,entropy = &trng;
 	};
 
 	aliases {
@@ -127,10 +126,6 @@
 };
 
 &wdt0 {
-	status = "okay";
-};
-
-&trng {
 	status = "okay";
 };
 
