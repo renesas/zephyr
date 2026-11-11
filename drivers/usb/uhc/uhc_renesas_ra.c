@@ -9,6 +9,7 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/irq.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/dlist.h>
 #include <zephyr/sys/util.h>
 #include <r_usb_host.h>
@@ -80,6 +81,22 @@ static void uhc_renesas_ra_interrupt_handler(const void *arg)
 	r_usbh_isr();
 }
 
+static bool is_configured_udev(const struct device *dev, uint8_t device_addr)
+{
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+
+	if (device_addr == 0) {
+		return true;
+	}
+
+	if (device_addr - 1 >= ARRAY_SIZE(priv->usbd_device) ||
+	    !priv->usbd_device[device_addr - 1].configured) {
+		return false;
+	}
+
+	return true;
+}
+
 static int uhc_renesas_ra_xfer_request(const struct device *dev, uint8_t dev_addr, uint8_t ep)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
@@ -143,6 +160,61 @@ static int uhc_renesas_ra_data_xfer(const struct device *dev, struct uhc_transfe
 	return uhc_renesas_ra_data_send(dev, xfer);
 }
 
+/*
+ * Drop everything the driver holds for one device address: abort what is in
+ * flight, close its pipes and hand its transfers back. Used for a device that
+ * went away behind a hub, which the controller never reports, and when the
+ * root port device is released.
+ */
+static int uhc_renesas_ra_release_device(const struct device *dev, uint8_t dev_addr)
+{
+	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
+	struct uhc_renesas_ra_endpoint *ep = &priv->ep[dev_addr - 1U][0][0];
+	const size_t ep_count = ARRAY_SIZE(priv->ep[0]) * ARRAY_SIZE(priv->ep[0][0]);
+	struct uhc_transfer *xfer, *tmp;
+	fsp_err_t err;
+
+	if (!is_configured_udev(dev, dev_addr)) {
+		return 0;
+	}
+
+	for (uint8_t idx = 1U; idx < ARRAY_SIZE(priv->ep[0]); idx++) {
+		for (uint8_t dir = 0U; dir < ARRAY_SIZE(priv->ep[0][0]); dir++) {
+			uint8_t pipenum = priv->ep[dev_addr - 1U][idx][dir].pipenum;
+
+			if (pipenum != 0U && !sys_dlist_is_empty(&priv->pipe[pipenum].xfers_list)) {
+				(void)R_USBH_XferAbort(
+					&priv->uhc_ctrl, dev_addr,
+					USB_EP_GET_ADDR(idx, (dir != 0U) ? USB_EP_DIR_IN
+									 : USB_EP_DIR_OUT));
+			}
+		}
+	}
+
+	err = R_USBH_DeviceRelease(&priv->uhc_ctrl, dev_addr);
+	if (!(err == FSP_SUCCESS || err == FSP_ERR_ABORTED)) {
+		LOG_WRN("Error releasing device: %d", err);
+		return -EIO;
+	}
+
+	/* The HAL does not touch priv->ep, the pipe mapping is still valid here */
+	for (size_t i = 0; i < ep_count; i++) {
+		if (ep[i].pipenum == 0U) {
+			continue;
+		}
+
+		SYS_DLIST_FOR_EACH_CONTAINER_SAFE(&priv->pipe[ep[i].pipenum].xfers_list, xfer, tmp,
+						  node) {
+			uhc_xfer_return(dev, xfer, -ECONNRESET);
+		}
+	}
+
+	memset(&priv->ep[dev_addr - 1U], 0, sizeof(priv->ep[0]));
+	memset(&priv->usbd_device[dev_addr - 1U], 0, sizeof(priv->usbd_device[0]));
+
+	return 0;
+}
+
 static int uhc_renesas_ra_control_xfer(const struct device *dev, struct uhc_transfer *const xfer)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
@@ -150,13 +222,31 @@ static int uhc_renesas_ra_control_xfer(const struct device *dev, struct uhc_tran
 	int ret = 0;
 
 	switch (xfer->stage) {
-	case UHC_CONTROL_STAGE_SETUP:
+	case UHC_CONTROL_STAGE_SETUP: {
+		const struct usb_setup_packet *setup =
+			(const struct usb_setup_packet *)xfer->setup_pkt;
+		uint16_t new_addr = sys_le16_to_cpu(setup->wValue);
+
+		if (xfer->udev->addr == 0U &&
+		    setup->RequestType.type == USB_REQTYPE_TYPE_STANDARD &&
+		    setup->RequestType.recipient == USB_REQTYPE_RECIPIENT_DEVICE &&
+		    setup->bRequest == USB_SREQ_SET_ADDRESS && new_addr >= 1U &&
+		    new_addr <= ARRAY_SIZE(priv->usbd_device)) {
+			/*
+			 * The host stack hands out an address only after the previous owner
+			 * was freed, so state still held for it belongs to a device that is
+			 * gone, e.g. unplugged behind a hub.
+			 */
+			(void)uhc_renesas_ra_release_device(dev, (uint8_t)new_addr);
+		}
+
 		err = R_USBH_SetupSend(&priv->uhc_ctrl, xfer->udev->addr, xfer->setup_pkt);
 		if (err != FSP_SUCCESS) {
 			LOG_ERR("ep 0x%02x state setup error", xfer->ep);
 			ret = -EIO;
 		}
 		break;
+	}
 	case UHC_CONTROL_STAGE_DATA:
 		ret = uhc_renesas_ra_data_xfer(dev, xfer);
 		break;
@@ -280,22 +370,6 @@ static void uhc_control_stage_update(const struct device *dev, usbh_event_t *hal
 	default:
 		break;
 	}
-}
-
-static bool is_configured_udev(const struct device *dev, uint8_t device_addr)
-{
-	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
-
-	if (device_addr == 0) {
-		return true;
-	}
-
-	if (device_addr - 1 >= ARRAY_SIZE(priv->usbd_device) ||
-	    !priv->usbd_device[device_addr - 1].configured) {
-		return false;
-	}
-
-	return true;
 }
 
 /*
@@ -512,7 +586,7 @@ static int uhc_renesas_ra_poll_port_speed(const struct device *dev)
 	return 0;
 }
 
-static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renesas_ra_evt *evt)
+static void uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renesas_ra_evt *evt)
 {
 	usbh_event_t *hal_evt = &evt->hal_event;
 	uint8_t dev_addr = hal_evt->dev_addr;
@@ -521,7 +595,13 @@ static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renes
 
 	xfer = uhc_renesas_ra_transfer_get_next(dev, dev_addr, hal_evt->complete.ep_addr);
 	if (xfer == NULL) {
-		return 0;
+		return;
+	}
+
+	if (xfer->err == -ECONNRESET) {
+		/* Cancelled by ep_dequeue() before this completion was handled */
+		uhc_xfer_return(dev, xfer, -ECONNRESET);
+		return;
 	}
 
 	switch (hal_evt->complete.result) {
@@ -530,12 +610,12 @@ static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renes
 		break;
 	case USB_XFER_RESULT_TIMEOUT:
 	case USB_XFER_RESULT_FAILED:
-		ret = -EAGAIN;
+		ret = -EIO;
 		break;
 	case USB_XFER_RESULT_SUCCESS: {
 		if (USB_EP_GET_IDX(xfer->ep) == 0) {
 			uhc_control_stage_update(dev, hal_evt, xfer);
-			return 0;
+			return;
 		}
 
 		if (USB_EP_DIR_IS_IN(xfer->ep)) {
@@ -549,15 +629,21 @@ static int uhc_renesas_ra_submit_xfer(const struct device *dev, struct uhc_renes
 	}
 	default:
 		/* USB_XFER_RESULT_INVALID */
+		LOG_WRN("Invalid xfer result on ep 0x%02x", xfer->ep);
 		ret = -EINVAL;
 	}
 
-	uhc_xfer_return(dev, xfer, ret);
+	if (ret != 0) {
+		LOG_DBG("ep 0x%02x addr %u xfer result %d", xfer->ep, dev_addr,
+			hal_evt->complete.result);
+	}
 
-	return ret;
+	/* The error is reported to the owner through xfer->err */
+	uhc_xfer_return(dev, xfer, ret);
 }
 
-static void uhc_renesas_ra_dequeue_pipe_cancelled(const struct device *dev, sys_dlist_t *list)
+static void uhc_renesas_ra_dequeue_pipe_cancelled(const struct device *dev, uint8_t dev_addr,
+						  uint8_t ep, sys_dlist_t *list)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
 	struct uhc_transfer *xfer, *tmp;
@@ -574,7 +660,7 @@ static void uhc_renesas_ra_dequeue_pipe_cancelled(const struct device *dev, sys_
 
 		if (is_head) {
 			/* May already be in-flight in hardware, abort it first */
-			(void)R_USBH_XferAbort(&priv->uhc_ctrl, xfer->udev->addr, xfer->ep);
+			(void)R_USBH_XferAbort(&priv->uhc_ctrl, dev_addr, ep);
 		}
 
 		uhc_xfer_return(dev, xfer, -ECONNRESET);
@@ -586,10 +672,10 @@ static int uhc_renesas_ra_dequeue_cancelled(const struct device *dev, uint8_t de
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
 
 	if (USB_EP_GET_IDX(ep) == 0) {
-		uhc_renesas_ra_dequeue_pipe_cancelled(dev, &priv->dcp.xfers_list);
+		uhc_renesas_ra_dequeue_pipe_cancelled(dev, dev_addr, ep, &priv->dcp.xfers_list);
 	} else {
 		uhc_renesas_ra_dequeue_pipe_cancelled(
-			dev, &priv->pipe[get_pipe_num(dev, dev_addr, ep)].xfers_list);
+			dev, dev_addr, ep, &priv->pipe[get_pipe_num(dev, dev_addr, ep)].xfers_list);
 	}
 
 	return 0;
@@ -605,20 +691,13 @@ static int uhc_renesas_ra_release_devices(const struct device *dev)
 {
 	struct uhc_renesas_ra_data *priv = uhc_get_private(dev);
 	struct uhc_transfer *xfer, *tmp;
-	fsp_err_t err;
 
 	if (!sys_dlist_is_empty(&priv->dcp.xfers_list)) {
 		(void)R_USBH_XferAbort(&priv->uhc_ctrl, 0, USB_CONTROL_EP_OUT);
 	}
 
-	for (int i = 1; i <= ARRAY_SIZE(priv->usbd_device); i++) {
-		if (!is_configured_udev(dev, i)) {
-			continue;
-		}
-
-		err = R_USBH_DeviceRelease(&priv->uhc_ctrl, i);
-		if (!(err == FSP_SUCCESS || err == FSP_ERR_ABORTED)) {
-			LOG_WRN("Error releasing device: %d", err);
+	for (uint8_t i = 1U; i <= ARRAY_SIZE(priv->usbd_device); i++) {
+		if (uhc_renesas_ra_release_device(dev, i) != 0) {
 			return -EIO;
 		}
 	}
@@ -692,10 +771,7 @@ static void uhc_renesas_ra_thread(void *p1, void *p2, void *p3)
 			}
 			break;
 		case UHC_RENESAS_RA_EVT_XFER_SUBMIT:
-			ret = uhc_renesas_ra_submit_xfer(dev, &event);
-			if (unlikely(ret)) {
-				LOG_WRN("Submit xfer failed %d", ret);
-			}
+			uhc_renesas_ra_submit_xfer(dev, &event);
 			break;
 		case UHC_RENESAS_RA_EVT_DEQUEUE:
 			ret = uhc_renesas_ra_dequeue_cancelled(dev, event.dev_addr, event.ep);
